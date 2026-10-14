@@ -1,3 +1,4 @@
+import { MCP_SCOPES } from "../src/mcp/scopes.js";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
 import { createApp } from "../src/http/app.js";
