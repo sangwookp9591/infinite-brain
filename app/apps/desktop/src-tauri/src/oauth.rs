@@ -165,11 +165,8 @@ pub fn google_oauth_return_to_app(app: tauri::AppHandle) {
     }
 }
 
-/// The Infinite Brain wordmark (ink version — the "BAALDA" lettering with the neural
-/// connection forming the second A), pre-encoded as a `data:` URI so the loopback
-/// page is fully self-contained. Mirrors `apps/desktop/src/assets/
-/// baalda-wordmark-ink.png`; regenerate with `base64` if the asset changes.
-const WORDMARK: &str = include_str!("assets/wordmark-ink.datauri");
+/// Original orbit icon, embedded so loopback pages need no network.
+const ICON: &str = include_str!("assets/infinite-brain-icon.datauri");
 
 /// Brand-styled CSS for the callback page — light, airy
 /// off-white canvas, soft signature-green glow, the Infinite Brain wordmark as the mark,
@@ -185,8 +182,9 @@ background:radial-gradient(760px 460px at 50% -12%,rgba(87,189,156,.16),transpar
 radial-gradient(620px 420px at 92% 114%,rgba(87,189,156,.08),transparent 60%),#f6f7f9}
 .card{text-align:center;padding:2.75rem 1.75rem;max-width:27rem;
 animation:rise .6s cubic-bezier(.16,1,.3,1) both}
-.wordmark{width:190px;max-width:66%;height:auto;display:block;margin:0 auto 30px;
+.wordmark{width:72px;height:72px;display:block;margin:0 auto 16px;
 filter:drop-shadow(0 10px 24px rgba(20,20,26,.12))}
+.brand{font-size:1.6rem;font-weight:700;margin-bottom:30px}
 h1{display:flex;align-items:center;justify-content:center;gap:10px;
 margin:0 0 12px;font-size:1.4rem;font-weight:700;letter-spacing:-.02em;color:#14141a}
 .pip{width:24px;height:24px;border-radius:999px;display:inline-grid;place-items:center;
@@ -213,10 +211,11 @@ fn render_page(ok: bool, title: &str, body: &str) -> String {
          <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\
          <title>{title} · Infinite Brain</title><style>{css}</style></head>\
          <body><main class=\"card\">\
-         <img class=\"wordmark\" src=\"{wordmark}\" alt=\"Infinite Brain\">\
+         <img class=\"wordmark\" src=\"{icon}\" alt=\"\">\
+         <div class=\"brand\">Infinite Brain</div>\
          <h1><span class=\"pip\">{pip}</span>{title}</h1><p>{body}</p>\
          </main></body></html>",
-        wordmark = WORDMARK,
+        icon = ICON,
     )
 }
 

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, extname, resolve, sep } from "node:path";
@@ -48,6 +49,9 @@ export const BRAND = {
     "CHANGELOG.md", "LICENSE", "NOTICE", "TRADEMARK.md", // Rewritten or preserved separately.
   ],
 };
+
+// Hashes of the upstream wordmarks and platform icons; never ship them again.
+export const ORIGINAL_BRAND_ASSET_HASHES = ["00bc423cdd6e8d3fd0dd5abda5b0aba7e1cbbc5aaa8d5336af9de804b096f112", "0379d808456d1196cec95b4f0f601babc32463a141b7b0756ad55a0263b5de64", "0c6074c9cb69c0fdb90c8f93c2973260fec820a13590acce6c4657a1e5b4fc60", "173082a5cc8806161fb3297ce1fa66bdc1661f7ca76288879dab761299181873", "1a69920d9217497bcf284f541ab2ff3ee3d12aa529cb55ca5a828f2ecdacab5f", "38f2c616aaf4430ffd6771d878b935ed2bfcbb9d2145bb489cc37678c09a6d43", "4393dc1fff0e16dd5dfb42153c068d4d9a23b70e264fbff24e0bb1bde7b33f40", "4cc6a7b7000d2b55fb1e4565ddf0f7f2e60717a98016db140a12c2fa770f272d", "4d97f84052226d860818ef01ecc87e9a9bc92fa15c1533314ce38b7b769e4663", "6f5ed3e1328f4175c1eedf66b02e260bec37db0c19774eff15840682a6b37b07", "72c060760fe155be7035d5aba2326859fb58b65ff0142d2184c3310947eb8174", "79af9186e0d05152c36b649b4d5a5a797876fa58233ef99d245fc9f43cb98156", "870ac8e02f441c5cbab8b9e928e18474c4bf9314434fdc994ca358535e682cf0", "91b2bbbb95f20f0e8684d35910851c8c59f35b1669d724b1ef892c172f01dc05", "9a8c5d2a005ca53b2ef8044016fab632f88cd51c1461c286cd24d8f371d6598e", "a96b431ea6616b1065290a8a71dae1091a5c1c7d0de99002e2ca08f5d37f0caf", "d1b7912f375a2a19dcdd4b6a37c6369f3be79896a736c2b5005f23a07af5a217", "d33c9960eed33f0cf71cab86ff43500f41094755eee233e0db2a56851244247f", "e23b8f493f69a6fbe9b304a4d4baad14ba4bfab85602c8979d7eb47dfff04829", "ee0bff0796dff1aed23f56ddbd51c7725f78797946253a4b31b554882fb20a89", "f779ae0e9a0df331ffb3aed33e3d88b87c02b0d94dbf4e18d89010edcac89600", "f92499715d0d0e93af5aa7b6a18a4275b57e25cc39548a4bbd39cca8ff659bb7"];
 
 const replacements = [
   ['?? "baalda"', '?? "infinitebrain"'],
@@ -133,6 +137,11 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     changed++;
     console.log(`${dryRun ? "would update" : "updated"} ${path}`);
     if (!dryRun) writeFileSync(file, after);
+  }
+  const assets = execFileSync("git", ["ls-files", "-z"], { cwd: ROOT }).toString("utf8").split("\0");
+  for (const path of assets.filter((p) => /\.(png|jpg|ico|icns)$/.test(p))) {
+    const hash = createHash("sha256").update(readFileSync(resolve(ROOT, path))).digest("hex");
+    if (ORIGINAL_BRAND_ASSET_HASHES.includes(hash)) throw new Error(`Upstream brand asset remains: ${path}`);
   }
   console.log(`${dryRun ? "Would update" : "Updated"} ${changed} file(s).`);
 }

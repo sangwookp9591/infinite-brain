@@ -48,3 +48,11 @@ test("keychain and release bundle share one service identity", () => {
   assert.ok(keychain.includes(`pub const SERVICE: &str = "${BRAND.bundleIdentifier}";`));
   assert.ok(!BRAND.bundleIdentifier.endsWith(".app"));
 });
+
+test("server, loopback callback and desktop ship the same original icon", () => {
+  const icon = readFileSync(new URL("../app/apps/desktop/public/infinite-brain-icon.png", import.meta.url));
+  const server = readFileSync(new URL("../app/apps/server/src/site-icon.ts", import.meta.url), "utf8");
+  assert.ok(server.includes(icon.toString("base64")));
+  const loopback = readFileSync(new URL("../app/apps/desktop/src-tauri/src/assets/infinite-brain-icon.datauri", import.meta.url), "utf8");
+  assert.equal(loopback, `data:image/png;base64,${icon.toString("base64")}`);
+});

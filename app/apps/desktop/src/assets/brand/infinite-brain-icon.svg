@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+<!-- SPDX-License-Identifier: Apache-2.0; original Infinite Brain orbit mark. -->
+<defs><linearGradient id="orbit" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#b7d9ff"/><stop offset="1" stop-color="#8c7bff"/></linearGradient></defs>
+<rect x="24" y="24" width="976" height="976" rx="228" fill="#141b35"/>
+<path d="M512 455C412 325 355 308 288 332C178 372 178 538 288 578C355 602 412 585 512 455C612 325 669 308 736 332C846 372 846 538 736 578C669 602 612 585 512 455" transform="translate(0 57)" fill="none" stroke="url(#orbit)" stroke-width="66" stroke-linecap="round"/>
+<path d="m761 201 12 31 31 12-31 12-12 31-12-31-31-12 31-12Z" fill="#e0eeff"/>
+</svg>
