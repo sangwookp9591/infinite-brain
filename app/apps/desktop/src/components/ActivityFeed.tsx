@@ -1,3 +1,4 @@
+import { AiChanges } from "./AiChanges";
 /* The right panel's Activity tab (RightPanel.tsx): ONE chronological feed of
    what happened to this vault's notes, merged by `activityRows.ts`. This file
    only renders; the data, fetch schedule, notice log and unread state live in
@@ -425,6 +426,7 @@ export function ActivityFeed() {
   const showToolbar = pending > 0 || updating || rows.length > 0;
   return (
     <div className="activity-feed">
+      <AiChanges />
       {showToolbar && (
         <div className="activity-toolbar">
           {pending > 0 && (

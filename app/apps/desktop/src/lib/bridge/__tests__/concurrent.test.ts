@@ -1,3 +1,4 @@
+import * as Y from "yjs";
 // Concurrent edit: a local editor edit and an external file edit to a DIFFERENT
 // part of the note both survive in the converged text; file and CRDT end equal
 // (spec 03 §6).
@@ -85,4 +86,38 @@ describe("concurrent edit", () => {
       vi.useRealTimers();
     }
   });
+  it("merges a guarded server AI inverse edit with an unsent human edit without disk echo", async () => {
+    vi.useFakeTimers();
+    const server = new Y.Doc();
+    let bridge: NoteBridge | undefined;
+    try {
+      const seed = "heading\nAI paragraph\nfooter\n";
+      const { io, fs } = makeHarness({ [PATH]: seed });
+      bridge = await NoteBridge.open(io, { docId: "ai-revert", path: PATH });
+      Y.applyUpdate(server, Y.encodeStateAsUpdate(bridge.doc));
+      const vector = Y.encodeStateVector(server);
+      // The server still sees the ledger's after-text. The human edit has not arrived yet.
+      expect(server.getText("content").toString()).toBe(seed);
+      server.transact(() => {
+        const text = server.getText("content");
+        text.delete(seed.indexOf("AI paragraph"), "AI paragraph".length);
+        text.insert(seed.indexOf("AI paragraph"), "original paragraph");
+      }, "ai-revert");
+      bridge.edit(text => text.insert(0, "human heading\n"));
+      bridge.applyRemote(Y.encodeStateAsUpdate(server, vector));
+      await vi.advanceTimersByTimeAsync(300);
+      expect(bridge.serialize()).toBe("human heading\nheading\noriginal paragraph\nfooter\n");
+      expect(fs.get(PATH)).toBe(bridge.serialize());
+      const writes = fs.writeCount;
+      bridge.ingest();
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(fs.writeCount).toBe(writes);
+      expect(bridge.serialize()).toBe(fs.get(PATH));
+    } finally {
+      bridge?.destroy();
+      server.destroy();
+      vi.useRealTimers();
+    }
+  });
+
 });

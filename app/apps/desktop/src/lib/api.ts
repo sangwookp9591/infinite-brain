@@ -1,3 +1,4 @@
+import type { AiChange, AiChangeDetail, AiRevertResult } from "./aiChanges";
 import type { PinnedItem } from "./pins";
 import { parseVaultAppearanceSettings, type VaultAppearanceSettings } from "./appearanceSettings";
 import type { SeedResultFields } from "./sync/seedRegister";
@@ -2710,6 +2711,28 @@ export class ApiClient {
    * `truncated` means the server capped the list; the UI says so rather than
    * implying the rows shown are all there is.
    */
+  async listAiChanges(vaultId: string, connection?: string): Promise<{ items: AiChange[]; truncated: boolean }> {
+    const { data } = await this.request<{ items: AiChange[]; truncated: boolean }>(
+      "GET", `/api/vaults/${encodeURIComponent(vaultId)}/ai-changes`, { query: { connection, limit: "100" } });
+    return data;
+  }
+
+  async getAiChange(id: string): Promise<AiChangeDetail> {
+    const { data } = await this.request<AiChangeDetail>("GET", `/api/ai-changes/${encodeURIComponent(id)}`);
+    return data;
+  }
+
+  async revertAiChange(id: string): Promise<AiRevertResult> {
+    const { data } = await this.request<AiRevertResult>("POST", `/api/ai-changes/${encodeURIComponent(id)}/revert`);
+    return data;
+  }
+
+  async revertAiChanges(vaultId: string, connectionId: string, since: string): Promise<{ results: AiRevertResult[]; truncated: boolean }> {
+    const { data } = await this.request<{ results: AiRevertResult[]; truncated: boolean }>(
+      "POST", `/api/vaults/${encodeURIComponent(vaultId)}/ai-changes/revert-batch`, { body: { connectionId, since } });
+    return data;
+  }
+
   async listTrash(vaultId: string): Promise<TrashListing> {
     const { data } = await this.request<Partial<TrashListing>>(
       "GET",

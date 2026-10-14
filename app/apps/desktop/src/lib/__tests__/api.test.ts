@@ -36,6 +36,27 @@ function fakeFetch(
 }
 
 describe("ApiClient against a mocked fetch", () => {
+  it("uses the typed AI change endpoints and preserves batch filter bodies", async () => {
+    const { impl, calls } = fakeFetch(() => ({ json: { items: [], truncated: false, results: [] } }));
+    const api = new ApiClient({ baseUrl: "http://localhost:3010", fetchImpl: impl });
+    await api.listAiChanges("vault/1", "connection & 1");
+    await api.getAiChange("change/1");
+    await api.revertAiChange("change/1");
+    await api.revertAiChanges("vault/1", "connection & 1", "2026-10-14T00:00:00Z");
+    expect(calls[0].url).toContain("/api/vaults/vault%2F1/ai-changes?");
+    expect(new URL(calls[0].url).searchParams.get("connection")).toBe("connection & 1");
+    expect(calls[1].url).toContain("/api/ai-changes/change%2F1");
+    expect(calls[2].method).toBe("POST");
+    expect(calls[2].url).toContain("/api/ai-changes/change%2F1/revert");
+    expect(calls[3].body).toEqual({ connectionId: "connection & 1", since: "2026-10-14T00:00:00Z" });
+  });
+  it("preserves the server's AI conflict diff on a 409", async () => {
+    const diff = { expected: "AI", current: "human", before: "original" };
+    const { impl } = fakeFetch(() => ({ status: 409, json: { error: "Changed", code: "conflict", diff } }));
+    const api = new ApiClient({ baseUrl: "http://localhost:3010", fetchImpl: impl });
+    await expect(api.revertAiChange("c1")).rejects.toMatchObject({ status: 409, body: { code: "conflict", diff } });
+  });
+
   it.each([true, false])("decodes bootstrap transport with gzip=%s", async (compressed) => {
     const docs = [{ docId: "d1", relPath: "A.md", update: new Uint8Array([0, 0]) }];
     const page = encodeBootstrapPage(docs);
