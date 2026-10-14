@@ -1,3 +1,4 @@
+import { createAiChangeRoutes } from "./routes/ai-changes.js";
 import { Hono } from "hono";
 import { readFileSync } from "node:fs";
 import { NOTES_WITH_STATE_FEATURE } from "../registry/seed-on-register.js";
@@ -378,6 +379,7 @@ export function createApp(deps: AppDeps): Hono {
       onRegistryChanged: deps.onRegistryChanged,
     }),
   );
+  app.route("/api", createAiChangeRoutes(deps));
   app.route("/api", createTrashRoutes({ onRegistryChanged: deps.onRegistryChanged }));
   app.route("/api", createShrinkBrakeRoutes());
   app.route("/api", createRepairRoutes({ evictDoc: deps.evictDoc }));

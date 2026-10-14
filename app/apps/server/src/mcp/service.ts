@@ -1,3 +1,5 @@
+import { withDocLock } from "../sync/doc-batch.js";
+import { recordAiChange, type AiChangeOp } from "../ai-changes/store.js";
 import { withNoteQuota, NoteQuotaError } from "../billing/note-quota.js";
 import { randomUUID } from "node:crypto";
 import { pool } from "../db/pool.js";
@@ -80,6 +82,12 @@ export interface McpContext {
    */
   onRegistryChanged?: (vaultId: string) => void;
   onAclChanged?: (vaultId: string) => void;
+}
+
+function changeActor(ctx: McpContext, op: AiChangeOp, path: string, title?: string | null, tool = `${op}_note`) {
+  return { userId: ctx.auth.userId, aiChange: {
+    auth: ctx.auth, op, tool, beforePath: path, afterPath: path, beforeTitle: title, afterTitle: title,
+  } };
 }
 
 /** A tool tried to touch something it may not, or that doesn't exist. */
@@ -494,6 +502,13 @@ export async function moveNoteTool(
   ctx: McpContext,
   input: { docId: string; relPath?: string; title?: string; folderId?: string | null },
 ) {
+  return withDocLock(input.docId, () => moveNoteToolLocked(ctx, input));
+}
+
+async function moveNoteToolLocked(
+  ctx: McpContext,
+  input: { docId: string; relPath?: string; title?: string; folderId?: string | null },
+) {
   const note = await requireEditableNote(ctx.auth, input.docId);
   const moveInput = { relPath: input.relPath, title: input.title, folderId: input.folderId };
   // Judge the RESOLVED destination: `relPath` alone can move the note to another
@@ -522,7 +537,23 @@ export async function moveNoteTool(
     await assertRootNotFrozen(note.vault_id, null, "move");
   }
   try {
-    const moved = await moveNote(pool, input.docId, moveInput);
+    const before = await ctx.docWriter.readContent(note.vault_id, input.docId);
+    const client = await pool.connect();
+    let moved;
+    try {
+      await client.query("BEGIN");
+      const locked = await client.query("SELECT id FROM notes WHERE id = $1 AND rel_path = $2 AND deleted_at IS NULL FOR UPDATE", [input.docId, note.rel_path]);
+      if (!locked.rowCount) throw new McpToolError("The note moved concurrently; retry", "stale_revision");
+      moved = await moveNote(client, input.docId, moveInput);
+      await recordAiChange(note.vault_id, input.docId, {
+        ...changeActor(ctx, "move", note.rel_path, note.title).aiChange,
+        afterPath: moved.relPath, afterTitle: moved.title,
+      }, before, before, client);
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally { client.release(); }
     ctx.onRegistryChanged?.(moved.vaultId);
     return {
       docId: moved.id,
@@ -686,13 +717,12 @@ export async function createNote(
     // the caller can reach for once `adopted` has told it what happened.
     let seeded = false;
     if (input.content) {
-      const current = await ctx.docWriter.readContent(input.vaultId, row.id);
-      if (current.trim().length === 0) {
-        await ctx.docWriter.setContent(input.vaultId, row.id, input.content, {
-          userId: ctx.auth.userId,
-        });
+      await requireEditableNote(ctx.auth, row.id);
+      await ctx.docWriter.editContent(input.vaultId, row.id, (current) => {
+        if (current.trim().length !== 0) return [];
         seeded = true;
-      }
+        return replacementOp(current, input.content!);
+      }, changeActor(ctx, "update", row.rel_path, row.title, "create_note"));
     }
     return {
       docId: row.id,
@@ -719,9 +749,11 @@ export async function createNote(
     );
   });
   if (input.content) {
-    await ctx.docWriter.setContent(input.vaultId, docId, input.content, {
-      userId: ctx.auth.userId,
-    });
+    await ctx.docWriter.setContent(input.vaultId, docId, input.content,
+      changeActor(ctx, "create", storedRelPath, input.title));
+  } else {
+    await recordAiChange(input.vaultId, docId,
+      changeActor(ctx, "create", storedRelPath, input.title).aiChange, "", "");
   }
   // After the content, so a client that reacts to the announcement by pulling
   // the note finds it already written rather than briefly empty.
@@ -811,7 +843,7 @@ export async function updateNote(
         requireRevision(current, expectedRevision);
         return replacementOp(current, content);
       },
-      { userId: ctx.auth.userId },
+      changeActor(ctx, "update", note.rel_path, note.title),
     ),
   );
   await pool.query("UPDATE notes SET updated_at = now() WHERE id = $1", [docId]);
@@ -874,7 +906,7 @@ export async function appendNote(
         requireRevision(current, opts.expectedRevision);
         return [{ index: current.length, deleteLength: 0, insert: text }];
       },
-      { userId: ctx.auth.userId },
+      changeActor(ctx, "append", note.rel_path, note.title),
     ),
   );
   if (key) rememberAppend(key, { revision });
@@ -1134,7 +1166,7 @@ export async function editNote(
         requireRevision(current, expectedRevision);
         return planEdits(current, edits);
       },
-      { userId: ctx.auth.userId },
+      changeActor(ctx, "edit", note.rel_path, note.title),
     ),
   );
   await pool.query("UPDATE notes SET updated_at = now() WHERE id = $1", [docId]);
@@ -1143,14 +1175,28 @@ export async function editNote(
 
 /** Soft-delete a note (matches the app: sets deleted_at, keeps CRDT history). */
 export async function deleteNote(ctx: McpContext, docId: string) {
+  return withDocLock(docId, () => deleteNoteLocked(ctx, docId));
+}
+
+async function deleteNoteLocked(ctx: McpContext, docId: string) {
   const note = await requireEditableNote(ctx.auth, docId);
   await requireDeletable(ctx, "note", docId);
-  await pool.query(`UPDATE notes SET ${softDeleteSet("$2")} WHERE id = $1`, [
-    docId,
-    ctx.auth.userId ?? null,
-  ]);
-  // Drop derived index rows and kick any live editors off the now-gone doc.
-  await purgeNoteIndex([docId]);
+  const before = await ctx.docWriter.readContent(note.vault_id, docId);
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const locked = await client.query("SELECT id FROM notes WHERE id = $1 AND rel_path = $2 AND deleted_at IS NULL FOR UPDATE", [docId, note.rel_path]);
+    if (!locked.rowCount) throw new McpToolError("The note changed concurrently; retry", "stale_revision");
+    await client.query(`UPDATE notes SET ${softDeleteSet("$2")} WHERE id = $1`, [docId, ctx.auth.userId]);
+    await recordAiChange(note.vault_id, docId,
+      changeActor(ctx, "delete", note.rel_path, note.title).aiChange, before, before, client);
+    await purgeNoteIndex([docId], client);
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally { client.release(); }
+  // Kick live editors off the now-gone doc after the ledger commit.
   ctx.disconnectDoc(note.vault_id, docId);
   // `disconnectDoc` only kicks editors off the doc itself; without this the
   // note stays listed in every open sidebar.

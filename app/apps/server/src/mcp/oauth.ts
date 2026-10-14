@@ -91,5 +91,9 @@ export async function resolveOAuthMcpAuth(
 
   if (!(await orgRole(organizationId, session.userId, db))) return null;
 
-  return { userId: session.userId, organizationId };
+  const { rows } = await db.query<{ name: string | null }>(
+    'SELECT name FROM "oauthApplication" WHERE "clientId" = $1', [session.clientId],
+  );
+  return { userId: session.userId, organizationId,
+    connection: { kind: "oauth", id: session.clientId, label: rows[0]?.name ?? session.clientId } };
 }

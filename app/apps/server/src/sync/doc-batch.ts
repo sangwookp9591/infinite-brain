@@ -1,3 +1,4 @@
+import type { AiChangeActor } from "../ai-changes/store.js";
 import * as Y from "yjs";
 import type { LocalTransactionOrigin, Server } from "@hocuspocus/server";
 import { formatDocName } from "./doc-name.js";
@@ -46,6 +47,7 @@ export const BULK_SEED_ORIGIN = "bulk-seed";
 
 /** Who is behind a server-side write, for attribution (versions, last-edited). */
 export interface DocActor {
+  aiChange?: AiChangeActor;
   userId?: string | null;
   /**
    * Where the write came from — {@link BULK_ORIGIN} for a `docs/batch` push,
@@ -141,6 +143,7 @@ export async function withDocLock<T>(docId: string, fn: () => Promise<T>): Promi
 export type ApplyOutcome = "applied" | "skipped" | "conflict";
 
 export interface DetachedOptions {
+  persistUpdate?: (update: Uint8Array, before: string, after: string) => Promise<void>;
   hooks?: DetachedHooks;
   /**
    * Checked AFTER hydration and BEFORE `mutate`, under the caller's lock.
@@ -204,7 +207,8 @@ export async function applyDetached(
     }
     if (updates.length === 0) return "skipped";
     const merged = updates.length === 1 ? updates[0] : Y.mergeUpdates(updates);
-    await appendUpdate(docId, merged);
+    if (opts.persistUpdate) await opts.persistUpdate(merged, before, doc.getText(CONTENT_FIELD).toString());
+    else await appendUpdate(docId, merged);
     reportShrink(
       vaultId,
       docId,
