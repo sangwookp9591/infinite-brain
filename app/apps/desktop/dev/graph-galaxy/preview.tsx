@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Development-only: real GraphView + force worker, synthetic notes, no Tauri/server.
+// Development-only: real GraphView + galaxy layout, synthetic notes, no Tauri/server.
 import { mockIPC, mockWindows } from '@tauri-apps/api/mocks';
 import { createRoot } from 'react-dom/client';
 import { StrictMode } from 'react';

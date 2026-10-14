@@ -535,3 +535,20 @@ html[data-platform="windows"] .graph-header {
 
 .graph-galaxy-labels { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
 .graph-galaxy-labels span { position: absolute; top: 0; left: 0; color: #d2ddf4; font: 11px/1.4 var(--font-body, sans-serif); max-width: 150px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; text-shadow: 0 1px 5px #000; }
+
+/* The universe has its own glass chrome, including in the light application theme. */
+.graph-view .graph-header {
+  background: rgba(15, 20, 36, 0.72);
+  border-color: rgba(178, 194, 230, 0.15);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+.graph-view .graph-title { color: #e3e9f8; }
+.graph-view .graph-counts, .graph-view .graph-icon-btn { color: #a8b5ce; }
+.graph-view .graph-icon-btn:hover, .graph-view .graph-icon-btn.is-active { background: rgba(165, 177, 225, 0.12); color: #e3e9f8; }
+.graph-galaxy-caption { transition: opacity 700ms ease; }
+.graph-view.is-exploring .graph-galaxy-caption { opacity: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .graph-galaxy-caption { transition: none; }
+}

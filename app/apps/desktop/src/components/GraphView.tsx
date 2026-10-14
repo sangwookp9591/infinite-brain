@@ -23,6 +23,7 @@ import {
 } from "../lib/graph/graphSettings";
 import { useGraphData } from "../lib/graph/useGraphData";
 import { GalaxyRenderer, type GalaxyNode } from "../lib/graph/galaxyRenderer";
+import { buildGalaxyLayout, FAST_GALAXY_THRESHOLD, type GalaxyPosition } from "../lib/graph/galaxyLayout";
 import { SimClient } from "../lib/graph/simClient";
 import { useStore } from "../store";
 import { GraphControls } from "./GraphControls";
@@ -30,12 +31,9 @@ import { Spinner } from "./Spinner";
 import "./graph.css";
 
 // ---------------------------------------------------------------------------
-// Immersive, physics-driven note graph. Physics is d3-force (see simulation.ts),
-// but we own the clock: the sim's internal timer is stopped and we call
-// sim.tick() ourselves inside a requestAnimationFrame loop so painting and
-// physics share one frame. React owns only React-y things — data loading, the
-// settings panel, header counts. Camera / hover / drag / positions all live in
-// refs so interaction never triggers a reconciliation pass.
+// Spiral coordinates define the galaxy. Small force layouts add bounded local
+// displacement; large vaults use the deterministic layout without force ticks.
+// React owns loading, settings and counts; the renderer owns camera and picking.
 // ---------------------------------------------------------------------------
 
 const MIN_SCALE = 0.08;
@@ -525,6 +523,9 @@ export function GraphView({ onClose }: { onClose: () => void }) {
     // position buffers after a rebuild; `indexById` maps a node id to its slot
     // in the position buffer for drag fix/release.
     useWorker: false,
+    fixedLayout: false,
+    galaxyById: new Map<string, GalaxyPosition>(),
+    layoutMs: 0,
     workerActive: false,
     workerGen: 0,
     indexById: new Map<string, number>(),
@@ -599,6 +600,15 @@ export function GraphView({ onClose }: { onClose: () => void }) {
     const g = graphRef.current;
     if (!sim || !g) return;
     const s = settingsRef.current;
+    const layoutStart = performance.now();
+    const modified = new Map<string, number>();
+    const visit = (node: NonNullable<ReturnType<typeof useStore.getState>["tree"]>) => {
+      if (node.modified) modified.set(node.path, node.modified);
+      node.children?.forEach(visit);
+    };
+    const tree = useStore.getState().tree;
+    if (tree) visit(tree);
+    S.galaxyById = buildGalaxyLayout(g.nodes.map((node) => ({ ...node, modified: modified.get(node.path) })), g.edges);
 
     const all = buildSimNodes(g, S.nodesById);
     S.nodesById = new Map(all.map((n) => [n.id, n]));
@@ -627,18 +637,9 @@ export function GraphView({ onClose }: { onClose: () => void }) {
         visNodes = [...visNodes]
           .sort((a, b) => b.linkCount - a.linkCount)
           .slice(0, GLOBAL_2D_CAP);
-      } else if (
-        workerRef.current === null &&
-        visNodes.length > WORKER_THRESHOLD
-      ) {
-        // No Web Worker available to offload the layout — cap the live sim so a
-        // huge vault can't lock up the main thread. (When the worker exists, the
-        // full set goes to it below instead of being capped.)
-        visNodes = [...visNodes]
-          .sort((a, b) => b.linkCount - a.linkCount)
-          .slice(0, WORKER_THRESHOLD);
       }
     }
+
     const visible = new Set(visNodes.map((n) => n.id));
     if (S.hoveredId && !visible.has(S.hoveredId)) {
       S.hoveredId = null;
@@ -648,74 +649,88 @@ export function GraphView({ onClose }: { onClose: () => void }) {
       .filter((e) => visible.has(e.source) && visible.has(e.target))
       .map((e) => ({ source: e.source, target: e.target }));
 
-    // d3 init order: nodes() BEFORE link.links() so the link force resolves
-    // {source,target} ids against the current node array.
-    sim.nodes(visNodes);
-    (sim.force("link") as ForceLink<SimNode, SimLink>).links(links);
-    // Re-apply forces now that the node count is known — repulsion scales with
-    // it, so a 5k global graph spreads while a small local one stays compact.
-    configureForces(sim, s);
-
-    // Only the first build gets a full reheat. After that, warm the layout just
-    // enough to absorb the change (and never *cool* one that's already hotter).
-    const first = !S.introKicked;
-    sim.alpha(first ? REHEAT_FIRST : Math.max(sim.alpha(), REHEAT_REFRESH));
-
-    // First time real data lands: settle the layout NOW, off-screen, so the
-    // first painted frame is the finished shape. The intro clock then drives a
-    // fade + hairline scale only — the graph does not move.
-    //
-    // Not done for the worker path: that exists precisely because ticking a
-    // 8k+ node layout on this thread would freeze the window, and blocking here
-    // would be the same freeze by another name. The worker settles it off-thread
-    // instead (see `worker.init(..., first)` below).
-    if (first && visNodes.length > 0) {
-      const willUseWorker =
-        !openNode && workerRef.current !== null && visNodes.length > WORKER_THRESHOLD;
-      if (!willUseWorker) presettle(sim);
-      S.introKicked = true;
-      S.introStart = performance.now();
-    }
-
-    S.visNodes = visNodes;
-    S.visEdges = links; // now resolved in place by forceLink
-    S.drawOrder = [...visNodes].sort((a, b) => a.radius - b.radius);
-
-    // Size the flow to the layout we just built (its own radius sets both the
-    // drift speed and the wavelength) so the motion looks the same whether this
-    // vault is 40 notes or 5000. Measured after the pre-settle, when positions
-    // mean something.
-    (sim.force("flow") as FlowForce).scale(layoutScale(visNodes));
-
-    // Large global graphs: run the force layout in a Web Worker so the UI thread
-    // never blocks. The worker owns its own copy and streams positions back into
-    // these same node objects (loop() skips the main-thread tick while active).
-    const worker = workerRef.current;
-    const useWorker =
-      !openNode && worker !== null && visNodes.length > WORKER_THRESHOLD;
-    S.useWorker = useWorker;
-    if (useWorker && worker) {
-      S.indexById = new Map(visNodes.map((n, i) => [n.id, i]));
-      const nodeSpec = visNodes.map((n) => ({
-        id: n.id,
-        radius: n.radius,
-        weight: n.weight,
-      }));
-      const linkSpec = links
-        .map((l) => {
-          const sid = typeof l.source === "string" ? l.source : l.source.id;
-          const tid = typeof l.target === "string" ? l.target : l.target.id;
-          return { source: S.indexById.get(sid)!, target: S.indexById.get(tid)! };
-        })
-        .filter((l) => l.source !== undefined && l.target !== undefined);
-      S.workerGen = worker.init(nodeSpec, linkSpec, s, 1200, 800, first);
-      S.workerActive = true;
-      // Report background layout progress without blocking camera input.
-      if (first) setSettling(true);
-    } else if (worker) {
-      // Switched to local or a small enough set: park the worker.
-      worker.stop();
+    S.fixedLayout = webglOkRef.current && !openNode && visNodes.length >= FAST_GALAXY_THRESHOLD;
+    if (S.fixedLayout) {
+      workerRef.current?.stop();
+      S.useWorker = false;
       S.workerActive = false;
+      sim.stop().alpha(0);
+      S.visNodes = visNodes;
+      S.visEdges = links.map((link) => ({ source: S.nodesById.get(link.source as string)!, target: S.nodesById.get(link.target as string)! }));
+      S.drawOrder = visNodes;
+      S.introKicked = true;
+      setSettling(false);
+    } else {
+      // d3 init order: nodes() BEFORE link.links() so the link force resolves
+      // {source,target} ids against the current node array.
+      sim.nodes(visNodes);
+      (sim.force("link") as ForceLink<SimNode, SimLink>).links(links);
+      // Re-apply forces now that the node count is known — repulsion scales with
+      // it, so a 5k global graph spreads while a small local one stays compact.
+      configureForces(sim, s);
+
+      // Only the first build gets a full reheat. After that, warm the layout just
+      // enough to absorb the change (and never *cool* one that's already hotter).
+      const first = !S.introKicked;
+      sim.alpha(first ? REHEAT_FIRST : Math.max(sim.alpha(), REHEAT_REFRESH));
+
+      // First time real data lands: settle the layout NOW, off-screen, so the
+      // first painted frame is the finished shape. The intro clock then drives a
+      // fade + hairline scale only — the graph does not move.
+      //
+      // Not done for the worker path: that exists precisely because ticking a
+      // 8k+ node layout on this thread would freeze the window, and blocking here
+      // would be the same freeze by another name. The worker settles it off-thread
+      // instead (see `worker.init(..., first)` below).
+      if (first && visNodes.length > 0) {
+        const willUseWorker =
+          !openNode && workerRef.current !== null && visNodes.length > WORKER_THRESHOLD;
+        if (!willUseWorker) presettle(sim);
+        S.introKicked = true;
+        S.introStart = performance.now();
+      }
+
+      S.visNodes = visNodes;
+      S.visEdges = links; // now resolved in place by forceLink
+      S.drawOrder = [...visNodes].sort((a, b) => a.radius - b.radius);
+
+      // Size the flow to the layout we just built (its own radius sets both the
+      // drift speed and the wavelength) so the motion looks the same whether this
+      // vault is 40 notes or 5000. Measured after the pre-settle, when positions
+      // mean something.
+      (sim.force("flow") as FlowForce).scale(layoutScale(visNodes));
+
+      // Large global graphs: run the force layout in a Web Worker so the UI thread
+      // never blocks. The worker owns its own copy and streams positions back into
+      // these same node objects (loop() skips the main-thread tick while active).
+      const worker = workerRef.current;
+      const useWorker =
+        !openNode && worker !== null && visNodes.length > WORKER_THRESHOLD;
+      S.useWorker = useWorker;
+      if (useWorker && worker) {
+        S.indexById = new Map(visNodes.map((n, i) => [n.id, i]));
+        const nodeSpec = visNodes.map((n) => ({
+          id: n.id,
+          radius: n.radius,
+          weight: n.weight,
+        }));
+        const linkSpec = links
+          .map((l) => {
+            const sid = typeof l.source === "string" ? l.source : l.source.id;
+            const tid = typeof l.target === "string" ? l.target : l.target.id;
+            return { source: S.indexById.get(sid)!, target: S.indexById.get(tid)! };
+          })
+          .filter((l) => l.source !== undefined && l.target !== undefined);
+        S.workerGen = worker.init(nodeSpec, linkSpec, s, 1200, 800, first);
+        S.workerActive = true;
+        // Report background layout progress without blocking camera input.
+        if (first) setSettling(true);
+      } else if (worker) {
+        // Switched to local or a small enough set: park the worker.
+        worker.stop();
+        S.workerActive = false;
+      }
+
     }
 
     const accent = S.colors.accent || FALLBACK_ACCENT;
@@ -723,6 +738,7 @@ export function GraphView({ onClose }: { onClose: () => void }) {
     S.colorById = colorById;
     setLegend(lg);
     setCounts({ nodes: visNodes.length, edges: links.length, total: g.nodes.length });
+    S.layoutMs = performance.now() - layoutStart;
 
     requestDrawRef.current();
   }, [S]);
@@ -843,6 +859,10 @@ export function GraphView({ onClose }: { onClose: () => void }) {
     const wrap = wrapRef.current;
     const canvas = canvasRef.current;
     if (!wrap || !canvas) return;
+    const dismissHero = () => wrap.classList.add("is-exploring");
+    wrap.addEventListener("pointerdown", dismissHero, true);
+    wrap.addEventListener("wheel", dismissHero, { passive: true, capture: true });
+    wrap.addEventListener("keydown", dismissHero, true);
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     const sim = simRef.current!;
@@ -1220,7 +1240,6 @@ export function GraphView({ onClose }: { onClose: () => void }) {
       const search = s.search.trim().toLowerCase();
       const hoveredId = S.hoveredId;
       const neighbors = hoveredId && graphRef.current ? neighborhoodIds(graphRef.current, hoveredId, 1) : null;
-      const countScale = Math.min(1, 60 / Math.sqrt(Math.max(1, S.visNodes.length)));
       webglNodes.length = S.visNodes.length;
       for (let i = 0; i < S.visNodes.length; i++) {
         const n = S.visNodes[i];
@@ -1229,10 +1248,14 @@ export function GraphView({ onClose }: { onClose: () => void }) {
         const dim = !matches ? 0.04 : neighbors && !neighbors.has(n.id) ? 0.22 : 1;
         const rn = webglNodes[i] ?? (webglNodes[i] = { id: n.id, title: n.title, path: n.path, x: 0, y: 0, r: 0, color: [0, 0, 0] });
         rn.id = n.id; rn.title = n.title; rn.path = n.path;
-        rn.x = n.x; rn.y = n.y;
-        rn.r = n.radius * s.nodeSize * countScale * (n.id === hoveredId ? 1.8 : 1);
+        const position = S.galaxyById.get(n.id)!;
+        rn.x = position.x + (S.fixedLayout ? 0 : Math.tanh(n.x / 600) * 20);
+        rn.y = position.y + (S.fixedLayout ? 0 : Math.tanh(n.y / 600) * 20);
+        rn.z = position.z; rn.core = position.core; rn.arm = position.arm; rn.arms = position.arms;
+        rn.dim = dim;
+        rn.r = n.radius * s.nodeSize * (n.id === hoveredId ? 1.8 : 1);
         rn.modified = modified.get(n.path);
-        for (let channel = 0; channel < 3; channel++) rn.color[channel] = color[channel] / 255 * dim;
+        for (let channel = 0; channel < 3; channel++) rn.color[channel] = color[channel] / 255;
       }
       const edges = S.visEdges.map((edge) => ({ source: (edge.source as SimNode).id, target: (edge.target as SimNode).id }));
       webgl.setData(webglNodes, edges, webglNeedsFitRef.current, s.edgeThickness, s.labelScale);
@@ -1249,7 +1272,7 @@ export function GraphView({ onClose }: { onClose: () => void }) {
       // main-thread sim — that's the whole point, it would freeze the UI. The
       // worker streams positions in and flips S.workerActive; we just repaint.
       let active: boolean;
-      if (S.useWorker) {
+      if (S.useWorker || S.fixedLayout) {
         active = false; // Position messages mark needsDraw; do not upload unchanged buffers.
       } else {
         // Keep the force coordinates; once settled, only user input needs a frame.
@@ -1269,8 +1292,11 @@ export function GraphView({ onClose }: { onClose: () => void }) {
       } else {
         draw();
       }
-      if (import.meta.env.DEV && webglCanvas) webglCanvas.dataset.layout =
-        (S.useWorker ? S.workerActive : sim.alpha() > FIT_LOCK_ALPHA) ? "settling" : "settled";
+      if (import.meta.env.DEV && webglCanvas) {
+        webglCanvas.dataset.layout = (S.useWorker ? S.workerActive : sim.alpha() > FIT_LOCK_ALPHA) ? "settling" : "settled";
+        webglCanvas.dataset.layoutMs = String(S.layoutMs);
+        webglCanvas.dataset.fixedLayout = String(S.fixedLayout);
+      }
       if (S.rafId == null) S.rafId = requestAnimationFrame(loop);
     }
 
@@ -1453,6 +1479,9 @@ export function GraphView({ onClose }: { onClose: () => void }) {
 
     return () => {
       disposed = true;
+      wrap.removeEventListener("pointerdown", dismissHero, true);
+      wrap.removeEventListener("wheel", dismissHero, true);
+      wrap.removeEventListener("keydown", dismissHero, true);
       ro.disconnect();
       themeObserver.disconnect();
       if (S.rafId != null) {
@@ -1613,6 +1642,7 @@ export function GraphView({ onClose }: { onClose: () => void }) {
         {showControls && (
           <GraphControls
             settings={settings}
+            fixedLayout={counts.nodes >= FAST_GALAXY_THRESHOLD && webglOkRef.current}
             onChange={applyPatch}
             onReset={onReset}
             legend={legend}

@@ -2,12 +2,12 @@
 // Independent implementation inspired by dgreenheck/webgpu-galaxy (MIT):
 // instanced billboards, additive dust and bloom; no upstream source is copied.
 import * as THREE from 'three/webgpu';
-import { instancedBufferAttribute, uv, uniform, pass } from 'three/tsl';
+import { instancedBufferAttribute, uv, pass, positionView, float } from 'three/tsl';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
 import { LineSegments2 } from 'three/addons/lines/webgpu/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { clusterPhase, galaxyDepth, recentBrightness } from './galaxyLayout';
+import { GALAXY_RADIUS, spiralAngle, recentBrightness, starRandom } from './galaxyLayout';
 
 export interface GalaxyNode {
   id: string;
@@ -18,6 +18,11 @@ export interface GalaxyNode {
   r: number;
   color: [number, number, number];
   modified?: number;
+  z?: number;
+  core?: boolean;
+  arm?: number;
+  arms?: number;
+  dim?: number;
 }
 interface Callbacks {
   hover: (node: GalaxyNode | null, x: number, y: number) => void;
@@ -32,14 +37,13 @@ function particles(count: number, soft = false) {
   positions.setUsage(THREE.DynamicDrawUsage);
   colors.setUsage(THREE.DynamicDrawUsage);
   sizes.setUsage(THREE.DynamicDrawUsage);
-  const floor = uniform(0);
   const material = new THREE.SpriteNodeMaterial({
     transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending,
   });
   const distance = uv().sub(0.5).length().mul(2);
   material.positionNode = instancedBufferAttribute(positions, 'vec3');
-  material.colorNode = instancedBufferAttribute(colors, 'vec3');
-  material.scaleNode = instancedBufferAttribute<'float'>(sizes, 'float').max(floor);
+  material.colorNode = instancedBufferAttribute<'vec3'>(colors, 'vec3').mul(float(3000).div(positionView.z.negate().max(500)).pow(0.7).clamp(0.2, 1.5));
+  material.scaleNode = instancedBufferAttribute<'float'>(sizes, 'float');
   material.opacityNode = soft
     ? distance.pow(2).mul(-5).exp().mul(distance.oneMinus().max(0)).mul(0.045)
     : distance.mul(-6).exp().add(distance.mul(-32).exp().mul(3)).mul(distance.oneMinus().max(0));
@@ -48,7 +52,7 @@ function particles(count: number, soft = false) {
   sprite.geometry = sprite.geometry.clone();
   sprite.count = count;
   sprite.frustumCulled = false;
-  return { sprite, positions, colors, sizes, floor, dispose() {
+  return { sprite, positions, colors, sizes, dispose() {
     sprite.geometry.dispose(); material.dispose();
   } };
 }
@@ -63,7 +67,8 @@ export class GalaxyRenderer {
   private scenePass: ReturnType<typeof pass>;
   private bloomPass: ReturnType<typeof bloom>;
   private stars: Particles | null = null;
-  private dust = particles(900, true);
+  private dust = particles(1100, true);
+  private lanes = particles(500, true);
   private background = particles(1600);
   private dustGroup = new THREE.Group();
   private lines = new LineSegments2(new LineSegmentsGeometry(), new THREE.Line2NodeMaterial({
@@ -78,6 +83,7 @@ export class GalaxyRenderer {
   private width = 1;
   private height = 1;
   private selected = -1;
+  private pointerMoved = false;
   private pointerStart: { x: number; y: number } | null = null;
   private flight: { start: number; from: THREE.Vector3; to: THREE.Vector3; target: THREE.Vector3; node: GalaxyNode } | null = null;
   private disposed = false;
@@ -107,7 +113,7 @@ export class GalaxyRenderer {
   }
 
   private constructor(private renderer: THREE.WebGPURenderer, private input: HTMLCanvasElement, private callbacks: Callbacks) {
-    this.backend = renderer.backend.constructor.name.includes('WebGL') ? 'WebGL2' : 'WebGPU';
+    this.backend = 'isWebGLBackend' in renderer.backend ? 'WebGL2' : 'WebGPU';
     this.scene.background = new THREE.Color('#070b1d');
     renderer.onDeviceLost = (info) => { if (!this.disposed) callbacks.fail(new Error(info.message)); };
     renderer.onError = (message) => { if (!this.disposed) callbacks.fail(new Error(String(message))); };
@@ -123,7 +129,10 @@ export class GalaxyRenderer {
     this.controls.addEventListener('start', this.cancelFlight);
     this.motion.addEventListener('change', this.motionChange);
     this.scene.add(this.lines, this.rays, this.background.sprite, this.dustGroup);
-    this.dustGroup.add(this.dust.sprite);
+    this.dustGroup.add(this.dust.sprite, this.lanes.sprite);
+    this.lanes.sprite.material.blending = THREE.NormalBlending;
+    this.lanes.sprite.material.opacityNode = uv().sub(0.5).length().mul(2).pow(2).mul(-7).exp().mul(0.2);
+    this.lanes.sprite.renderOrder = 2;
     this.makeSpace();
     this.labelLayer.className = 'graph-galaxy-labels';
     this.labelLayer.setAttribute('aria-hidden', 'true');
@@ -178,45 +187,52 @@ export class GalaxyRenderer {
     this.labelScale = labelScale;
     this.lookup.clear();
     const now = Date.now();
-    const clusters = new Map<string, GalaxyNode>();
-    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    const sparseScale = Math.max(1, Math.min(3, Math.sqrt(3000 / Math.max(1, nodes.length))));
+    const nebulaDensity = Math.min(1, Math.max(0.3, Math.sqrt(nodes.length / 2000)));
+    const arms = nodes[0]?.arms ?? 4;
     nodes.forEach((node, i) => {
       this.lookup.set(node.id, i);
-      const folder = node.path.includes('/') ? node.path.split('/')[0] : 'Root';
-      if (!clusters.has(folder)) clusters.set(folder, node);
-      const z = galaxyDepth(node.x, node.y, clusterPhase(node.path));
+      const z = node.z ?? 0;
       this.stars!.positions.setXYZ(i, node.x, -node.y, z);
       const light = recentBrightness(node.modified, now);
-      this.stars!.colors.setXYZ(i, node.color[0] * light * 2.2, node.color[1] * light * 2.2, node.color[2] * light * 2.2);
-      this.stars!.sizes.setX(i, Math.max(2, node.r * 6 * Math.sqrt(light)));
-      minX = Math.min(minX, node.x); maxX = Math.max(maxX, node.x);
-      minY = Math.min(minY, node.y); maxY = Math.max(maxY, node.y);
+      const radius = Math.hypot(node.x, node.y);
+      const variation = 0.45 + starRandom(node.id + ':light') ** 3 * 1.4;
+      const core = node.core ? 1 : Math.max(0, 1 - radius / 400) * 0.4;
+      const dim = node.dim ?? 1;
+      const intensity = light * variation * Math.sqrt(sparseScale) * (core ? 1.5 : 0.85) * dim * (1 - radius / 2500);
+      const warm = [1, 0.72, 0.42];
+      for (let channel = 0; channel < 3; channel++) {
+        const pastel = node.color[channel] * 0.35 + 0.46;
+        this.stars!.colors.setComponent(i, channel, (pastel * (1 - core) + warm[channel] * core) * intensity);
+      }
+      this.stars!.sizes.setX(i, (5 + node.r * 2.5) * sparseScale * Math.sqrt(light * variation) * (node.core ? 1.2 : 1));
     });
-    const arms = [...clusters.values()].slice(0, 12);
-    this.dust.sprite.visible = arms.length > 0;
-    if (arms.length) {
-      for (let i = 0; i < this.dust.sprite.count; i++) {
-        const cluster = arms[i % arms.length];
-        const phase = clusterPhase(cluster.path);
-        const radius = Math.sqrt(((i * 137 + 43) % 900) / 900);
-        const angle = phase + radius * 4.5 + Math.sin(i * 78.33) * 0.22;
-        this.dust.positions.setXYZ(i, Math.cos(angle) * radius, Math.sin(angle) * radius * 0.78, Math.sin(phase) * 0.06 - 0.18);
-        this.dust.colors.setXYZ(i, cluster.color[0] * 0.13, cluster.color[1] * 0.13, cluster.color[2] * 0.13);
-      }
-      this.dust.positions.needsUpdate = this.dust.colors.needsUpdate = true;
+    this.dustGroup.visible = nodes.length > 0;
+    for (let i = 0; i < this.dust.sprite.count; i++) {
+      const core = i < 180;
+      const radius = core ? 160 * Math.sqrt(i / 180) : 120 + 1260 * ((i * 137 % 920) / 920) ** 1.3;
+      const angle = core ? i * 2.399963 : spiralAngle(radius, i % arms, arms) + Math.sin(i * 78.33) * 0.12;
+      this.dust.positions.setXYZ(i, Math.cos(angle) * radius, -Math.sin(angle) * radius, -20);
+      const palette = [[0.23, 0.34, 0.48], [0.36, 0.27, 0.42], [0.23, 0.35, 0.4], [0.43, 0.32, 0.28]][i % arms];
+      const color = core ? [0.85, 0.45, 0.17] : palette;
+      this.dust.colors.setXYZ(i, color[0] * nebulaDensity, color[1] * nebulaDensity, color[2] * nebulaDensity);
+      this.dust.sizes.setX(i, core ? 250 : 110 + radius * 0.16);
     }
+    for (let i = 0; i < this.lanes.sprite.count; i++) {
+      const radius = 260 + 1080 * (i / this.lanes.sprite.count);
+      const angle = spiralAngle(radius, i % arms, arms) + 0.14;
+      this.lanes.positions.setXYZ(i, Math.cos(angle) * radius, -Math.sin(angle) * radius, 18);
+      this.lanes.colors.setXYZ(i, 0.002, 0.003, 0.008);
+      this.lanes.sizes.setX(i, 65 + radius * 0.05);
+    }
+    this.dust.positions.needsUpdate = this.dust.colors.needsUpdate = this.dust.sizes.needsUpdate = true;
+    this.lanes.positions.needsUpdate = this.lanes.colors.needsUpdate = this.lanes.sizes.needsUpdate = true;
     this.stars.positions.needsUpdate = this.stars.colors.needsUpdate = this.stars.sizes.needsUpdate = true;
-    if (nodes.length) {
-      const radius = Math.max(300, maxX - minX, maxY - minY) * 0.65;
-      this.dustGroup.position.set((minX + maxX) / 2, -(minY + maxY) / 2, -80);
-      this.dustGroup.scale.setScalar(radius);
-      if (fit) {
-        const center = this.dustGroup.position.clone(); center.z = 0;
-        const distance = radius * 2.7 / Math.min(1, this.camera.aspect);
-        this.controls.target.copy(center);
-        this.camera.position.copy(center).add(new THREE.Vector3(0, -distance * 0.28, distance));
-        this.camera.lookAt(center);
-      }
+    if (nodes.length && fit) {
+      const distance = GALAXY_RADIUS * 2.45 / Math.min(1, this.camera.aspect);
+      this.controls.target.set(0, 0, 0);
+      this.camera.position.set(0, -distance * Math.sin(Math.PI / 3), distance * Math.cos(Math.PI / 3));
+      this.camera.lookAt(this.controls.target);
     }
     // LOD caps only distant background links; every note and selected link survives.
     const step = Math.max(1, Math.ceil(edges.length / 18000));
@@ -283,10 +299,6 @@ export class GalaxyRenderer {
     }
     if (!this.dirty) return;
     this.dirty = false;
-    if (this.stars) {
-      const distance = this.camera.position.distanceTo(this.controls.target);
-      this.stars.floor.value = distance * Math.tan(THREE.MathUtils.degToRad(23)) * 2 / this.height * (this.nodes.length > 8000 ? 5 : 8);
-    }
     this.camera.updateMatrixWorld();
     this.project();
     this.paintLabels();
@@ -352,15 +364,17 @@ export class GalaxyRenderer {
   private pointerDown = (event: PointerEvent) => {
     this.flight = null;
     this.input.focus({ preventScroll: true });
+    this.pointerMoved = false;
     this.pointerStart = { x: event.clientX, y: event.clientY };
   };
   private pointerMove = (event: PointerEvent) => {
+    if (this.pointerStart && Math.hypot(event.clientX - this.pointerStart.x, event.clientY - this.pointerStart.y) > 4) this.pointerMoved = true;
     const rect = this.input.getBoundingClientRect();
     this.pendingPointer = { x: event.clientX - rect.left, y: event.clientY - rect.top };
   };
   private pointerUp = (event: PointerEvent) => {
     const start = this.pointerStart; this.pointerStart = null; this.pendingPointer = null;
-    if (!start || event.button !== 0 || Math.hypot(event.clientX - start.x, event.clientY - start.y) > 4) return;
+    if (!start || this.pointerMoved || event.button !== 0 || Math.hypot(event.clientX - start.x, event.clientY - start.y) > 4) return;
     const rect = this.input.getBoundingClientRect();
     const index = this.pick(event.clientX - rect.left, event.clientY - rect.top);
     if (index >= 0) this.flyTo(index);
@@ -398,7 +412,7 @@ export class GalaxyRenderer {
     this.input.removeEventListener('pointercancel', this.pointerCancel);
     this.input.removeEventListener('pointerleave', this.pointerLeave);
     this.input.removeEventListener('keydown', this.keyDown);
-    this.stars?.dispose(); this.dust.dispose(); this.background.dispose();
+    this.stars?.dispose(); this.dust.dispose(); this.lanes.dispose(); this.background.dispose();
     this.lines.geometry.dispose(); this.lines.material.dispose(); this.rays.geometry.dispose(); this.rays.material.dispose();
     this.bloomPass.dispose(); this.scenePass.dispose(); this.pipeline.dispose();
     this.renderer.dispose(); this.renderer.domElement.remove(); this.labelLayer.remove();
