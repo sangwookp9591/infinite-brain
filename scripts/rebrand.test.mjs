@@ -10,7 +10,7 @@ test("rebrand substitutions are idempotent and keep internal storage identity", 
   const once = rebrandText(input);
   assert.equal(rebrandText(once), once);
   assert.match(once, /Infinite Brain Staging/);
-  assert.match(once, /com\.infinitebrain\.app/);
+  assert.match(once, /com\.infinitebrain\.desktop/);
   assert.match(once, /infinitebrain:\/\//);
   assert.match(once, /infinitebrain-view/);
   assert.match(once, /__infinitebrain\/sdk\.js/);
@@ -41,4 +41,10 @@ test("Tauri production, development, and staging configs use the fork identity",
 test("server scheme defaults and examples are rebranded", () => {
   assert.equal(rebrandText('optional("DEEP_LINK_SCHEME") ?? "baalda"'), 'optional("DEEP_LINK_SCHEME") ?? "infinitebrain"');
   assert.equal(rebrandText("DEEP_LINK_SCHEME=baalda"), "DEEP_LINK_SCHEME=infinitebrain");
+});
+
+test("keychain and release bundle share one service identity", () => {
+  const keychain = readFileSync(new URL("../app/apps/desktop/src-tauri/src/keychain.rs", import.meta.url), "utf8");
+  assert.ok(keychain.includes(`pub const SERVICE: &str = "${BRAND.bundleIdentifier}";`));
+  assert.ok(!BRAND.bundleIdentifier.endsWith(".app"));
 });

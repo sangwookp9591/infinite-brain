@@ -24,7 +24,7 @@ export const BRAND = {
     repositoryPath: "naveedharri/baalda",
   },
   productName: "Infinite Brain",
-  bundleIdentifier: "com.infinitebrain.app",
+  bundleIdentifier: "com.infinitebrain.desktop",
   deepLinkScheme: "infinitebrain",
   devDeepLinkScheme: "infinitebrain-dev",
   stagingDeepLinkScheme: "infinitebrain-staging",

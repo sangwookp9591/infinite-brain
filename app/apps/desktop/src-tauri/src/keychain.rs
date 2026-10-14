@@ -2,7 +2,7 @@
 //!
 //! Better Auth session tokens are the keys to a user's vault, so they must
 //! never live in `localStorage` or any plaintext file. They live in the OS
-//! keychain under the service `com.infinitebrain.app`, keyed by a caller-supplied
+//! keychain under the service `com.infinitebrain.desktop`, keyed by a caller-supplied
 //! `service_key` (e.g. `session:<serverUrl>`). The `keyring` crate maps this to
 //! the macOS Keychain (Security framework) / Windows Credential Manager / the
 //! Secret Service on Linux.
@@ -26,7 +26,7 @@ use keyring::credential::CredentialPersistence;
 ///
 /// This fork uses a distinct service so it cannot read or overwrite upstream
 /// credentials. Keep this value aligned with the Tauri bundle identifier.
-pub const SERVICE: &str = "com.infinitebrain.app";
+pub const SERVICE: &str = "com.infinitebrain.desktop";
 
 /// A minimal secret store, abstracted so tests can swap in an in-memory fake.
 pub trait SecretStore {
