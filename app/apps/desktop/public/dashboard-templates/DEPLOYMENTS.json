@@ -1,0 +1,33 @@
+[
+  {
+    "id": "cosmos-agentic-os",
+    "source": "https://benai-cosmos.vercel.app/",
+    "retrieved": "2026-10-13",
+    "sourceSha256": "aeb54026000d13f8d19767cecab7001da16a05a49a087bb5b2a9bf69109ffa82",
+    "sha256": "a3a705f56b3ddb9c7ca577927c1ed2f51a3e227fc0df3f25c33c705c80a7bad7",
+    "attribution": "Ben AI",
+    "notice": "deployed-os-NOTICE.txt",
+    "sourceAssets": {
+      "style.css": "36f4e8704f872a44977c34e161de40fb89f11d5e0cdd15d101a777a3b25bd170",
+      "app.js": "cd059fcd4f1bc7575baeff140e5c160069a30d853e75dfd1b2c44b0a2d14709a"
+    }
+  },
+  {
+    "id": "sales-os",
+    "source": "https://cockpit-nebula-h7q2k.vercel.app/",
+    "retrieved": "2026-10-13",
+    "sourceSha256": "13a1c3b250be9f0f24ff8ef1a3152aefabb5c66d89e39bfcc44940c3fb145aae",
+    "sha256": "f84b53b8ecc9e95bea03990ae10e7835ac8f5ba39821afafb8780feecdaf289b",
+    "attribution": "Ben AI",
+    "notice": "deployed-os-NOTICE.txt"
+  },
+  {
+    "id": "marketing-os",
+    "source": "https://marketing-os-control.vercel.app/#/intel",
+    "retrieved": "2026-10-13",
+    "sourceSha256": "965e61e96b198300c031696086409b589c8c2944fee25ba6145636d4651e4485",
+    "sha256": "a500dc67817f93b3f31a86b6ed77428fdfae433b95912bc49e528d0f8534afa9",
+    "attribution": "Ben AI",
+    "notice": "deployed-os-NOTICE.txt"
+  }
+]

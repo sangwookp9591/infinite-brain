@@ -1,0 +1,411 @@
+import { Hono } from "hono";
+import { readFileSync } from "node:fs";
+import { NOTES_WITH_STATE_FEATURE } from "../registry/seed-on-register.js";
+import { BOOTSTRAP_ONLY_FEATURE } from "./routes/bootstrap.js";
+import { compress } from "hono/compress";
+import { cors } from "hono/cors";
+import { oAuthDiscoveryMetadata, oAuthProtectedResourceMetadata } from "better-auth/plugins";
+import { config } from "../config.js";
+import { auth } from "../auth/auth.js";
+import { throttledSignIn } from "../auth/signin-throttle.js";
+import {
+  CLIENT_VERSION_HEADER,
+  clientVersionPolicy,
+  requireSupportedClient,
+} from "./client-version.js";
+import { oauthConnectRoutes } from "./routes/oauth-connect.js";
+import { accountPageRoutes } from "./routes/account-pages.js";
+import { invitationRoutes } from "./routes/invitations.js";
+import { createMemberShareRoutes, memberRoutes } from "./routes/members.js";
+import { createAppearanceRoutes } from "./routes/appearance.js";
+import { passwordResetRoutes } from "./routes/password-reset.js";
+import { openLinkRoutes } from "./routes/open-link.js";
+import { createPublicPageRoutes, publicLinkApiRoutes } from "./routes/public-links.js";
+import { ACCESS_BOARD_FEATURE } from "../permissions/access-board.js";
+import { blobRoutes, FILES_WITH_BYTES_FEATURE, setBlobRegistryNotifier } from "./routes/blobs.js";
+import { createRegistryRoutes, ORIGIN_HEADER } from "./routes/registry.js";
+import { createBulkRoutes } from "./routes/bulk.js";
+import { bootstrapRoutes } from "./routes/bootstrap.js";
+import { syncTokenRoutes } from "./routes/sync-token.js";
+import { vaultTokenRoutes } from "./routes/vault-token.js";
+import { desktopOauthRoutes } from "./routes/desktop-oauth.js";
+import { SITE_ICON_PNG_BASE64 } from "../site-icon.js";
+import { bugReportRoutes } from "./routes/bug-reports.js";
+import { createShareRoutes, type ShareDeps } from "./routes/shares.js";
+import { createOrgRoutes } from "./routes/orgs.js";
+import { createHousekeeperRoutes } from "./routes/housekeeper.js";
+import { graphRoutes } from "./routes/graph.js";
+import { createMcpRoutes } from "./routes/mcp.js";
+import { createRepairRoutes } from "./routes/repair.js";
+import { createVersionRoutes } from "./routes/versions.js";
+import { createTrashRoutes } from "./routes/trash.js";
+import { createShrinkBrakeRoutes } from "./routes/shrink-brake.js";
+import { createBillingRoutes } from "./routes/billing.js";
+import { PolarBillingProvider } from "../billing/polar.js";
+import type { BillingProvider } from "../billing/provider.js";
+import type { DocWriter } from "../mcp/doc-writer.js";
+
+
+/**
+ * The server's package version, read ONCE at startup. `../../package.json`
+ * resolves to the server package from both `src/http/` (tsx) and `dist/http/`.
+ */
+const SERVER_VERSION: string = (() => {
+  try {
+    const raw = readFileSync(new URL("../../package.json", import.meta.url), "utf8");
+    const v = (JSON.parse(raw) as { version?: unknown }).version;
+    return typeof v === "string" ? v : "unknown";
+  } catch {
+    return "unknown";
+  }
+})();
+
+export interface AppDeps extends ShareDeps {
+  /** Server-side note writer for the MCP tools (backed by the sync server). */
+  docWriter: DocWriter;
+  /**
+   * Close every socket on a doc AND drop the server's cached copy of it.
+   *
+   * Stronger than `disconnectDoc`, and required by any route that rewrites a
+   * doc's rows underneath the sync server: without the unload, Hocuspocus keeps
+   * the loaded `Y.Doc` and hands that stale copy to the next client, undoing the
+   * write. Backed by `sync/hocuspocus.ts` `evictDoc`.
+   */
+  evictDoc: (vaultId: string, docId: string) => Promise<void> | void;
+  /** Payment provider. Defaults to Polar; tests inject a fake. */
+  billingProvider?: BillingProvider;
+  /**
+   * Structure changed (folder/note create/rename/move/delete) → broadcast.
+   * `originId` identifies the client that made the change (x-baalda-origin), so
+   * the broadcast can skip it — see `RegistryDeps.onRegistryChanged`.
+   *
+   * **Required**, unlike its counterparts on the inner `RegistryDeps`/`McpDeps`.
+   * This is the one seam where the whole app is constructed, and forgetting it
+   * here is both catastrophic and silent: every write still succeeds, and no
+   * running app ever hears about it — a note exists in Postgres and in nobody's
+   * sidebar until they restart. Making it required turns that into a compile
+   * error. Pass an explicit no-op if a test genuinely doesn't care.
+   */
+  onRegistryChanged: (vaultId: string, originId: string | null) => void;
+  /**
+   * Access changed in a collection → subscribers re-resolve their readable set.
+   *
+   * Narrowed from optional (`ShareDeps`) to **required** here for the same reason,
+   * with sharper teeth: this is the only thing that revokes access on a live
+   * vault-channel socket. An app built without it keeps streaming vault content to
+   * someone whose share — or whose membership — was just taken away, until their
+   * token expires. Inner routers keep it optional for focused unit tests.
+   */
+  onAclChanged: (vaultId: string) => void;
+}
+
+/**
+ * Origins allowed to call the API cross-origin. The Tauri desktop UI runs on
+ * http://localhost:1420 in dev and tauri://localhost / http://tauri.localhost
+ * in packaged builds; the configured auth URL is included so a same-origin web
+ * client works too. Extra origins can be added via CORS_ORIGINS (comma-list).
+ */
+function allowedOrigins(): string[] {
+  const defaults = [
+    "http://localhost:1420",
+    "tauri://localhost",
+    "http://tauri.localhost",
+  ];
+  try {
+    defaults.push(new URL(config.betterAuthUrl).origin);
+  } catch {
+    // betterAuthUrl isn't a full URL — skip; defaults still apply.
+  }
+  const extra = (process.env.CORS_ORIGINS ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return Array.from(new Set([...defaults, ...extra]));
+}
+
+/**
+ * The HTTP surface (Hono):
+ *  - /api/auth/*  → Better Auth (sign-up/in, sessions, organization plugin:
+ *                   invitations, members, etc.)
+ *  - /api/sync-token → mint per-doc sync JWTs
+ *  - /api/{vaults,folders,notes,files} → registry
+ *  - /api/vaults/:id/{folders,notes,files,docs}/batch → bulk registration + push
+ *  - /api/vaults/:id/bootstrap[/:sessionId] → whole-vault download session
+ *  - /api/vaults/:id/blobs, /api/blobs/:id → attachment blob store
+ *  - /api/notes/:id/versions, /api/vaults/:id/checkpoints → version history
+ *  - /api/shares → folder/file ACL management
+ *  - /api/notes/:docId/public-link → mint/inspect/revoke a public note link
+ *  - /p/:token → public read-only note page (no auth; token is the capability)
+ *  - /api/orgs/join-code, /api/orgs/join → vault join codes
+ *  - /api/invitations/mine, /api/invitations/:id/{preview,send} → invitation inbox/preview/email
+ *  - /api/password-reset/request → emailed reset link (reports the outcome)
+ *  - /forgot-password, /reset-password, /email-verified, /invite/:id → account pages
+ *  - /api/vaults/:id/graph, /api/vaults/:id/search → note index (links+vectors)
+ *  - /api/mcp → Model Context Protocol endpoint (AI clients); /api/mcp/tokens → token mgmt
+ */
+export function createApp(deps: AppDeps): Hono {
+  const app = new Hono();
+
+  // CORS must run before any route (incl. Better Auth) so cross-origin browser
+  // clients — chiefly the Tauri webview — succeed and can read auth headers.
+  // Applied to everything; also answers OPTIONS preflights for /api/*.
+  const origins = allowedOrigins();
+  app.use(
+    "*",
+    cors({
+      origin: origins,
+      credentials: true,
+      allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+      allowHeaders: [
+        "Content-Type",
+        "Authorization",
+        "x-file-name",
+        "x-rel-path",
+        // Content hash a client declares before an attachment upload, so known
+        // content is deduped without sending a byte.
+        "x-sha256",
+        // The `files` doc a legacy-POST upload's bytes belong to, so a tree
+        // binary's blob carries the doc identity its ACL is resolved from.
+        "x-doc-id",
+        // The version a tree binary's edit started from (409 `stale_base`).
+        "x-base-sha256",
+        // Opaque per-client instance id on registry writes, so the vault channel
+        // doesn't tell a client to re-pull its own structural change.
+        ORIGIN_HEADER,
+        // The desktop's app version on every call, so the content-write routes
+        // can refuse a build too old to push safely (`client-version.ts`, #251).
+        CLIENT_VERSION_HEADER,
+      ],
+      // set-auth-token carries the session token the desktop client reads after
+      // sign-in/up; without exposing it the browser hides it even on success.
+      //
+      // The bootstrap page headers are here for exactly the same reason, and the
+      // failure is sharper: a cross-origin reader that cannot see
+      // `X-Baalda-Cursor` cannot tell a drained session from a page boundary, so
+      // it would stop after the first page of a whole-vault download and report
+      // success. The webview IS cross-origin to the API in every configuration
+      // we ship.
+      exposeHeaders: [
+        "set-auth-token",
+        "X-Baalda-Cursor",
+        "X-Baalda-Docs",
+        "X-Baalda-Bytes",
+        "ETag",
+      ],
+    }),
+  );
+
+  // Response compression for the JSON API. The registry listings are what make
+  // this worth having: GET /api/notes for a several-hundred-note vault is a few
+  // hundred KB of highly repetitive JSON, and it is on the critical path of every
+  // client start-up and every `registry` broadcast.
+  //
+  // After CORS (so preflights are answered plain) and scoped to /api/*, which
+  // also keeps it off the WS upgrade paths — those are handled by the Node
+  // server, not by Hono, but /health and /p/:token stay uncompressed too.
+  //
+  // Hono's compress already limits itself to compressible content types (its
+  // default regex covers JSON/text and never image/*, application/octet-stream
+  // or text/event-stream). Blob DOWNLOAD is nonetheless excluded by path rather
+  // than trusted to that: a stored mime of text/markdown would otherwise put a
+  // re-encode on a route whose only job is handing back exact bytes. The blob
+  // LIST route (/api/vaults/:id/blobs) is JSON and stays compressed.
+  const compressor = compress();
+  app.use("/api/*", async (c, next) => {
+    if (c.req.path.startsWith("/api/blobs/")) return next();
+    return compressor(c, next);
+  });
+
+  // `features`: what this server accepts beyond the base protocol, so a desktop
+  // can pick a path with one call per server URL instead of wasting a chunk on
+  // an old server. `notes-with-state` = `notes/batch` and `POST /api/notes` take
+  // an item's `state` and answer `seeded`. A missing field means none; the
+  // per-item `seeded` flag stays the fallback (absent ⇒ not seeded).
+  // `access-board` = `GET /vaults/:id/access-board` answers the member Access
+  // tab in one request (desktops fall back to access-tree + summaries).
+  // `version` is this server's package version (read once at startup);
+  // `minDesktopVersion` is the floor `client-version.ts` enforces on content
+  // writes, read live like the gate itself (null when the floor is off).
+  app.get("/health", (c) =>
+    c.json({
+      ok: true,
+      version: SERVER_VERSION,
+      minDesktopVersion: clientVersionPolicy().minRaw,
+      features: [NOTES_WITH_STATE_FEATURE, BOOTSTRAP_ONLY_FEATURE, FILES_WITH_BYTES_FEATURE, ACCESS_BOARD_FEATURE],
+    }),
+  );
+
+  // ── Site icon ─────────────────────────────────────────────────────────────
+  // Connector directories and favicon services look up the icon of the MCP
+  // server's own origin (this host), not baalda.com. Without these they found
+  // nothing here and fell back to stale caches of other icons. The root page
+  // exists only to carry the <link rel="icon"> for fetchers that read HTML.
+  const siteIcon = new Uint8Array(Buffer.from(SITE_ICON_PNG_BASE64, "base64"));
+  const iconHeaders = {
+    "Content-Type": "image/png",
+    "Cache-Control": "public, max-age=86400",
+  };
+  app.get("/favicon.ico", (c) => c.body(siteIcon, 200, iconHeaders));
+  app.get("/icon.png", (c) => c.body(siteIcon, 200, iconHeaders));
+  app.get("/apple-touch-icon.png", (c) => c.body(siteIcon, 200, iconHeaders));
+  app.get("/", (c) =>
+    c.html(`<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Baalda</title>
+<link rel="icon" type="image/png" sizes="256x256" href="/icon.png" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+</head>
+<body style="font-family: system-ui, sans-serif; margin: 3rem;">
+<p><img src="/icon.png" alt="Baalda" width="64" height="64" /></p>
+<p>This is the Baalda sync and MCP server. The app lives at <a href="https://baalda.com">baalda.com</a>.</p>
+</body>
+</html>`),
+  );
+
+  // ── MCP OAuth discovery (RFC 8414 / RFC 9728) ─────────────────────────────
+  // These MUST sit at the origin root: our protected-resource metadata names
+  // the origin as the authorization server, so an MCP client (e.g. a Claude
+  // custom connector) fetches /.well-known/* from the origin, not /api/auth.
+  // The helpers proxy to the Better Auth `mcp` plugin's own endpoints.
+  app.get("/.well-known/oauth-authorization-server", (c) =>
+    oAuthDiscoveryMetadata(auth)(c.req.raw),
+  );
+  app.get("/.well-known/oauth-protected-resource", (c) =>
+    oAuthProtectedResourceMetadata(auth)(c.req.raw),
+  );
+  // RFC 9728 §3.1 path-suffixed form for the MCP endpoint: a client that knows
+  // the resource as <origin>/api/mcp asks here first (production saw it 404).
+  // Same metadata, with `resource` naming that exact URL as §3.3 requires.
+  app.get("/.well-known/oauth-protected-resource/api/mcp", async (c) => {
+    const res = await oAuthProtectedResourceMetadata(auth)(c.req.raw);
+    if (!res.ok) return res;
+    const body = (await res.json()) as Record<string, unknown>;
+    const resource = typeof body.resource === "string" ? body.resource : new URL(c.req.url).origin;
+    return new Response(JSON.stringify({ ...body, resource: `${resource.replace(/\/+$/, "")}/api/mcp` }), {
+      status: res.status,
+      headers: res.headers,
+    });
+  });
+  // Clients following the older MCP discovery treat the MCP URL as the issuer
+  // and insert its path (RFC 8414 §3.1). Our issuer is the origin, so this is
+  // the same document as the bare one.
+  app.get("/.well-known/oauth-authorization-server/api/mcp", (c) =>
+    oAuthDiscoveryMetadata(auth)(c.req.raw),
+  );
+  // The human-facing login + consent screens of that OAuth flow.
+  app.route("/", oauthConnectRoutes);
+  // Account pages the emails link to: forgot/reset password, email verified,
+  // and the invitation landing page (bounces into the app's deep link).
+  app.route("/", accountPageRoutes);
+
+  // Clickable share links: https://<server>/open/note/… bounces into the app's
+  // baalda:// deep link. Public — the URL carries identity, never access.
+  app.route("/", openLinkRoutes);
+
+  // Public note pages: /p/<token> renders a note read-only for anyone with the
+  // link. Here the URL DOES carry access — the token is the capability.
+  app.route("/", createPublicPageRoutes({ docWriter: deps.docWriter }));
+
+  // Better Auth owns everything under /api/auth (web-standard Request handler).
+  // Email sign-in passes the per-account failure throttle first (#237).
+  app.post("/api/auth/sign-in/email", (c) => throttledSignIn(c.req.raw, auth.handler));
+  app.on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw));
+
+  // Desktop Google sign-in handoff — deliberately NOT under /api/auth (the
+  // catch-all above would shadow it). See desktop-oauth.ts.
+  app.route("/api", desktopOauthRoutes);
+  app.route("/api", bugReportRoutes);
+  // Invitation preview (public, by unguessable id) + the signed-in inbox that
+  // sidesteps Better Auth's verified-email gate on list-user-invitations.
+  app.route("/api", invitationRoutes);
+  app.route("/api", memberRoutes);
+  app.route("/api", createAppearanceRoutes(deps));
+  app.route(
+    "/api",
+    createMemberShareRoutes({ disconnectDoc: deps.disconnectDoc, onAclChanged: deps.onAclChanged }),
+  );
+  // Password reset request that reports sent / no account / failed (Better
+  // Auth's own endpoint is neutral and swallows send errors).
+  app.route("/api", passwordResetRoutes);
+  // Outdated-client gate (#251) on every route that hands out the ability to
+  // push CRDT state: the per-doc token (the only key to a writable Hocuspocus
+  // socket), the vault-channel token and the batch push. Mounted here, ahead
+  // of the routers, so the policy lives in one place. Reads stay open, so an
+  // old build can still sign in and list its vault while its updater runs.
+  // The policy is evaluated once now so a malformed MIN_CLIENT_VERSION fails
+  // at startup rather than on the first push.
+  clientVersionPolicy();
+  const clientGate = requireSupportedClient();
+  app.use("/api/sync-token", clientGate);
+  app.use("/api/vault-sync-token", clientGate);
+  app.use("/api/vaults/:vaultId/docs/batch", clientGate);
+  app.route("/api", syncTokenRoutes);
+  app.route("/api", vaultTokenRoutes);
+  app.route(
+    "/api",
+    createRegistryRoutes({
+      onRegistryChanged: deps.onRegistryChanged,
+      disconnectDoc: deps.disconnectDoc,
+      evictDoc: deps.evictDoc,
+    }),
+  );
+  // Bulk engine: the batched twins of the registry creates, plus the whole-vault
+  // bootstrap download. Mounted beside the registry because they ARE the
+  // registry — same shared `registry/batch-ops.ts` body, same refusal codes —
+  // only without a network round trip per item.
+  app.route(
+    "/api",
+    createBulkRoutes({
+      onRegistryChanged: deps.onRegistryChanged,
+      // The bulk delete route kicks + unloads the docs it removes, off the
+      // response path. `evictDoc` and not `disconnectDoc`: the rows are gone, so
+      // a cached `Y.Doc` served to the next connect would re-materialise them.
+      evictDoc: deps.evictDoc,
+    }),
+  );
+  app.route("/api", bootstrapRoutes);
+  // A one-step file upload (`files-with-bytes`) creates its `files` row at
+  // `complete`; it owes the same registry broadcast `POST /api/files` makes.
+  setBlobRegistryNotifier(deps.onRegistryChanged);
+  app.route("/api", blobRoutes);
+  app.route(
+    "/api",
+    createVersionRoutes({
+      docWriter: deps.docWriter,
+      onRegistryChanged: deps.onRegistryChanged,
+    }),
+  );
+  app.route("/api", createTrashRoutes({ onRegistryChanged: deps.onRegistryChanged }));
+  app.route("/api", createShrinkBrakeRoutes());
+  app.route("/api", createRepairRoutes({ evictDoc: deps.evictDoc }));
+  app.route("/api", createShareRoutes(deps));
+  app.route("/api", publicLinkApiRoutes);
+  const billingProvider = deps.billingProvider ?? new PolarBillingProvider();
+  app.route(
+    "/api",
+    createOrgRoutes({
+      disconnectDoc: deps.disconnectDoc,
+      // Was simply never plumbed here, which is why removing a member left their
+      // vault-channel socket streaming content for up to the token TTL.
+      onAclChanged: deps.onAclChanged,
+      billingProvider,
+    }),
+  );
+  app.route("/api", createBillingRoutes({ provider: billingProvider }));
+  app.route("/api", graphRoutes);
+  app.route("/api", createHousekeeperRoutes(deps.docWriter));
+  app.route(
+    "/api",
+    createMcpRoutes({
+      docWriter: deps.docWriter,
+      disconnectDoc: deps.disconnectDoc,
+      onRegistryChanged: deps.onRegistryChanged,
+      onAclChanged: deps.onAclChanged,
+    }),
+  );
+
+  return app;
+}

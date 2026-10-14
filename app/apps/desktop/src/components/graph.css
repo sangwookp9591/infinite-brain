@@ -1,0 +1,498 @@
+/* ============================================================
+   Graph View — full-pane link graph
+   ============================================================ */
+
+.graph-view {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: var(--bg-app);
+  display: flex;
+  flex-direction: column;
+  animation: fade-in var(--t-med) var(--ease) both;
+}
+
+.graph-canvas-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  /* Deep-space backdrop. The graph is an immersive dark void in EVERY theme so
+     glowing nodes and edges read with maximum contrast (the canvas clears to
+     transparent, so this shows through). Light/dark app theme does not lighten
+     it — space is dark. */
+  background: radial-gradient(
+    ellipse 130% 130% at 50% 44%,
+    #0f111b 0%,
+    #080910 52%,
+    #030409 100%
+  );
+}
+
+/* Vignette: sink the rim to near-black so the eye falls to the luminous core. */
+.graph-canvas-wrap::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background: radial-gradient(
+    ellipse 100% 100% at 50% 46%,
+    transparent 45%,
+    rgba(0, 0, 0, 0.6) 100%
+  );
+}
+
+.graph-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  z-index: 0;
+  cursor: grab;
+}
+
+.graph-canvas.is-dragging {
+  cursor: grabbing;
+}
+
+.graph-canvas.is-hovering-node {
+  cursor: pointer;
+}
+
+/* ---- Header bar overlay ---- */
+/* `.graph-view` is a full-window overlay, so this floating bar would sit under
+   the macOS traffic lights without the title-bar inset. */
+.graph-header {
+  position: absolute;
+  top: calc(var(--sp-4) + var(--titlebar-inset));
+  left: var(--sp-4);
+  right: var(--sp-4);
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  pointer-events: auto;
+}
+
+html[data-platform="windows"] .graph-header {
+  top: calc(var(--chrome-row-h) + var(--sp-2));
+}
+
+.graph-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--fs-lg);
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.graph-counts {
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.graph-header-spacer {
+  flex: 1;
+}
+
+.graph-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--fs-lg);
+  line-height: 1;
+  cursor: pointer;
+  transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+}
+
+.graph-icon-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.graph-icon-btn:active {
+  background: var(--bg-active);
+}
+
+.graph-icon-btn.is-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.graph-icon-btn.is-spinning {
+  animation: graph-spin 0.7s linear;
+}
+
+@keyframes graph-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---- Empty / loading / error states ---- */
+.graph-state {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-8);
+  pointer-events: none;
+}
+
+.graph-state-card {
+  max-width: 460px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-10) var(--sp-10) var(--sp-8);
+  text-align: center;
+  /* The backdrop is a dark void in every theme, so these states use fixed
+     light-on-dark colors instead of theme text vars (which would be dark, and
+     thus invisible, in light mode). A faint glass panel lifts the copy off the
+     void so it reads at any zoom. */
+  color: rgba(233, 236, 245, 0.72);
+  font-size: var(--fs-md);
+  line-height: var(--lh-body);
+  background: rgba(22, 25, 37, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(14px);
+}
+
+.graph-state-card strong {
+  display: block;
+  margin-bottom: var(--sp-1);
+  color: #f4f6fb;
+  font-family: var(--font-display);
+  font-size: var(--fs-2xl);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.graph-state-card span {
+  max-width: 34ch;
+  line-height: 1.6;
+}
+
+.graph-state-card code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  color: #bcb2ff;
+  background: rgba(127, 115, 255, 0.18);
+  border: 1px solid rgba(127, 115, 255, 0.32);
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+
+/* Empty state: a small constellation glyph anchors the copy — nodes + links,
+   a preview of what the graph becomes. */
+.graph-empty {
+  gap: var(--sp-4);
+}
+.graph-empty-glyph {
+  margin-bottom: var(--sp-3);
+  color: #8f84ff;
+}
+.graph-empty-glyph .ge-node {
+  fill: #8f84ff;
+}
+.graph-empty-glyph .ge-node-hub {
+  fill: #a49bff;
+  filter: drop-shadow(0 0 10px rgba(143, 132, 255, 0.7));
+}
+.graph-empty-glyph .ge-node-dim {
+  fill: none;
+  stroke: rgba(143, 132, 255, 0.55);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 3;
+}
+.graph-empty-glyph .ge-link {
+  stroke: rgba(143, 132, 255, 0.35);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+/* ============================================================
+   Settings panel — floating card, bottom-left, dismissible
+   ============================================================ */
+.graph-controls {
+  position: absolute;
+  left: var(--sp-4);
+  bottom: var(--sp-4);
+  z-index: 2;
+  width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  padding: var(--sp-4);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  animation: fade-in var(--t-fast) var(--ease) both;
+}
+
+.graph-control-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.graph-control-group-title {
+  font-family: var(--font-display);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.graph-control-row {
+  display: grid;
+  grid-template-columns: 96px 1fr auto;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.graph-control-row label {
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The slider and its readout are `.range-input` / `.range-value` in App.css —
+   shared with Settings → Appearance rather than restyled twice. */
+
+.graph-control-row input[type="checkbox"] {
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.graph-control-search {
+  grid-column: 1 / -1;
+  width: 100%;
+  padding: var(--sp-1) var(--sp-2);
+  font-family: var(--font-body);
+  font-size: var(--fs-sm);
+  color: var(--text-primary);
+  background: var(--bg-app);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.graph-control-search::placeholder {
+  color: var(--text-tertiary);
+}
+.graph-control-search:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* Segmented control (color mode). Spans the value + trailing columns and fills
+   the row so all three options fit without clipping. */
+.graph-seg {
+  grid-column: 2 / -1;
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  gap: 2px;
+  padding: 2px;
+  background: var(--bg-app);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.graph-seg-btn {
+  flex: 1;
+  min-width: 0;
+  padding: 3px 4px;
+  border: none;
+  border-radius: calc(var(--radius-sm) - 1px);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+}
+.graph-seg-btn:hover {
+  color: var(--text-primary);
+}
+.graph-seg-btn.is-active {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* Legend. */
+.graph-legend {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+.graph-legend-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+.graph-legend-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+.graph-legend-count {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Footer / reset. */
+.graph-control-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+.graph-control-reset {
+  padding: var(--sp-1) var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+}
+.graph-control-reset:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* ---- Opening the graph ----
+   The layout is settled BEFORE the first frame (`presettle` in GraphView.tsx),
+   so there is nothing to animate positionally — and that's the point. The graph
+   used to seed positions, kick every node with a random velocity and let you
+   watch the whole field find its shape, which reads as the view detonating and
+   reassembling rather than as something arriving. Every ⌘G replayed it.
+
+   What's left is a single settled state easing up: opacity, plus a hairline of
+   scale so it feels like it comes toward you rather than blinking on. Both are
+   compositor-only properties, so this costs nothing per frame and cannot fight
+   the render loop for the main thread. */
+/* Input is held off through the beats. Hit-testing maps a click via the canvas's
+   `getBoundingClientRect()`, which compensates the pulse's *translation* but not
+   its internal *scale* — so at the peak a click near the edge can land tens of
+   pixels off and open the wrong note. `step-end` holds `none` until the scale is
+   back to 1 at 54%, then releases. Deliberately on the WRAPPER: putting
+   pointer-events in the shared `.graph-canvas` keyframes would also override the
+   WebGL canvas's inline `pointer-events: none`, and that canvas sits on top — it
+   would swallow every interaction for the rest of the session. */
+.graph-intro {
+  animation: graph-intro-guard 0.62s step-end both;
+}
+@keyframes graph-intro-guard {
+  from {
+    pointer-events: none;
+  }
+  to {
+    pointer-events: auto;
+  }
+}
+
+/* The pulse rides the CANVASES, not the wrapper. The wrapper owns the deep-space
+   backdrop and the vignette, and scaling those would shrink the void away from
+   its own edges and pump the vignette in and out. Only the brain beats; the space
+   it sits in holds still. */
+.graph-intro .graph-canvas {
+  animation: graph-heartbeat 1.15s var(--ease) both;
+  transform-origin: 50% 46%; /* matches the backdrop's optical centre */
+  will-change: transform, opacity;
+}
+/* A real lub-dub: one strong beat, a recoil under rest, then a smaller second
+   beat before settling. A single symmetric pulse reads as a zoom bounce; it's the
+   *asymmetry* of the pair — big, dip, small — that the eye recognises as a
+   heartbeat. `glowBoost` in GraphView.tsx brightens the nodes on the same two
+   peaks, so size and light beat together. That pairing is what sells it as alive;
+   scale alone just looks like a transition. */
+@keyframes graph-heartbeat {
+  0% {
+    opacity: 0;
+    transform: scale(0.965);
+  }
+  8% {
+    opacity: 1;
+  }
+  16% {
+    transform: scale(1.045); /* lub */
+  }
+  28% {
+    transform: scale(0.992); /* recoil, just under rest */
+  }
+  40% {
+    transform: scale(1.024); /* dub */
+  }
+  54% {
+    transform: scale(1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* No pulse. A full-screen surface throbbing is exactly what this setting is
+     asking us not to do — but an instant hard cut is its own jolt, so it keeps
+     the fade. The node glow still breathes; that's light, not motion. */
+  .graph-intro .graph-canvas {
+    animation: graph-fade 0.24s var(--ease) both;
+    will-change: auto;
+  }
+}
+@keyframes graph-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Worker path only (8k+ nodes): the layout is being arranged off-thread and we
+   deliberately do not paint it mid-flight, so hide the canvases until it cools.
+   `visibility` rather than `display: none` — the canvases must keep their real
+   size, or the renderer re-measures to 0×0 and has to rebuild on reveal. */
+.graph-canvas-wrap.is-settling .graph-canvas {
+  visibility: hidden;
+}
+/* Scoped to the settling card only. The base `.graph-state-card` is a COLUMN
+   (the error card stacks a heading over its message), so overriding it globally
+   would lay that out sideways. */
+.graph-state-card.graph-settling {
+  flex-direction: row;
+  gap: var(--sp-2);
+  padding: var(--sp-4) var(--sp-6);
+}

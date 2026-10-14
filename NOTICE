@@ -1,0 +1,21 @@
+Baalda
+Copyright 2026 Baalda and the Baalda contributors
+
+This product includes software developed by the Baalda project
+and its contributors.
+
+Licensed under the Apache License, Version 2.0. See the LICENSE file
+for the full license text.
+
+"Baalda" and "Context" (as used to identify this project) are
+trademarks of the Baalda project. The Apache License does not grant
+permission to use these marks. See TRADEMARK.md for the trademark policy.
+
+--------------------------------------------------------------------------
+This software depends on third-party open-source components, each
+distributed under its own license (all permissive — MIT / Apache-2.0 /
+ISC / BSD). Their licenses continue to apply to those components. Notable
+dependencies include: Tauri, Yjs, Hocuspocus, CodeMirror, Better Auth,
+Hono, jose, diff-match-patch, React, and SQLite (via rusqlite). See the
+respective package manifests and node_modules / Cargo metadata for the
+authoritative list and license texts.

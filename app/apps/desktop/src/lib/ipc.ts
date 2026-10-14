@@ -1,0 +1,1266 @@
+// All Tauri `invoke` calls and event subscriptions live here, behind a typed
+// surface. The rest of the UI imports from this module only — it never touches
+// `@tauri-apps/api` directly. This keeps later phases (a Yjs sync layer) able to
+// swap the transport without hunting invoke() calls across components.
+
+import { invoke, Channel } from "@tauri-apps/api/core";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { openPath, openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
+import { decodeStateVectors, decodeYjsState, frame, type YjsState } from "./ipcCodec";
+import type { VaultChecks, VaultStats } from "./health/types";
+
+// The binary commands (CRDT state, attachment bytes) speak raw bytes, framed by
+// `ipcCodec.ts` — see that module for why and for the frame layouts.
+export type { YjsState } from "./ipcCodec";
+
+/** Open an external URL (markdown links) in the user's default browser. */
+export const openExternal = (url: string) => openUrl(url);
+/** Native, unprivileged viewer positioned inside the current dashboard tab. */
+export interface DashboardLinkBounds { x: number; y: number; width: number; height: number }
+export const mountDashboardLink = (url: string, bounds: DashboardLinkBounds, onLoaded: () => void): Promise<string> => {
+  const onLoad = new Channel<null>();
+  onLoad.onmessage = onLoaded;
+  return invoke("mount_dashboard_link", { url, bounds, onLoad });
+};
+export const updateDashboardLink = (label: string, bounds: DashboardLinkBounds, visible: boolean): Promise<void> => invoke("update_dashboard_link", { label, bounds, visible });
+export const unmountDashboardLink = (label: string): Promise<void> => invoke("unmount_dashboard_link", { label });
+
+/**
+ * Show a vault folder in the OS file manager (Finder / Explorer / xdg).
+ *
+ * `openPath` opens the folder itself — what "open in folder" means to a user —
+ * but it's scoped to `$HOME/**` in `capabilities/default.json`, so a vault on
+ * an external volume is rejected. `revealItemInDir` carries no scope, so it
+ * covers those: the folder is selected in its parent rather than opened, which
+ * beats a button that does nothing.
+ */
+export const openInFileManager = async (path: string): Promise<void> => {
+  try {
+    await openPath(path);
+  } catch {
+    await revealItemInDir(path);
+  }
+};
+
+/**
+ * Reveal one note or folder in the OS file manager — selected in its parent,
+ * which is what "Reveal in Finder" means everywhere else.
+ *
+ * The reverse fallback order from {@link openInFileManager}: `revealItemInDir`
+ * is the right verb here and carries no path scope, so it works for a vault on
+ * an external volume too. `openPath` is the backstop for a platform where
+ * revealing isn't wired up — opening a folder still beats a dead menu item, and
+ * for a file the OS opens it in its default app.
+ */
+export const revealInFileManager = async (path: string): Promise<void> => {
+  try {
+    await revealItemInDir(path);
+  } catch {
+    await openPath(path);
+  }
+};
+
+/** What to call "reveal in the file manager" on this platform. */
+export function revealLabel(): string {
+  const ua = typeof navigator === "undefined" ? "" : navigator.userAgent;
+  if (/Mac|iPhone|iPad/i.test(ua)) return "Reveal in Finder";
+  if (/Win/i.test(ua)) return "Show in Explorer";
+  return "Show in file manager";
+}
+
+/**
+ * What to call "open the vault's own folder" on this platform.
+ *
+ * A different verb from {@link revealLabel} on purpose, and it pairs with
+ * {@link openInFileManager}: revealing selects an item in its parent, which is
+ * right for one note but wrong for the vault — there the user wants to step
+ * inside the folder and see their notes.
+ */
+export function openVaultLabel(): string {
+  const ua = typeof navigator === "undefined" ? "" : navigator.userAgent;
+  if (/Mac|iPhone|iPad/i.test(ua)) return "Open vault in Finder";
+  if (/Win/i.test(ua)) return "Open vault in Explorer";
+  return "Open vault in file manager";
+}
+
+// ---- Types (mirror the Rust structs, serialized camelCase) ---------------
+
+export interface VaultInfo {
+  path: string;
+  name: string;
+  /**
+   * The Rust vault epoch this info belongs to (see `state::Inner::vault_epoch`).
+   * Rust holds ONE global vault slot, so a vault-relative command resolves
+   * against whatever vault is open when it *lands*. Every open bumps the epoch;
+   * a caller pins the epoch it started under (see `VaultScope.vaultEpoch`) and
+   * Rust rejects the call with `vault-mismatch: …` rather than writing vault A's
+   * data into vault B. Meaningful only for infos returned by an *open*;
+   * `getLastVault` reports the epoch that was current before it opened anything.
+   */
+  epoch: number;
+  /**
+   * Per-phase timings of the open that produced this info (Rust `OpenTiming`),
+   * absent on the infos that open nothing (`getLastVault`). Rust logs one line
+   * per open too, but only debug builds carry the log plugin — this is how a
+   * shipped install can report where an open went.
+   */
+  timing?: OpenTiming;
+}
+
+/** How long each phase of one `open_vault` took, in whole ms. */
+export interface OpenTiming {
+  /** Opening + migrating `.context/index.sqlite`. */
+  indexOpenMs: number;
+  /** Starting the recursive filesystem watcher. */
+  watcherMs: number;
+  /** Handing the index to the background rebuild and publishing it. */
+  publishMs: number;
+  /** Reading + rewriting the app config's recents list. */
+  configMs: number;
+  totalMs: number;
+}
+
+/**
+ * The epoch to pin a vault-relative command to, or `null` for "don't enforce"
+ * (UI reads and user-driven edits keep the legacy whatever-is-open behaviour).
+ */
+export type VaultEpoch = number | null | undefined;
+
+/** True if `err` is Rust refusing a call because the vault changed underneath it. */
+export function isVaultMismatch(err: unknown): boolean {
+  return typeof err === "string"
+    ? err.startsWith("vault-mismatch")
+    : err instanceof Error && err.message.startsWith("vault-mismatch");
+}
+
+export interface TreeNode {
+  id: string;
+  name: string;
+  path: string;
+  isDir: boolean;
+  children?: TreeNode[];
+  /** Directories only: is `children` the real listing, or the lazy placeholder?
+   *  `children: []` alone is ambiguous — a folder with no notes and a folder
+   *  nobody has expanded look identical — which is why an unexpanded folder used
+   *  to be labelled "empty" in the sidebar. Absent ⇒ treat as not loaded. */
+  childrenLoaded?: boolean;
+  /** Last-modified time in epoch millis (0 when the OS wouldn't say). Drives the
+   *  sidebar's "Recently modified" sort. Absent on nodes synthesized client-side
+   *  before a refresh lands. */
+  modified?: number;
+}
+
+export interface SearchResult {
+  id: string;
+  path: string;
+  title: string;
+  snippet: string;
+  /** `"note"` — `id` is the CRDT doc_id — or `"file"`, where it is the local
+   *  `files.id` of a tree binary and the path is what opens it. */
+  kind: "note" | "file";
+  /** Lowercase extension, no dot. Badged on file hits. */
+  ext: string | null;
+}
+
+/** The extracted plain text of one tree binary (`get_file_text`). A DERIVED
+ *  cache — never the file itself — which is what makes it safe to upload as
+ *  ranking fuel rather than content. */
+export interface FileText {
+  path: string;
+  /** sha256 of the FILE; empty until the extraction worker has hashed it. */
+  sha256: string;
+  /** pending | ok | skipped_size | unsupported | error (Rust `TextStatus`). */
+  status: string;
+  chars: number;
+  text: string;
+}
+
+/** One tier-2 `files` row (mirrors the Rust `FileRow`). `id` is the identity a
+ *  tree binary is registered under on the server — stable per path across
+ *  index rebuilds, which is what makes it safe to supply. */
+export interface FileRow {
+  id: string;
+  path: string;
+  ext: string | null;
+  kind: string | null;
+  size: number;
+  /** pending | ok | skipped_size | unsupported | error (Rust `TextStatus`). */
+  textStatus: string;
+}
+
+export interface Backlink {
+  id: string;
+  path: string;
+  title: string;
+  linkText: string;
+}
+
+export interface NoteMeta {
+  id: string;
+  path: string;
+  title: string;
+  mtime: number;
+  sha256: string;
+  frontmatter: string | null;
+  tags: string[];
+}
+
+export interface NoteTitle {
+  id: string;
+  path: string;
+  title: string;
+}
+
+export interface ResolvedLink {
+  id: string;
+  path: string;
+}
+
+export interface FileChanged {
+  path: string;
+  kind: "modified" | "removed" | "tree";
+  /**
+   * The bytes on disk did NOT change: the indexer read the file and its sha256
+   * equalled the one the SQLite index already held for this same path (#155).
+   *
+   * Only ever set on `modified` — `removed` and `tree` always report `false`.
+   * Optional so an older Rust build (whose payload has no such field) still
+   * decodes; a missing value means `false`, i.e. "assume the bytes moved".
+   *
+   * Sources: our own egest echo, a materialized placeholder echoing back, a
+   * `git checkout` / cloud-sync / backup tool rewriting identical bytes, and the
+   * spurious inotify read events that made an idle Linux vault re-index itself.
+   * Rust never drops these entries — the bookkeeping they carry (a materialized
+   * echo to consume, a pending disk delete to cancel) is real; what they must
+   * not do is re-index, re-render or re-upload anything.
+   */
+  unchanged?: boolean;
+  /**
+   * The path is no longer on disk (or is now a link, which sync treats as
+   * absent). Always true for `removed`; on `tree` it tells a folder that went
+   * away from one that appeared or changed — the two halves of a folder moved
+   * outside the app (#221). The vault ROOT vanishing is reported as
+   * `{ path: "", kind: "tree", gone: true }`. Optional for older Rust builds.
+   */
+  gone?: boolean;
+}
+
+/** One attachment file's metadata (mirrors the Rust `AttachmentMeta`). */
+export interface AttachmentMeta {
+  relPath: string;
+  size: number;
+  sha256: string;
+}
+
+/** Half-open byte range `[start, end)` — one multipart part of a file. */
+export interface ByteRange {
+  start: number;
+  end: number;
+}
+
+/** What a streamed upload PUT answered (mirrors the Rust `UploadOutcome`). */
+export interface AttachmentUploadResult {
+  status: number;
+  /** S3's part receipt, replayed back at `complete`. Null on our own route. */
+  etag: string | null;
+  /** A truncated response body, present only when the status was not 2xx. */
+  error: string | null;
+}
+
+/** What a streamed download wrote (mirrors the Rust `DownloadOutcome`). */
+export interface AttachmentDownloadResult {
+  status: number;
+  bytes: number;
+  /** sha256 of what landed — already checked against `expectedSha256`. */
+  sha256: string;
+}
+
+/** One file's size + mtime (mirrors the Rust `FileStat`). */
+export interface FileStat {
+  size: number;
+  /** Milliseconds since the Unix epoch, or null when the OS won't say. */
+  modified: number | null;
+  /** Creation (birth) time, ms since the Unix epoch; null/absent where the
+   *  platform doesn't record one (fall back to `modified`). */
+  created?: number | null;
+}
+
+/** Outcome of an import (mirrors the Rust `ImportSummary`). */
+export interface ImportSummary {
+  /** Vault-relative paths of the created top-level items. */
+  imported: string[];
+  /** Total files copied (including nested + attachments). */
+  files: number;
+  /** Files/dirs skipped (ignored names, unreadable sources, …). */
+  skipped: number;
+}
+
+// ---- Clipboard ------------------------------------------------------------
+
+/** Write-only native clipboard; Rust performs the write on the main thread. */
+export const clipboardWrite = (text: string, html?: string) =>
+  invoke<void>("clipboard_write", { text, html: html ?? null });
+
+// ---- Vault ----------------------------------------------------------------
+
+export const pickVault = () => invoke<VaultInfo | null>("pick_vault");
+export const openVault = (path: string) => invoke<VaultInfo>("open_vault", { path });
+export const getLastVault = () => invoke<VaultInfo | null>("get_last_vault");
+/** Forget the launch auto-reopen target so a reload/relaunch lands on the
+ *  welcome screen (recents keep listing the vault; the next open re-arms it). */
+export const clearLastVault = () => invoke<void>("clear_last_vault");
+
+/** A recently opened vault (newest first); `openedAt` is epoch-ms (0 if unknown). */
+export interface RecentVault {
+  path: string;
+  name: string;
+  openedAt: number;
+}
+/** Recently opened vaults, newest first, pruned to those that still exist. */
+export const getRecentVaults = () => invoke<RecentVault[]>("get_recent_vaults");
+/** Forget one vault from the recents list (files on disk are kept). */
+export const removeRecentVault = (path: string) =>
+  invoke<void>("remove_recent_vault", { path });
+/** Move a local vault's folder (and all its notes) to the OS trash, then forget
+ *  it from recents. Destructive — the on-disk files are the only copy. */
+export const deleteVault = (path: string) =>
+  invoke<void>("delete_vault", { path });
+/**
+ * Membership ended: PERMANENTLY delete a vault folder stamped with
+ * `organizationId` (no Trash, no recovery copy). Rust refuses links, roots,
+ * the home and vaults folders, and any folder whose stamp names another vault.
+ */
+export const deleteDepartedVault = (path: string, organizationId: string) =>
+  invoke<void>("delete_departed_vault", { path, organizationId });
+/**
+ * Reset local copy (#228): PERMANENTLY delete the open vault's folder on this
+ * device (never the Trash) after stopping its watcher. Rust refuses anything
+ * but the open vault root itself — no symlink, no home, no vaults-root or its
+ * ancestor, and it must hold a `.context`. The caller then recreates the folder
+ * and syncs it down from the server.
+ */
+export const resetVaultLocalCopy = (path: string, expectedEpoch?: VaultEpoch) =>
+  invoke<void>("reset_vault_local_copy", { path, expectedEpoch: expectedEpoch ?? null });
+/** Create a new empty vault folder `<parent>/<name>` and open it. */
+export const createVault = (parent: string, name: string) =>
+  invoke<VaultInfo>("create_vault", { parent, name });
+
+/** True if a folder already looks like a vault (has `.context/` or `.md` notes). */
+export const isVault = (path: string) => invoke<boolean>("is_vault", { path });
+
+// ---- Vaults root + `current` pointer (per-vault folders) -------------------
+// The app manages one root dir under which each vault gets a subfolder, and the
+// active vault's folder is mirrored to `<root>/current` for external tools.
+
+/** Effective managed vaults root (auto-initialized to ~/Baalda on first call). */
+export const getVaultsRoot = () => invoke<string>("get_vaults_root");
+/** Sets the root to `<path>/Baalda Vaults` (or `path` when already so named); returns it. */
+export const setVaultsRoot = (path: string) =>
+  invoke<string>("set_vaults_root", { path });
+/** Native folder picker for the managed vaults root. A "Baalda Vaults" folder
+ *  is nested under the pick unless it is one already; persists + returns that. */
+export const pickVaultsRoot = () => invoke<string | null>("pick_vaults_root");
+/** Put the vaults root back to Documents/Baalda Vaults (created first); returns it. */
+export const resetVaultsRoot = () => invoke<string>("reset_vaults_root");
+/** Native folder picker that only returns the path (does not open it). */
+export const pickFolder = () => invoke<string | null>("pick_folder");
+/** Native multi-file picker; returns chosen absolute paths (null if cancelled). */
+export const pickFiles = () => invoke<string[] | null>("pick_files");
+/** Native save-file dialog; returns the chosen absolute path (null if cancelled). */
+export const saveFile = (defaultName: string) =>
+  invoke<string | null>("save_file", { defaultName });
+/** Open `path` as the active vault and repoint `<root>/current` to it.
+ *  Pass `create: true` ONLY when deliberately minting a new folder (auto-folder
+ *  on switch, "start empty") — reopening a remembered binding must not mkdir,
+ *  or a folder the user moved in Finder gets silently resurrected empty and the
+ *  registry materializes a duplicate copy of the vault into it. */
+export const openVaultInRoot = (path: string, opts?: { create?: boolean }) =>
+  invoke<VaultInfo>("open_vault_in_root", { path, create: opts?.create ?? false });
+/** Does this absolute path exist as a directory? */
+export const folderExists = (path: string) =>
+  invoke<boolean>("folder_exists", { path });
+/** Which vault a folder on disk belongs to, per its own `.context/config.json`.
+ *  Both fields can be null: a folder written before the `organizationId` stamp
+ *  existed carries only the collection id. */
+export interface VaultStamp {
+  organizationId: string | null;
+  serverVaultId: string | null;
+}
+/** The identity fields of an arbitrary folder's `.context/config.json`, WITHOUT
+ *  opening it — null when the folder isn't a vault (or its config is
+ *  unreadable/malformed). Rediscovery + launch probe; parsed in Rust precisely
+ *  so the doc-id map next to those fields (megabytes on a big vault) never
+ *  crosses the IPC boundary. See `getVaultConfig` for the full-file read, which
+ *  only the registry does, once per boot. */
+export const peekVaultStamp = (path: string) =>
+  invoke<VaultStamp | null>("peek_vault_stamp", { path });
+/** Immediate subdirectories of the managed vaults root (absolute paths). */
+export const listVaultsRootDirs = () =>
+  invoke<string[]>("list_vaults_root_dirs");
+
+// ---- Tree + files ---------------------------------------------------------
+
+// The `expectedEpoch` argument on the commands below is the vault-isolation
+// guard: pass the epoch your VaultScope was opened under and Rust refuses the
+// call once a different vault is open. Omit it (or pass null) for unscoped UI
+// work. Reads take it too when their result is used to write (`listTree` and
+// `listNoteTitles` feed the registry's server-side structure sync).
+export const listTree = (expectedEpoch?: VaultEpoch) =>
+  invoke<TreeNode>("list_tree", { expectedEpoch: expectedEpoch ?? null });
+/** Lazy sidebar loading: immediate children of one dir ("" = root). */
+export const listChildren = (path: string, expectedEpoch?: VaultEpoch) =>
+  invoke<TreeNode[]>("list_children", { path, expectedEpoch: expectedEpoch ?? null });
+export const readNote = (path: string, expectedEpoch?: VaultEpoch) =>
+  invoke<string>("read_note", { path, expectedEpoch: expectedEpoch ?? null });
+/**
+ * Is this note file on disk RIGHT NOW? A disk question, not an index one.
+ *
+ * The sync layer re-asks it before propagating a disk-observed delete: the
+ * watcher's report is a couple of seconds old by then, and an editor's
+ * unlink-then-rewrite save (or a re-created file) puts the note back inside that
+ * window.
+ */
+export const noteExists = (path: string, expectedEpoch?: VaultEpoch) =>
+  invoke<boolean>("note_exists", { path, expectedEpoch: expectedEpoch ?? null });
+/**
+ * Is the open vault's root folder still a folder (#221)? A root renamed, moved
+ * or unmounted while the app is open leaves the watcher on a dead path; the sync
+ * layer asks this before every structural pass and on every watcher batch.
+ */
+export type VaultRootState = "dir" | "missing" | "not-dir";
+export const vaultRootState = (expectedEpoch?: VaultEpoch) =>
+  invoke<VaultRootState>("vault_root_state", { expectedEpoch: expectedEpoch ?? null });
+/**
+ * Save local text that could not be synced into `.context/trash/<stamp>/<rel>`
+ * and return the trash-relative destination.
+ */
+export const writeTrashCopy = (
+  path: string,
+  stamp: string,
+  content: string,
+  expectedEpoch?: VaultEpoch,
+) =>
+  invoke<string>("write_trash_copy", {
+    path,
+    stamp,
+    content,
+    expectedEpoch: expectedEpoch ?? null,
+  });
+/**
+ * Put `docId` back on the index row at `path` after a rename done OUTSIDE the
+ * app. Resolves false when no row is there, or the id belongs to another path.
+ *
+ * An external rename reaches us as an unpaired removed+modified pair, and the
+ * watcher indexes the new file under a fresh uuid. Without this the same file
+ * carries one doc_id in the registry map and another in the index.
+ */
+export const rebindNoteId = (path: string, docId: string, expectedEpoch?: VaultEpoch) =>
+  invoke<boolean>("rebind_note_id", { path, docId, expectedEpoch: expectedEpoch ?? null });
+/** Atomic write + re-index. `docId` (the bridge's egest) also records the
+ *  written bytes as that doc's disk base in the same Rust call (#200). */
+/** What `write_note` did. `stale` = the compare-and-swap refused: the file no
+ *  longer hashes to `expectedSha`, so nothing was written (#216). */
+export type WriteNoteResult = "written" | "stale";
+/** Atomic note write. With `expectedSha` (sha256 hex of the file the caller
+ *  last observed; the empty-string hash for "no file") Rust refuses to replace a
+ *  file that moved on since and answers `"stale"` instead of writing. Refuses a
+ *  symbolic link at or above the path (error containing "symbolic link"). */
+export const writeNote = (
+  path: string,
+  content: string,
+  expectedEpoch?: VaultEpoch,
+  docId?: string,
+  expectedSha?: string | null,
+) =>
+  invoke<WriteNoteResult>("write_note", {
+    path,
+    content,
+    expectedEpoch: expectedEpoch ?? null,
+    docId: docId ?? null,
+    expectedSha: expectedSha ?? null,
+  });
+/** The sha256 of the bytes this device last synced between a doc's file and
+ *  its CRDT, or null when none was ever recorded (see `yjs_disk_base`). */
+export const getDiskBase = (docId: string, expectedEpoch?: VaultEpoch) =>
+  invoke<string | null>("get_disk_base", { docId, expectedEpoch: expectedEpoch ?? null });
+export const setDiskBase = (docId: string, sha256: string, expectedEpoch?: VaultEpoch) =>
+  invoke<void>("set_disk_base", { docId, sha256, expectedEpoch: expectedEpoch ?? null });
+/** Mapped notes whose indexed file hash differs from their recorded disk base
+ *  (#284): edits made on disk while nothing ingested them. Notes with no base
+ *  or no indexed hash are left out. */
+export const listDiskDrift = (
+  entries: Array<{ docId: string; path: string }>,
+  expectedEpoch?: VaultEpoch,
+) =>
+  invoke<Array<{ docId: string; path: string; sha256: string }>>("list_disk_drift", {
+    entries,
+    expectedEpoch: expectedEpoch ?? null,
+  });
+/** Create a note only if the path is free. Resolves true when it was created,
+ *  false when a file was already there (untouched). The registry materializes
+ *  server-only notes through THIS, never `writeNote`, so a wrong "this device
+ *  doesn't have it" decision can't empty a real note. */
+export const writeNoteIfMissing = (
+  path: string,
+  content: string,
+  expectedEpoch?: VaultEpoch,
+) =>
+  invoke<boolean>("write_note_if_missing", {
+    path,
+    content,
+    expectedEpoch: expectedEpoch ?? null,
+  });
+export const createNote = (parent: string, name: string, expectedEpoch?: VaultEpoch) =>
+  invoke<string>("create_note", { parent, name, expectedEpoch: expectedEpoch ?? null });
+export const createFolder = (parent: string, name: string, expectedEpoch?: VaultEpoch) =>
+  invoke<string>("create_folder", { parent, name, expectedEpoch: expectedEpoch ?? null });
+// Pass `expectedEpoch` whenever the call sits behind an await — a multi-select
+// loop or a native dialog. A rename/delete that lands after a vault switch would
+// otherwise move or destroy the same relative path in the vault the user just
+// opened.
+export const renamePath = (from: string, to: string, expectedEpoch?: VaultEpoch) =>
+  invoke<string>("rename_path", { from, to, expectedEpoch: expectedEpoch ?? null });
+/** Idempotent folder create — safe to call on every reconcile. Resolves true
+ *  when THIS call created the directory (the watcher will echo it), false when
+ *  it already existed — including under another spelling on a case-insensitive
+ *  filesystem. */
+export const ensureFolder = (path: string, expectedEpoch?: VaultEpoch) =>
+  invoke<boolean>("ensure_folder", { path, expectedEpoch: expectedEpoch ?? null });
+/**
+ * COPY a binary into `.context/trash/<stamp>/…` (the source stays) and return
+ * the destination — the blob mirror's recovery copy before a server version
+ * replaces a local one.
+ */
+export const copyToTrash = (path: string, stamp: string, expectedEpoch?: VaultEpoch) =>
+  invoke<string>("copy_to_trash", { path, stamp, expectedEpoch: expectedEpoch ?? null });
+/**
+ * Move a file into `.context/trash/<stamp>/…` and return the destination.
+ * Kept for compatibility with legacy recovery flows; confirmed sync deletions
+ * now use {@link deleteFile}.
+ */
+export const trashNote = (path: string, stamp: string, expectedEpoch?: VaultEpoch) =>
+  invoke<string>("trash_note", { path, stamp, expectedEpoch: expectedEpoch ?? null });
+export const deletePath = (path: string, expectedEpoch?: VaultEpoch) =>
+  invoke<void>("delete_path", { path, expectedEpoch: expectedEpoch ?? null });
+
+/**
+ * Delete a single FILE, refusing a directory.
+ *
+ * Used by the inbound reconciler for confirmed deleted and revoked files.
+ * `deletePath` above is recursive for
+ * a directory, deliberately, because the sidebar's Delete means it; nothing
+ * driven by the server may reach that. See `notefile.rs delete_file`.
+ */
+export const deleteFile = (path: string, expectedEpoch?: VaultEpoch) =>
+  invoke<void>("delete_file", { path, expectedEpoch: expectedEpoch ?? null });
+/** Bounded, file-only inbound cleanup; docId also clears revoked CRDT state. */
+export const deleteFilesBatch = (
+  items: Array<{ path: string; docId: string | null }>,
+  expectedEpoch?: VaultEpoch,
+) => invoke<Array<{ path: string; error: string | null }>>("delete_files_batch", {
+  items,
+  expectedEpoch: expectedEpoch ?? null,
+});
+
+/**
+ * Remove a folder the server has deleted — only if it is empty by now. Resolves
+ * true only when THIS call removed it (the watcher will echo that); false when
+ * it was already gone, or when anything still lives inside, in which case the
+ * folder stays, deliberately.
+ */
+export const deleteFolderIfEmpty = (path: string, expectedEpoch?: VaultEpoch) =>
+  invoke<boolean>("delete_folder_if_empty", { path, expectedEpoch: expectedEpoch ?? null });
+
+/** Import external files/folders (absolute host paths) into `dest` (vault-relative). */
+export const importPaths = (dest: string, sources: string[], expectedEpoch?: VaultEpoch) =>
+  invoke<ImportSummary>("import_paths", {
+    dest,
+    sources,
+    expectedEpoch: expectedEpoch ?? null,
+  });
+/** Export a note, folder subtree, or the whole vault (`rel === ""`) to `dest`. */
+export const exportPath = (rel: string, dest: string, expectedEpoch?: VaultEpoch) =>
+  invoke<void>("export_path", { rel, dest, expectedEpoch: expectedEpoch ?? null });
+
+// ---- Queries --------------------------------------------------------------
+
+export const searchNotes = (query: string) =>
+  invoke<SearchResult[]>("search_notes", { query });
+/** The extracted text of a tree binary, or null when it has no `files` row
+ *  (a note, an attachment, or something the walk ignores). */
+export const getFileText = (path: string) =>
+  invoke<FileText | null>("get_file_text", { path });
+/** Every `files` row (id + path + text status) — the sync layer's source of
+ *  stable ids for registering tree binaries. One call for the whole walk. */
+export const listFileRows = () => invoke<FileRow[]>("list_file_rows");
+export const getBacklinks = (noteId: string) =>
+  invoke<Backlink[]>("get_backlinks", { noteId });
+/** Every resolved graph edge (source id -> target id) in one call — backs the
+ *  Graph view instead of one getBacklinks per note. */
+export const getGraphEdges = () =>
+  invoke<{ source: string; target: string }[]>("graph_edges");
+/** Only the edges touching `noteIds` — the Graph view's per-change delta (#83). */
+export const getGraphEdgesFor = (noteIds: string[]) =>
+  invoke<{ source: string; target: string }[]>("graph_edges_for", { noteIds });
+export const getNoteMeta = (path: string) =>
+  invoke<NoteMeta | null>("get_note_meta", { path });
+export const resolveWikilink = (name: string) =>
+  invoke<ResolvedLink | null>("resolve_wikilink", { name });
+export const listNoteTitles = (expectedEpoch?: VaultEpoch) =>
+  invoke<NoteTitle[]>("list_note_titles", { expectedEpoch: expectedEpoch ?? null });
+
+// ---- CRDT persistence (Phase 1, spec 02 §4) ------------------------------
+// Bytes cross the bridge as bytes in BOTH directions: reads come back framed
+// and are decoded by `ipcCodec.ts`, writes send `ipcCodec.frame(meta, …bytes)`
+// as the whole `invoke` payload. Every wrapper signature is unchanged, so no
+// caller (or test mock) had to move.
+
+/**
+ * Append one Yjs update to a doc's log. Resolves with the row's
+ * `yjs_updates.id` — the COMPACTION WATERMARK.
+ *
+ * The caller tracks the highest id it has seen and hands it back as
+ * {@link saveYjsSnapshot}'s `upTo`. Without it, `compact()` encoded a snapshot,
+ * awaited this IPC's siblings, and then truncated the WHOLE log — including the
+ * keystroke-sized appends that committed while it was awaiting and that the
+ * snapshot therefore does not contain. The surviving later updates then
+ * referenced a missing item, Yjs parked them as pending forever, and the doc
+ * loaded short (desktop-audit #4).
+ */
+export const appendYjsUpdate = (
+  docId: string,
+  update: Uint8Array,
+  expectedEpoch?: VaultEpoch,
+): Promise<number> =>
+  invoke<number>(
+    "append_yjs_update",
+    frame({ docId, expectedEpoch: expectedEpoch ?? null }, update),
+  );
+
+/**
+ * Bytes of `encode_yjs_state`'s TRAILER: `[u8 hasLastId][i64 lastUpdateId]`,
+ * little-endian, at the very end of the frame.
+ *
+ * It rides at the end so every byte `decodeYjsState` reads stays at the offset
+ * it was at — a header would have forced a `buf.slice()` copy of the whole
+ * frame (17.7 MB on the largest doc measured) just to re-align the payload,
+ * which is the cost this binary format exists to avoid. `decodeYjsState` stops
+ * after `updateCount` updates and never looks further, so it is unaffected.
+ */
+const YJS_STATE_TRAILER_BYTES = 9;
+
+/**
+ * Read the compaction watermark off the end of a `load_yjs_state` frame: the
+ * `yjs_updates.id` of the LAST update in it, or `undefined` when the log was
+ * empty.
+ *
+ * `undefined` and `0` are different answers — 0 is a legal rowid — so the flag
+ * byte is what decides, never the value.
+ */
+function readLastUpdateId(buf: ArrayBuffer): number | undefined {
+  if (buf.byteLength < YJS_STATE_TRAILER_BYTES) return undefined;
+  const view = new DataView(buf, buf.byteLength - YJS_STATE_TRAILER_BYTES);
+  if (view.getUint8(0) !== 1) return undefined;
+  return Number(view.getBigInt64(1, true));
+}
+
+/**
+ * A doc's persisted CRDT state, plus the watermark a load-time compaction needs.
+ *
+ * `lastUpdateId` is the row id of the last update in `updates`. A bridge that
+ * hydrates and immediately compacts (the log outlived a relaunch, so
+ * `shouldCompact` fires right after `hydrate`) has appended nothing itself and
+ * would otherwise know no watermark — it would pass none, truncate nothing, and
+ * the log would never shrink again. Rust reads the id from the last row it
+ * actually returned, in the same statement, so it can never name a row that is
+ * not in `updates` and therefore not in the snapshot about to be written.
+ */
+export const loadYjsState = (
+  docId: string,
+  expectedEpoch?: VaultEpoch,
+): Promise<YjsState & { lastUpdateId?: number }> =>
+  invoke<ArrayBuffer>("load_yjs_state", {
+    docId,
+    expectedEpoch: expectedEpoch ?? null,
+  }).then((buf) => ({
+    ...decodeYjsState(buf),
+    lastUpdateId: readLastUpdateId(buf),
+  }));
+
+/**
+ * Write a doc's merged snapshot + state vector, truncating its update log up to
+ * `upTo`.
+ *
+ * `upTo` is the last `yjs_updates.id` this snapshot folds in — the highest id
+ * {@link appendYjsUpdate} returned BEFORE the snapshot was encoded. OMITTING it
+ * deletes nothing and writes the snapshot only, which is the safe default: a
+ * caller that cannot say what its snapshot covers must not be allowed to say
+ * "all of it".
+ */
+export const saveYjsSnapshot = (
+  docId: string,
+  snapshot: Uint8Array,
+  stateVector: Uint8Array,
+  expectedEpoch?: VaultEpoch,
+  upTo?: number,
+): Promise<void> =>
+  invoke<void>(
+    "save_yjs_snapshot",
+    frame(
+      {
+        docId,
+        expectedEpoch: expectedEpoch ?? null,
+        // Where Rust splits the payload back into its two halves.
+        snapshotLen: snapshot.byteLength,
+        upTo: upTo ?? null,
+      },
+      snapshot,
+      stateVector,
+    ),
+  );
+
+/**
+ * Persist a batch of per-doc Yjs state vectors — the DURABLE form of the vault
+ * sync engine's `hello` manifest.
+ *
+ * Without this the manifest came from an in-memory cache, so it was empty on
+ * every launch and the server re-sent the FULL state of every readable doc,
+ * forever. Batched (one IPC call + one SQLite transaction) because the vault-wide
+ * feed touches many docs at once.
+ */
+export const saveYjsStateVectors = (
+  entries: Array<[docId: string, stateVector: Uint8Array]>,
+  expectedEpoch?: VaultEpoch,
+) =>
+  invoke<void>(
+    "save_yjs_state_vectors",
+    frame(
+      {
+        expectedEpoch: expectedEpoch ?? null,
+        // Lengths only; the vectors themselves follow in this order.
+        entries: entries.map(([docId, sv]) => [docId, sv.byteLength]),
+      },
+      ...entries.map(([, sv]) => sv),
+    ),
+  );
+
+/** Every state vector this vault holds, to rebuild the manifest on launch. */
+/** Discard one doc's local CRDT — the local half of an oversized-note repair.
+ *  Pair with `api.resetNoteHistory`, never on its own. */
+export const clearYjsDoc = (docId: string, expectedEpoch?: VaultEpoch) =>
+  invoke<void>("clear_yjs_doc", { docId, expectedEpoch: expectedEpoch ?? null });
+
+/** What one CRDT garbage-collection pass removed (Rust `YjsPruneReport`). */
+export interface YjsPruneReport {
+  docsRemoved: number;
+  updatesRemoved: number;
+  /** Bytes the SQLite FILE gave back after the vacuum. */
+  bytesReclaimed: number;
+}
+
+/**
+ * Drop the CRDT of every doc not in `live`, then vacuum the index.
+ *
+ * `live` must be the COMPLETE set of doc ids still in use — Rust refuses an
+ * empty one rather than wiping the vault. The caller owns this list because the
+ * registry map (`.context/config.json`) is TS-side state; see `collectCrdtGarbage`.
+ */
+export const pruneYjsDocs = (live: string[], expectedEpoch?: VaultEpoch) =>
+  invoke<YjsPruneReport>("prune_yjs_docs", {
+    live,
+    expectedEpoch: expectedEpoch ?? null,
+  });
+
+export const listYjsStateVectors = (expectedEpoch?: VaultEpoch) =>
+  invoke<ArrayBuffer>("list_yjs_state_vectors", {
+    expectedEpoch: expectedEpoch ?? null,
+  }).then(decodeStateVectors);
+
+// ---- Bulk sync: bootstrap pages + batched materialize ---------------------
+// The batch replacements for the per-note IPC storm of a cold join. Both are
+// epoch-pinned, both are idempotent, and neither can write over content.
+
+/** One doc of a bootstrap page: its markdown plus its CRDT. */
+export interface BootstrapEntry {
+  /** The SERVER's doc id — the identity every layer keys by. */
+  docId: string;
+  relPath: string;
+  /** The markdown the server's Y.Doc serializes to. */
+  content: string;
+  /** That doc's merged Yjs update, stored verbatim as its snapshot. */
+  snapshot: Uint8Array;
+  stateVector: Uint8Array;
+}
+
+/**
+ * What the batch did with one doc.
+ *
+ * | local CRDT rows | local file | status |
+ * |---|---|---|
+ * | none | missing or 0 bytes | `written` — file + snapshot + state vector |
+ * | none | non-empty, sha256 == content | `unchanged` — STILL writes the CRDT rows |
+ * | none | non-empty, differs | `conflict` — writes nothing; route it to a `DocSync` |
+ * | any | any | `rejected` — cold-apply through `VaultDocStore`, which MERGES |
+ *
+ * `written` and `unchanged` both mean the rows are stored, so both may
+ * `markPushed`. `rejected` also covers a refused path and a per-doc failure,
+ * and always carries a `reason`.
+ */
+export type BootstrapStatus = "written" | "unchanged" | "conflict" | "rejected";
+
+export interface BootstrapOutcome {
+  docId: string;
+  status: BootstrapStatus;
+  reason: string | null;
+}
+
+/**
+ * Apply one bootstrap page — N docs' markdown + CRDT in ONE IPC and ONE SQLite
+ * transaction.
+ *
+ * Rust decides each doc's fate from the FILE and the local CRDT tables, never
+ * from this list, so a wrong list costs nothing: the worst it can do is refuse
+ * work. Applying the same page twice is safe — every doc then has CRDT rows and
+ * comes back `rejected`, having written nothing.
+ *
+ * The payload is every entry's `content || snapshot || stateVector`
+ * concatenated in `entries` order; the meta carries only the lengths, exactly
+ * like {@link saveYjsStateVectors}.
+ */
+export const applyBootstrapBatch = (
+  entries: BootstrapEntry[],
+  expectedEpoch?: VaultEpoch,
+): Promise<BootstrapOutcome[]> => {
+  const encoder = new TextEncoder();
+  const bodies = entries.map((e) => encoder.encode(e.content));
+  return invoke<BootstrapOutcome[]>(
+    "apply_bootstrap_batch",
+    frame(
+      {
+        expectedEpoch: expectedEpoch ?? null,
+        // Lengths only; the three parts of each entry follow in this order.
+        entries: entries.map((e, i) => ({
+          docId: e.docId,
+          relPath: e.relPath,
+          contentLen: bodies[i].byteLength,
+          snapshotLen: e.snapshot.byteLength,
+          stateVectorLen: e.stateVector.byteLength,
+        })),
+      },
+      ...entries.flatMap((e, i) => [bodies[i], e.snapshot, e.stateVector]),
+    ),
+  );
+};
+
+/** One server-only note to materialize as a local placeholder. */
+export interface MaterializeItem {
+  relPath: string;
+  /** The server's doc id. `null` leaves the index row on the id it has. */
+  docId: string | null;
+}
+
+export interface MaterializeOutcome {
+  relPath: string;
+  /** The file was missing and was created EMPTY. */
+  created: boolean;
+  /** The index row at this path now carries the server's `docId`. */
+  rebound: boolean;
+  /** Why the placeholder could not be written (e.g. a symbolic link, #216). */
+  error?: string | null;
+}
+
+/**
+ * Materialize N server-only notes as create-only placeholders, then index and
+ * re-key them in ONE transaction with ONE link pass.
+ *
+ * The batch form of the registry's join loop, which was 2–3 IPC round trips per
+ * note — each `rebindNoteId` carrying a whole-`links` scan. Every write is
+ * `write_note_if_missing`: create-only, never an overwrite, which is why the
+ * 428-note incident cost nothing.
+ */
+export const materializeNotesBatch = (
+  items: MaterializeItem[],
+  expectedEpoch?: VaultEpoch,
+): Promise<MaterializeOutcome[]> =>
+  invoke<MaterializeOutcome[]>("materialize_notes_batch", {
+    items,
+    expectedEpoch: expectedEpoch ?? null,
+  });
+
+// ---- Attachment binary I/O (Phase 3 blob store, spec 02 §2) ---------------
+// Reads answer with raw bytes, like the CRDT reads above — the whole response
+// body IS the file, so there is no frame. All paths are validated inside the
+// vault by Rust.
+
+export const readBinaryFile = (relPath: string, expectedEpoch?: VaultEpoch) =>
+  invoke<ArrayBuffer>("read_binary_file", {
+    relPath,
+    expectedEpoch: expectedEpoch ?? null,
+  }).then((b) => new Uint8Array(b));
+
+/**
+ * Size + mtime of a vault file, without reading it.
+ *
+ * Epoch-pinned like every other vault-scoped read: the file card asks about a
+ * path, and a stat that crossed a vault switch would describe another vault's
+ * disk. Read scope is the whole vault (not just `attachments/`) — the same
+ * asymmetry as {@link readBinaryFile}, because tree files get a card too.
+ */
+export const fileStat = (relPath: string, expectedEpoch?: VaultEpoch) =>
+  invoke<FileStat>("file_stat", { relPath, expectedEpoch: expectedEpoch ?? null });
+
+/** Is there a file at this path? `false` only for a definite not-found; any
+ *  other failure rejects (see `attachments.rs binary_exists`). */
+export const binaryExists = (relPath: string, expectedEpoch?: VaultEpoch) =>
+  invoke<boolean>("binary_exists", { relPath, expectedEpoch: expectedEpoch ?? null });
+
+export const writeBinaryFile = (
+  relPath: string,
+  bytes: Uint8Array,
+  expectedEpoch?: VaultEpoch,
+) =>
+  invoke<void>(
+    "write_binary_file",
+    frame({ relPath, expectedEpoch: expectedEpoch ?? null }, bytes),
+  );
+
+/**
+ * Materialize a binary that lives in the TREE (not under `attachments/`) — a
+ * file a teammate dropped into a folder, arriving here as a blob.
+ *
+ * A separate command because it is a separate WRITE GUARD: `writeBinaryFile`
+ * still refuses everything outside `attachments/`, and this one accepts exactly
+ * the set the binary walk produces — a surfaced, non-note extension outside
+ * `.context/`, `.git`, dotfiles and the denied dirs. A server-supplied path can
+ * therefore name a file the user could have dropped there themselves, and
+ * nothing else; notes are refused as firmly as `.context/` is.
+ */
+export const writeTreeBinary = (
+  relPath: string,
+  bytes: Uint8Array,
+  expectedEpoch?: VaultEpoch,
+) =>
+  invoke<void>(
+    "write_tree_binary",
+    frame({ relPath, expectedEpoch: expectedEpoch ?? null }, bytes),
+  );
+
+export const listAttachments = (expectedEpoch?: VaultEpoch) =>
+  invoke<AttachmentMeta[]>("list_attachments", { expectedEpoch: expectedEpoch ?? null });
+
+/**
+ * Every syncable binary in the vault: the `attachments/` store PLUS the tree
+ * binaries (a `.docx` in `Team/`, a `.mp4` in `Media/`) — what the blob diff
+ * runs on now that a tree binary gets its own `files` row and ACL.
+ *
+ * A superset of {@link listAttachments}, sharing its hash cache, so the widened
+ * walk still costs a `stat` per file rather than a re-read.
+ */
+export const listBinaries = (expectedEpoch?: VaultEpoch) =>
+  invoke<AttachmentMeta[]>("list_binaries", { expectedEpoch: expectedEpoch ?? null });
+
+/**
+ * Stream an attachment (or one byte range of it) to a presigned URL from RUST.
+ *
+ * Not a webview `fetch` on purpose: the bucket would need CORS for a
+ * `tauri://localhost` Origin, the CSP would have to permit whatever plain-http
+ * MinIO a self-hoster runs, and a 500 MB video would have to exist in the JS
+ * heap first. `headers` goes out verbatim and is the ONLY auth — an upload URL
+ * carries its own credential (an S3 signature, or our route's `?t=` token), and
+ * S3 rejects a request that also presents a bearer.
+ */
+export const uploadAttachment = (
+  input: {
+    relPath: string;
+    url: string;
+    method?: string;
+    headers?: Record<string, string>;
+    range?: ByteRange;
+  },
+  expectedEpoch?: VaultEpoch,
+) =>
+  invoke<AttachmentUploadResult>("upload_attachment", {
+    relPath: input.relPath,
+    url: input.url,
+    method: input.method ?? "PUT",
+    headers: input.headers ?? {},
+    range: input.range ?? null,
+    expectedEpoch: expectedEpoch ?? null,
+  });
+
+/**
+ * Stream a URL into `attachments/<…>`, atomically and hash-verified.
+ *
+ * Rust writes to `.<name>.tmp`, hashes as it writes, and renames only when the
+ * digest matches `expectedSha256` — so a truncated transfer never appears under
+ * the real name for the next diff to accept. Redirects are NOT followed (see
+ * `attachments.rs`): the bearer must never reach a presigned host.
+ */
+export const downloadAttachment = (
+  input: {
+    url: string;
+    relPath: string;
+    headers?: Record<string, string>;
+    expectedSha256?: string | null;
+    /** True when `relPath` is a TREE binary, so Rust applies the tree guard
+     *  ({@link writeTreeBinary}) instead of the `attachments/` one. */
+    tree?: boolean;
+  },
+  expectedEpoch?: VaultEpoch,
+) =>
+  invoke<AttachmentDownloadResult>("download_attachment", {
+    url: input.url,
+    relPath: input.relPath,
+    headers: input.headers ?? {},
+    expectedSha256: input.expectedSha256 ?? null,
+    tree: input.tree ?? false,
+    expectedEpoch: expectedEpoch ?? null,
+  });
+
+/**
+ * A one-shot census of the open vault for Vault Settings → Health: counts and
+ * bytes for notes/folders/attachments/other files, the biggest of each, the
+ * local CRDT store (orphan docs included), tag + link totals, the index file's
+ * own size, and a 12-week strip of how many notes were modified.
+ *
+ * Computed by Rust in ONE disk walk (the tree's ignore rules — `.context/`,
+ * `.git`, dotfiles) plus a few aggregate queries, reading no file contents, so
+ * it is cheap enough to recompute on demand. Never cache it across vaults: every
+ * number in it describes the vault that was open when it was taken.
+ *
+ * A file counts as a *note* exactly when the index has a `notes` row for its
+ * path; `mtime` values are milliseconds since the epoch.
+ *
+ * `liveDocs` is the registry's `docId → relPath` map. A history doc is an
+ * ORPHAN only when neither the local `notes` table nor this map knows its id —
+ * the same live set `pruneYjsDocs` is given — so "N reclaimable" and what
+ * Reclaim actually removes can never disagree.
+ */
+export const vaultStats = (
+  liveDocs: Record<string, string>,
+  expectedEpoch?: VaultEpoch,
+  /** The caller's local midnight (ms), so `activity.days` is cut on calendar days. */
+  todayStartMs?: number,
+) =>
+  invoke<VaultStats>("vault_stats", {
+    liveDocs,
+    todayStartMs: todayStartMs ?? null,
+    expectedEpoch: expectedEpoch ?? null,
+  });
+
+/**
+ * The integrity half of the Health page: fifteen checks over the same vault —
+ * empty/unreadable/oversized notes, bad frontmatter, case collisions, names
+ * Windows refuses, a stale index, broken links and embeds, duplicate titles,
+ * heavy or orphaned CRDT history, and the recovery copies in `.context/trash`.
+ *
+ * Every check id comes back on every call, even at count 0, in the
+ * `VaultCheckId` order — a check missing from `results` means Rust could not run
+ * it, never that the vault is clean. `count` is the true total; `items` is
+ * capped at 25 examples.
+ *
+ * Heavier than {@link vaultStats}: it reads note CONTENTS, though nothing at or
+ * above the server's 10 MB cap and no embed scan past 2 MB. Run it on demand,
+ * not on a timer. `liveDocs` means what it means there.
+ */
+export const vaultChecks = (liveDocs: Record<string, string>, expectedEpoch?: VaultEpoch) =>
+  invoke<VaultChecks>("vault_checks", { liveDocs, expectedEpoch: expectedEpoch ?? null });
+
+/** Delete every recovery copy under `.context/trash`. The directory survives so
+ *  the next delete has somewhere to go; no note is ever touched. */
+export const emptyTrash = (expectedEpoch?: VaultEpoch) =>
+  invoke<{ filesRemoved: number; bytesFreed: number }>("empty_trash", {
+    expectedEpoch: expectedEpoch ?? null,
+  });
+
+/** Re-reconcile the index against the `.md` files — the remedy for the
+ *  `stale-index` and `unindexed-markdown` checks. Incremental and doc_id-preserving
+ *  (it is not a drop-and-recreate), and it leaves the CRDT tables alone. Resolves
+ *  once the rebuild has committed, then `index-ready` refreshes titles/backlinks. */
+export const rebuildIndex = (expectedEpoch?: VaultEpoch) =>
+  invoke<void>("rebuild_index", { expectedEpoch: expectedEpoch ?? null });
+
+/** Read a dropped/picked host file by absolute path (not vault-scoped). */
+export const readExternalFile = (path: string) =>
+  invoke<ArrayBuffer>("read_external_file", { path }).then((b) => new Uint8Array(b));
+
+// ---- OS keychain (Phase 2 auth, spec 04 §7) -------------------------------
+// Session tokens live in the OS keychain, never in localStorage/plaintext.
+// `serviceKey` namespaces the secret (e.g. `session:<serverUrl>`).
+
+export const keychainSet = (serviceKey: string, value: string) =>
+  invoke<void>("keychain_set", { serviceKey, value });
+
+export const keychainGet = (serviceKey: string) =>
+  invoke<string | null>("keychain_get", { serviceKey });
+
+export const keychainDelete = (serviceKey: string) =>
+  invoke<void>("keychain_delete", { serviceKey });
+
+// ---- Google OAuth loopback (spec 04 §7) -----------------------------------
+// The Rust core runs a one-shot 127.0.0.1 listener that catches the browser
+// redirect at the end of Google sign-in. `listen` returns the ephemeral port
+// (so the caller can build the callback URL); `await` blocks until the redirect
+// lands and resolves with the one-time handoff code.
+
+/** Loopback port + the single-use `state` nonce to embed in the callback URL. */
+export interface OauthListen {
+  port: number;
+  state: string;
+}
+export const googleOauthListen = () => invoke<OauthListen>("google_oauth_listen");
+export const googleOauthAwait = () => invoke<string>("google_oauth_await");
+/** Best-effort restore/show/focus of this exact app process after sign-in. */
+export const googleOauthReturnToApp = () => invoke<void>("google_oauth_return_to_app");
+
+// ---- Sync server URL (app config, next to last-vault) ----------------------
+
+export const getServerUrl = () => invoke<string | null>("get_server_url");
+export const setServerUrl = (url: string | null) =>
+  invoke<void>("set_server_url", { url });
+
+// ---- Per-vault sync registry config (.context/config.json) ----------------
+// Raw JSON string; the TS sync layer owns the schema (server vault id + doc-id
+// map) so it travels with the vault across devices (spec 03 §5).
+
+export const getVaultConfig = (expectedEpoch?: VaultEpoch) =>
+  invoke<string | null>("get_vault_config", { expectedEpoch: expectedEpoch ?? null });
+export const setVaultConfig = (content: string, expectedEpoch?: VaultEpoch) =>
+  invoke<void>("set_vault_config", { content, expectedEpoch: expectedEpoch ?? null });
+
+// ---- Per-vault property types (.context/types.json) ------------------------
+// The Properties panel's type registry, vault-global by property name. Raw JSON
+// string for the same reason as config.json: the TS layer owns the schema (see
+// lib/frontmatter/types.ts). It travels with the vault folder, and is never in
+// the note, the CRDT or the server.
+
+export const getVaultTypes = (expectedEpoch?: VaultEpoch) =>
+  invoke<string | null>("get_vault_types", { expectedEpoch: expectedEpoch ?? null });
+export const setVaultTypes = (content: string, expectedEpoch?: VaultEpoch) =>
+  invoke<void>("set_vault_types", { content, expectedEpoch: expectedEpoch ?? null });
+
+/** One frontmatter key and how many notes use it, most-used first. */
+export interface PropertyKeyCount {
+  key: string;
+  count: number;
+}
+
+/** Keys/values seen across the vault's frontmatter, for the panel's
+ *  suggestions. Derived from the index, so they follow the last re-index. */
+export const listPropertyKeys = (expectedEpoch?: VaultEpoch) =>
+  invoke<PropertyKeyCount[]>("list_property_keys", {
+    expectedEpoch: expectedEpoch ?? null,
+  });
+export const listPropertyValues = (key: string, expectedEpoch?: VaultEpoch) =>
+  invoke<string[]>("list_property_values", { key, expectedEpoch: expectedEpoch ?? null });
+
+/** One `#tag` and how many notes carry it, most-used first. */
+export interface TagCount {
+  name: string;
+  count: number;
+}
+
+/** Every tag in the vault, for the editor's `#` completion. Derived from the
+ *  index, so it follows the last re-index exactly like search does. */
+export const listTags = (expectedEpoch?: VaultEpoch) =>
+  invoke<TagCount[]>("list_tags", { expectedEpoch: expectedEpoch ?? null });
+
+/**
+ * Per-note editor UI state — which sections were folded — as opaque JSON this
+ * layer owns (`lib/editor/folding.ts` defines the shape). Stored in the vault's
+ * `index.sqlite`, keyed by doc_id: it is a property of how you read a note on
+ * THIS device, never of the note, so it must not reach the `.md` or the CRDT.
+ */
+export const getNoteUiState = (docId: string, expectedEpoch?: VaultEpoch) =>
+  invoke<string | null>("get_note_ui_state", {
+    docId,
+    expectedEpoch: expectedEpoch ?? null,
+  });
+export const setNoteUiState = (docId: string, uiState: string, expectedEpoch?: VaultEpoch) =>
+  invoke<void>("set_note_ui_state", {
+    docId,
+    uiState,
+    expectedEpoch: expectedEpoch ?? null,
+  });
+
+/** Epoch of the currently-open vault (0 if none). Used to start a VaultScope for
+ *  a vault this call site didn't open itself (e.g. enabling sync on the folder
+ *  that is already open). */
+export const getVaultEpoch = () => invoke<number>("get_vault_epoch");
+
+// ---- Events ---------------------------------------------------------------
+
+/**
+ * One watcher debounce batch (the Rust `FilesChanged` payload).
+ *
+ * The watcher emits ONE event per batch rather than one per file: a vault import
+ * or an AI writing 200 notes used to cross the IPC boundary 200 times, each
+ * costing a full round of listeners, a registry-pull re-arm and a sidebar
+ * refresh re-arm.
+ */
+export interface FilesChanged {
+  changes: FileChanged[];
+}
+
+/** Subscribe to whole watcher batches — what the sync layer wants, because a
+ *  batch has exactly ONE structural conclusion to draw. */
+export const onFilesChanged = (
+  cb: (changes: FileChanged[]) => void,
+): Promise<UnlistenFn> =>
+  listen<FilesChanged>("files-changed", (event) => cb(event.payload?.changes ?? []));
+
+/** Per-item adapter over {@link onFilesChanged}, for callers that only care that
+ *  *something* changed (the graph, the HTML view, the open note's bridge). */
+export const onFileChanged = (cb: (e: FileChanged) => void): Promise<UnlistenFn> =>
+  onFilesChanged((changes) => {
+    for (const change of changes) cb(change);
+  });
+
+export const onVaultOpened = (cb: (v: VaultInfo) => void): Promise<UnlistenFn> =>
+  listen<VaultInfo>("vault-opened", (event) => cb(event.payload));
+
+/** The background index rebuild `open_vault` starts has committed (#84). */
+export interface IndexReady {
+  path: string;
+  epoch: number;
+  ok: boolean;
+  ms: number;
+}
+export const onIndexReady = (cb: (e: IndexReady) => void): Promise<UnlistenFn> =>
+  listen<IndexReady>("index-ready", (event) => cb(event.payload));
+
+/** Extracted text for these tree binaries just landed in the index — a search
+ *  that ran before them can now answer differently. Coalesced in Rust (the
+ *  extraction worker batches ~20 files / 400 ms), so this is not a per-file
+ *  firehose even during a 200-document drop. */
+export interface FilesIndexed {
+  paths: string[];
+}
+export const onFilesIndexed = (
+  cb: (paths: string[]) => void,
+): Promise<UnlistenFn> =>
+  listen<FilesIndexed>("files-indexed", (event) => cb(event.payload?.paths ?? []));
+
+// ---- Local recovery copies (`.context/trash`, Rust `trash.rs`) ------------
+
+/** One file under `.context/trash/<stamp>/`. `relPath` is its path under the
+ *  stamp (the note's original vault path, maybe with a ` (2)` suffix). */
+export interface TrashCopy {
+  stamp: string;
+  relPath: string;
+  bytes: number;
+  /** Milliseconds since the Unix epoch. */
+  modified: number;
+}
+
+/** Every recovery copy, newest first. Rust refuses a symlinked trash. */
+export const listTrashCopies = (expectedEpoch?: VaultEpoch) =>
+  invoke<TrashCopy[]>("list_trash_copies", { expectedEpoch: expectedEpoch ?? null });
+
+/** One copy's text. Rust confines `stamp`/`relPath` to `.context/trash`. */
+export const readTrashCopy = (stamp: string, relPath: string, expectedEpoch?: VaultEpoch) =>
+  invoke<string>("read_trash_copy", { stamp, relPath, expectedEpoch: expectedEpoch ?? null });
+
+/** Delete one copy (and any stamp directory it leaves empty). */
+export const deleteTrashCopy = (stamp: string, relPath: string, expectedEpoch?: VaultEpoch) =>
+  invoke<void>("delete_trash_copy", { stamp, relPath, expectedEpoch: expectedEpoch ?? null });

@@ -1,0 +1,21 @@
+{
+  "name": "context",
+  "private": true,
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "packageManager": "pnpm@10.34.5",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev:desktop": "pnpm --filter desktop tauri dev --config src-tauri/tauri.dev.conf.json",
+    "dev:server": "turbo run dev --filter=server",
+    "build": "turbo run build",
+    "build:desktop": "pnpm --filter desktop tauri build",
+    "test": "turbo run test"
+  },
+  "devDependencies": {
+    "railway": "^3.11.0",
+    "turbo": "^2.10.5"
+  }
+}

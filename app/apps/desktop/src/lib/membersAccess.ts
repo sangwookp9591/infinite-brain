@@ -1,0 +1,376 @@
+// Pure rules behind the "Members and access" page, kept out of the component
+// so the wording and the narrowing rule can be pinned by tests.
+
+import type {
+  InvitationOverview,
+  Member,
+  InviteManyResult,
+  MemberAccessLevel,
+  MemberOverview,
+  MembersOverview,
+  TeamAccess,
+  TeamAccessMode,
+  TeamAccessPosture,
+} from "./api";
+import { relativeTime } from "./health/format";
+
+/** The three wire modes in the page's words, for the Everyone row. */
+export const EVERYONE_OPTIONS: ReadonlyArray<{ value: TeamAccessMode; label: string; hint: string }> = [
+  { value: "open", label: "Can edit", hint: "Read and change every note" },
+  { value: "readonly", label: "Can view", hint: "Read only" },
+  { value: "private", label: "No access", hint: "Can't open any notes until you change this" },
+];
+
+/** New members: what they get of notes made before they joined. */
+export const NEW_MEMBER_OPTIONS: ReadonlyArray<{ value: TeamAccessMode; label: string; hint?: string }> = [
+  { value: "open", label: "Can edit" },
+  { value: "readonly", label: "Can view" },
+  { value: "private", label: "No access", hint: "They start with only new and shared notes" },
+];
+
+/** A person's vault-wide level, as their row's dropdown offers it. */
+export const PERSON_LEVEL_LABEL: Record<MemberAccessLevel, string> = {
+  edit: "Can edit everything",
+  view: "Can view everything",
+  none: "No access",
+  custom: "Custom",
+};
+
+export const INVITE_ACCESS_LABEL: Record<TeamAccessMode, string> = {
+  open: "Can edit everything",
+  readonly: "Can view everything",
+  private: "No access",
+};
+
+export const ROLE_LABEL: Record<string, string> = {
+  owner: "Owner",
+  admin: "Admin",
+  member: "Member",
+};
+
+export const LEVEL_TO_MODE: Record<Exclude<MemberAccessLevel, "custom">, TeamAccessMode> = {
+  edit: "open",
+  view: "readonly",
+  none: "private",
+};
+
+
+/**
+ * Does this change ask for confirmation first? Only taking access away
+ * entirely (to No access) does — that is the one change that removes content
+ * from someone's devices. Making something view-only, or widening, applies
+ * straight away. Every confirm on the Members and access surfaces uses this.
+ */
+export function needsAccessConfirm(from: TeamAccessMode | "custom" | null, to: TeamAccessMode): boolean {
+  return to === "private" && from !== "private";
+}
+
+/** The Everyone row's label. A never-shared vault reads as No access, with a
+ * sub-line explaining that authors keep their own notes. */
+export function everyoneLabel(mode: TeamAccessMode, posture: TeamAccessPosture): { label: string; sub: string | null } {
+  if (posture === "none") return { label: "No access", sub: "Members keep notes they wrote" };
+  const option = EVERYONE_OPTIONS.find((o) => o.value === mode);
+  return { label: option?.label ?? "No access", sub: null };
+}
+
+/** Case-insensitive name/email filter for the people table. */
+export function matchesQuery(query: string, ...fields: Array<string | null | undefined>): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  return fields.some((f) => (f ?? "").toLowerCase().includes(q));
+}
+
+export function filterPeople(
+  query: string,
+  members: readonly MemberOverview[],
+  invitations: readonly InvitationOverview[],
+): { members: MemberOverview[]; invitations: InvitationOverview[] } {
+  return {
+    members: members.filter((m) => matchesQuery(query, m.name, m.email)),
+    invitations: invitations.filter((i) => matchesQuery(query, i.email)),
+  };
+}
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+/** "4 people · 1 invite pending", or "1 person found" while searching. */
+export function countLine(query: string, people: number, invites: number): string {
+  if (query.trim()) return `${plural(people + invites, "person", "people")} found`;
+  const base = plural(people, "person", "people");
+  return invites > 0 ? `${base} · ${plural(invites, "invite", "invites")} pending` : base;
+}
+
+/**
+ * Who is in the vault right now. The vault channel's presence lists OTHER
+ * peers only, so the signed-in user counts as present whenever their own
+ * vault channel is connected.
+ */
+export function presentUserIds(
+  peers: ReadonlyArray<{ userId: string }>,
+  selfId: string | null | undefined,
+  vaultStatus: string,
+): Set<string> {
+  const ids = new Set(peers.map((p) => p.userId));
+  if (selfId && (vaultStatus === "synced" || vaultStatus === "read-only")) ids.add(selfId);
+  return ids;
+}
+
+/** The Last active column: "Now" when present on the vault channel. */
+export function lastActiveLabel(present: boolean, lastActiveAt: string | null, now: number): string {
+  if (present) return "Now";
+  if (!lastActiveAt) return "—";
+  const ms = Date.parse(lastActiveAt);
+  if (!Number.isFinite(ms)) return "—";
+  const rel = relativeTime(ms, now);
+  return rel === "just now" ? "Now" : rel.charAt(0).toUpperCase() + rel.slice(1);
+}
+
+export function shortDate(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (!Number.isFinite(d.getTime())) return "";
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+/** "Sep 12, 2026" — the profile's Joined and Last active rows. */
+export function fullDate(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (!Number.isFinite(d.getTime())) return "";
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+/** "Sep 12, 2026 (3 days ago)" — the profile's Joined and Last active rows. */
+export function dateWithAgo(iso: string | null, now: number): string {
+  const date = fullDate(iso);
+  if (!date) return "";
+  const ms = Date.parse(iso!);
+  const startOfDay = (t: number) => { const d = new Date(t); d.setHours(0, 0, 0, 0); return d.getTime(); };
+  const today = startOfDay(now);
+  const ago = ms < today && ms >= startOfDay(today - 1) ? "yesterday" : relativeTime(ms, now);
+  return `${date} (${ago})`;
+}
+
+/** How a grant reads in the Activity tab, in the Access tab's own words. */
+export const GRANT_LABEL: Record<"edit" | "view" | "readonly" | "denied" | "locked", string> = {
+  edit: "Can edit",
+  view: "Can view",
+  readonly: "Can view",
+  denied: "No access",
+  locked: "View only",
+};
+
+/** A note path's display name and its parent folders: "A/B/Note.md" → { name: "Note", folders: ["A", "B"] }. */
+export function splitNotePath(path: string): { name: string; folders: string[] } {
+  const parts = path.split("/").filter(Boolean);
+  const file = parts.pop() ?? path;
+  const dot = file.lastIndexOf(".");
+  return { name: dot > 0 ? file.slice(0, dot) : file, folders: parts };
+}
+
+/** The Access column's static text for an invitation row. */
+export function invitationAccessLabel(access: TeamAccessMode | null): string {
+  return access ? INVITE_ACCESS_LABEL[access] : "Default";
+}
+
+/** Split typed or pasted text into addresses on commas, whitespace and semicolons. */
+export function splitEmails(text: string): string[] {
+  return text.split(/[\s,;]+/).map((s) => s.trim()).filter(Boolean);
+}
+
+export function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+/**
+ * What ticking "can open" on one folder or note grants a person: their own
+ * vault-wide level when it is Can edit or Can view, else Everyone's level when
+ * that is one of those, else Can edit. Never a silent default to view — that
+ * read as the tick taking edit rights away.
+ */
+export function tickGrantMode(
+  personVaultMode: TeamAccessMode | "custom" | null,
+  everyoneMode: TeamAccessMode | null,
+): TeamAccessMode {
+  if (personVaultMode === "open" || personVaultMode === "readonly") return personVaultMode;
+  if (everyoneMode === "open" || everyoneMode === "readonly") return everyoneMode;
+  return "open";
+}
+
+/** What a confirm about taking access away is about. */
+export type ReduceScope =
+  | { kind: "item"; name: string }
+  | { kind: "person"; name: string; self: boolean }
+  | { kind: "everyone" };
+
+/** Said when access is removed outright. */
+export const REMOVAL_SENTENCE =
+  "Content they can no longer read is removed from their devices on the next sync. The server copy is kept and can be restored by granting access again.";
+const REMOVAL_SENTENCE_SELF =
+  "Content you can no longer read is removed from your devices on the next sync. The server copy is kept and can be restored by granting access again.";
+
+/**
+ * Title, button and outcome sentence for a confirm that lowers access to
+ * Can view or No access. Plain words that name the result — never "narrow",
+ * never a bare "Apply".
+ */
+export function reduceAccessCopy(
+  scope: ReduceScope,
+  to: "readonly" | "private",
+): { title: string; button: string; outcome: string } {
+  const self = scope.kind === "person" && scope.self;
+  const button = to === "private" ? "Remove access" : "Make view only";
+  const outcome = to === "private"
+    ? (self ? REMOVAL_SENTENCE_SELF : REMOVAL_SENTENCE)
+    : (self ? "You can still read it but no longer edit." : "They can still read it but no longer edit.");
+  let title: string;
+  if (scope.kind === "item") {
+    title = to === "private" ? `Remove access to “${scope.name}”?` : `Make “${scope.name}” view only?`;
+  } else if (scope.kind === "person") {
+    title = to === "private"
+      ? (scope.self ? "Remove your access to this vault?" : `Remove ${scope.name}'s access to this vault?`)
+      : (scope.self ? "Make yourself view only across the vault?" : `Make ${scope.name} view only across the vault?`);
+  } else {
+    title = to === "private" ? "Set everyone to No access?" : "Make the vault view only for everyone?";
+  }
+  return { title, button, outcome };
+}
+
+/** Colour class for a level pill: green edit, amber view, grey none, neutral mixed. */
+export function levelClass(level: TeamAccessMode | MemberAccessLevel | "mixed" | null | undefined): string {
+  switch (level) {
+    case "open":
+    case "edit":
+      return "is-edit";
+    case "readonly":
+    case "view":
+      return "is-view";
+    case "private":
+    case "none":
+      return "is-none";
+    case "mixed":
+    case "custom":
+      return "is-mixed";
+    default:
+      return "";
+  }
+}
+
+// -- Roster patches after a write (#307) --
+// Paint-only: the tab patches what it shows at once, then refreshes once from
+// the server, which stays authoritative.
+
+/** The person level a vault-wide write of `mode` sets. */
+export function levelOfMode(mode: TeamAccessMode): MemberAccessLevel {
+  return mode === "open" ? "edit" : mode === "readonly" ? "view" : "none";
+}
+
+/** The roster with one member's vault-wide level replaced. */
+export function withMemberLevel(ov: MembersOverview, userId: string, level: MemberAccessLevel): MembersOverview {
+  return {
+    ...ov,
+    members: ov.members.map((m) => (m.userId === userId && m.access ? { ...m, access: { level } } : m)),
+  };
+}
+
+/** The Everyone row after `PUT team-access`: the mode, its posture, no org overrides left. */
+export function patchedTeamAccess(t: TeamAccess, mode: TeamAccessMode): TeamAccess {
+  const posture: TeamAccessPosture = mode === "open" ? "edit" : mode === "readonly" ? "view" : "sealed";
+  return { ...t, mode, posture, overrides: [] };
+}
+
+/** The roster without a revoked invitation. */
+export function withoutInvitation(ov: MembersOverview, invitationId: string): MembersOverview {
+  return { ...ov, invitations: ov.invitations.filter((i) => i.id !== invitationId) };
+}
+
+/** The roster with the invitations a send just created (or renewed), newest first. */
+export function withNewInvitations(
+  ov: MembersOverview,
+  results: readonly InviteManyResult[],
+  sent: { role: string; access: TeamAccessMode | null },
+  nowIso: string,
+): MembersOverview {
+  const added: InvitationOverview[] = results
+    .filter((r): r is InviteManyResult & { invitationId: string } => !r.error && !!r.invitationId)
+    .map((r) => ({
+      id: r.invitationId,
+      email: r.email,
+      role: sent.role,
+      status: "pending",
+      createdAt: nowIso,
+      expiresAt: null,
+      access: sent.access,
+    }));
+  if (!added.length) return ov;
+  const emails = new Set(added.map((i) => i.email.toLowerCase()));
+  return { ...ov, invitations: [...added, ...ov.invitations.filter((i) => !emails.has(i.email.toLowerCase()))] };
+}
+
+/**
+ * May a viewer with `viewerRole` change the ACCESS of a member with
+ * `targetRole`? The one rule the UI asks, mirrored by the server's
+ * `permissions/access-management.ts canManageMemberAccess`:
+ *
+ *   - owner: anyone, themselves included (their own row is the way back in
+ *     after narrowing the whole vault);
+ *   - admin: everyone except the owner (plain members, other admins and
+ *     themselves) — decided 2026-10-09; role changes and removal keep the
+ *     stricter matrix where an admin never touches another admin;
+ *   - member: nobody.
+ */
+export function canManageMemberAccess(
+  viewerRole: string | null | undefined,
+  targetRole: string | null | undefined,
+  isSelf: boolean,
+): boolean {
+  if (viewerRole === "owner") return true;
+  if (viewerRole === "admin") return isSelf || targetRole === "member" || targetRole === "admin";
+  return false;
+}
+
+/**
+ * The signed-in viewer's role in this vault, from the FRESHEST authority.
+ * The store's `members` list is read when the vault opens, so a promotion
+ * made after that (an owner making someone admin) leaves it stale for the
+ * rest of the session; the roster overview is re-read every time the tab
+ * opens. Its own row wins, then the server's `canManage` (a manager row we
+ * somehow lack still means owner/admin), then the store's role.
+ */
+export function freshViewerRole(
+  overview: Pick<MembersOverview, "members" | "canManage"> | null | undefined,
+  myUserId: string | undefined,
+  storedRole: string | undefined,
+): string | undefined {
+  const mine = overview && myUserId ? overview.members.find((m) => m.userId === myUserId)?.role : undefined;
+  if (mine) return mine;
+  if (overview && !overview.canManage && (storedRole === "owner" || storedRole === "admin")) return "member";
+  return storedRole;
+}
+
+/** May this role see the manager view (Everyone row, Invite, Access column)? */
+export function roleManages(role: string | null | undefined): boolean {
+  return role === "owner" || role === "admin";
+}
+
+/**
+ * The store's member list with the viewer's role in `orgId` set to `role`.
+ * Returns the SAME array when nothing changes, so a caller can skip the
+ * store write; adds the row when the store never learned it.
+ */
+export function withViewerRole(
+  members: readonly Member[],
+  orgId: string,
+  userId: string,
+  role: string,
+  memberId?: string,
+): Member[] {
+  const i = members.findIndex((m) => m.organizationId === orgId && m.userId === userId);
+  if (i >= 0) {
+    if (members[i].role === role) return members as Member[];
+    const next = members.slice();
+    next[i] = { ...members[i], role };
+    return next;
+  }
+  return [...members, { id: memberId ?? `${orgId}:${userId}`, organizationId: orgId, userId, role }];
+}

@@ -1,0 +1,880 @@
+// Bulk content upload — the half of "turn on sync" that did not exist.
+//
+// Reconcile only ever registered STRUCTURE: it created a `notes` row (and hence
+// an EMPTY server Y.Doc) per file. A note's markdown reached the server solely
+// when a human opened that note in the editor, so a 500-note vault reported
+// "Synced" while 500 empty docs sat on the server. This module pushes the
+// content, through the existing bridge + provider machinery, in a bounded,
+// checkpointed, cancellable queue.
+//
+// ── The idempotency guarantee (the single most important property) ────────────
+// Re-running this must NOT duplicate a note's text. It cannot, because the only
+// ways text ever enters a doc here are `NoteBridge.seedFromFileIfEmpty()` and —
+// on `ingestFromFile` runs — `NoteBridge.reconcileAfterPull()` (or
+// `ingestNow()` for a doc that was empty before the pull), whose echo-hash +
+// converged-content guards make a re-run of the same file bytes a no-op (it
+// applies a DIFF, never an insert of the whole file; the reconcile diffs
+// against the doc as it was BEFORE the pull and skips a file that already
+// equals the pulled state, #200). For the seed path:
+//
+//   1. it inserts nothing when the Y.Text is already non-empty; and
+//   2. it is called ONLY after the provider's initial server sync has genuinely
+//      landed (`isSynced`, not merely "the timeout elapsed"), so the server's
+//      canonical state is already merged into the doc before we look at it.
+//
+// So a second run finds the doc non-empty — either from the CRDT the first run
+// persisted locally, or from the server state it just pulled — and inserts
+// nothing. Transmitting is separately idempotent: Yjs updates are keyed by
+// (clientId, clock), so re-sending state the server already has is a no-op.
+//
+// Doubling would require inserting the same text twice under two DIFFERENT
+// client ids (two Y.Docs both seeding from the same file). (1) and (2) are
+// exactly what make that impossible; reversing (2) — seeding before the pull —
+// is the bug that would double every note, which is why the order is asserted in
+// `contentUpload.test.ts`.
+//
+// Pure with respect to I/O: every dependency (bridge acquisition, provider
+// creation, timers) is injected, so the whole engine runs under vitest in Node.
+
+import type * as Y from "yjs";
+import { encodeStateAsUpdate, encodeStateVector } from "yjs";
+import type { NoteBridge } from "../bridge";
+import { UPLOAD_CONCURRENCY, runPool } from "./pool";
+import { nullProgressSink, type SyncProgressSink } from "./progress";
+
+/**
+ * `DocPush.whenSynced` rejected because the doc reached a status no reconnect
+ * can fix (`DocSync`'s `isTerminalSyncStatus`: the server deleted it, access is
+ * gone, or it is over the size cap). Carries that status so the uploader can
+ * record the doc as a PERMANENT failure instead of a transient one.
+ *
+ * Defined here rather than in `syncManager.ts` so this engine stays free of the
+ * provider import; `DocSync` throws it.
+ */
+export class TerminalSyncError extends Error {
+  readonly terminal = true;
+  constructor(readonly status: string) {
+    super(status);
+    this.name = "TerminalSyncError";
+  }
+}
+
+function terminalStatusOf(e: unknown): string | null {
+  if (e instanceof TerminalSyncError) return e.status;
+  if (typeof e === "object" && e !== null && (e as { terminal?: unknown }).terminal === true) {
+    const st = (e as { status?: unknown }).status;
+    if (typeof st === "string") return st;
+  }
+  return null;
+}
+
+/** The network side of one doc's push. Implemented by `DocSync` in production. */
+export interface DocPush {
+  /** View-only grant: we must not attempt to push (the server would refuse). */
+  readonly readOnly: boolean;
+  /** True once the initial server sync genuinely completed. */
+  readonly isSynced: boolean;
+  /** The connection's current sync status (`DocSync.status`). Optional so test
+   *  doubles need not carry it; read after the initial-sync wait so a terminal
+   *  verdict that landed as the wait ended is not reported as a timeout. */
+  readonly status?: string;
+  /** Resolve when the initial sync lands, or after `timeoutMs` either way.
+   *  Rejects with a {@link TerminalSyncError} the moment the doc turns terminal. */
+  whenSynced(timeoutMs: number): Promise<void>;
+  /** Resolve true once the server has acked every local change; false on timeout. */
+  whenFlushed(timeoutMs: number): Promise<boolean>;
+  destroy(): void;
+}
+
+export interface ContentUploadDeps {
+  /** Take a resident bridge for a doc (`VaultDocStore.promote`, no file seed). */
+  acquire(docId: string, relPath: string): Promise<NoteBridge>;
+  /** Flush + tear the bridge down (`VaultDocStore.demote`). */
+  release(docId: string): Promise<void>;
+  /** Attach a network provider to the bridge's Y.Doc (`new DocSync(...)`). */
+  connect(input: { docId: string; vaultId: string; doc: Y.Doc }): DocPush;
+  /**
+   * Read a note's current file text (`ipc.readNote`, epoch-pinned). Optional so
+   * the older harnesses need not provide it; when present it powers the two
+   * pre-network checks in {@link ContentUploader.pushOne}: the empty-everywhere
+   * short-circuit and the size ceiling.
+   */
+  readFile?(relPath: string): Promise<string>;
+  /**
+   * Keep a recoverable copy of a note's text under `.context/trash/<stamp>/`
+   * (`ipc.writeTrashCopy`, epoch-pinned), answering where it landed.
+   *
+   * Used for exactly one case: a doc this user may READ but not write, whose
+   * file on disk holds bytes the CRDT does not. The pull's `flushEgest` is about
+   * to put the server's copy there, and the server is the truth for a doc you
+   * cannot write — but destroying the local bytes without a copy is not
+   * something an app may do. Optional, like {@link readFile}: a host that can't
+   * make a copy reports the problem and leaves the durable file untouched.
+   */
+  writeTrashCopy?(relPath: string, stamp: string, content: string): Promise<string>;
+}
+
+/**
+ * The note-size ceiling, mirroring the server's `MAX_NOTE_MB` default (10 MB;
+ * `sync/hocuspocus.ts` refuses any sync message above it and closes the socket).
+ *
+ * Checked BEFORE a provider is opened. Without it a file over the cap was pushed
+ * on every connect: the server closed the connection, the push read as "server
+ * did not acknowledge", and — because the server still held nothing for the doc —
+ * the next `ready.empty` queued it again. Two such files in one production vault
+ * cost a rejected socket apiece on every reconnect of every member, forever.
+ * Here the doc fails ONCE, permanently, with a reason a person can act on.
+ *
+ * ── Measure the DOC, not just the file ───────────────────────────────────────
+ * The cap has to be applied to both, because they are different numbers and the
+ * server only ever sees one of them. What goes on the wire is the encoded Yjs
+ * state; the `.md` on disk is just the text that state currently serializes to.
+ * A doc carrying megabytes of CRDT history — duplication garbage from a past
+ * fork/ping-pong, say — can sit behind a file of ZERO bytes.
+ *
+ * Checking only the file is how this bug came back: four notes in a production
+ * vault held 10–17 MB of Yjs state behind 0-byte files, so the file check
+ * passed, a socket opened, the server rejected the ~17 MB message and closed the
+ * connection, the provider reconnected — about once a second, forever, strobing
+ * the sync badge. {@link crdtBytes} is the measurement that matches the server's.
+ */
+export const MAX_NOTE_BYTES = 10 * 1024 * 1024;
+
+/**
+ * What this doc would put on the wire: its full encoded Yjs state.
+ *
+ * Deliberately the conservative measure. The provider actually sends only the
+ * diff the server lacks, which can be smaller — but a doc whose ENTIRE state is
+ * over the cap is pathological for a markdown note however you slice it, and
+ * refusing it locally is strictly better than learning the same thing from a
+ * closed socket. Costs one encode per doc per run, on a doc already in memory.
+ */
+export function crdtBytes(doc: Y.Doc): number {
+  return encodeStateAsUpdate(doc).byteLength;
+}
+
+const utf8 = new TextEncoder();
+
+/** What a note held by the server's shrink burst brake (#252) says. Shared by
+ *  both push paths: `docBatchPush.ts` gets it per item as `shrink_held`, this
+ *  engine infers it from a missing ack during a live pause. */
+export const SHRINK_HELD_REASON =
+  "Sync paused: many notes were emptied at once. This edit is safe on this device and syncs when the pause ends.";
+
+/** A doc whose content could not be pushed, after retries. */
+export interface UploadFailure {
+  docId: string;
+  relPath: string;
+  reason: string;
+  /** Machine-readable cause for a terminal refusal. `permanent` only controls
+   * retry scheduling; it must never be used as the user-facing diagnosis. */
+  kind?: "too-large" | "no-write-access" | "shrink-held";
+  /**
+   * Retrying the same bytes under the same access cannot fix this. The session
+   * remembers these so they are not re-queued every connect, and they never
+   * count toward the failure streak that pauses a run.
+   */
+  permanent?: boolean;
+  /** The terminal connection status behind a permanent refusal (`deleted`,
+   *  `no-access`), when that is what ended the push. */
+  status?: string;
+}
+
+export interface ContentUploaderOptions {
+  /** Server note-collection id (the Postgres `vaults` row). */
+  vaultId: string;
+  /** Every mapped note in the vault: `registry.mappedNotes()`. */
+  notes: Array<{ docId: string; relPath: string }>;
+  deps: ContentUploadDeps;
+  /** Resume point: docs already confirmed on the server are skipped. */
+  isPushed: (docId: string) => boolean;
+  /** Record a confirmed push (checkpointed by the registry). */
+  markPushed: (docId: string) => void;
+  /**
+   * Record the state vector the server is now known to cover
+   * (`registry.recordAck`), after a flushed, editable push — the same ack the
+   * batch pusher records. Without it a doc pushed only through this per-doc path
+   * has no `ackedSv` until a later `ready.covered`, so an inbound delete judges
+   * it `unseen`/`unknown` more often than it needs to.
+   */
+  markAcked?: (docId: string, sv: Uint8Array) => void;
+  /** Docs to leave alone — currently the open note, whose own editor session
+   *  owns its provider (two providers on one doc is the one thing to avoid). */
+  skip?: (docId: string) => boolean;
+  /** Queue every note regardless of the pushed checkpoint. For local-change
+   *  runs: the doc IS confirmed on the server, but its .md just changed on disk
+   *  underneath us, so "pushed" says nothing about the new bytes. */
+  force?: boolean;
+  /**
+   * Queue this doc even though {@link ContentUploaderOptions.isPushed} says it is
+   * confirmed — a targeted `force`.
+   *
+   * Fed by the vault channel's `ready.empty`: the server is the authority on
+   * whether it holds a note's content, and `pushed` is only a local optimisation
+   * that a crashed run or a wiped `.context/` gets wrong. Without this, a note
+   * the checkpoint claims and the server does not have is unreachable forever.
+   */
+  include?: (docId: string) => boolean;
+  /**
+   * Docs to push FIRST. Order within each group is preserved (a stable
+   * partition), so the queue stays deterministic.
+   *
+   * Used for the same `ready.empty` set: those notes have NO content on the
+   * server, so if a run is cut short (vault switch, quit, failure pause) the
+   * work that mattered most is the work that already happened.
+   */
+  priority?: (docId: string) => boolean;
+  /**
+   * Merge each note's current file bytes into its doc (`NoteBridge.ingestNow`)
+   * as part of the push — the local-change run's whole reason to exist. Without
+   * it this engine only ever *seeds an empty doc*, so an edit to a note that
+   * already has CRDT content would silently push nothing.
+   *
+   * Split-brain safe: the pre-connect ingest runs ONLY when the doc already has
+   * content (a diff-merge, same as the open editor's ingest); an empty doc
+   * waits for the server pull + `seedFromFileIfEmpty`, exactly like the bulk
+   * path, and a post-sync ingest then folds in any bytes the seed didn't cover.
+   */
+  ingestFromFile?: boolean;
+  /** Veto for the ingest fast-path (see below): true means this doc holds
+   *  local-only ops from an OUT-OF-BAND merge (a resident bridge or a cold
+   *  apply already folded the external edit in), so "the file matches the doc"
+   *  does not mean "nothing to send" — connect and flush regardless. */
+  mustConnect?: (docId: string) => boolean;
+  /**
+   * True only when the file is a 0-byte placeholder this session created for a
+   * server note and could not hydrate yet. A read-only pull may replace that
+   * placeholder with canonical server text without making a recovery copy; an
+   * arbitrary empty file is still treated as a possible local deletion.
+   */
+  isUnhydratedPlaceholder?: (docId: string, relPath: string, fileText: string) => boolean;
+  progress?: SyncProgressSink;
+  /**
+   * Called once per doc that could not be pushed, as it happens.
+   *
+   * {@link ContentUploader.failedDocs} already answers this at the END of a run,
+   * which is too late for a timeline: a run that is paused by the failure streak
+   * — or abandoned by a vault switch — never reports, and the user is left with
+   * a pill that says "not synced" and nothing that says why. Purely additive:
+   * the failure is recorded exactly as before whether or not anyone listens.
+   */
+  onFailure?: (failure: UploadFailure) => void;
+  /**
+   * Announce the run only when a note actually needs the network.
+   *
+   * For a local-change run the queue is a guess: the watcher saw a file change,
+   * but most such changes are this app's own background egest echoing back,
+   * which the ingest fast-path settles without a socket. Announcing "uploading
+   * 0/1" before that check made the corner pill flash "Syncing" on every note
+   * switch while nothing moved. With this set, the phase flips to `uploading`
+   * (with the notes still ahead as its total) the first time a note has to
+   * connect or fails, and a run that settles every note quietly leaves the
+   * phase — and the per-doc `queued` stamps — untouched. "Syncing" then means
+   * bytes are moving.
+   */
+  lazyPhase?: boolean;
+  /** Abandon the run (vault switch). Checked before every doc. */
+  shouldStop?: () => boolean;
+  /**
+   * True while the server's shrink burst brake holds this account's writes in
+   * this vault (#252; `SyncPauseTracker.current() != null`).
+   *
+   * A held socket is admitted read-only WITHOUT a `rejected` frame, so the
+   * server silently drops our update and the ack never comes: on its own that
+   * reads as "server did not acknowledge the content", with a Retry that cannot
+   * succeed until the hold lapses. Consulted only when an ack is missing, so a
+   * missing ack during a pause is reported as `shrink-held` — the same verdict
+   * the batch push gets per item — and requeued when the pause lifts.
+   */
+  syncPaused?: () => boolean;
+  concurrency?: number;
+  /** How long to wait for the initial server sync per doc. Default 10s. */
+  syncTimeoutMs?: number;
+  /** How long to wait for the server to ack our push per doc. Default 30s. */
+  flushTimeoutMs?: number;
+  /**
+   * Consecutive per-doc failures that PAUSE the run. Default 10.
+   *
+   * A dead/unreachable server fails EVERY doc, and grinding through 500 × the
+   * sync timeout is exactly the "syncing forever" symptom. So the run stops and
+   * the remaining docs stay honestly unsynced instead of silently claimed.
+   *
+   * This is a pause, not a verdict: a dead server pauses the run, and the next
+   * vault-channel `ready` resumes it (see `SyncManager.handleServerEmpty`). That
+   * is why the limit is 10 rather than the original 5 — with nothing to restart
+   * the run, five transient failures used to strand every remaining note until
+   * the user signed out and back in.
+   */
+  failureStreakLimit?: number;
+}
+
+export interface UploadRunResult {
+  /** Docs considered (after the pushed/skip filters). */
+  total: number;
+  pushed: number;
+  failed: number;
+  /** True when the failure streak limit tripped. */
+  aborted: boolean;
+  /** True when the vault changed under us — the run is void, not failed. */
+  cancelled: boolean;
+}
+
+/**
+ * The writable half of "pull, then fold the file in", AFTER the server's state
+ * has landed in `bridge.doc` (over a socket here, over `bootstrap` `only` in
+ * the HTTP merge). Never diff logic of its own: the bridge's three-way
+ * `reconcileAfterPull` (a no-op when the bridge was not waiting), the orphan
+ * seed, then — when the file was not already ingested before the pull — one
+ * ingest of whatever the file holds that the pulled doc does not.
+ */
+export async function mergeFileAfterPull(
+  bridge: NoteBridge,
+  opts: { ingestFromFile: boolean; preIngested: boolean },
+): Promise<void> {
+  await bridge.reconcileAfterPull();
+  // Seeds ONLY a genuine orphan (empty Y.Text) — see the module header.
+  await bridge.seedFromFileIfEmpty();
+  if (opts.ingestFromFile && !opts.preIngested) await bridge.ingestNow();
+}
+
+/**
+ * Per-note HocuspocusProvider upload.
+ *
+ * RETIREMENT (plan "one-step-note-sync", PR3 → PR6): new notes no longer come
+ * here on a server advertising `notes-with-state` — they register WITH their
+ * state, and a conflict or adopt is merged over HTTP (`bootstrap` `only` +
+ * docs/batch). This class remains ONLY for: (1) servers without
+ * `notes-with-state` / `bootstrap-only`; (2) the HTTP merge's explicit
+ * fallback (bootstrap failed, or a docs/batch push could not run); and the
+ * pre-existing closed-note / read-only-rebase follow-ups not yet moved to
+ * HTTP. Delete it when `MIN_CLIENT_VERSION` retires servers without those
+ * features (PR6).
+ */
+export class ContentUploader {
+  private readonly opts: ContentUploaderOptions;
+  private readonly progress: SyncProgressSink;
+  private readonly concurrency: number;
+  private readonly syncTimeoutMs: number;
+  private readonly flushTimeoutMs: number;
+  private readonly streakLimit: number;
+
+  private stopped = false;
+  private aborted = false;
+  private streak = 0;
+  private failures: UploadFailure[] = [];
+  private running = false;
+  /** `lazyPhase` bookkeeping: has the phase been announced yet, and how many
+   *  notes settled quietly before it was (they are not part of its total). */
+  private announced = false;
+  private quietSkips = 0;
+  private queueLength = 0;
+
+  constructor(opts: ContentUploaderOptions) {
+    this.opts = opts;
+    this.progress = opts.progress ?? nullProgressSink;
+    this.concurrency = Math.max(1, opts.concurrency ?? UPLOAD_CONCURRENCY);
+    this.syncTimeoutMs = opts.syncTimeoutMs ?? 10_000;
+    this.flushTimeoutMs = opts.flushTimeoutMs ?? 30_000;
+    this.streakLimit = Math.max(1, opts.failureStreakLimit ?? 10);
+  }
+
+  /** Cancel the run. Called from `SyncManager.teardown` on every vault switch. */
+  stop(): void {
+    this.stopped = true;
+  }
+
+  isRunning(): boolean {
+    return this.running;
+  }
+
+  /** Docs that could not be pushed — a vault with any of these is NOT synced. */
+  failedDocs(): UploadFailure[] {
+    return [...this.failures];
+  }
+
+  private shouldStop(): boolean {
+    return this.stopped || this.aborted || (this.opts.shouldStop?.() ?? false);
+  }
+
+  /**
+   * Push content for every mapped note the server doesn't have yet.
+   *
+   * The work list is computed up front (so `total` is honest from the first
+   * emission) and then drained by a `runPool` at `UPLOAD_CONCURRENCY`.
+   */
+  async run(): Promise<UploadRunResult> {
+    this.running = true;
+    this.failures = [];
+    this.streak = 0;
+    this.aborted = false;
+    try {
+      const queue = this.orderQueue(
+        this.opts.notes.filter(
+          (n) =>
+            (this.opts.force === true ||
+              !this.opts.isPushed(n.docId) ||
+              (this.opts.include?.(n.docId) ?? false)) &&
+            !(this.opts.skip?.(n.docId) ?? false),
+        ),
+      );
+      // Everything already confirmed reads as synced straight away, so the badge
+      // for a resumed vault is correct before a single socket opens.
+      const queued = new Set(queue.map((n) => n.docId));
+      for (const n of this.opts.notes) {
+        // `queued` wins over the checkpoint: a doc named by `ready.empty` is
+        // "pushed" locally and yet has no content on the server, so badging it
+        // synced here — even for the one emission before the `queued` below
+        // overwrites it — would be the exact lie this run exists to fix.
+        if (this.opts.isPushed(n.docId) && !queued.has(n.docId)) {
+          this.progress.doc(n.docId, "synced");
+        }
+      }
+      this.queueLength = queue.length;
+      this.quietSkips = 0;
+      this.announced = !this.opts.lazyPhase;
+      if (this.announced) {
+        this.progress.phase("uploading", queue.length);
+        for (const n of queue) this.progress.doc(n.docId, "queued");
+      }
+      this.progress.flush();
+      if (queue.length === 0) {
+        return { total: 0, pushed: 0, failed: 0, aborted: false, cancelled: false };
+      }
+
+      let pushed = 0;
+      await runPool(
+        queue,
+        async (note) => {
+          const ok = await this.pushOne(note.docId, note.relPath);
+          if (ok) pushed++;
+        },
+        { concurrency: this.concurrency, shouldStop: () => this.shouldStop() },
+      );
+      this.progress.flush();
+      const cancelled = this.stopped || (this.opts.shouldStop?.() ?? false);
+      return {
+        total: queue.length,
+        pushed,
+        failed: this.failures.length,
+        aborted: this.aborted,
+        cancelled,
+      };
+    } finally {
+      this.running = false;
+    }
+  }
+
+  /**
+   * Stable partition: `priority` docs first, everything else in its original
+   * order. A sort() would be shorter and wrong — `Array.prototype.sort` is only
+   * guaranteed stable per spec for the comparator's ties, and reordering the
+   * queue arbitrarily makes a resumed run's progress unrepeatable.
+   */
+  private orderQueue<T extends { docId: string }>(queue: T[]): T[] {
+    const isFirst = this.opts.priority;
+    if (!isFirst) return queue;
+    const first: T[] = [];
+    const rest: T[] = [];
+    for (const n of queue) (isFirst(n.docId) ? first : rest).push(n);
+    return [...first, ...rest];
+  }
+
+  /** Push one note. Returns true when the server has acked its content. */
+  private async pushOne(docId: string, relPath: string): Promise<boolean> {
+    if (this.shouldStop()) return false;
+    // Re-checked here, not just when the queue was built: the user can open a note
+    // mid-run, and once its editor session owns a provider for that doc we must not
+    // become a second writer on it. (A doc opened during its OWN push still races;
+    // both sides converge through Yjs, and the window is one doc's push.)
+    if (this.opts.skip?.(docId)) {
+      this.progress.item("ok");
+      return false;
+    }
+    this.progress.doc(docId, "syncing");
+    let bridge: NoteBridge;
+    try {
+      bridge = await this.opts.deps.acquire(docId, relPath);
+    } catch (e) {
+      this.fail(docId, relPath, `open failed: ${msg(e)}`);
+      return false;
+    }
+    // The vault can have changed while we were opening — release and drop before
+    // any network work binds this doc to a collection that is no longer current.
+    if (this.shouldStop()) {
+      await this.releaseQuietly(docId);
+      return false;
+    }
+
+    // THE size ceiling, measured the way the server measures it: on the encoded
+    // Yjs state, which is what the socket would actually carry. Runs before the
+    // file checks below and independently of `readFile`, because a doc can be
+    // over the cap with no file at all (or, as in the production vault that
+    // brought this back, with a 0-byte one). See {@link MAX_NOTE_BYTES}.
+    const stateBytes = crdtBytes(bridge.doc);
+    if (stateBytes > MAX_NOTE_BYTES) {
+      await this.releaseQuietly(docId);
+      const mb = (stateBytes / (1024 * 1024)).toFixed(1);
+      const cap = Math.round(MAX_NOTE_BYTES / (1024 * 1024));
+      this.fail(
+        docId,
+        relPath,
+        `too large to sync (${mb} MB of edit history; the limit is ${cap} MB) — ` +
+          `reset this note's history to sync it again`,
+        { permanent: true, kind: "too-large" },
+      );
+      return false;
+    }
+
+    // Two checks that need no socket, both driven by the file's current bytes.
+    if (this.opts.deps.readFile) {
+      let fileText: string | null = null;
+      try {
+        fileText = await this.opts.deps.readFile(relPath);
+      } catch {
+        fileText = null; // unreadable — let the normal path decide (and report)
+      }
+      if (this.shouldStop()) {
+        await this.releaseQuietly(docId);
+        return false;
+      }
+      if (fileText != null) {
+        // (a) Over the server's size ceiling: the server would refuse the sync
+        //     message and close the socket, so don't open one. Permanent — the
+        //     bytes on disk have to change for this to ever succeed.
+        const bytes = utf8.encode(fileText).byteLength;
+        if (bytes > MAX_NOTE_BYTES) {
+          await this.releaseQuietly(docId);
+          const mb = (bytes / (1024 * 1024)).toFixed(1);
+          const cap = Math.round(MAX_NOTE_BYTES / (1024 * 1024));
+          this.fail(docId, relPath, `too large to sync (${mb} MB; the limit is ${cap} MB)`, {
+            permanent: true,
+            kind: "too-large",
+          });
+          return false;
+        }
+        // (b) Nothing anywhere: the SERVER said it holds nothing for this doc
+        //     (`include`, fed by `ready.empty`), the file is empty AND the local
+        //     doc is empty. There is no text to seed and nothing to pull, so a
+        //     socket would only cost a token mint to learn that — and on a vault
+        //     with hundreds of empty placeholder files, `ready.empty` names every
+        //     one of them on EVERY connect, which is exactly how "310 files
+        //     re-syncing on each reload" happened. Record it as confirmed.
+        //
+        //     Gated on the server's word on purpose. Without `include`, an empty
+        //     file + empty doc can still mean "a placeholder whose backfill
+        //     frame this device missed" — the pull is what fills it in — or, on
+        //     a local-change run, "someone truncated the file", which the
+        //     post-sync ingest must propagate as a deletion. Both keep the
+        //     network path.
+        if (
+          fileText.length === 0 &&
+          bridge.serialize().length === 0 &&
+          (this.opts.include?.(docId) ?? false)
+        ) {
+          await this.releaseQuietly(docId);
+          this.streak = 0;
+          this.opts.markPushed(docId);
+          this.progress.doc(docId, "synced");
+          this.quietOk();
+          return true;
+        }
+      }
+    }
+
+    let preIngested = false;
+    if (this.opts.ingestFromFile && bridge.serialize().length > 0) {
+      preIngested = true;
+      // The file is merged into this already-populated doc AFTER the pull, not
+      // before it (#200): a local CRDT behind the server, next to a file that
+      // already holds the server's text (a sync folder, an egest from an
+      // earlier launch), would otherwise re-insert that text under this
+      // client's id and the pull would double it. `beginPull` fixes the base —
+      // the doc as it is now — and holds the file (no ingest, no write) until
+      // `reconcileAfterPull` below.
+      bridge.beginPull();
+      // When nothing changed (our own background egest echoing back through
+      // the watcher, or an edit a previous run already merged) and the server
+      // has confirmed this doc before, there is nothing to send — skip the
+      // socket entirely. That check is what keeps a teammate's every remote
+      // update (which we egest to disk, which fires the watcher) from costing a
+      // provider connect apiece. A read-only probe: nothing is merged yet.
+      const changed = await bridge.hasUnmergedFileChange();
+      const serverHasIt =
+        this.opts.isPushed(docId) && !(this.opts.include?.(docId) ?? false);
+      if (!changed && serverHasIt && !(this.opts.mustConnect?.(docId) ?? false)) {
+        await this.releaseQuietly(docId);
+        this.streak = 0;
+        this.progress.doc(docId, "synced");
+        this.quietOk();
+        return true;
+      }
+    }
+
+    // From here on the network is involved: this is the moment a lazy run
+    // becomes visible.
+    this.announce();
+    const push = this.opts.deps.connect({ docId, vaultId: this.opts.vaultId, doc: bridge.doc });
+    try {
+      // PULL FIRST. This is the split-brain rule (spec 03 §5): the server's state
+      // must be merged before we consider seeding, or two devices each insert the
+      // file's text under their own client id and the note doubles.
+      await push.whenSynced(this.syncTimeoutMs);
+      if (this.shouldStop()) return false;
+      if (!push.isSynced) {
+        // A terminal verdict (token mint refused 403/404, over the cap) that the
+        // wait did not reject on — it landed as the timeout fired — is still a
+        // permanent refusal, never a "did not respond" that the session re-queues
+        // on every `ready` (four sockets every ~10 s, forever).
+        const st = push.status;
+        if (st === "no-access" || st === "deleted" || st === "too-large") {
+          throw new TerminalSyncError(st);
+        }
+        // The timeout elapsed without a real sync (offline / server down). We
+        // deliberately do NOT seed here: seeding on an unverified pull is exactly
+        // how a local orphan is created that later merges into real server content
+        // as a duplicate. Leave the doc untouched and report honestly.
+        this.fail(docId, relPath, "server did not respond to the initial sync");
+        return false;
+      }
+
+      if (!push.readOnly) {
+        // The pull has landed: fold the file in, three-way, against the pre-pull
+        // doc — on every run, because a signed-in bridge that opened with content
+        // has been holding its file since `hydrate` (a no-op for one that was
+        // not waiting, e.g. an empty doc). Before the flush wait below, so a
+        // genuine external edit is part of what the server acknowledges.
+        // The pure post-pull merge, shared with the HTTP pull-then-merge
+        // (`mergeFileAfterPull`, used by `docSession.ts` one-step creates).
+        await mergeFileAfterPull(bridge, { ingestFromFile: false, preIngested: true });
+        // A doc that was empty before the pull couldn't take the pre-connect
+        // ingest (that would seed before the server's state — the doubling
+        // bug). Now the server's canonical state is in, fold in whatever the
+        // file holds that the seed didn't cover: e.g. an external write into a
+        // still-unhydrated placeholder file. ONLY when the pre-connect ingest
+        // didn't run: after it has, the file is one merge behind the doc (the
+        // pull just landed server ops the file has never seen), and diffing the
+        // stale file against the merged doc would DELETE those server ops.
+        if (this.opts.ingestFromFile && !preIngested) await bridge.ingestNow();
+      }
+      // A view-only grant has nothing to push: the seed and the ingest above were
+      // both skipped, and the server would refuse the write anyway — so there is
+      // no ack coming and waiting for one only ends in a spurious failure. The
+      // server's copy IS the content, which makes this doc confirmed.
+      //
+      // `confirmOpenDoc` has always taken this exemption; the bulk path did not,
+      // so a doc whose grant was downgraded while it still held local-only ops
+      // failed here on every pass, never reached `markPushed`, and came straight
+      // back on the next `ready.behind` — a re-sync that could never finish.
+      // A read-only doc skipped both the seed and the ingest, so anything the
+      // file holds that the doc does not is about to be overwritten by the
+      // flush below and is unsendable besides. Keep a copy and say so.
+      if (push.readOnly) {
+        const safeToReplace = await this.keepUnsendableEdit(docId, relPath, bridge);
+        // Never merge the file into a doc this user cannot write; release the
+        // pull wait, and let its deferred write go ahead only when it is safe.
+        bridge.abandonPull(safeToReplace);
+        if (!safeToReplace) {
+          // The file is still the durable copy. Do not flush the Remote Vault's
+          // state over it unless the differing bytes were preserved first.
+          bridge.cancelEgest();
+          this.progress.doc(docId, "error");
+          this.progress.item("failed");
+          return false;
+        }
+      }
+      const flushed = push.readOnly || (await push.whenFlushed(this.flushTimeoutMs));
+      // Whatever the server had for this doc has landed in the Y.Doc by now;
+      // write it out so the .md on disk matches. (The watcher will see this
+      // write, but every ingest side runs behind the bridge's echo-hash guard —
+      // the local-change path recognizes its own bytes and stays quiet.)
+      await bridge.flushEgest();
+      if (!flushed) {
+        // Asked AFTER the wait, not before it: the pause may have been
+        // announced while we were waiting, and it is the pause, not a sick
+        // server, that swallowed the ack.
+        if (this.opts.syncPaused?.() ?? false) {
+          this.fail(docId, relPath, SHRINK_HELD_REASON, { kind: "shrink-held" });
+        } else {
+          this.fail(docId, relPath, "server did not acknowledge the content");
+        }
+        return false;
+      }
+      this.streak = 0;
+      this.opts.markPushed(docId);
+      // Flushed and editable: the server holds every op this doc had. A
+      // view-only doc is confirmed without a flush, so it proves nothing about
+      // local ops and records no ack (mirrors `confirmOpenDoc`).
+      if (!push.readOnly && bridge.doc) this.opts.markAcked?.(docId, encodeStateVector(bridge.doc));
+      this.progress.doc(docId, "synced");
+      this.progress.item("ok");
+      return true;
+    } catch (e) {
+      // A terminal status (deleted on the server, access gone, over the cap):
+      // retrying the same doc cannot help, so it fails ONCE and permanently —
+      // never re-queued by the session, never counted toward the pause streak.
+      const status = terminalStatusOf(e);
+      if (status !== null) {
+        this.fail(docId, relPath, terminalReason(status), {
+          permanent: true,
+          status,
+          ...(status === "too-large" ? { kind: "too-large" as const } : {}),
+        });
+        return false;
+      }
+      this.fail(docId, relPath, msg(e));
+      return false;
+    } finally {
+      // Order matters: kill the provider before the bridge, so no inbound update
+      // can land on a Y.Doc that is being destroyed.
+      try {
+        push.destroy();
+      } catch {
+        /* provider already gone */
+      }
+      await this.releaseQuietly(docId);
+    }
+  }
+
+  private async releaseQuietly(docId: string): Promise<void> {
+    try {
+      await this.opts.deps.release(docId);
+    } catch (e) {
+      console.warn(`[upload] release failed for ${docId}`, e);
+    }
+  }
+
+  /** Flip a lazy run to `uploading` (once), sized to the notes not yet settled. */
+  private announce(): void {
+    if (this.announced) return;
+    this.announced = true;
+    this.progress.phase("uploading", Math.max(0, this.queueLength - this.quietSkips));
+    this.progress.flush();
+  }
+
+  /** A note settled without the network. Before the announcement it is not
+   *  work anyone was told about, so it must not bump the previous phase's
+   *  counters; after it, it is one more item done. */
+  private quietOk(): void {
+    if (!this.announced) {
+      this.quietSkips++;
+      return;
+    }
+    this.progress.item("ok");
+  }
+
+  /**
+   * The file diverges from a doc this user cannot write: save it, report it.
+   *
+   * `flushEgest` (right after this) writes the server's state over the file.
+   * That is the right answer for a view-only grant — the server's copy IS the
+   * content — but the bytes on disk were somebody's work, and the read-only
+   * path deliberately skips the ingest that would have merged them, so they
+   * exist nowhere else. A failed read or recovery copy stops the replacement:
+   * the durable file stays in place and the doc remains unconfirmed so Retry
+   * can attempt the preservation step again.
+   */
+  private async keepUnsendableEdit(
+    docId: string,
+    relPath: string,
+    bridge: NoteBridge,
+  ): Promise<boolean> {
+    const read = this.opts.deps.readFile;
+    if (!read) return false;
+    let fileText: string;
+    try {
+      fileText = await read(relPath);
+    } catch {
+      return false; // nothing readable to compare or safely replace
+    }
+    if (fileText === bridge.serialize()) return true; // converged — nothing to keep
+    // The registry created this file as an empty landing place for a remote
+    // note. It is not a local delete/edit, and keeping a copy of zero bytes both
+    // invents a warning and prevents the canonical pull from ever reaching
+    // disk. The caller's provenance callback is deliberately stricter than
+    // `fileText.length === 0`: a real user truncation must still be recovered.
+    if (this.opts.isUnhydratedPlaceholder?.(docId, relPath, fileText)) return true;
+    let dest: string | null = null;
+    try {
+      dest =
+        (await this.opts.deps.writeTrashCopy?.(relPath, trashStamp(), fileText)) ?? null;
+    } catch (e) {
+      console.warn(`[upload] couldn't keep a copy of ${relPath}`, e);
+    }
+    this.report({
+      docId,
+      relPath,
+      reason:
+        "edit could not be sent: no write access" +
+        (dest ? `; copy saved to ${dest}` : "; the local copy could not be saved either"),
+      permanent: true,
+      kind: "no-write-access",
+    });
+    return dest != null;
+  }
+
+  /** Record a failure WITHOUT touching the progress counters or the streak —
+   *  for a doc that still settles (a read-only push is confirmed by the
+   *  server's own copy) but whose local bytes had nowhere to go. */
+  private report(failure: UploadFailure): void {
+    this.failures.push(failure);
+    try {
+      this.opts.onFailure?.(failure);
+    } catch (e) {
+      console.warn("[upload] failure listener threw", e);
+    }
+  }
+
+  private fail(
+    docId: string,
+    relPath: string,
+    reason: string,
+    opts: { permanent?: boolean; kind?: UploadFailure["kind"]; status?: string } = {},
+  ): void {
+    // A failure is always news, so a lazy run announces itself before reporting it.
+    this.announce();
+    const failure: UploadFailure = {
+      docId,
+      relPath,
+      reason,
+      ...(opts.permanent ? { permanent: true } : {}),
+      ...(opts.kind ? { kind: opts.kind } : {}),
+      ...(opts.status ? { status: opts.status } : {}),
+    };
+    this.failures.push(failure);
+    // A listener must never be able to change what the run does next.
+    try {
+      this.opts.onFailure?.(failure);
+    } catch (e) {
+      console.warn("[upload] failure listener threw", e);
+    }
+    this.progress.doc(docId, "error");
+    this.progress.item("failed");
+    // A permanent failure says nothing about the server's health, so it must
+    // not help trip the streak that pauses the run for everyone else.
+    if (opts.permanent) return;
+    this.streak++;
+    if (this.streak >= this.streakLimit && !this.aborted) {
+      this.aborted = true;
+      console.warn(
+        `[upload] ${this.streak} consecutive failures — stopping the run for this vault`,
+      );
+    }
+  }
+}
+
+/** One `.context/trash/<stamp>/` folder per save, the same shape the disk-delete
+ *  drain and the inbound trash executor use. */
+function trashStamp(): string {
+  return new Date().toISOString().replace(/[:.]/g, "-");
+}
+
+function terminalReason(status: string): string {
+  if (status === "deleted") return "this note was deleted on the server";
+  if (status === "no-access") return "you no longer have access to this note";
+  if (status === "too-large") return "too large to sync";
+  return `the server refused this note (${status})`;
+}
+
+function msg(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
+}

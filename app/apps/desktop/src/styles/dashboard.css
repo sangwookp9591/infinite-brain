@@ -1,0 +1,53 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+.dashboard-view { min-width: 0; min-height: 0; }
+.dashboard-header-actions { display:flex; align-items:center; gap:6px; }
+.dashboard-header-actions:empty { display:none; }
+.dashboard-header-actions .dashboard-agent-launch { font-size:11px; padding:5px 10px; }
+.dashboard-header-menu { position:relative; }
+.dashboard-header-menu summary { list-style:none; font-weight:700; font-size:17px; letter-spacing:1px; }
+.dashboard-header-menu summary::-webkit-details-marker { display:none; }
+.dashboard-header-menu-items { position:absolute; z-index:180; top:calc(100% + 8px); right:0; min-width:170px; padding:5px; border:1px solid var(--border); border-radius:var(--radius-md); background:var(--bg-surface); box-shadow:var(--shadow-lg); }
+.dashboard-header-menu-items button { display:block; width:100%; padding:8px 10px; border:0; border-radius:var(--radius-sm); background:transparent; color:var(--text-primary); font-size:12px; text-align:left; }
+.dashboard-header-menu-items button:hover { background:var(--bg-hover); }
+@media (max-width:1100px) { .dashboard-header-actions .dashboard-agent-launch-prefix { display:none; } .dashboard-header-actions { gap:4px; } .dashboard-header-actions .dashboard-agent-launch { padding-inline:8px; } }
+/* The sidebar and Windows caption controls reduce the usable header width.
+   Keep state glyphs and accessible labels while freeing room for the tabs. */
+@container dashboard-header (max-width:600px) {
+  .dashboard-header-actions .dashboard-agent-launch-prefix { display:none; }
+  .dashboard-header-actions { gap:4px; }
+  .dashboard-header-actions .dashboard-agent-launch { padding-inline:8px; }
+  .dashboard-header-actions .dashboard-agent-launch-status { font-size:0; gap:0; margin-left:5px; }
+  .header-actions { gap:4px; padding-inline:6px; }
+  .header-actions .sync-badge { position:relative; justify-content:center; width:26px; height:26px; padding:0; gap:0; }
+  .header-actions .sync-badge-label, .header-actions .sync-retry-cta { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+}
+.dashboard-toolbar { flex-wrap: wrap; gap: 8px; padding: 8px 12px; }
+.dashboard-toolbar-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+.dashboard-live-badge { color: var(--text-secondary); font-size: 11px; background: var(--bg-subtle); border-radius: var(--radius-pill); padding: 4px 8px; white-space: nowrap; }
+.dashboard-error { padding: 8px 16px; color: var(--danger); background: var(--danger-soft); font-size: 13px; }
+.dashboard-link-view { height: 100%; display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.dashboard-link-view iframe { border: 0; flex: 1; width: 100%; background: var(--bg-surface); }
+.dashboard-link-empty { margin: auto; padding: 32px; max-width: 520px; text-align: center; }
+.dashboard-link-empty p { color: var(--text-secondary); line-height: 1.6; }
+.dashboard-link-help { margin: 0; padding: 6px 12px; font-size: 12px; color: var(--text-secondary); }
+.dashboard-remote-setting { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 16px; font-size: 13px; }
+.dashboard-remote-setting small { flex-basis: 100%; color: var(--text-secondary); margin-left: 24px; }
+@media (max-width: 780px) {
+  .dashboard-toolbar-actions { margin-left: 0; }
+  .dashboard-toolbar-actions button { font-size: 11px; }
+}
+
+.dashboard-native-link { flex: 1; min-height: 0; position: relative; overflow: hidden; background: var(--bg-surface); }
+
+.dashboard-embedded-link { position: relative; display: flex; flex: 1; min-height: 0; }
+.dashboard-link-loader { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; color: var(--text-secondary); background: var(--bg-surface); font-size: 14px; }
+.dashboard-link-spinner { width: 28px; height: 28px; border: 3px solid var(--accent-soft); border-top-color: var(--accent); border-radius: 50%; animation: dashboard-link-spin 800ms linear infinite; }
+@keyframes dashboard-link-spin { to { transform: rotate(360deg); } }
+@media(prefers-reduced-motion:reduce) { .dashboard-link-spinner { animation: none; } }
+
+.dashboard-link-view { position: relative; }
+.dashboard-link-actions { position: absolute; top: 12px; right: 14px; z-index: 2; }
+.dashboard-link-actions .dashboard-toolbar-actions { gap: 8px; }
+.dashboard-link-actions button { box-shadow: 0 2px 8px rgb(0 0 0 / 12%); }
+/* Native webviews sit above DOM controls: keep their actions in app chrome. */
+.dashboard-link-view.has-native-viewer .dashboard-link-actions { position: relative; top: auto; right: auto; align-self: flex-end; margin: 8px 14px; }

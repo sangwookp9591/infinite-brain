@@ -1,0 +1,42 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Capability for the main window",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    {
+      "identifier": "core:window:allow-start-dragging",
+      "comment": "The window runs with `titleBarStyle: \"Overlay\"` (tauri.conf.json), so there is no system title bar to drag it by — the two header rows along the top edge carry `data-tauri-drag-region` instead. That attribute calls this command on mousedown, and `core:default` grants only read-only window commands, so without this the rows look draggable and silently do nothing."
+    },
+    "opener:default",
+    {
+      "identifier": "opener:allow-open-url",
+      "comment": "The Set-up prompt's Open System Settings button, shown when macOS blocked Baalda from the Documents folder. `opener:default` covers only http(s)/mailto/tel; this adds exactly the Files and Folders privacy pane.",
+      "allow": [{ "url": "x-apple.systempreferences:com.apple.preference.security?Privacy_FilesAndFolders" }]
+    },
+    {
+      "identifier": "opener:allow-open-path",
+      "comment": "Open a vault's folder in the OS file manager. `open_path` enforces a path scope INDEPENDENTLY of this permission — listing the identifier alone leaves that scope empty, which rejects every call as ForbiddenPath. Scoped to the home directory so a webview compromise can't reach /Applications or /usr; vaults kept outside $HOME fall back to reveal_item_in_dir, which is unscoped.",
+      "allow": [{ "path": "$HOME/**" }]
+    },
+    "dialog:default",
+    "fs:default",
+    "updater:default",
+    "process:default",
+    {
+      "identifier": "core:window:allow-set-focus",
+      "comment": "A `baalda://` note link has to bring the window forward — a link that navigates a window the user can't see is the same as a link that did nothing. `core:default` grants only read-only window commands, so the three commands the deep-link handler needs are listed explicitly rather than by widening it."
+    },
+    "core:window:allow-show",
+    "core:window:allow-unminimize",
+    {
+      "identifier": "log:default",
+      "comment": "Lets the React layer write to the app log. A `console.log` in a WKWebView reaches only the Web Inspector, so without this the UI cannot report anything to whoever is reading the `tauri dev` terminal. Registered in BOTH build profiles (src/lib.rs): debug writes to stdout, release to a rotating file in the OS log dir, so a shipped install can be asked for its log instead of a screenshot (#128)."
+    },
+    {
+      "identifier": "deep-link:default",
+      "comment": "Registers the `baalda://` URL scheme and lets the webview subscribe to opens on it. This is how a shared note link gets from a teammate's chat window into this app; the payload is only ever a vault + note id, and the handler resolves it against the signed-in user's own access."
+    }
+  ]
+}

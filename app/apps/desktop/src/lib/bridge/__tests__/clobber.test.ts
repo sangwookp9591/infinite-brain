@@ -1,0 +1,356 @@
+// Data-loss guard: a bridge that is "born empty" — opened with seedFromFile
+// false onto a note whose CRDT is empty (a doc_id mismatch, or an empty server
+// doc pulled by the background feed) — must NEVER let its emptiness reach the
+// file that still has real content on disk. This is the exact failure that
+// zeroed imported notes (`How Baalda works.md` → 0 bytes) before the fix. A
+// genuine clear-all (the doc held content, then it was emptied) must still
+// egest normally.
+
+import { describe, expect, it, vi } from "vitest";
+import { NoteBridge } from "../noteBridge";
+import { makeHarness } from "./helpers";
+
+const PATH = "note.md";
+const CONTENT = "# Real content\n\nthat must not be lost\n";
+
+describe("empty-egest clobber guard", () => {
+  it("opening an imported note the sync way leaves on-disk content intact", async () => {
+    vi.useFakeTimers();
+    try {
+      // File has content on disk; no CRDT persisted (a freshly imported note).
+      // Open exactly as the signed-in editor / background feed does: no seed,
+      // so the Y.Doc is empty and the server (absent here) can't fill it.
+      const { io, fs } = makeHarness({ [PATH]: CONTENT });
+      const bridge = await NoteBridge.open(io, {
+        docId: "mismatched-id",
+        path: PATH,
+        seedFromFile: false,
+      });
+      const writesBefore = fs.writeCount;
+
+      // Whatever the feed does — flush on eviction, timers firing — the file's
+      // real bytes survive; the guard refuses any empty write over them.
+      await bridge.flushEgest();
+      await vi.advanceTimersByTimeAsync(1000);
+
+      expect(fs.get(PATH)).toBe(CONTENT);
+      expect(fs.writeCount).toBe(writesBefore);
+      // The doc itself is (correctly) still empty — it just never clobbers disk.
+      expect(bridge.serialize()).toBe("");
+
+      bridge.destroy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("directly refuses an empty egest over a non-empty file (born-empty doc)", async () => {
+    vi.useFakeTimers();
+    try {
+      const { io, fs } = makeHarness({ [PATH]: CONTENT });
+      const bridge = await NoteBridge.open(io, {
+        docId: "mismatched-id",
+        path: PATH,
+        seedFromFile: false,
+      });
+
+      // Force the dangerous drain path: an empty doc egesting to disk. (Reaches
+      // drainEgest via the private egest hook the feed's flush would trigger.)
+      await (bridge as unknown as { drainEgest(): Promise<void> }).drainEgest();
+
+      expect(fs.get(PATH)).toBe(CONTENT); // untouched
+      bridge.destroy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("still egests a genuine clear-all (doc held content, then emptied)", async () => {
+    vi.useFakeTimers();
+    try {
+      const { io, fs } = makeHarness({ [PATH]: CONTENT });
+      // Normal local-first open: seeds the doc from the file, so it has held
+      // content this session.
+      const bridge = await NoteBridge.open(io, { docId: "doc-1", path: PATH });
+
+      // User selects all and deletes.
+      bridge.edit((t) => t.delete(0, t.length));
+      await vi.advanceTimersByTimeAsync(300);
+
+      // The clear reaches disk — this is a real deletion, not a born-empty doc.
+      expect(bridge.serialize()).toBe("");
+      expect(fs.get(PATH)).toBe("");
+
+      bridge.destroy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+/**
+ * A local-only vault's persisted-but-EMPTY doc must reconcile against the file
+ * on reopen (desktop-audit #2).
+ *
+ * Emptying a note is legal — `everHadContent` lets it egest — so a local vault
+ * routinely holds a doc whose persisted log serializes to "". If something else
+ * writes the file while the app is closed, `hydrate` used to skip the ingest
+ * (text.length === 0) and paint an empty editor over real content; the first
+ * keystroke then egested the emptiness. The signed-in path must NOT change:
+ * there an empty doc belongs to the deferred pull-before-seed order.
+ */
+describe("hydrate — empty doc vs a file that moved on", () => {
+  it("ingests the file on a local-only vault (seedFromFile)", async () => {
+    vi.useFakeTimers();
+    try {
+      const { io, fs } = makeHarness({ [PATH]: CONTENT });
+      // Session 1: seeded from disk, then the user clears the note.
+      const first = await NoteBridge.open(io, { docId: "doc-1", path: PATH });
+      first.edit((t) => t.delete(0, t.length));
+      await vi.advanceTimersByTimeAsync(300);
+      expect(fs.get(PATH)).toBe("");
+      await first.whenPersisted();
+      first.destroy();
+
+      // App closed. An AI / Obsidian / `git checkout` fills the file in.
+      fs.externalWrite(PATH, "world");
+
+      // Session 2: the CRDT is persisted AND empty.
+      const bridge = await NoteBridge.open(io, { docId: "doc-1", path: PATH });
+      expect(bridge.serialize()).toBe(""); // nothing merged yet — the ingest is debounced
+      await vi.advanceTimersByTimeAsync(200);
+
+      // The file's content reached the doc instead of being painted over.
+      expect(bridge.serialize()).toBe("world");
+      expect(fs.get(PATH)).toBe("world");
+
+      bridge.destroy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("changes nothing for a signed-in doc (seedFromFile false)", async () => {
+    vi.useFakeTimers();
+    try {
+      const { io, fs } = makeHarness({ [PATH]: CONTENT });
+      const first = await NoteBridge.open(io, { docId: "doc-1", path: PATH });
+      first.edit((t) => t.delete(0, t.length));
+      await vi.advanceTimersByTimeAsync(300);
+      await first.whenPersisted();
+      first.destroy();
+
+      fs.externalWrite(PATH, "world");
+
+      // The sync path: the doc stays empty until the server's state has been
+      // pulled, and only `seedFromFileIfEmpty` may seed it after that.
+      const bridge = await NoteBridge.open(io, {
+        docId: "doc-1",
+        path: PATH,
+        seedFromFile: false,
+      });
+      const reads = fs.readCount;
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(bridge.serialize()).toBe("");
+      expect(fs.readCount).toBe(reads); // no ingest was armed at all
+      expect(fs.get(PATH)).toBe("world"); // and nothing was written over it
+
+      bridge.destroy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+/**
+ * The ingest twin (#93): a 0-byte FILE must not clear a doc that holds text.
+ *
+ * The registry materializes a server-only note as an empty placeholder, and on a
+ * device that already holds that note's CRDT the placeholder used to be
+ * diff-merged into the populated doc as a delete-all — and then pushed, which
+ * destroyed the server's copy. The doc keeps what it has instead; a genuine
+ * PARTIAL truncation is a normal edit and still applies.
+ */
+describe("empty-ingest truncation guard", () => {
+  it("refuses to clear a populated doc from a 0-byte file", async () => {
+    vi.useFakeTimers();
+    try {
+      const { io, fs } = makeHarness({ [PATH]: CONTENT });
+      const errors: Array<{ err: unknown; context: string }> = [];
+      const bridge = await NoteBridge.open(
+        { ...io, onError: (err, context) => errors.push({ err, context }) },
+        { docId: "doc-1", path: PATH },
+      );
+      expect(bridge.serialize()).toBe(CONTENT);
+
+      // The exact sequence from the bug: the file becomes 0 bytes underneath a
+      // doc that still holds the note.
+      fs.externalWrite(PATH, "");
+      expect(await bridge.ingestNow()).toBe(false);
+      expect(bridge.serialize()).toBe(CONTENT);
+      expect(errors.map((e) => e.context)).toContain("ingest:truncate");
+
+      // Reported ONCE, however many events the placeholder generates.
+      await bridge.ingestNow();
+      expect(errors.filter((e) => e.context === "ingest:truncate")).toHaveLength(1);
+
+      bridge.destroy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("still applies a genuine partial truncation from disk", async () => {
+    vi.useFakeTimers();
+    try {
+      const { io, fs } = makeHarness({ [PATH]: CONTENT });
+      const bridge = await NoteBridge.open(io, { docId: "doc-1", path: PATH });
+
+      // A person (or an AI) cutting the note down to one line is a real edit.
+      fs.externalWrite(PATH, "# Real content\n");
+      expect(await bridge.ingestNow()).toBe(true);
+      expect(bridge.serialize()).toBe("# Real content\n");
+
+      bridge.destroy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // #256: the shapes agents and scripts actually leave behind when they
+  // "empty" a note are not 0 bytes. Each is refused over a populated doc.
+  const LONG =
+    "---\ntitle: Plan\ntags: [a, b]\n---\n# Plan\n\n" +
+    "A paragraph of real notes that a teammate wrote and that must survive. ".repeat(5);
+  it.each([
+    ["a lone newline", "\n"],
+    ["whitespace only", "  \n\t\n   \n"],
+    ["bare frontmatter", "---\ntitle: Plan\ntags: [a, b]\n---\n"],
+    ["frontmatter and blank lines", "---\ntitle: Plan\n---\n\n\n"],
+  ])("refuses to clear a populated doc from %s", async (_label, blank) => {
+    vi.useFakeTimers();
+    try {
+      const { io, fs } = makeHarness({ [PATH]: LONG });
+      const errors: Array<{ err: unknown; context: string }> = [];
+      const bridge = await NoteBridge.open(
+        { ...io, onError: (err, context) => errors.push({ err, context }) },
+        { docId: "doc-1", path: PATH },
+      );
+      expect(bridge.serialize()).toBe(LONG);
+
+      fs.externalWrite(PATH, blank);
+      expect(await bridge.ingestNow()).toBe(false);
+      expect(bridge.serialize()).toBe(LONG);
+      expect(errors.map((e) => e.context)).toContain("ingest:truncate");
+      // Refusing never rewrites the file either way: it is left as found.
+      expect(fs.get(PATH)).toBe(blank);
+
+      bridge.destroy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("still applies a partial edit that keeps any body text, however much it cuts", async () => {
+    vi.useFakeTimers();
+    try {
+      const { io, fs } = makeHarness({ [PATH]: LONG });
+      const bridge = await NoteBridge.open(io, { docId: "doc-1", path: PATH });
+
+      const cut = "---\ntitle: Plan\ntags: [a, b]\n---\n# Plan\n";
+      fs.externalWrite(PATH, cut);
+      expect(await bridge.ingestNow()).toBe(true);
+      expect(bridge.serialize()).toBe(cut);
+
+      bridge.destroy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("still lets a short note be cleared to a blank line from another editor", async () => {
+    vi.useFakeTimers();
+    try {
+      // Under the 200-character floor, a blank file is plausibly a person
+      // clearing a scratch note — the same floor the server's shrink guard uses.
+      const { io, fs } = makeHarness({ [PATH]: CONTENT });
+      const bridge = await NoteBridge.open(io, { docId: "doc-1", path: PATH });
+
+      fs.externalWrite(PATH, "\n");
+      expect(await bridge.ingestNow()).toBe(true);
+      expect(bridge.serialize()).toBe("\n");
+
+      bridge.destroy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("honours a 0-byte file when the note is configured to allow it", async () => {
+    vi.useFakeTimers();
+    try {
+      const { io, fs } = makeHarness({ [PATH]: CONTENT });
+      const bridge = await NoteBridge.open(io, {
+        docId: "doc-1",
+        path: PATH,
+        config: { allowTruncateFromDisk: true },
+      });
+
+      fs.externalWrite(PATH, "");
+      expect(await bridge.ingestNow()).toBe(true);
+      expect(bridge.serialize()).toBe("");
+
+      bridge.destroy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+/**
+ * The other half of the #93 fix: a materialized 0-byte placeholder is FILLED IN
+ * from the local CRDT (`SyncManager.materializeContent`), which removes the
+ * trigger rather than only guarding against it.
+ *
+ * `flushEgest` cannot do this. Nothing is pending after `hydrate` — applying
+ * persisted state fires no text observer — and the echo hash is baselined at the
+ * doc's own text, so the "already on disk" shortcut skips the write too.
+ */
+describe("writeThrough — filling a placeholder from the local CRDT", () => {
+  it("writes the doc's text over the 0-byte file the registry just created", async () => {
+    vi.useFakeTimers();
+    try {
+      // A previous session's CRDT for this note…
+      const { io, fs, persistence } = makeHarness({ [PATH]: CONTENT });
+      const first = await NoteBridge.open(io, { docId: "doc-1", path: PATH });
+      expect(first.serialize()).toBe(CONTENT);
+      first.destroy();
+      expect(persistence.logLength("doc-1")).toBeGreaterThan(0);
+
+      // …the file is deleted and the registry re-creates it empty.
+      fs.externalWrite(PATH, "");
+      const bridge = await NoteBridge.open(io, {
+        docId: "doc-1",
+        path: PATH,
+        seedFromFile: false, // exactly how the doc store promotes it
+      });
+      expect(bridge.serialize()).toBe(CONTENT); // hydrated from the CRDT
+      // Nothing is pending, so the normal flush is (correctly) a no-op.
+      const writes = fs.writeCount;
+      await bridge.flushEgest();
+      expect(fs.writeCount).toBe(writes);
+
+      expect(await bridge.writeThrough()).toBe(true);
+      expect(fs.get(PATH)).toBe(CONTENT);
+
+      // The echo hash now matches the file, so the watcher event for this write
+      // is recognised as our own and no content push is queued for it.
+      fs.externalWrite(PATH, CONTENT);
+      expect(await bridge.ingestNow()).toBe(false);
+
+      bridge.destroy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

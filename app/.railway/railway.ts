@@ -1,0 +1,175 @@
+// Railway Infrastructure as Code for the Baalda server service.
+//
+// Successor of the repo-root `railway.json`: Railway's legacy "Config as Code"
+// is no longer read by services created after mid-2026 and stops being read
+// everywhere on 2026-12-01. This file carries the same generic settings —
+// Dockerfile build, pre-deploy migration, health check, restart policy, memory
+// cap — so a Railway-hosted server gets them from code instead of the dashboard.
+//
+// Scope. `partial` limits the file to the `baalda-server` service; Postgres,
+// volumes and domains belong to the Railway project and are never planned,
+// changed or deleted from here. Every environment variable the server reads is
+// listed with `preserve()`, which keeps whatever value the service already has
+// and adds NOTHING when the variable is absent — a variable that is not listed
+// would be deleted on apply, so add new server env vars here as well as to
+// `apps/server/.env.example`. Source is repeated because an omitted source is
+// treated as "detach the repo"; forks change the repo string.
+//
+// Run from `app/` (the SDK is a workspace devDependency there):
+//
+//   railway link            # pick the project + environment
+//   railway config plan     # preview (never changes anything)
+//   railway config apply    # apply after review
+//
+// Settings live on the service afterwards, so this only needs re-applying when
+// the file changes — ordinary pushes deploy with whatever was last applied.
+import { defineRailway, github, preserve, project, service } from "railway/iac";
+
+export const partial = "baalda-server";
+
+// Server env vars (see apps/server/.env.example and docs/DEPLOY.md). All optional
+// here: `preserve()` keeps an existing value and creates nothing.
+const SERVER_ENV = [
+  "DATABASE_URL",
+  "JWT_SECRET",
+  "BETTER_AUTH_URL",
+  "PORT",
+  // Template Dockerfile detection; preserve when applying IaC to a template deployment.
+  "RAILWAY_DOCKERFILE_PATH",
+  "HOCUSPOCUS_PORT",
+  "NODE_ENV",
+  "BAALDA_DEPLOYMENT",
+  "NODE_OPTIONS",
+  "SYNC_TOKEN_TTL_SECONDS",
+  "COMPACTION_THRESHOLD",
+  "CORS_ORIGINS",
+  "OPENAI_API_KEY",
+  "REDIS_URL",
+  "PG_POOL_MAX",
+  "MAX_NOTE_MB",
+  "MAX_BLOB_BYTES",
+  "MAX_INFLIGHT_UPLOAD_BYTES",
+  // Attachment storage adapter: provider for new blobs, how strictly the upload
+  // route enforces the MIME allow-list, and how long an abandoned upload holds
+  // its dedupe slot.
+  "BLOB_STORAGE",
+  "BLOB_MIME_ENFORCE",
+  "BLOB_PENDING_TTL_MINUTES",
+  // Attachment lifecycle: the free-tier storage cap, and the orphan sweep
+  // (default OFF — the deletion queue is always on and has no switch).
+  "FREE_MAX_STORAGE_MB",
+  "BLOB_GC_ENABLED",
+  "BLOB_GC_ORPHAN_DAYS",
+  "BLOB_GC_INTERVAL_MS",
+  "BLOB_GC_MAX_DELETES_PER_RUN",
+  // S3/R2/MinIO, read only when BLOB_STORAGE=s3. Every one of these must be
+  // listed: `railway config apply` DELETES a variable the IaC does not name,
+  // so an omission here silently unconfigures the bucket on the next apply.
+  "S3_BUCKET",
+  "S3_REGION",
+  "S3_ENDPOINT",
+  "S3_ACCESS_KEY_ID",
+  "S3_SECRET_ACCESS_KEY",
+  "S3_FORCE_PATH_STYLE",
+  "S3_KEY_PREFIX",
+  "S3_PRESIGN_UPLOAD_TTL_SECONDS",
+  "S3_PRESIGN_DOWNLOAD_TTL_SECONDS",
+  "S3_PROXY_DOWNLOADS",
+  "S3_CHECKSUM_MODE",
+  "S3_MULTIPART_THRESHOLD_BYTES",
+  "S3_MULTIPART_PART_BYTES",
+  "MAX_BLOB_BYTES_DIRECT",
+  "BACKFILL_CONCURRENCY",
+  // Bulk sync engine: the per-request item ceilings for the `/batch` routes and
+  // the bootstrap page/session budgets. All have safe defaults in
+  // `apps/server/src/config.ts` — they are listed so a deployment CAN tune them
+  // without the next `railway config apply` deleting the value.
+  "BATCH_MAX_NOTES",
+  "BATCH_MAX_FOLDERS",
+  "BATCH_MAX_FILES",
+  "BATCH_MAX_DOCS",
+  "BATCH_MAX_DECODED_BYTES",
+  "BOOTSTRAP_MAX_PAGE_BYTES",
+  "BOOTSTRAP_MAX_PAGE_DOCS",
+  "BOOTSTRAP_CONCURRENCY",
+  "BOOTSTRAP_TTL_HOURS",
+  "VERSION_IDLE_MS",
+  "VAULT_SYNC_PATH",
+  "VAULT_HEARTBEAT_MS",
+  "VAULT_SEND_CAP_BYTES",
+  "VAULT_SEND_POLL_MS",
+  "VAULT_SEND_STALL_MS",
+  "FREE_MAX_VAULTS",
+  "FREE_MAX_MEMBERS",
+  "GOOGLE_CLIENT_ID",
+  "GOOGLE_CLIENT_SECRET",
+  "POLAR_ACCESS_TOKEN",
+  "POLAR_SERVER",
+  "POLAR_PRODUCT_MONTHLY_ID",
+  "POLAR_PRODUCT_YEARLY_ID",
+  "POLAR_PRODUCT_TEAM_MONTHLY_ID",
+  "POLAR_PRODUCT_TEAM_YEARLY_ID",
+  "TEAM_PRICE_MONTHLY_CENTS",
+  "TEAM_PRICE_YEARLY_CENTS",
+  "TEAM_MIN_SEATS",
+  "ABUSE_MAX_NOTES",
+  "ABUSE_MAX_STORAGE_MB",
+  "BILLING_MODEL",
+  "POLAR_WEBHOOK_SECRET",
+  // Outbound email (issue #99): EMAIL_FROM + one of SMTP_URL / RESEND_API_KEY
+  // turns on password reset, sign-up verification and invitation emails.
+  "EMAIL_FROM",
+  "SMTP_URL",
+  "RESEND_API_KEY",
+  "EMAIL_TRANSPORT",
+  // Inbox for the desktop's "Report a bug" dialog (needs email on); unset = off.
+  "BUG_REPORT_EMAIL",
+  // Desktop URL scheme the server's pages bounce into; `baalda-staging` on the
+  // staging project so its links open the Staging app, not the released one.
+  "DEEP_LINK_SCHEME",
+  // Note Trash retention and the optional Baalda Assistant module override.
+  "TRASH_RETENTION_DAYS",
+  "HOUSEKEEPER_MODULE",
+  // Content-write safety (#251, #252): the oldest desktop build allowed to push
+  // note content, what a build that reports no version gets, and the burst
+  // brake on emptied notes.
+  "MIN_CLIENT_VERSION",
+  "UNVERSIONED_CLIENTS",
+  "SHRINK_BRAKE_COUNT",
+  "SHRINK_BRAKE_WINDOW_SECONDS",
+  "SHRINK_BRAKE_HOLD_MINUTES",
+  // Invitation lifetime (#268) and the release hint (#269); a staging project
+  // points RELEASE_MANIFEST_URL at the staging prerelease manifest.
+  "INVITATION_EXPIRES_HOURS",
+  "RELEASE_MANIFEST_URL",
+  "RELEASE_POLL_MINUTES",
+] as const;
+
+export default defineRailway((ctx) => {
+  // A project whose name contains "staging" deploys the `staging` branch;
+  // every other project deploys `main`.
+  const branch = ctx.projectName.toLowerCase().includes("staging") ? "staging" : "main";
+
+  const server = service("baalda-server", {
+    source: github("naveedharri/baalda", { branch }),
+    build: {
+      builder: "DOCKERFILE",
+      // Build context is the repo root (pnpm monorepo), so the path is from there.
+      dockerfilePath: "app/apps/server/Dockerfile",
+    },
+    deploy: {
+      // Migrations run in a one-off container before the new version takes
+      // traffic; a failed migration fails the deploy and the old version keeps
+      // serving.
+      preDeployCommand: ["node dist/db/migrate.js"],
+      healthcheckPath: "/health",
+      healthcheckTimeout: 300,
+      restartPolicyType: "ON_FAILURE",
+      restartPolicyMaxRetries: 5,
+      limitOverride: { containers: { memoryBytes: 1073741824 } },
+    },
+    env: Object.fromEntries(SERVER_ENV.map((name) => [name, preserve()])),
+  });
+
+  return project(ctx.projectName, { resources: [server] });
+});

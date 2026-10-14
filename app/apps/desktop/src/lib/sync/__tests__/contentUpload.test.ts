@@ -1,0 +1,1167 @@
+// Bulk CONTENT upload (phase 2) — the write path that did not exist.
+//
+// Reconcile only ever created a `notes` row (and hence an EMPTY server Y.Doc) per
+// file; a note's markdown reached the server solely when a human opened it. These
+// tests cover the engine that fixes that, and above all its idempotency: running
+// it twice — or running it on a second device that holds the same file — must
+// leave the note's text IDENTICAL, never doubled.
+//
+// The "server" here is a real Y.Doc per docId, exchanged exactly the way
+// Hocuspocus does it (SyncStep1/2 both directions on connect, then live update
+// forwarding), so a doubling bug would show up as doubled text — not be papered
+// over by a mock.
+
+import { describe, expect, it, vi } from "vitest";
+import * as Y from "yjs";
+import { makeHarness } from "../../bridge/__tests__/helpers";
+import {
+  ContentUploader,
+  MAX_NOTE_BYTES,
+  SHRINK_HELD_REASON,
+  TerminalSyncError,
+  type DocPush,
+} from "../contentUpload";
+import { UPLOAD_CONCURRENCY } from "../pool";
+import type { SyncProgressSink } from "../progress";
+import { VaultDocStore } from "../vaultDocStore";
+import type { DocSyncState, SyncProgressPhase } from "../vaultScope";
+
+const VAULT = "v-1";
+const tick = () => new Promise<void>((r) => setTimeout(r, 0));
+
+/** The server's canonical Y.Doc per docId (binary CRDT only, as in production). */
+class FakeServer {
+  private readonly docs = new Map<string, Y.Doc>();
+  doc(docId: string): Y.Doc {
+    let d = this.docs.get(docId);
+    if (!d) {
+      d = new Y.Doc();
+      this.docs.set(docId, d);
+    }
+    return d;
+  }
+  text(docId: string): string {
+    return this.doc(docId).getText("content").toString();
+  }
+  seed(docId: string, text: string): void {
+    this.doc(docId).getText("content").insert(0, text);
+  }
+}
+
+interface PushBehaviour {
+  /** Docs whose provider never reaches a real sync (offline / server down). */
+  neverSynced?: Set<string>;
+  /** Docs whose grant is view-only. */
+  readOnly?: Set<string>;
+  /** Docs the server never acknowledges. */
+  neverFlushed?: Set<string>;
+  /** Docs whose provider turns terminal (`deleted` / `no-access`) mid-wait. */
+  terminal?: Map<string, string>;
+  /** Docs whose wait times out WITHOUT rejecting, leaving a terminal `status`
+   *  behind (the verdict landed as the timeout fired). */
+  terminalAfterTimeout?: Map<string, string>;
+}
+
+/** A `DocPush` that behaves like `DocSync` over `server`. */
+function makeConnect(server: FakeServer, behaviour: PushBehaviour = {}) {
+  const connects: string[] = [];
+  const connect = (input: { docId: string; vaultId: string; doc: Y.Doc }): DocPush => {
+    const { docId, doc } = input;
+    connects.push(docId);
+    const remote = server.doc(docId);
+    const readOnly = behaviour.readOnly?.has(docId) ?? false;
+    let synced = false;
+    let observer: ((u: Uint8Array) => void) | null = null;
+    return {
+      get readOnly() {
+        return readOnly;
+      },
+      get isSynced() {
+        return synced;
+      },
+      get status() {
+        return behaviour.terminalAfterTimeout?.get(docId) ?? (synced ? "synced" : "connecting");
+      },
+      async whenSynced() {
+        await tick();
+        const terminal = behaviour.terminal?.get(docId);
+        if (terminal) throw new TerminalSyncError(terminal);
+        if (behaviour.neverSynced?.has(docId)) return; // times out, isSynced stays false
+        if (behaviour.terminalAfterTimeout?.has(docId)) return; // times out, status terminal
+        // SyncStep1/2, both directions — exactly what makes pull-before-seed work.
+        Y.applyUpdate(doc, Y.encodeStateAsUpdate(remote, Y.encodeStateVector(doc)), "remote");
+        if (!readOnly) {
+          Y.applyUpdate(remote, Y.encodeStateAsUpdate(doc, Y.encodeStateVector(remote)));
+        }
+        // Live: every later local update is forwarded, like the provider does.
+        observer = (u: Uint8Array) => {
+          if (!readOnly) Y.applyUpdate(remote, u);
+        };
+        doc.on("update", observer);
+        synced = true;
+      },
+      async whenFlushed() {
+        await tick();
+        return synced && !(behaviour.neverFlushed?.has(docId) ?? false);
+      },
+      destroy() {
+        if (observer) doc.off("update", observer);
+        observer = null;
+      },
+    };
+  };
+  return { connect, connects };
+}
+
+function recordingSink() {
+  const phases: SyncProgressPhase[] = [];
+  const docs: Array<[string, DocSyncState]> = [];
+  let done = 0;
+  let failed = 0;
+  const sink: SyncProgressSink = {
+    phase: (p) => phases.push(p),
+    addTotal: () => {},
+    item: (o) => {
+      done++;
+      if (o === "failed") failed++;
+    },
+    doc: (id, s) => docs.push([id, s]),
+    flush: () => {},
+  };
+  return {
+    sink,
+    phases,
+    docs,
+    stateOf: (id: string) => docs.filter(([d]) => d === id).map(([, s]) => s),
+    counts: () => ({ done, failed }),
+  };
+}
+
+interface RigOptions {
+  files: Record<string, string>;
+  notes: Array<{ docId: string; relPath: string }>;
+  server?: FakeServer;
+  behaviour?: PushBehaviour;
+  pushed?: Set<string>;
+  skip?: (docId: string) => boolean;
+  shouldStop?: () => boolean;
+  concurrency?: number;
+  failureStreakLimit?: number;
+  force?: boolean;
+  include?: (docId: string) => boolean;
+  priority?: (docId: string) => boolean;
+  ingestFromFile?: boolean;
+  mustConnect?: (docId: string) => boolean;
+  isUnhydratedPlaceholder?: (docId: string, relPath: string, fileText: string) => boolean;
+  /** Reuse a previous rig's CRDT store, to model a SECOND run on one device. */
+  harness?: ReturnType<typeof makeHarness>;
+  onAcquire?: (docId: string, store: VaultDocStore) => void;
+  /** Wire the production `readFile` dep (the pre-network checks need it). */
+  readFile?: boolean;
+  lazyPhase?: boolean;
+  failTrash?: boolean;
+  syncPaused?: () => boolean;
+}
+
+function rig(opts: RigOptions) {
+  const harness = opts.harness ?? makeHarness(opts.files);
+  const server = opts.server ?? new FakeServer();
+  const pathByDoc = new Map(opts.notes.map((n) => [n.docId, n.relPath] as const));
+  const store = new VaultDocStore({
+    io: harness.io,
+    resolvePath: (docId) => pathByDoc.get(docId) ?? null,
+  });
+  const { connect, connects } = makeConnect(server, opts.behaviour);
+  const pushedSet = opts.pushed ?? new Set<string>();
+  const trashed: Array<{ relPath: string; content: string }> = [];
+  const marked: string[] = [];
+  const acked = new Map<string, Uint8Array>();
+  const sink = recordingSink();
+  const uploader = new ContentUploader({
+    vaultId: VAULT,
+    notes: opts.notes,
+    deps: {
+      acquire: (docId, relPath) => {
+        opts.onAcquire?.(docId, store);
+        return store.promote(docId, relPath, {
+          seedFromFile: false,
+          markRecent: false,
+          pin: true,
+        });
+      },
+      release: (docId) => store.demote(docId),
+      connect,
+      ...(opts.readFile ? { readFile: (relPath: string) => harness.io.readFile(relPath) } : {}),
+      writeTrashCopy: async (relPath: string, stamp: string, content: string) => {
+        if (opts.failTrash) throw new Error("disk full");
+        trashed.push({ relPath, content });
+        return `.context/trash/${stamp}/${relPath}`;
+      },
+    },
+    isPushed: (id) => pushedSet.has(id),
+    markPushed: (id) => {
+      marked.push(id);
+      pushedSet.add(id);
+    },
+    markAcked: (id, sv) => acked.set(id, sv),
+    skip: opts.skip,
+    force: opts.force,
+    include: opts.include,
+    priority: opts.priority,
+    ingestFromFile: opts.ingestFromFile,
+    mustConnect: opts.mustConnect,
+    isUnhydratedPlaceholder: opts.isUnhydratedPlaceholder,
+    shouldStop: opts.shouldStop,
+    lazyPhase: opts.lazyPhase,
+    syncPaused: opts.syncPaused,
+    progress: sink.sink,
+    concurrency: opts.concurrency,
+    failureStreakLimit: opts.failureStreakLimit,
+    syncTimeoutMs: 50,
+    flushTimeoutMs: 50,
+  });
+  return { uploader, store, server, harness, connects, marked, acked, sink, pushedSet, trashed };
+}
+
+describe("ContentUploader — pre-network checks (readFile)", () => {
+  it("settles a note the server lacks whose file is empty too, without a socket", async () => {
+    // The prod loop: 307 zero-byte .md files, all "pushed" locally, all named by
+    // `ready.empty` on every connect. Seeding an empty file inserts nothing, so
+    // the server kept holding nothing and named them again next time — a token
+    // mint and a WebSocket apiece, forever.
+    const r = rig({
+      files: { "Empty.md": "" },
+      notes: [{ docId: "e", relPath: "Empty.md" }],
+      pushed: new Set(["e"]),
+      include: () => true, // the server says it has nothing for this doc
+      readFile: true,
+    });
+    const result = await r.uploader.run();
+    expect(result).toMatchObject({ total: 1, pushed: 1, failed: 0 });
+    expect(r.connects).toEqual([]);
+    expect(r.marked).toEqual(["e"]);
+    const states = r.sink.stateOf("e");
+    expect(states[states.length - 1]).toBe("synced");
+    expect(r.store.hotSize()).toBe(0);
+  });
+
+  it("still PULLS for an empty placeholder when the server has not said it is empty", async () => {
+    // Same local shape (empty file, empty doc) but the server holds content the
+    // backfill never delivered here. Skipping the network would strand the note
+    // blank until the next reconnect — the socket is the recovery path.
+    const server = new FakeServer();
+    server.seed("p", "content from a teammate");
+    const r = rig({
+      files: { "Placeholder.md": "" },
+      notes: [{ docId: "p", relPath: "Placeholder.md" }],
+      server,
+      readFile: true,
+    });
+    await r.uploader.run();
+    expect(r.connects).toEqual(["p"]);
+    expect(r.harness.fs.get("Placeholder.md")).toBe("content from a teammate");
+  });
+
+  it("fails a note whose CRDT is over the ceiling behind a ZERO-BYTE file", async () => {
+    // The production regression (benai-os, Sept 2026). Four notes held 10–17 MB
+    // of Yjs history behind 0-byte files: the text had been truncated on disk
+    // while the duplication garbage from an earlier fork stayed in the doc.
+    //
+    // The file-bytes check passed (0 < 10 MB) and the empty-everywhere check
+    // did not fire (the DOC was not empty), so a socket opened, the server
+    // rejected the ~17 MB message and closed it, and the provider reconnected —
+    // about once a second, forever, strobing the sync badge. The cap has to be
+    // applied to what actually goes on the wire.
+    const r = rig({
+      files: { "Truncated.md": "", "Small.md": "fine" },
+      notes: [
+        { docId: "fat", relPath: "Truncated.md" },
+        { docId: "small", relPath: "Small.md" },
+      ],
+      readFile: true,
+      concurrency: 1,
+      failureStreakLimit: 1,
+    });
+    // Fat doc, empty file — exactly the production shape.
+    const bridge = await r.store.promote("fat", "Truncated.md", {
+      seedFromFile: false,
+      markRecent: false,
+      pin: true,
+    });
+    bridge.doc.getText("content").insert(0, "y".repeat(MAX_NOTE_BYTES + 1));
+    expect(r.harness.fs.get("Truncated.md")).toBe("");
+
+    const result = await r.uploader.run();
+
+    expect(r.uploader.failedDocs()).toEqual([
+      expect.objectContaining({
+        docId: "fat",
+        permanent: true,
+        reason: expect.stringContaining("edit history"),
+      }),
+    ]);
+    // The whole point: no socket was ever opened for it.
+    expect(r.connects).toEqual(["small"]);
+    // And it did not count toward the streak, so the run finished its work.
+    expect(result.aborted).toBe(false);
+    expect(r.marked).toEqual(["small"]);
+  });
+
+  it("fails a note over the size ceiling permanently, without a socket or a streak hit", async () => {
+    const huge = "x".repeat(MAX_NOTE_BYTES + 1);
+    const r = rig({
+      files: { "Huge.md": huge, "Small.md": "fine" },
+      notes: [
+        { docId: "huge", relPath: "Huge.md" },
+        { docId: "small", relPath: "Small.md" },
+      ],
+      readFile: true,
+      concurrency: 1,
+      failureStreakLimit: 1, // a single COUNTED failure would abort the run
+    });
+    const result = await r.uploader.run();
+    // The oversized note failed once, for a reason a person can act on...
+    expect(r.uploader.failedDocs()).toEqual([
+      expect.objectContaining({
+        docId: "huge",
+        permanent: true,
+        reason: expect.stringContaining("10 MB"),
+      }),
+    ]);
+    expect(r.connects).toEqual(["small"]); // ...never dialled the server...
+    // ...and did not count toward the streak: the run carried on and pushed the rest.
+    expect(result).toMatchObject({ total: 2, pushed: 1, failed: 1, aborted: false });
+    expect(r.server.text("small")).toBe("fine");
+  });
+});
+
+describe("ContentUploader — pushing local content", () => {
+  it("seeds an empty server doc from the local markdown", async () => {
+    const r = rig({
+      files: { "Note.md": "# hello world" },
+      notes: [{ docId: "d1", relPath: "Note.md" }],
+    });
+    const result = await r.uploader.run();
+
+    expect(result).toMatchObject({ total: 1, pushed: 1, failed: 0 });
+    expect(r.server.text("d1")).toBe("# hello world");
+    expect(r.marked).toEqual(["d1"]);
+    expect(r.sink.stateOf("d1")).toEqual(["queued", "syncing", "synced"]);
+    expect(r.sink.phases).toContain("uploading");
+    // Residency released — the run does not leak bridges.
+    expect(r.store.hotSize()).toBe(0);
+  });
+
+  it("writes server content out to disk for a note that is only a placeholder", async () => {
+    const server = new FakeServer();
+    server.seed("d1", "content from a teammate");
+    const r = rig({
+      files: { "Note.md": "" },
+      notes: [{ docId: "d1", relPath: "Note.md" }],
+      server,
+    });
+    await r.uploader.run();
+
+    expect(r.harness.fs.get("Note.md")).toBe("content from a teammate");
+    expect(r.server.text("d1")).toBe("content from a teammate"); // unchanged
+  });
+
+  it("never pushes for a view-only grant, but still pulls", async () => {
+    const server = new FakeServer();
+    server.seed("d1", "theirs");
+    const r = rig({
+      files: { "Note.md": "mine" },
+      notes: [{ docId: "d1", relPath: "Note.md" }],
+      server,
+      behaviour: { readOnly: new Set(["d1"]) },
+      readFile: true,
+    });
+    await r.uploader.run();
+
+    expect(r.server.text("d1")).toBe("theirs"); // our text was NOT pushed
+    expect(r.harness.fs.get("Note.md")).toBe("theirs");
+  });
+
+  it("a read-only doc keeps a copy of the file it is about to overwrite", async () => {
+    // View-only grant: the seed and the ingest are both skipped, so the bytes on
+    // disk exist nowhere but disk — and `flushEgest` is about to write the
+    // server's copy over them. The server's copy IS the content for a doc you
+    // cannot write, but the edit may not vanish without a copy and a word.
+    const server = new FakeServer();
+    server.seed("d1", "theirs");
+    const r = rig({
+      files: { "Note.md": "an edit nobody can send" },
+      notes: [{ docId: "d1", relPath: "Note.md" }],
+      server,
+      behaviour: { readOnly: new Set(["d1"]) },
+      readFile: true,
+    });
+    await r.uploader.run();
+
+    expect(r.trashed).toEqual([
+      { relPath: "Note.md", content: "an edit nobody can send" },
+    ]);
+    const failure = r.uploader.failedDocs().find((f) => f.docId === "d1");
+    expect(failure?.reason).toContain("no write access");
+    expect(failure?.reason).toContain(".context/trash/");
+    expect(failure?.permanent).toBe(true);
+    expect(failure?.kind).toBe("no-write-access");
+    // The server's copy still lands on disk, and the doc still settles: there is
+    // nothing more this device can do for it.
+    expect(r.harness.fs.get("Note.md")).toBe("theirs");
+    expect(r.marked).toEqual(["d1"]);
+  });
+
+  it("keeps no copy when the file already matches a read-only doc", async () => {
+    const server = new FakeServer();
+    server.seed("d1", "theirs");
+    const r = rig({
+      files: { "Note.md": "theirs" },
+      notes: [{ docId: "d1", relPath: "Note.md" }],
+      server,
+      behaviour: { readOnly: new Set(["d1"]) },
+      readFile: true,
+    });
+    await r.uploader.run();
+    expect(r.trashed).toEqual([]);
+    expect(r.uploader.failedDocs()).toEqual([]);
+  });
+
+  it("hydrates a proven 0-byte materialized placeholder in read-only mode", async () => {
+    const server = new FakeServer();
+    server.seed("d1", "theirs");
+    const r = rig({
+      files: { "Note.md": "" },
+      notes: [{ docId: "d1", relPath: "Note.md" }],
+      server,
+      behaviour: { readOnly: new Set(["d1"]) },
+      readFile: true,
+      isUnhydratedPlaceholder: (docId, _relPath, fileText) =>
+        docId === "d1" && fileText.length === 0,
+    });
+    await r.uploader.run();
+
+    expect(r.trashed).toEqual([]);
+    expect(r.uploader.failedDocs()).toEqual([]);
+    expect(r.harness.fs.get("Note.md")).toBe("theirs");
+    expect(r.marked).toEqual(["d1"]);
+  });
+
+  it("still protects an unmarked 0-byte file as a possible local deletion", async () => {
+    const server = new FakeServer();
+    server.seed("d1", "theirs");
+    const r = rig({
+      files: { "Note.md": "" },
+      notes: [{ docId: "d1", relPath: "Note.md" }],
+      server,
+      behaviour: { readOnly: new Set(["d1"]) },
+      readFile: true,
+    });
+    await r.uploader.run();
+
+    expect(r.trashed).toEqual([{ relPath: "Note.md", content: "" }]);
+    expect(r.uploader.failedDocs()[0]).toMatchObject({ kind: "no-write-access" });
+  });
+
+  it("never overwrites a divergent read-only file when its recovery copy fails", async () => {
+    const server = new FakeServer();
+    server.seed("d1", "theirs");
+    const r = rig({
+      files: { "Note.md": "mine" },
+      notes: [{ docId: "d1", relPath: "Note.md" }],
+      server,
+      behaviour: { readOnly: new Set(["d1"]) },
+      readFile: true,
+      failTrash: true,
+    });
+    const out = await r.uploader.run();
+    expect(out.failed).toBe(1);
+    expect(r.harness.fs.get("Note.md")).toBe("mine");
+    expect(r.marked).toEqual([]);
+    expect(r.uploader.failedDocs()[0]).toMatchObject({
+      kind: "no-write-access",
+      permanent: true,
+    });
+  });
+});
+
+describe("ContentUploader — idempotency (must never double content)", () => {
+  it("re-running on the same device leaves the text identical", async () => {
+    const notes = [{ docId: "d1", relPath: "Note.md" }];
+    const files = { "Note.md": "alpha beta gamma" };
+    const first = rig({ files, notes });
+    await first.uploader.run();
+    expect(first.server.text("d1")).toBe("alpha beta gamma");
+
+    // Same CRDT store, same server, and deliberately NOT skipped by the
+    // checkpoint — this is the "stale/missing checkpoint" case.
+    const second = rig({
+      files,
+      notes,
+      harness: first.harness,
+      server: first.server,
+      pushed: new Set(),
+    });
+    const result = await second.uploader.run();
+
+    expect(result.pushed).toBe(1);
+    expect(second.server.text("d1")).toBe("alpha beta gamma");
+  });
+
+  it("a SECOND device holding the same file does not duplicate the note", async () => {
+    // This is the case that doubles if the seed ever runs before the pull: two
+    // Y.Docs with different client ids each insert the file's text, and Yjs
+    // merges both insertions instead of deduplicating them.
+    const notes = [{ docId: "d1", relPath: "Note.md" }];
+    const files = { "Note.md": "shared paragraph" };
+    const deviceA = rig({ files, notes });
+    await deviceA.uploader.run();
+
+    const deviceB = rig({ files, notes, server: deviceA.server }); // fresh CRDT store
+    await deviceB.uploader.run();
+
+    expect(deviceA.server.text("d1")).toBe("shared paragraph");
+    expect(deviceB.harness.fs.get("Note.md")).toBe("shared paragraph");
+  });
+
+  it("three runs in a row are still exactly one copy", async () => {
+    const notes = [{ docId: "d1", relPath: "Note.md" }];
+    const files = { "Note.md": "once" };
+    let harness = makeHarness(files);
+    let server = new FakeServer();
+    for (let i = 0; i < 3; i++) {
+      const r = rig({ files, notes, harness, server, pushed: new Set() });
+      await r.uploader.run();
+      harness = r.harness;
+      server = r.server;
+    }
+    expect(server.text("d1")).toBe("once");
+  });
+
+  it("does NOT seed when the initial sync never landed (no unpushed local orphan)", async () => {
+    // Seeding on an unverified pull is precisely how a local orphan is created
+    // that later merges into real server content as a duplicate.
+    const r = rig({
+      files: { "Note.md": "local only" },
+      notes: [{ docId: "d1", relPath: "Note.md" }],
+      behaviour: { neverSynced: new Set(["d1"]) },
+    });
+    const result = await r.uploader.run();
+
+    expect(result).toMatchObject({ pushed: 0, failed: 1 });
+    expect(r.server.text("d1")).toBe("");
+    expect(r.marked).toEqual([]);
+    expect(r.sink.stateOf("d1")).toContain("error");
+    // Nothing was seeded locally either, so the next attempt starts clean.
+    expect(r.harness.persistence.logLength("d1")).toBe(0);
+  });
+});
+
+describe("ContentUploader — bounded and cancellable", () => {
+  it("keeps at most UPLOAD_CONCURRENCY docs resident at once", async () => {
+    const notes = Array.from({ length: 24 }, (_, i) => ({
+      docId: `d${i}`,
+      relPath: `Note${i}.md`,
+    }));
+    const files: Record<string, string> = {};
+    for (const n of notes) files[n.relPath] = `body of ${n.docId}`;
+    let maxHot = 0;
+    const r = rig({
+      files,
+      notes,
+      onAcquire: (_docId, store) => {
+        maxHot = Math.max(maxHot, store.hotSize() + 1);
+      },
+    });
+    const result = await r.uploader.run();
+
+    expect(result.pushed).toBe(24);
+    expect(maxHot).toBeGreaterThan(1); // genuinely concurrent, not sequential
+    expect(maxHot).toBeLessThanOrEqual(UPLOAD_CONCURRENCY);
+    expect(r.store.hotSize()).toBe(0);
+    for (const n of notes) expect(r.server.text(n.docId)).toBe(`body of ${n.docId}`);
+  });
+
+  it("abandons the rest of the queue when the vault switches", async () => {
+    const notes = Array.from({ length: 40 }, (_, i) => ({
+      docId: `d${i}`,
+      relPath: `Note${i}.md`,
+    }));
+    const files: Record<string, string> = {};
+    for (const n of notes) files[n.relPath] = "x";
+    let current = true;
+    const r = rig({
+      files,
+      notes,
+      shouldStop: () => !current,
+      onAcquire: () => {
+        if (r.connects.length >= 4) current = false; // the user switched vaults
+      },
+    });
+    const result = await r.uploader.run();
+
+    expect(result.cancelled).toBe(true);
+    expect(r.connects.length).toBeLessThan(40);
+    expect(r.marked.length).toBeLessThan(40);
+    // Nothing was pushed for the docs we never reached.
+    const untouched = notes.slice(r.connects.length + UPLOAD_CONCURRENCY);
+    for (const n of untouched) expect(r.server.text(n.docId)).toBe("");
+  });
+
+  it("skips the open note — its editor session owns that doc's provider", async () => {
+    const notes = [
+      { docId: "open", relPath: "Open.md" },
+      { docId: "other", relPath: "Other.md" },
+    ];
+    const r = rig({
+      files: { "Open.md": "being edited", "Other.md": "background" },
+      notes,
+      skip: (docId) => docId === "open",
+    });
+    const result = await r.uploader.run();
+
+    expect(r.connects).toEqual(["other"]);
+    expect(result.total).toBe(1);
+    expect(r.server.text("open")).toBe("");
+    expect(r.server.text("other")).toBe("background");
+  });
+});
+
+describe("ContentUploader — resume and honest failures", () => {
+  it("resumes from the checkpoint: already-pushed docs are never re-opened", async () => {
+    const notes = Array.from({ length: 6 }, (_, i) => ({
+      docId: `d${i}`,
+      relPath: `Note${i}.md`,
+    }));
+    const files: Record<string, string> = {};
+    for (const n of notes) files[n.relPath] = n.docId;
+    const r = rig({ files, notes, pushed: new Set(["d0", "d1", "d2"]) });
+    const result = await r.uploader.run();
+
+    expect(result.total).toBe(3);
+    expect(r.connects.sort()).toEqual(["d3", "d4", "d5"]);
+    // The resumed half reads as synced immediately, before a socket opens.
+    expect(r.sink.stateOf("d0")).toEqual(["synced"]);
+  });
+
+  it("marks a doc the server never acknowledged as error, and does not checkpoint it", async () => {
+    const notes = [
+      { docId: "ok", relPath: "Ok.md" },
+      { docId: "bad", relPath: "Bad.md" },
+    ];
+    const r = rig({
+      files: { "Ok.md": "fine", "Bad.md": "lost" },
+      notes,
+      behaviour: { neverFlushed: new Set(["bad"]) },
+      concurrency: 1,
+    });
+    const result = await r.uploader.run();
+
+    expect(result).toMatchObject({ total: 2, pushed: 1, failed: 1 });
+    expect(r.marked).toEqual(["ok"]);
+    expect(r.uploader.failedDocs()).toEqual([
+      { docId: "bad", relPath: "Bad.md", reason: expect.any(String) },
+    ]);
+    expect(r.sink.stateOf("bad")).toContain("error");
+    expect(r.sink.counts().failed).toBe(1);
+  });
+
+  it("reports a missing ack during a shrink-brake pause as shrink-held, not a mystery failure (#274)", async () => {
+    // A held socket is admitted read-only-ish with no `rejected` frame, so the
+    // server drops the update and the ack never comes. With the pause live the
+    // verdict is the batch push's: shrink-held, retryable, and no Retry row.
+    const r = rig({
+      files: { "Held.md": "emptied" },
+      notes: [{ docId: "h", relPath: "Held.md" }],
+      behaviour: { neverFlushed: new Set(["h"]) },
+      syncPaused: () => true,
+    });
+    const result = await r.uploader.run();
+
+    expect(result).toMatchObject({ total: 1, pushed: 0, failed: 1 });
+    expect(r.marked).toEqual([]);
+    expect(r.uploader.failedDocs()).toEqual([
+      { docId: "h", relPath: "Held.md", reason: SHRINK_HELD_REASON, kind: "shrink-held" },
+    ]);
+    // Never permanent: the pause lifting is exactly what makes it go through.
+    expect(r.uploader.failedDocs()[0]?.permanent).toBeUndefined();
+    // Local text is untouched.
+    expect(r.harness.fs.get("Held.md")).toBe("emptied");
+  });
+
+  it("keeps the generic verdict for a missing ack when no pause is live", async () => {
+    const r = rig({
+      files: { "Bad.md": "lost" },
+      notes: [{ docId: "bad", relPath: "Bad.md" }],
+      behaviour: { neverFlushed: new Set(["bad"]) },
+      syncPaused: () => false,
+    });
+    await r.uploader.run();
+    expect(r.uploader.failedDocs()).toEqual([
+      { docId: "bad", relPath: "Bad.md", reason: "server did not acknowledge the content" },
+    ]);
+  });
+
+  it("never consults the pause for a doc the server acknowledged", async () => {
+    const syncPaused = vi.fn(() => true);
+    const r = rig({
+      files: { "Ok.md": "fine" },
+      notes: [{ docId: "ok", relPath: "Ok.md" }],
+      syncPaused,
+    });
+    const result = await r.uploader.run();
+    expect(result).toMatchObject({ pushed: 1, failed: 0 });
+    expect(syncPaused).not.toHaveBeenCalled();
+  });
+
+  it("aborts the whole run after a streak of failures (a dead server)", async () => {
+    const notes = Array.from({ length: 50 }, (_, i) => ({
+      docId: `d${i}`,
+      relPath: `Note${i}.md`,
+    }));
+    const files: Record<string, string> = {};
+    for (const n of notes) files[n.relPath] = "x";
+    const r = rig({
+      files,
+      notes,
+      behaviour: { neverSynced: new Set(notes.map((n) => n.docId)) },
+      concurrency: 1,
+      failureStreakLimit: 5,
+    });
+    const result = await r.uploader.run();
+
+    expect(result.aborted).toBe(true);
+    // Bounded: it does not grind through all 50 timeouts.
+    expect(result.failed).toBeLessThanOrEqual(6);
+    expect(r.connects.length).toBeLessThanOrEqual(6);
+  });
+
+  // Prod 2026-09-23: ~25 notes a teammate deleted, re-queued every ~30 s. Each
+  // one's token mint 404s, the provider turns `deleted`, and the push must fail
+  // ONCE, permanently — never a transient failure that re-queues, and never a
+  // hit on the streak that would pause the run for every healthy note.
+  // Prod 2026-10-12: four `/sync` sockets every ~10 s, forever. A terminal
+  // status the wait did not reject on must not read as "did not respond".
+  it("records a terminal status left behind by a timed-out wait as PERMANENT", async () => {
+    const r = rig({
+      files: { "Gone.md": "text", "Ok.md": "text", "Slow.md": "text" },
+      notes: [
+        { docId: "gone", relPath: "Gone.md" },
+        { docId: "slow", relPath: "Slow.md" },
+        { docId: "ok", relPath: "Ok.md" },
+      ],
+      behaviour: {
+        terminalAfterTimeout: new Map([["gone", "no-access"]]),
+        neverSynced: new Set(["slow"]),
+      },
+      concurrency: 1,
+      failureStreakLimit: 5,
+    });
+    await r.uploader.run();
+    const failed = r.uploader.failedDocs();
+    expect(failed.find((f) => f.docId === "gone")).toMatchObject({
+      permanent: true,
+      status: "no-access",
+      reason: "you no longer have access to this note",
+    });
+    // A genuine timeout with no terminal verdict stays transient.
+    const slow = failed.find((f) => f.docId === "slow");
+    expect(slow?.permanent).toBeUndefined();
+    expect(slow?.reason).toBe("server did not respond to the initial sync");
+    expect(r.marked).toEqual(["ok"]);
+  });
+
+  it("records a doc that turns deleted / no-access as a PERMANENT failure, off the streak", async () => {
+    const notes = [
+      ...Array.from({ length: 6 }, (_, i) => ({ docId: `gone${i}`, relPath: `Gone${i}.md` })),
+      { docId: "revoked", relPath: "Revoked.md" },
+      { docId: "ok", relPath: "Ok.md" },
+    ];
+    const files: Record<string, string> = {};
+    for (const n of notes) files[n.relPath] = "text";
+    const terminal = new Map<string, string>(
+      notes.filter((n) => n.docId.startsWith("gone")).map((n) => [n.docId, "deleted"] as const),
+    );
+    terminal.set("revoked", "no-access");
+    const r = rig({
+      files,
+      notes,
+      behaviour: { terminal },
+      concurrency: 1,
+      failureStreakLimit: 2, // two COUNTED failures would abort the run
+    });
+    const result = await r.uploader.run();
+
+    expect(result.aborted).toBe(false);
+    expect(r.marked).toEqual(["ok"]);
+    const failed = r.uploader.failedDocs();
+    expect(failed).toHaveLength(7);
+    for (const f of failed) expect(f.permanent).toBe(true);
+    expect(failed.find((f) => f.docId === "gone0")).toMatchObject({
+      status: "deleted",
+      reason: "this note was deleted on the server",
+    });
+    expect(failed.find((f) => f.docId === "revoked")).toMatchObject({ status: "no-access" });
+  });
+
+  it("survives an acquire failure without abandoning the rest of the queue", async () => {
+    const notes = [
+      { docId: "d1", relPath: "Missing.md" },
+      { docId: "d2", relPath: "Present.md" },
+    ];
+    const r = rig({ files: { "Present.md": "here" }, notes, concurrency: 1 });
+    // `NoteBridge.open` reads the file; a missing one still opens (the read error
+    // is reported, not thrown), so force a real acquire failure instead.
+    const original = r.store.promote.bind(r.store);
+    vi.spyOn(r.store, "promote").mockImplementation(async (docId, path, o) => {
+      if (docId === "d1") throw new Error("index locked");
+      return original(docId, path, o);
+    });
+
+    const result = await r.uploader.run();
+    expect(result).toMatchObject({ total: 2, pushed: 1, failed: 1 });
+    expect(r.server.text("d2")).toBe("here");
+    expect(r.uploader.failedDocs()[0].docId).toBe("d1");
+  });
+});
+
+describe("ContentUploader — local-change runs (force + ingestFromFile)", () => {
+  // The live sync of externally-written files (an AI with the vault folder open
+  // in Claude/Cursor writing .md files directly): the doc is already confirmed
+  // on the server ("pushed"), but its file just changed underneath us.
+
+  it("pushes an external edit to an already-pushed note", async () => {
+    const notes = [{ docId: "d1", relPath: "Note.md" }];
+    const first = rig({ files: { "Note.md": "v1" }, notes });
+    await first.uploader.run();
+    expect(first.server.text("d1")).toBe("v1");
+
+    // Claude rewrites the file on disk while nobody has the note open.
+    first.harness.fs.externalWrite("Note.md", "v1 plus an AI edit");
+    const second = rig({
+      files: {},
+      notes,
+      harness: first.harness,
+      server: first.server,
+      pushed: new Set(["d1"]),
+      force: true,
+      ingestFromFile: true,
+    });
+    const result = await second.uploader.run();
+
+    expect(result).toMatchObject({ total: 1, pushed: 1, failed: 0 });
+    expect(second.server.text("d1")).toBe("v1 plus an AI edit");
+  });
+
+  it("skips the network entirely when the file matches the doc (egest echo)", async () => {
+    const notes = [{ docId: "d1", relPath: "Note.md" }];
+    const first = rig({ files: { "Note.md": "steady" }, notes });
+    await first.uploader.run();
+
+    // The watcher fires for our OWN background write: same bytes, no diff.
+    const second = rig({
+      files: {},
+      notes,
+      harness: first.harness,
+      server: first.server,
+      pushed: new Set(["d1"]),
+      force: true,
+      ingestFromFile: true,
+    });
+    const result = await second.uploader.run();
+
+    expect(result).toMatchObject({ total: 1, pushed: 1, failed: 0 });
+    expect(second.connects).toEqual([]); // no provider was ever opened
+    expect(second.server.text("d1")).toBe("steady");
+    expect(second.store.hotSize()).toBe(0); // bridge released on the skip path
+  });
+
+  it("merges an external edit instead of doubling when the server moved too", async () => {
+    const notes = [{ docId: "d1", relPath: "Note.md" }];
+    const first = rig({ files: { "Note.md": "alpha beta" }, notes });
+    await first.uploader.run();
+
+    // A teammate appends on the server; Claude appends in the file. Both must
+    // survive the push (CRDT merge), and nothing may double.
+    first.server.doc("d1").getText("content").insert(0, "THEIRS ");
+    first.harness.fs.externalWrite("Note.md", "alpha beta OURS");
+    const second = rig({
+      files: {},
+      notes,
+      harness: first.harness,
+      server: first.server,
+      pushed: new Set(["d1"]),
+      force: true,
+      ingestFromFile: true,
+    });
+    await second.uploader.run();
+
+    const merged = second.server.text("d1");
+    expect(merged).toContain("THEIRS");
+    expect(merged).toContain("OURS");
+    expect(merged.match(/alpha beta/g)).toHaveLength(1);
+    // The merged text landed back on disk too.
+    expect(second.harness.fs.get("Note.md")).toBe(merged);
+  });
+
+  it("still seeds an empty doc AFTER the pull on ingest runs (split-brain rule)", async () => {
+    // A brand-new file (doc empty, never pushed) going through the local-change
+    // path must behave exactly like the bulk path: pull first, then seed — the
+    // pre-connect ingest is only for docs that already hold content.
+    const server = new FakeServer();
+    server.seed("d1", "server truth");
+    const r = rig({
+      files: { "Note.md": "" },
+      notes: [{ docId: "d1", relPath: "Note.md" }],
+      server,
+      force: true,
+      ingestFromFile: true,
+    });
+    await r.uploader.run();
+
+    expect(r.server.text("d1")).toBe("server truth"); // no doubling, no clobber
+    expect(r.harness.fs.get("Note.md")).toBe("server truth");
+  });
+});
+
+describe("ContentUploader — lazyPhase (announce only when there is work)", () => {
+  it("leaves the phase and counters untouched for an echo-only run", async () => {
+    const notes = [{ docId: "d1", relPath: "Note.md" }];
+    const first = rig({ files: { "Note.md": "steady" }, notes });
+    await first.uploader.run();
+
+    const second = rig({
+      files: {},
+      notes,
+      harness: first.harness,
+      server: first.server,
+      pushed: new Set(["d1"]),
+      force: true,
+      ingestFromFile: true,
+      lazyPhase: true,
+    });
+    const result = await second.uploader.run();
+
+    expect(result).toMatchObject({ total: 1, pushed: 1, failed: 0 });
+    expect(second.connects).toEqual([]);
+    // Nothing was announced: no phase, no `queued` stamp, no item counted…
+    expect(second.sink.phases).toEqual([]);
+    expect(second.sink.stateOf("d1")).not.toContain("queued");
+    expect(second.sink.counts()).toEqual({ done: 0, failed: 0 });
+    // …but the note is still confirmed for the sidebar.
+    expect(second.sink.stateOf("d1")).toContain("synced");
+  });
+
+  it("announces `uploading` the moment a note needs the server, sized to what is left", async () => {
+    const notes = [
+      { docId: "quiet", relPath: "Quiet.md" },
+      { docId: "edited", relPath: "Edited.md" },
+    ];
+    const first = rig({ files: { "Quiet.md": "same", "Edited.md": "v1" }, notes });
+    await first.uploader.run();
+    first.harness.fs.externalWrite("Edited.md", "v1 changed outside");
+
+    const second = rig({
+      files: {},
+      notes,
+      harness: first.harness,
+      server: first.server,
+      pushed: new Set(["quiet", "edited"]),
+      force: true,
+      ingestFromFile: true,
+      lazyPhase: true,
+      concurrency: 1,
+    });
+    const result = await second.uploader.run();
+
+    expect(result).toMatchObject({ total: 2, pushed: 2, failed: 0 });
+    expect(second.connects).toEqual(["edited"]);
+    expect(second.sink.phases).toEqual(["uploading"]);
+    // One note settled quietly before the announcement, so the announced run
+    // had one item, and one item was done.
+    expect(second.sink.counts()).toEqual({ done: 1, failed: 0 });
+    expect(second.server.text("edited")).toBe("v1 changed outside");
+  });
+
+  it("announces before reporting a failure, so nothing is counted against a phase nobody saw", async () => {
+    const notes = [{ docId: "d1", relPath: "Note.md" }];
+    const first = rig({ files: { "Note.md": "v1" }, notes });
+    await first.uploader.run();
+    first.harness.fs.externalWrite("Note.md", "v2");
+    const second = rig({
+      files: {},
+      notes,
+      harness: first.harness,
+      server: first.server,
+      pushed: new Set(["d1"]),
+      force: true,
+      ingestFromFile: true,
+      lazyPhase: true,
+      behaviour: { neverFlushed: new Set(["d1"]) },
+    });
+    const result = await second.uploader.run();
+    expect(result.failed).toBe(1);
+    expect(second.sink.phases).toEqual(["uploading"]);
+    expect(second.sink.counts()).toEqual({ done: 1, failed: 1 });
+  });
+});
+
+describe("ContentUploader — mustConnect (out-of-band merges)", () => {
+  it("connects and pushes even when file == doc, when the doc is marked diverged", async () => {
+    // A cold apply (or resident bridge) already merged the external edit into
+    // the doc and egested it back, so the file matches the doc — but the merged
+    // ops never reached the server. `mustConnect` is the marker that forces the
+    // flush the fast-path would otherwise skip.
+    const notes = [{ docId: "d1", relPath: "Note.md" }];
+    const first = rig({ files: { "Note.md": "v1" }, notes });
+    await first.uploader.run();
+    expect(first.server.text("d1")).toBe("v1");
+
+    // Simulate the out-of-band merge: local ops land in the CRDT store and the
+    // file, without any provider seeing them (exactly what coldApply's ingest
+    // does when the server sent an unrelated delta).
+    const { NoteBridge } = await import("../../bridge/noteBridge");
+    first.harness.fs.externalWrite("Note.md", "v1 merged-out-of-band");
+    const b = await NoteBridge.open(first.harness.io, { docId: "d1", path: "Note.md" });
+    await b.ingestNow();
+    b.destroy();
+
+    const second = rig({
+      files: {},
+      notes,
+      harness: first.harness,
+      server: first.server,
+      pushed: new Set(["d1"]),
+      force: true,
+      ingestFromFile: true,
+    });
+    // Without the marker: the fast-path skips, and the server never learns.
+    await second.uploader.run();
+    expect(second.server.text("d1")).toBe("v1");
+    expect(second.connects).toEqual([]);
+
+    const third = rig({
+      files: {},
+      notes,
+      harness: first.harness,
+      server: first.server,
+      pushed: new Set(["d1"]),
+      force: true,
+      ingestFromFile: true,
+      mustConnect: () => true,
+    });
+    await third.uploader.run();
+    expect(third.connects).toEqual(["d1"]);
+    expect(third.server.text("d1")).toBe("v1 merged-out-of-band");
+  });
+});
+
+// ── `ready.empty`: the server outranks the local checkpoint ─────────────────
+// `pushed` is a local optimisation. A crashed run, a wiped `.context/` or a
+// restored backup can leave it claiming notes the server never received — 613 of
+// them in prod, registered with zero content and unreachable forever, because
+// every later run skipped them on the strength of that claim.
+
+describe("ContentUploader — include (the server's empty list)", () => {
+  it("pushes a doc the checkpoint claims but the server has no content for", async () => {
+    const r = rig({
+      files: { "Lost.md": "the only copy", "Fine.md": "already there" },
+      notes: [
+        { docId: "lost", relPath: "Lost.md" },
+        { docId: "fine", relPath: "Fine.md" },
+      ],
+      pushed: new Set(["lost", "fine"]),
+      include: (id) => id === "lost",
+    });
+    r.server.seed("fine", "already there");
+
+    const result = await r.uploader.run();
+
+    expect(result.total).toBe(1); // only the doc the server actually lacks
+    expect(r.connects).toEqual(["lost"]);
+    expect(r.server.text("lost")).toBe("the only copy");
+    // …and it is never badged synced on the way in, not even for one emission.
+    expect(r.sink.stateOf("lost")).toEqual(["queued", "syncing", "synced"]);
+    expect(r.sink.stateOf("fine")).toEqual(["synced"]);
+  });
+
+  it("still connects when the file matches the doc (the ingest fast-path must not skip it)", async () => {
+    // The local-change fast-path exists to avoid a socket per watcher echo, and
+    // its whole premise is "the server already has this". For an `include` doc
+    // that premise is false, so the fast-path has to stand down.
+    const r = rig({
+      files: { "Echo.md": "same bytes" },
+      notes: [{ docId: "echo", relPath: "Echo.md" }],
+      pushed: new Set(["echo"]),
+      include: (id) => id === "echo",
+      force: true,
+      ingestFromFile: true,
+    });
+
+    await r.uploader.run();
+
+    expect(r.connects).toEqual(["echo"]);
+    expect(r.server.text("echo")).toBe("same bytes");
+  });
+});
+
+describe("ContentUploader — priority", () => {
+  it("pushes the prioritised docs first, keeping the order within each group", async () => {
+    const notes = ["a", "b", "c", "d", "e"].map((id) => ({
+      docId: id,
+      relPath: `${id.toUpperCase()}.md`,
+    }));
+    const files: Record<string, string> = {};
+    for (const n of notes) files[n.relPath] = `text ${n.docId}`;
+    const r = rig({
+      files,
+      notes,
+      // Serial, so `connects` IS the queue order.
+      concurrency: 1,
+      priority: (id) => id === "d" || id === "b",
+    });
+
+    await r.uploader.run();
+
+    // Stable partition: d/b keep their relative order, and so does the rest.
+    expect(r.connects).toEqual(["b", "d", "a", "c", "e"]);
+  });
+
+  it("leaves the queue untouched when no priority is given", async () => {
+    const notes = ["a", "b", "c"].map((id) => ({ docId: id, relPath: `${id}.md` }));
+    const files: Record<string, string> = { "a.md": "1", "b.md": "2", "c.md": "3" };
+    const r = rig({ files, notes, concurrency: 1 });
+    await r.uploader.run();
+    expect(r.connects).toEqual(["a", "b", "c"]);
+  });
+});
+
+describe("ContentUploader — ackedSv on the per-doc path", () => {
+  it("records the doc's state vector after a flushed push, like the batch pusher", async () => {
+    const r = rig({
+      files: { "Note.md": "hello" },
+      notes: [{ docId: "d1", relPath: "Note.md" }],
+    });
+    const result = await r.uploader.run();
+    expect(result).toMatchObject({ pushed: 1, failed: 0 });
+    expect(r.marked).toEqual(["d1"]);
+    const sv = r.acked.get("d1");
+    expect(sv).toBeInstanceOf(Uint8Array);
+    // The ack covers what the server now holds.
+    expect(r.server.text("d1")).toBe("hello");
+    expect(sv!.length).toBeGreaterThan(1);
+  });
+
+  it("records no ack for a view-only doc (confirmed without a flush)", async () => {
+    const server = new FakeServer();
+    server.seed("d1", "theirs");
+    const r = rig({
+      files: { "Note.md": "theirs" },
+      notes: [{ docId: "d1", relPath: "Note.md" }],
+      server,
+      behaviour: { readOnly: new Set(["d1"]) },
+    });
+    await r.uploader.run();
+    expect(r.acked.has("d1")).toBe(false);
+  });
+});

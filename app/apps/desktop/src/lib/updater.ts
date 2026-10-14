@@ -1,0 +1,686 @@
+// App self-update, backed by the Tauri updater plugin.
+//
+// The plugin pings the `latest.json` endpoint configured in `tauri.conf.json`
+// (a static file published on the GitHub release). If it advertises a version
+// newer than the running app — and the bundle's minisign signature verifies
+// against our embedded public key — we download, install, and relaunch.
+//
+// Updates are AUTOMATIC. A check that finds something newer downloads and
+// installs it in the background with no prompt, no banner and no wall, then
+// restarts the app at the next quiet moment (see `./quietMoment`). Nothing in
+// the UI asks permission, because there was never a useful answer: every
+// dismissible prompt left part of the fleet on old builds, and old builds are
+// where the bugs we just fixed live — one stale client can resurrect deleted
+// folders for a whole team.
+//
+// The full-screen wall (`UpdateGate` in App.tsx) is now the FALLBACK, not the
+// happy path: it appears only after the silent path has failed twice, when the
+// app is knowingly stale and cannot fix itself without help.
+//
+// This module is a tiny external store so the wall, the launch poll and the
+// Settings → Updates tab observe one shared check/install lifecycle instead of
+// each firing their own network request.
+import { getVersion } from "@tauri-apps/api/app";
+import { relaunch } from "@tauri-apps/plugin-process";
+import { check, type Update } from "@tauri-apps/plugin-updater";
+import { useSyncExternalStore } from "react";
+
+import { clearRelaunchFocus, recordRelaunchFocus } from "./backgroundRelaunch";
+import { bridgeManager } from "./bridge";
+import { APP_SCHEME } from "./deepLinkScheme";
+import { waitForQuietMoment } from "./quietMoment";
+
+export type UpdateState =
+  | { phase: "idle" }
+  | { phase: "checking" }
+  | { phase: "available"; version: string; notes?: string; date?: string }
+  | { phase: "downloading"; version: string; downloaded: number; total: number }
+  | { phase: "installing"; version: string }
+  /** New bytes are in place; we're holding the restart for a quiet moment. */
+  | { phase: "ready"; version: string }
+  | { phase: "uptodate" }
+  | { phase: "error"; message: string }
+  /**
+   * The server knows a newer release than the feed can serve yet: the server
+   * deploys in minutes, the GitHub release (four serial platform builds, each
+   * rewriting `latest.json`) takes far longer. Not an error — Settings → About
+   * says "An update is on its way" and the check retries with backoff.
+   */
+  | { phase: "pending"; version: string }
+  /** The silent path gave up (install failed twice). This raises the wall. */
+  | { phase: "failed"; version: string; message: string };
+
+/** How long after a failed silent install before the one silent retry. */
+export const AUTO_RETRY_DELAY_MS = 30_000;
+
+/** How often a running app re-checks for a new release (App.tsx; it also
+ *  checks at launch). The FALLBACK trigger: the vault channel's release hint
+ *  is the primary one. One cheap GET of the release's static `latest.json`. */
+export const UPDATE_POLL_MS = 15 * 60 * 1000;
+
+/** First retry while a release is in progress; doubles, capped at the poll. */
+export const RELEASE_PENDING_FIRST_RETRY_MS = 2 * 60 * 1000;
+
+/** How long a release may stay "in progress" before we fall back to the poll. */
+export const RELEASE_PENDING_WINDOW_MS = 60 * 60 * 1000;
+
+/**
+ * An updater failure that means "the release is still being published", not
+ * "something is broken": `latest.json` not uploaded yet (404, "valid release
+ * JSON"), uploaded by an earlier platform job without THIS platform's entry
+ * ("None of the fallback platforms … were found"), or a bundle that 404s
+ * because its job has not finished. A signature failure is never this.
+ */
+export function isReleaseNotReadyError(message: string): boolean {
+  if (/signature/i.test(message)) return false;
+  return /\b404\b|not found|fallback platforms|valid release json/i.test(message);
+}
+
+/** A network blip rather than a verdict about the release. */
+function isTransientCheckError(message: string): boolean {
+  if (/signature/i.test(message)) return false;
+  return (
+    isReleaseNotReadyError(message) ||
+    /error sending request|timed? ?out|connection|network|dns|unreachable|offline/i.test(message)
+  );
+}
+
+type VersionKey = [number, number, number, number, number];
+
+/** `x.y.z[-pre.N]` as a comparable key; a release outranks its pre-releases. */
+function versionKey(raw: string): VersionKey | null {
+  const m = /^v?(\d+)\.(\d+)\.(\d+)(?:-[0-9A-Za-z.-]*?(\d+))?(?:\+.*)?$/.exec(raw.trim());
+  if (!m) return null;
+  const hasPre = raw.includes("-");
+  return [Number(m[1]), Number(m[2]), Number(m[3]), hasPre ? 0 : 1, m[4] ? Number(m[4]) : 0];
+}
+
+/** Is `candidate` strictly newer than `running`? False when either is unparsable. */
+export function isNewerVersion(candidate: string, running: string): boolean {
+  const a = versionKey(candidate);
+  const b = versionKey(running);
+  if (!a || !b) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] > b[i];
+  return false;
+}
+
+/**
+ * A release the server (or the feed itself) says exists but cannot be
+ * installed yet. While set, "no update" and release-shaped errors are not
+ * errors: they park in `pending` and retry at 2, 4, 8… minutes (capped at
+ * {@link UPDATE_POLL_MS}) until {@link RELEASE_PENDING_WINDOW_MS} has passed.
+ */
+let releasePending: { version: string; since: number; attempt: number } | null = null;
+let releasePendingTimer: ReturnType<typeof setTimeout> | null = null;
+/** Set by `installUpdate` when its failure was a release still publishing. */
+let installDeferred = false;
+
+function clearReleasePending(): void {
+  releasePending = null;
+  if (releasePendingTimer) clearTimeout(releasePendingTimer);
+  releasePendingTimer = null;
+}
+
+function enterReleasePending(version: string): void {
+  if (!releasePending) releasePending = { version, since: Date.now(), attempt: 0 };
+  else if (version && isNewerVersion(version, releasePending.version)) releasePending.version = version;
+}
+
+/** Park quietly and schedule the next retry, or give up past the window. */
+function parkReleasePending(): void {
+  if (!releasePending) return;
+  if (Date.now() - releasePending.since >= RELEASE_PENDING_WINDOW_MS) {
+    // Past the window: back to the regular poll, with no error to show.
+    clearReleasePending();
+    setState({ phase: "idle" });
+    return;
+  }
+  setState({ phase: "pending", version: releasePending.version });
+  if (releasePendingTimer) return;
+  const delay = Math.min(
+    RELEASE_PENDING_FIRST_RETRY_MS * 2 ** releasePending.attempt,
+    UPDATE_POLL_MS,
+  );
+  releasePending.attempt += 1;
+  releasePendingTimer = setTimeout(() => {
+    releasePendingTimer = null;
+    void backgroundUpdateCheck();
+  }, delay);
+}
+
+/** The release we are waiting on, or null (exposed for tests). */
+export function pendingRelease(): { version: string; since: number; attempt: number } | null {
+  return releasePending ? { ...releasePending } : null;
+}
+
+let pending: Update | null = null;
+let state: UpdateState = { phase: "idle" };
+const listeners = new Set<() => void>();
+
+/** True from the moment a check finds something until relaunch or `failed`. */
+let autoInstalling = false;
+/** Silent install attempts spent on the current discovery. Budget: 2. */
+let autoAttempts = 0;
+let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
+function setState(next: UpdateState) {
+  state = next;
+  listeners.forEach((l) => l());
+}
+
+function subscribe(l: () => void) {
+  listeners.add(l);
+  return () => listeners.delete(l);
+}
+
+function getSnapshot() {
+  return state;
+}
+
+/** React hook: current update lifecycle state, shared app-wide. */
+export function useUpdateState(): UpdateState {
+  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+}
+
+/** The same state outside React, for imperative callers and tests. */
+export function updateState(): UpdateState {
+  return state;
+}
+
+/** Listen for state changes outside React; returns the unsubscribe. */
+export function subscribeUpdateState(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+/**
+ * Ask the endpoint whether a newer version exists. Returns true if one is
+ * available (and stashes it for `installUpdate`). Safe to call anywhere — in a
+ * non-bundled dev build the updater is unavailable and this resolves to an
+ * `error` state rather than throwing.
+ */
+export async function checkForUpdate(
+  options: { timeoutMs?: number } = {},
+): Promise<boolean> {
+  try {
+    setState({ phase: "checking" });
+    const update = await check(
+      options.timeoutMs ? { timeout: options.timeoutMs } : undefined,
+    );
+    if (update) {
+      pending = update;
+      setState({
+        phase: "available",
+        version: update.version,
+        notes: update.body || undefined,
+        date: update.date || undefined,
+      });
+      return true;
+    }
+    pending = null;
+    if (releasePending) {
+      // The server said a newer build exists and the feed says "nothing": the
+      // release is still being published (or a CDN is behind). Wait for it.
+      if (isNewerVersion(releasePending.version, await getVersion())) {
+        parkReleasePending();
+        return false;
+      }
+      clearReleasePending();
+    }
+    setState({ phase: "uptodate" });
+    return false;
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    if (isReleaseNotReadyError(message) || (releasePending && isTransientCheckError(message))) {
+      // A half-published release (no `latest.json` yet, or one without this
+      // platform). Never an error to show; retry until it lands.
+      enterReleasePending(releasePending?.version ?? "");
+      parkReleasePending();
+      return false;
+    }
+    setState({ phase: "error", message });
+    return false;
+  }
+}
+
+/** Write the open note's debounced buffer to disk. Never throws. */
+async function flushOpenNote(): Promise<void> {
+  try {
+    await bridgeManager.currentBridge()?.flushEgest();
+  } catch (e) {
+    console.error("flush before update failed", e);
+  }
+}
+
+/**
+ * Download + install the update discovered by `checkForUpdate`, then relaunch
+ * into the new version. Progress is reflected in the shared state. Resolves
+ * true once the relaunch has been asked for, false if the attempt failed (the
+ * caller decides whether that is a retry or the wall).
+ *
+ * WINDOWS, and why the flush happens BEFORE the download rather than after:
+ * on Windows `install` hands the bundle to the NSIS/MSI installer via
+ * `ShellExecuteW` and then calls `std::process::exit(0)` — see
+ * `tauri-plugin-updater`'s `updater.rs install_inner`. The process is gone
+ * before `downloadAndInstall` resolves, so nothing written after that call
+ * runs on Windows: not the flush, not the quiet wait, not `relaunch()` (the
+ * installer relaunches us instead). Everything that MUST happen — the
+ * just-updated stash and the disk flush — therefore happens up front, on every
+ * platform, so there is one code path rather than a platform branch. The cost
+ * is nil: `flushEgest` is a no-op when nothing is dirty, and macOS/Linux flush
+ * a second time right before `relaunch()` to catch edits typed during the
+ * download and the quiet wait.
+ */
+export async function installUpdate(
+  options: { waitForQuiet?: boolean } = {},
+): Promise<boolean> {
+  const update = pending;
+  if (!update) return false;
+  // Stash the version/notes now — the Update object dies with this process, and
+  // the next boot reads the stash back to show the What's New modal.
+  try {
+    localStorage.setItem(
+      JUST_UPDATED_KEY,
+      JSON.stringify({ version: update.version, notes: update.body ?? null }),
+    );
+  } catch {
+    // Storage full/blocked: the update still proceeds, only the modal is lost.
+  }
+  // See the Windows note above: this is the flush that is guaranteed to run.
+  await flushOpenNote();
+  // Windows restarts from inside `install`, so its focus record is taken now;
+  // macOS/Linux take a fresh one right before `relaunch()` below.
+  await recordRelaunchFocus();
+  let total = 0;
+  let downloaded = 0;
+  try {
+    await update.downloadAndInstall((event) => {
+      switch (event.event) {
+        case "Started":
+          total = event.data.contentLength ?? 0;
+          downloaded = 0;
+          setState({ phase: "downloading", version: update.version, downloaded, total });
+          break;
+        case "Progress":
+          downloaded += event.data.chunkLength;
+          setState({ phase: "downloading", version: update.version, downloaded, total });
+          break;
+        case "Finished":
+          setState({ phase: "installing", version: update.version });
+          break;
+      }
+    });
+    // Windows never gets here. On macOS/Linux the new bundle is on disk while
+    // this process keeps running from the old one, so the only disruptive act
+    // left is the restart — hold it until the user pauses.
+    setState({ phase: "ready", version: update.version });
+    // The launch gate skips the wait (nobody is typing behind it) — unless it
+    // gave up holding sync for this download, in which case someone may be.
+    if (options.waitForQuiet !== false || launchHoldExpired) await waitForQuietMoment();
+    // Catch anything typed during the download and the wait.
+    await flushOpenNote();
+    await recordRelaunchFocus();
+    await relaunch();
+    return true;
+  } catch (e) {
+    await clearRelaunchFocus();
+    const message = e instanceof Error ? e.message : String(e);
+    if (isReleaseNotReadyError(message)) {
+      // `latest.json` names a bundle whose platform job has not uploaded it
+      // yet (404). Nothing was installed; wait for the release to finish.
+      installDeferred = true;
+      enterReleasePending(update.version);
+      parkReleasePending();
+      return false;
+    }
+    setState({ phase: "error", message });
+    return false;
+  }
+}
+
+/**
+ * The silent path: install what `checkForUpdate` found, and if that fails give
+ * it exactly one more go ~30s later before admitting defeat. Only the second
+ * failure lands in `failed`, which is the single state that raises the wall —
+ * a flaky download or a network blip should cost the user nothing, not a
+ * full-screen interruption.
+ */
+async function autoInstall(options: { waitForQuiet?: boolean } = {}): Promise<void> {
+  autoAttempts += 1;
+  const version = "version" in state ? state.version : "";
+  installDeferred = false;
+  if (await installUpdate(options)) return;
+  if (installDeferred) {
+    // A release still publishing is not a failed install: no attempt spent,
+    // no wall. The release-pending timer runs the next check.
+    installDeferred = false;
+    autoInstalling = false;
+    autoAttempts = 0;
+    return;
+  }
+  if (autoAttempts >= 2) {
+    autoInstalling = false;
+    setState({
+      phase: "failed",
+      version,
+      message: state.phase === "error" ? state.message : "",
+    });
+    return;
+  }
+  if (retryTimer) clearTimeout(retryTimer);
+  retryTimer = setTimeout(() => {
+    retryTimer = null;
+    void (async () => {
+      // Re-discover first: a failed attempt may have died at either stage, and
+      // `checkForUpdate` re-arms the pending Update handle.
+      if (await checkForUpdate()) {
+        await autoInstall();
+      } else {
+        // Nothing to install any more (or the check itself failed). Either way
+        // the app is not knowingly stale, so no wall — the poll will retry.
+        autoInstalling = false;
+        autoAttempts = 0;
+      }
+    })();
+  }, AUTO_RETRY_DELAY_MS);
+}
+
+/**
+ * Take the held restart now, rather than waiting for the quiet moment — the
+ * Settings → Updates "Restart now" button, for someone who has finished a
+ * thought and would rather not be interrupted later.
+ */
+export async function relaunchForUpdate(): Promise<void> {
+  await flushOpenNote();
+  // A deliberate click: the restart may come back to the front.
+  await clearRelaunchFocus();
+  await relaunch();
+}
+
+/**
+ * Check, and install whatever is found — the entry point for the launch check,
+ * the background poll and the Settings → Updates button alike. Fire-and-forget:
+ * a failed CHECK (offline, dev build) lands in `error` and blocks nothing.
+ */
+export async function checkAndAutoInstall(): Promise<void> {
+  if (autoInstalling) return;
+  autoInstalling = true;
+  autoAttempts = 0;
+  if (await checkForUpdate()) {
+    await autoInstall();
+  } else {
+    autoInstalling = false;
+  }
+}
+
+/**
+ * How long the launch check may hold sync back before giving up on it. The
+ * endpoint answers in well under a second when it is reachable; this bound is
+ * for the network that hangs instead of failing (captive portal, dead proxy),
+ * so an offline launch is delayed by at most this much.
+ */
+export const LAUNCH_CHECK_TIMEOUT_MS = 4_000;
+
+/**
+ * How long a found update may keep sync waiting while it downloads. Generous —
+ * a normal bundle lands in seconds — but finite, so a crawling connection opens
+ * the app on the old build rather than never.
+ */
+export const LAUNCH_INSTALL_HOLD_MS = 120_000;
+
+/** Set once the launch gate stopped waiting for its install (see above). */
+let launchHoldExpired = false;
+
+/**
+ * The launch gate: decide about an update BEFORE anything talks to the sync
+ * server (#255). Await it ahead of the session restore — a pending update used
+ * to run the whole startup reconcile (registry writes, sync tokens, batch
+ * pushes) on the old build first, and the old build is exactly where the sync
+ * bugs the new one fixed still live.
+ *
+ * - No update, an unreachable endpoint, or a check slower than
+ *   {@link LAUNCH_CHECK_TIMEOUT_MS}: resolves at once and sync starts as
+ *   before. A check that answers after the bound is not wasted — it carries on
+ *   in the background exactly like the poll (quiet-moment restart and all).
+ * - An update found inside the bound: `onUpdating` fires (the caller shows
+ *   "Updating Baalda…") and the install runs WITHOUT the quiet-moment wait —
+ *   nobody is typing yet and nothing has synced — then the app restarts into
+ *   the new build, so on success this promise never resolves. A failed install
+ *   resolves it (the one silent retry is already scheduled, and an app that
+ *   cannot update itself must still open), and so does a download still running
+ *   after {@link LAUNCH_INSTALL_HOLD_MS}.
+ */
+export async function launchUpdateGate(
+  options: {
+    timeoutMs?: number;
+    holdMs?: number;
+    onUpdating?: (version: string) => void;
+  } = {},
+): Promise<void> {
+  if (autoInstalling) return;
+  const timeoutMs = options.timeoutMs ?? LAUNCH_CHECK_TIMEOUT_MS;
+  autoInstalling = true;
+  autoAttempts = 0;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const found = checkForUpdate({ timeoutMs });
+  const raced = await Promise.race([
+    found,
+    new Promise<"timeout">((resolve) => {
+      timer = setTimeout(() => resolve("timeout"), timeoutMs);
+    }),
+  ]);
+  if (timer) clearTimeout(timer);
+  if (raced === "timeout") {
+    void found.then((late) => {
+      if (late) void autoInstall();
+      else autoInstalling = false;
+    });
+    return;
+  }
+  if (!raced) {
+    autoInstalling = false;
+    return;
+  }
+  options.onUpdating?.("version" in state ? state.version : "");
+  // A download that crawls must not keep the app closed for good: past the
+  // hold the gate opens and sync starts on this build after all, and the
+  // install still in flight falls back to the quiet-moment restart (it reads
+  // `launchHoldExpired` once the bytes are in) instead of yanking the window
+  // out from under someone who has started typing meanwhile.
+  let holdTimer: ReturnType<typeof setTimeout> | null = null;
+  await Promise.race([
+    autoInstall({ waitForQuiet: false }),
+    new Promise<void>((resolve) => {
+      holdTimer = setTimeout(() => {
+        launchHoldExpired = true;
+        resolve();
+      }, options.holdMs ?? LAUNCH_INSTALL_HOLD_MS);
+    }),
+  ]);
+  if (holdTimer) clearTimeout(holdTimer);
+}
+
+/**
+ * Where a person downloads the current build by hand, for when the updater
+ * cannot install it (the wall's "Download manually"). The Staging app lives in
+ * its own rolling prerelease, which `releases/latest` never points at.
+ */
+export const RELEASES_PAGE_URL =
+  APP_SCHEME === "baalda-staging"
+    ? "https://github.com/naveedharri/baalda/releases/tag/staging"
+    : "https://github.com/naveedharri/baalda/releases/latest";
+
+let serverRequired = false;
+
+/**
+ * The server refused this build as too old to push note content
+ * (`426 client_outdated`, issue #251). Updating is then the only way back to
+ * syncing, so: check and install right away, exactly like the launch check;
+ * if that cannot produce a newer build (offline, the check failed, nothing
+ * newer published), raise the wall directly instead of waiting for two failed
+ * installs. Latched per session — every refused call reports it, and one
+ * attempt is enough.
+ *
+ * Nothing local is touched on the way: the refusal happened before any push,
+ * so edits stay in the local CRDT and on disk, and the updated build pushes
+ * them on its first sync.
+ */
+export async function serverRequiresUpdate(): Promise<void> {
+  if (serverRequired) return;
+  serverRequired = true;
+  // An install already in flight ends in a restart or in `failed` (the wall)
+  // on its own.
+  if (autoInstalling) return;
+  autoInstalling = true;
+  autoAttempts = 0;
+  if (await checkForUpdate()) {
+    await autoInstall();
+    return;
+  }
+  autoInstalling = false;
+  setState({
+    phase: "failed",
+    version: "",
+    message: "this server needs a newer version of the app to sync",
+  });
+}
+
+/** Upper bound of the random delay before a hinted check (#269). */
+export const UPDATE_HINT_JITTER_MS = 60_000;
+
+let hintTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * The server says a new release exists (#269): run the ordinary background
+ * check soon. Jittered over {@link UPDATE_HINT_JITTER_MS} so every connected
+ * app does not hit the release endpoint in the same second, and coalesced so a
+ * burst of hints (several vault channels, a reconnect) costs one check. The
+ * check verifies the release itself; this only moves it earlier than the poll.
+ */
+export function scheduleHintedUpdateCheck(random: () => number = Math.random): void {
+  if (hintTimer) return;
+  hintTimer = setTimeout(() => {
+    hintTimer = null;
+    void backgroundUpdateCheck();
+  }, Math.floor(random() * UPDATE_HINT_JITTER_MS));
+}
+
+/**
+ * The vault channel's `version-available` hint (#269), the PRIMARY trigger.
+ * The server learned of `version` from the release feed, so the check that
+ * follows should find it — and when it does not yet (the release is still
+ * being published, or a platform's bundle is not up), that is "an update is
+ * on its way", retried with backoff, never an error. The regular poll stays
+ * the fallback.
+ */
+export async function onServerReleaseHint(
+  version: string,
+  random: () => number = Math.random,
+): Promise<void> {
+  let running: string | null = null;
+  try {
+    running = await getVersion();
+  } catch {
+    running = null;
+  }
+  if (running && version && isNewerVersion(version, running)) enterReleasePending(version);
+  scheduleHintedUpdateCheck(random);
+}
+
+/** The running app's version (from tauri.conf.json), for display. */
+export function currentVersion(): Promise<string> {
+  return getVersion();
+}
+
+/**
+ * Updates are REQUIRED: is the app currently blocked behind one?
+ *
+ * Only `failed` — the silent path downloaded, installed and restarted without
+ * ever asking, so discovery, download, install and the held restart are all
+ * invisible and none of them block anything. The wall is what is left when the
+ * app cannot update itself: two attempts spent, a version we know is stale, and
+ * a user who has to point us at a working network.
+ *
+ * The `error` phase is deliberately NOT blocking: a failed background CHECK
+ * (offline launch, dev build without the updater) must never wall off the app,
+ * and neither should the FIRST install failure — that one buys a silent retry
+ * ({@link AUTO_RETRY_DELAY_MS}) instead. The gate component latches on `failed`
+ * so the wall stays put through a manual retry and its progress.
+ */
+export function isUpdateBlocking(state: UpdateState): boolean {
+  return state.phase === "failed";
+}
+
+// ---------------------------------------------------------------------------
+// The post-restart "Updated to vX" banner.
+//
+// The handoff problem: by the time the new version is running, the Update
+// object (and its release notes) died with the old process. So installUpdate
+// writes the stash just before download/relaunch, and it's read back on the
+// next boot — if the running version matches the stashed one, the update
+// landed and the banner shows its notes; if not (install failed, or a newer
+// hop), it's stale and dropped.
+// ---------------------------------------------------------------------------
+
+const JUST_UPDATED_KEY = "context.justUpdated";
+
+interface JustUpdated {
+  version: string;
+  notes: string | null;
+}
+
+/**
+ * Background check AND install: when a newer version exists the bytes come down
+ * and go in with no prompt, and the app restarts itself at the next pause in
+ * typing. Nothing is surfaced on the way — the user learns about it from the
+ * What's New modal after the restart.
+ *
+ * Callers treat this as fire-and-forget from launch AND from the poll; every
+ * failure lands in the `error` phase (surfaced only in Settings → Updates — an
+ * offline launch is not an event), and only a second consecutive INSTALL
+ * failure escalates to `failed` and the wall.
+ */
+export async function backgroundUpdateCheck(): Promise<void> {
+  // Skip a tick that fires while a check or an install is already in flight —
+  // including the held restart, where the bytes are already in place.
+  if (autoInstalling || state.phase === "checking") return;
+  await checkAndAutoInstall();
+}
+
+/**
+ * The update we just restarted into, if that is what happened — else null.
+ * Non-destructive: the banner clears the stash on dismiss via
+ * {@link clearJustUpdated}, so an un-dismissed banner survives a quit.
+ */
+export async function justUpdatedTo(): Promise<JustUpdated | null> {
+  let raw: string | null = null;
+  try {
+    raw = localStorage.getItem(JUST_UPDATED_KEY);
+  } catch {
+    return null;
+  }
+  if (!raw) return null;
+  try {
+    const stash = JSON.parse(raw) as JustUpdated;
+    if (!stash?.version) throw new Error("bad stash");
+    const running = await getVersion();
+    if (running === stash.version) return stash;
+    // Stale: the install never landed, or we've since hopped past it.
+    clearJustUpdated();
+    return null;
+  } catch {
+    clearJustUpdated();
+    return null;
+  }
+}
+
+/** Forget the just-updated stash (the banner was dismissed). */
+export function clearJustUpdated(): void {
+  try {
+    localStorage.removeItem(JUST_UPDATED_KEY);
+  } catch {
+    // Nothing to do — worst case the banner shows once more.
+  }
+}

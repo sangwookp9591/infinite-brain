@@ -1,0 +1,2398 @@
+/* Vault diagnostics (`HealthView`, rendered by the AI tab's finding tools).
+   Loaded by `HealthTab.tsx` the way `graph.css` is loaded by `GraphView.tsx`.
+
+   Every colour comes from `styles/tokens.css`. The page has exactly one colour
+   idea: a row, a node, a bar segment, a tile or a badge declares `data-tone`,
+   and the two variables below resolve to the semantic pair for that tone. Both
+   themes then follow for free — there is no second palette to keep in step. */
+
+.health-tab {
+  --tone: var(--text-tertiary);
+  --tone-soft: var(--bg-active);
+  display: block;
+  /* Named so every section can size itself against the settings CONTENT
+     column rather than the window: the card is 84vw, so a window query would
+     be measuring the wrong box. */
+  container: health / inline-size;
+}
+
+/* The one tone table. `busy` borrows the accent because motion is the accent's
+   job everywhere else in the app (progress pills, live cursors); `muted` is the
+   deliberate absence of a verdict, not a grey failure. */
+.health-tab [data-tone="good"] {
+  --tone: var(--success);
+  --tone-soft: var(--success-soft);
+}
+.health-tab [data-tone="warn"] {
+  --tone: var(--warning);
+  --tone-soft: var(--warning-soft);
+}
+.health-tab [data-tone="bad"] {
+  --tone: var(--danger);
+  --tone-soft: var(--danger-soft);
+}
+.health-tab [data-tone="busy"] {
+  --tone: var(--accent);
+  --tone-soft: var(--accent-soft);
+}
+.health-tab [data-tone="muted"] {
+  --tone: var(--text-tertiary);
+  --tone-soft: var(--bg-active);
+}
+
+/* A pipeline stage's state maps onto the same two variables, so a node, its
+   edge and the legend under it cannot disagree about what colour "warn" is. */
+.health-tab [data-state="ok"] {
+  --tone: var(--success);
+  --tone-soft: var(--success-soft);
+}
+.health-tab [data-state="busy"] {
+  --tone: var(--accent);
+  --tone-soft: var(--accent-soft);
+}
+.health-tab [data-state="warn"] {
+  --tone: var(--warning);
+  --tone-soft: var(--warning-soft);
+}
+.health-tab [data-state="error"] {
+  --tone: var(--danger);
+  --tone-soft: var(--danger-soft);
+}
+.health-tab [data-state="off"] {
+  --tone: var(--text-tertiary);
+  --tone-soft: var(--bg-subtle);
+}
+
+/* ── Section chrome ───────────────────────────────────────────────────────── */
+
+/* The settings card sets one vertical rhythm for every tab, but its rules reach
+   only DIRECT children of `.settings-content`. This tab wraps itself in a div
+   and then wraps each block in a `<section>`, so the rhythm is restated here —
+   same values, so the sections line up with every other tab's. */
+/* Roughly double the old gap. These are whole sections of a page, not rows of
+   a list: at `--sp-8` the Checks block read as a continuation of the issue list
+   above it. Rows INSIDE a section stay compact. */
+.health-section {
+  margin-top: calc(var(--sp-8) * 2);
+}
+.health-section:first-of-type {
+  margin-top: var(--sp-8);
+}
+.health-section-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-3);
+}
+.health-section-titles {
+  min-width: 0;
+}
+.health-section .subhead {
+  margin: 0;
+  color: var(--text-secondary);
+}
+.health-section-desc {
+  margin: 2px 0 0;
+  color: var(--text-tertiary);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-body);
+}
+.health-section-right {
+  flex-shrink: 0;
+}
+
+/* The small uppercase label above a block inside a panel or a tile group. */
+.health-eyebrow {
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  margin-bottom: var(--sp-1);
+}
+
+/* ── Verdict card ─────────────────────────────────────────────────────────── */
+
+.health-verdict {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+  padding: var(--sp-5);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, var(--tone-soft), transparent 72%);
+  border: 1px solid var(--border);
+}
+.health-verdict-main {
+  min-width: 0;
+  flex: 1 1 320px;
+}
+.health-pill {
+  display: inline-block;
+  padding: 2px var(--sp-3);
+  border-radius: var(--radius-pill);
+  background: var(--tone-soft);
+  color: var(--tone);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.health-headline {
+  margin: var(--sp-2) 0 var(--sp-1);
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.health-detail {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-body);
+}
+/* The server host. A long Railway subdomain at the end of a sentence reads as
+   a typo; as a chip it reads as a fact. */
+.health-host {
+  display: inline-block;
+  margin-left: var(--sp-2);
+  padding: 1px var(--sp-2);
+  border-radius: var(--radius-sm);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  vertical-align: 1px;
+}
+.health-verdict-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+
+/* ── Sync breakdown ───────────────────────────────────────────────────────── */
+
+.health-local-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+/* The bar and its legend share this wrapper so nothing can space the two
+   apart: the legend is the bar's key, not a paragraph under it. */
+.health-breakdown {
+  display: block;
+}
+.health-bar {
+  display: flex;
+  height: 10px;
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  background: var(--bg-subtle);
+}
+.health-bar-seg {
+  background: var(--tone);
+  min-width: 2px;
+}
+.health-legend-list {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-3);
+  margin: var(--sp-3) 0 0;
+  /* The chips ARE the numbers for this section — there is no lead line above
+     them any more, because it said each count a second time. */
+  padding: 0;
+  list-style: none;
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+.health-legend-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 2px var(--sp-2) 2px var(--sp-1);
+  border-radius: var(--radius-pill);
+  background: var(--bg-subtle);
+}
+.health-legend-list strong {
+  color: var(--text-primary);
+}
+.health-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--tone);
+}
+
+/* ── Filter chips, search, bulk bar ───────────────────────────────────────── */
+
+.health-issue-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-3);
+}
+.health-chips {
+  display: flex;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+.health-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 3px var(--sp-3);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  transition:
+    background var(--t-fast) var(--ease),
+    color var(--t-fast) var(--ease);
+}
+.health-chip:hover {
+  background: var(--bg-hover);
+}
+.health-chip:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.health-chip.active {
+  background: var(--accent-soft);
+  border-color: transparent;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.health-chip-count {
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.health-chip.active .health-chip-count {
+  color: var(--accent);
+}
+
+.health-bulkbar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+}
+.health-bulk-count {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.health-selectall {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-2);
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+
+/* ── Issues ───────────────────────────────────────────────────────────────── */
+
+.health-allclear {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  border-radius: var(--radius-lg);
+  background: var(--success-soft);
+}
+.health-allclear-badge {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-pill);
+  background: var(--bg-surface);
+  color: var(--success);
+}
+.health-allclear strong {
+  display: block;
+  color: var(--text-primary);
+  font-size: var(--fs-md);
+}
+.health-allclear p {
+  margin: 2px 0 0;
+}
+
+/* App.css styles every `.settings-page input:not([type="range"])` as a text
+   field — `width: 100%`, padding, a filled background. A checkbox caught by
+   that rule became a full-width invisible box, which shoved each issue row's
+   content into a sliver at the right edge and made the page scroll sideways.
+   (0,3,1) outranks that (0,2,1). */
+.settings-page .health-tab input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  padding: 0;
+  margin: 0;
+  background: none;
+  border: none;
+  box-shadow: none;
+  flex: 0 0 auto;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+/* Nothing on this page may widen the settings card: long paths, wide tables
+   and the timeline all clip or wrap inside their own boxes instead. */
+.health-tab {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: clip;
+}
+.health-issue-main > * {
+  min-width: 0;
+  max-width: 100%;
+}
+.health-issues {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.health-issue {
+  border-radius: var(--radius-md);
+}
+.health-issue + .health-issue {
+  border-top: 1px solid var(--border);
+}
+.health-issue-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  padding: var(--sp-3) 0;
+}
+.health-issue-check {
+  flex: 0 0 auto;
+  margin-top: 6px;
+}
+/* The whole summary is the disclosure control, so the target is the row and
+   not a 12px chevron. */
+.health-issue-summary {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  padding: 0;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+.health-issue-summary:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+/* A filled badge, not a hairline dot. A row that needs a person has to read as
+   a warning at a glance; the severity colour alone, at 8px, did not. */
+.health-issue-badge,
+.health-check-badge {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-pill);
+  background: var(--tone);
+  color: var(--text-on-accent);
+}
+.health-issue-badge {
+  margin-top: 1px;
+}
+.health-issue-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.health-issue-title {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+/* "Needs you" is the louder of the two on purpose: a row that will fix itself
+   is information, a row that will not is a task. */
+.health-tag {
+  margin-right: var(--sp-2);
+  padding: 1px var(--sp-2);
+  border-radius: var(--radius-pill);
+  background: var(--warning-soft);
+  color: var(--warning);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.health-tag[data-auto] {
+  background: var(--bg-subtle);
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+.health-path {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+/* One line collapsed. The whole sentence is in the panel under the chevron,
+   and a row that wraps to three lines is what stopped this list being
+   scannable. */
+.health-why {
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  line-height: var(--lh-body);
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.health-chevron {
+  flex: 0 0 auto;
+  display: inline-flex;
+  margin-top: 2px;
+  color: var(--text-tertiary);
+  transition: transform var(--t-fast) var(--ease);
+}
+.health-chevron[data-open] {
+  transform: rotate(90deg);
+}
+.health-issue-primary {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding-top: 2px;
+}
+
+/* ── The expanded panel: the reasoning ────────────────────────────────────── */
+
+.health-issue-panel {
+  padding: var(--sp-4);
+  margin: 0 0 var(--sp-3) var(--sp-5);
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+  animation: health-open var(--t-med) var(--ease);
+}
+@keyframes health-open {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+.health-reasoning {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--sp-4);
+}
+.health-block p {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  line-height: var(--lh-body);
+}
+.health-fixes {
+  margin: 0;
+  padding-left: var(--sp-4);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  line-height: var(--lh-body);
+}
+.health-fixes li + li {
+  margin-top: var(--sp-1);
+}
+
+/* Where the content is. The one line on this page that answers "is my work
+   safe", so it gets its own colour rather than sitting in the grey run. */
+.health-safety {
+  margin: var(--sp-4) 0 0;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--text-tertiary);
+  background: var(--bg-surface);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+.health-safety[data-safety="only-here"] {
+  border-left-color: var(--warning);
+}
+.health-safety[data-safety="on-server"],
+.health-safety[data-safety="both"] {
+  border-left-color: var(--success);
+}
+.health-safety .health-eyebrow {
+  margin-bottom: 0;
+}
+
+.health-facts {
+  margin: var(--sp-4) 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0;
+}
+.health-fact {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  padding: var(--sp-1) 0;
+  border-bottom: 1px solid var(--border);
+}
+.health-fact:last-child {
+  border-bottom: none;
+}
+.health-fact dt {
+  flex: 0 0 9rem;
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
+}
+.health-fact dd {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+.health-fact-value {
+  min-width: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+.health-copy {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  color: var(--text-tertiary);
+}
+.health-copy svg {
+  width: 13px;
+  height: 13px;
+}
+/* The inspector's card reads as a spec sheet, so its facts run in two columns
+   instead of one long ladder. */
+.health-facts-grid {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  column-gap: var(--sp-5);
+}
+
+.health-remedies {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  margin-top: var(--sp-4);
+}
+.health-owner-card {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  font-size: var(--fs-sm);
+}
+.health-owner-card a {
+  color: var(--link);
+}
+
+/* ── Checks ───────────────────────────────────────────────────────────────── */
+
+.health-check-panel .health-fixes {
+  margin-bottom: var(--sp-3);
+}
+.health-check-group + .health-check-group {
+  margin-top: var(--sp-8);
+  padding-top: var(--sp-6);
+  border-top: 1px solid var(--border);
+}
+.health-checks {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.health-check {
+  border-bottom: 1px solid var(--border);
+}
+.health-check:last-child {
+  border-bottom: none;
+}
+.health-check-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.health-check-summary {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) 0;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+.health-check-summary:disabled {
+  cursor: default;
+}
+.health-check-summary:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.health-check-glyph {
+  flex: 0 0 auto;
+  display: inline-flex;
+  color: var(--tone);
+}
+/* A pass is a tick and a label. Its `looksFor` moved to the label's tooltip:
+   fifteen explanatory sentences stacked up is what made this list unreadable. */
+.health-check-tick {
+  flex: 0 0 auto;
+  width: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--success);
+}
+/* Housekeeping is a fact, not a fault, so it gets a filled dot rather than a
+   triangle — and a check that never ran gets the same shape, hollow. */
+.health-check-dot {
+  flex: 0 0 auto;
+  width: 9px;
+  height: 9px;
+  margin: 0 5.5px;
+  border-radius: var(--radius-pill);
+  background: var(--tone);
+}
+.health-check-dot[data-hollow] {
+  background: transparent;
+  border: 1px solid var(--tone);
+}
+.health-check-label {
+  flex: 0 0 auto;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.health-check-note {
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
+}
+/* A passing row states what was verified, quietly. Seeing "no case collisions"
+   is the point of listing all fifteen. */
+.health-check[data-passed] .health-check-label {
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+/* The count as a filled pill in the severity colour. A bare grey "2" beside a
+   red row said nothing about how much trouble it was. */
+.health-check-count {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--sp-1);
+  padding: 1px var(--sp-2);
+  border-radius: var(--radius-pill);
+  background: var(--tone);
+  color: var(--text-on-accent);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.health-check-bytes {
+  font-weight: 500;
+  opacity: 0.85;
+}
+/* One short line of cause on a failing row; the rest waits in the panel. */
+.health-check-why-line {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* An open row is framed in its own tone so the panel reads as one card, not as
+   loose paragraphs under a list row. */
+.health-check[data-open] {
+  margin: var(--sp-2) calc(-1 * var(--sp-3));
+  padding: 0 var(--sp-3);
+  border-radius: var(--radius-lg);
+  background: var(--tone-soft);
+  border-bottom: 0;
+}
+.health-check[data-open] .health-check-head {
+  border-bottom: 1px solid color-mix(in srgb, var(--tone) 22%, transparent);
+}
+.health-check-panel {
+  padding: var(--sp-3) 0 var(--sp-4) calc(20px + var(--sp-3));
+  animation: health-open var(--t-med) var(--ease);
+}
+.health-check-why {
+  margin: 0 0 var(--sp-3);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  line-height: var(--lh-body);
+  max-width: 68ch;
+}
+.health-check-items {
+  margin: var(--sp-3) 0 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--border);
+}
+.health-check-items {
+  border-top-color: color-mix(in srgb, var(--tone) 22%, transparent);
+}
+.health-check-items li {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--tone) 14%, transparent);
+}
+.health-check-items li:last-child {
+  border-bottom: 0;
+}
+.health-check-items .health-path {
+  flex: 1 1 40%;
+  min-width: 0;
+}
+.health-check-detail {
+  flex: 0 1 38%;
+  min-width: 0;
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.health-check-item-actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+.health-check.is-skeleton {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) 0;
+}
+.health-check.is-skeleton .health-check-glyph,
+.health-check.is-skeleton .health-check-label {
+  display: block;
+  height: 14px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-active);
+  animation: health-pulse 1.4s var(--ease) infinite;
+}
+.health-check.is-skeleton .health-check-glyph {
+  width: 16px;
+}
+.health-check.is-skeleton .health-check-label {
+  width: 40%;
+}
+
+/* ── Inspector ────────────────────────────────────────────────────────────── */
+
+.health-inspector-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  max-width: 480px;
+}
+.health-inspector-icon {
+  position: absolute;
+  left: var(--sp-3);
+  display: inline-flex;
+  color: var(--text-tertiary);
+  pointer-events: none;
+}
+/* App.css's text-field rule contains three `:not()` selectors, so it has more
+   specificity than it first appears to. Keep the complete inset here: the
+   icon ends around 28px and the text starts a comfortable gap after it. */
+.settings-page .health-tab .health-inspector-field > input.health-inspector-input[type="text"] {
+  padding: var(--sp-2) var(--sp-3) var(--sp-2) calc(var(--sp-3) + 28px);
+  border-radius: var(--radius-pill);
+}
+.health-suggest {
+  position: absolute;
+  top: calc(100% + var(--sp-1));
+  left: 0;
+  right: 0;
+  z-index: 5;
+  margin: 0;
+  padding: var(--sp-1);
+  list-style: none;
+  max-height: 260px;
+  overflow-y: auto;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}
+.health-suggest button {
+  display: block;
+  width: 100%;
+  padding: var(--sp-1) var(--sp-2);
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  text-align: left;
+  cursor: pointer;
+}
+.health-suggest button:hover {
+  background: var(--bg-hover);
+}
+.health-suggest-title {
+  display: block;
+  font-size: var(--fs-sm);
+  color: var(--text-primary);
+}
+
+.health-inspection {
+  margin-top: var(--sp-4);
+  padding: var(--sp-4);
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+  border-left: 3px solid var(--tone);
+}
+.health-inspection-verdict {
+  margin: 0 0 var(--sp-1);
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: var(--lh-tight);
+}
+
+/* ── Timeline ─────────────────────────────────────────────────────────────── */
+
+.health-timeline {
+  margin-top: var(--sp-3);
+}
+.health-day + .health-day {
+  margin-top: var(--sp-4);
+}
+.health-day-label {
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  padding-bottom: var(--sp-1);
+  border-bottom: 1px solid var(--border);
+}
+/* Expanded, the tape scrolls inside a fixed box: a 200-line session must not
+   make the whole settings page 200 lines taller. */
+.health-timeline.is-expanded {
+  max-height: 420px;
+  overflow-y: auto;
+  padding-right: var(--sp-2);
+}
+.health-timeline-actions {
+  display: flex;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+}
+.health-timeline-actions:empty {
+  display: none;
+}
+.health-log-count {
+  flex: 0 0 auto;
+  margin-left: var(--sp-2);
+  padding: 0 var(--sp-2);
+  border-radius: var(--radius-pill);
+  background: var(--bg-active);
+  color: var(--text-secondary);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+}
+.health-log {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.health-log-line {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  padding: 3px 0;
+  font-size: var(--fs-sm);
+}
+.health-log-time {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.health-log-dot {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--text-faint);
+  transform: translateY(-1px);
+}
+.health-log-dot[data-level="warn"] {
+  background: var(--warning);
+}
+.health-log-dot[data-level="error"] {
+  background: var(--danger);
+}
+.health-log-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+.health-log-message {
+  color: var(--text-secondary);
+}
+.health-log-path {
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  min-width: 0;
+  max-width: 100%;
+}
+.health-log-path:hover .health-path {
+  color: var(--accent);
+}
+
+/* ── Vault at a glance ────────────────────────────────────────────────────── */
+
+/* ── Metrics strip ─────────────────────────────────────────────────────── */
+.health-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+  gap: 0;
+  margin: var(--sp-4) 0 0;
+  padding: var(--sp-2) 0;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+}
+.health-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: var(--sp-2) var(--sp-4);
+  border-left: 1px solid var(--border);
+}
+.health-metric:first-child {
+  border-left: 0;
+}
+.health-metric-value {
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.health-metric-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.health-metric-flag {
+  font-size: var(--fs-xs);
+  color: var(--warning);
+  white-space: nowrap;
+}
+.health-metric-action {
+  align-self: flex-start;
+  font-size: var(--fs-xs);
+  padding: 0;
+}
+.health-metric.is-skeleton .health-metric-value,
+.health-metric.is-skeleton .health-metric-label {
+  display: block;
+  height: 12px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-active);
+}
+.health-metric.is-skeleton .health-metric-value {
+  width: 48px;
+  height: 16px;
+}
+.health-metric.is-skeleton .health-metric-label {
+  width: 64px;
+}
+@container health (max-width: 720px) {
+  .health-metrics {
+    grid-template-columns: repeat(3, 1fr);
+    row-gap: var(--sp-2);
+  }
+  .health-metric:nth-child(3n + 1) {
+    border-left: 0;
+  }
+}
+
+.health-tile-group + .health-tile-group {
+  margin-top: var(--sp-4);
+}
+.health-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: var(--sp-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+@container health (max-width: 720px) {
+  .health-tiles {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+}
+/* The tone is a 2px cap, not a grey box: it colours the card without turning
+   the section into a run of coloured blocks. */
+.health-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+.health-tile::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 2px;
+  background: var(--tone);
+}
+.health-tile-icon {
+  display: inline-flex;
+  color: var(--tone);
+  margin-bottom: var(--sp-1);
+}
+.health-tile-value {
+  font-family: var(--font-display);
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: var(--lh-tight);
+}
+.health-tile-label {
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+.health-tile-sub {
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
+}
+.health-tile-action {
+  align-self: flex-start;
+  margin-top: var(--sp-2);
+}
+/* The census is one Rust pass, so the wait is short — the placeholder only has
+   to hold the grid's shape, not entertain. */
+.health-tile.is-skeleton::before {
+  display: none;
+}
+.health-tile.is-skeleton .health-tile-value,
+.health-tile.is-skeleton .health-tile-label {
+  display: block;
+  background: var(--bg-active);
+  border-radius: var(--radius-sm);
+  animation: health-pulse 1.4s var(--ease) infinite;
+}
+.health-tile.is-skeleton .health-tile-value {
+  width: 60%;
+  height: 22px;
+}
+.health-tile.is-skeleton .health-tile-label {
+  width: 45%;
+  height: 12px;
+  margin-top: var(--sp-1);
+}
+@keyframes health-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* ── Activity strip ───────────────────────────────────────────────────────── */
+
+.health-activity-lead {
+  margin: 0 0 var(--sp-3);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+.health-weeks {
+  display: flex;
+  gap: var(--sp-2);
+}
+/* Fill intensity, not bar height. A vault whose entire year landed in one week
+   used to draw eleven invisible stubs beside one block; every non-zero week is
+   legible here, and the count sits inside the cell. */
+.health-week {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+.health-week::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--accent);
+  opacity: 0;
+}
+.health-week[data-level="1"]::before {
+  opacity: 0.2;
+}
+.health-week[data-level="2"]::before {
+  opacity: 0.45;
+}
+.health-week[data-level="3"]::before {
+  opacity: 0.7;
+}
+.health-week[data-level="4"]::before {
+  opacity: 1;
+}
+.health-week[data-level="3"],
+.health-week[data-level="4"] {
+  color: var(--text-on-accent);
+  border-color: transparent;
+}
+.health-week[data-current] {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.health-week-n {
+  position: relative;
+}
+.health-weeks-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--sp-1);
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
+}
+
+/* ── Largest ──────────────────────────────────────────────────────────────── */
+
+.health-largest {
+  min-width: 0;
+}
+.health-segmented {
+  display: inline-flex;
+  margin-bottom: var(--sp-3);
+}
+.health-segmented button {
+  flex: 0 0 auto;
+  padding: var(--sp-1) var(--sp-4);
+}
+.health-table {
+  width: 100%;
+  min-width: 0;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+  table-layout: fixed;
+}
+.health-table th {
+  text-align: left;
+  font-weight: 500;
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
+  padding-bottom: var(--sp-2);
+  border-bottom: 1px solid var(--border);
+}
+.health-table td {
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+  vertical-align: top;
+}
+.health-table th:first-child,
+.health-table td:first-child {
+  min-width: 0;
+  overflow: hidden;
+  padding-right: var(--sp-3);
+}
+.health-table td:first-child .health-path {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.health-table tr:last-child td {
+  border-bottom: none;
+}
+.health-table .health-num {
+  text-align: right;
+  white-space: nowrap;
+  width: 6.5rem;
+}
+.health-file-name {
+  display: block;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.health-row-actions {
+  width: 7.5rem;
+  padding-left: var(--sp-2);
+  text-align: right;
+  white-space: nowrap;
+}
+.health-row-actions .link-btn {
+  padding-inline: var(--sp-1);
+}
+.health-size-badge {
+  display: block;
+  font-size: var(--fs-xs);
+  color: var(--tone);
+}
+
+/* Motion is decoration everywhere on this page. */
+@media (prefers-reduced-motion: reduce) {
+  .health-check.is-skeleton .health-check-glyph,
+  .health-check.is-skeleton .health-check-label,
+  .health-tile.is-skeleton .health-tile-value,
+  .health-tile.is-skeleton .health-tile-label {
+    animation: none;
+  }
+  .health-issue-panel,
+  .health-check-panel {
+    animation: none;
+  }
+  .health-chevron {
+    transition: none;
+  }
+}
+
+/* ── Ignore / dismiss ─────────────────────────────────────────────────────── */
+button.health-metric-flag {
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-size: var(--fs-xs);
+  color: var(--warning);
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  text-align: left;
+}
+button.health-metric-flag:hover {
+  text-decoration-style: solid;
+}
+.health-check-ignore,
+.health-issue-dismiss {
+  flex: 0 0 auto;
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
+  opacity: 0;
+  transition: opacity var(--t-fast) var(--ease);
+}
+.health-check:hover .health-check-ignore,
+.health-check:focus-within .health-check-ignore,
+.health-issue:hover .health-issue-dismiss,
+.health-issue:focus-within .health-issue-dismiss {
+  opacity: 1;
+}
+.health-ignored {
+  margin-top: var(--sp-4);
+}
+.health-ignored-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-1) 0;
+  background: none;
+  border: 0;
+  font: inherit;
+  font-size: var(--fs-xs);
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+.health-ignored-toggle:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-sm);
+}
+.health-ignored-list {
+  margin: var(--sp-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.health-ignored-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) 0;
+  border-top: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+}
+.health-ignored-list .health-path {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.health-ignored-label {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.health-ignored-count {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+}
+@media (prefers-reduced-motion: reduce) {
+  .health-check-ignore,
+  .health-issue-dismiss {
+    opacity: 1;
+    transition: none;
+  }
+}
+
+/* ── Activity heat-map (per day, GitHub-style) ────────────────────────────── */
+/* One grid for labels and cells, so they cannot drift apart: column 1 holds
+   the weekday labels, row 1 the month labels, and the cells fill the rest.
+   Columns are fractions of the card, so a year stretches edge to edge the
+   way GitHub's does and the cells scale with the window. */
+.health-heatmap {
+  --heat-gap: 3px;
+  display: grid;
+  grid-template-columns: max-content repeat(var(--heat-cols), minmax(0, 1fr));
+  grid-template-rows: 14px repeat(7, auto) auto;
+  gap: var(--heat-gap);
+  width: 100%;
+  align-items: stretch;
+}
+.health-heat-month {
+  font-size: 10px;
+  line-height: 14px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: visible;
+}
+.health-heat-day {
+  grid-column: 1;
+  align-self: center;
+  padding-right: var(--sp-1);
+  font-size: 10px;
+  line-height: 1;
+  color: var(--text-tertiary);
+}
+.health-heatcell {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  min-width: 0;
+  border-radius: 2px;
+  background: var(--bg-active);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text-primary) 6%, transparent);
+}
+.health-heatcell[data-level="1"] {
+  background: color-mix(in srgb, var(--accent) 30%, var(--bg-surface));
+}
+.health-heatcell[data-level="2"] {
+  background: color-mix(in srgb, var(--accent) 55%, var(--bg-surface));
+}
+.health-heatcell[data-level="3"] {
+  background: color-mix(in srgb, var(--accent) 78%, var(--bg-surface));
+}
+.health-heatcell[data-level="4"] {
+  background: var(--accent);
+}
+.health-heatcell[data-today] {
+  box-shadow: 0 0 0 1.5px var(--accent);
+}
+.health-heatmap-legend {
+  grid-column: 2 / -1;
+  grid-row: 9;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--heat-gap);
+  margin-top: var(--sp-2);
+  font-size: 10px;
+  color: var(--text-tertiary);
+}
+.health-heatmap-legend .health-heatcell {
+  width: 10px;
+  height: 10px;
+}
+.health-heatmap-legend span:first-child {
+  margin-right: 2px;
+}
+.health-heatmap-legend span:last-child {
+  margin-left: 2px;
+}
+
+/* ── Activity heat-map: future days ───────────────────────────────────────────
+   Appended block (heat-map range change) — keep at the end of the file.
+   The strip now runs from last month into the coming months, so most of it is
+   days that have not happened yet. They must not read as "a quiet day": no
+   fill, a dashed outline instead of the filled cell's inset ring, and they
+   never carry `data-level`, so nothing here can be overridden by a shade. */
+.health-heatcell[data-future] {
+  background: transparent;
+  box-shadow: none;
+  border: 1px dashed color-mix(in srgb, var(--text-primary) 14%, transparent);
+}
+/* Today can be in the future by no more than the moment the page rendered, but
+   the marker has to win over the dashed outline if it ever lands there. */
+.health-heatcell[data-future][data-today] {
+  border-style: solid;
+  border-color: transparent;
+  box-shadow: 0 0 0 1.5px var(--accent);
+}
+
+/* ── Checks: heal & bulk actions ──────────────────────────────────────────────
+   Appended block (check-level actions) — keep at the end of the file.
+
+   Two button shapes in a failing row's header, and the difference has to be
+   visible before the labels are read: the HEAL is the one that fixes the
+   finding itself, so it carries the accent and a spark; a bulk action is the
+   per-item button applied to everything listed, so it stays a plain ghost pill
+   and turns red only when it deletes.
+
+   Under the header sits the run line. It is deliberately part of the ROW rather
+   than a toast: "Deleted 11 of 12 · 1 failed" is a finding of its own, and a
+   toast throws it away three seconds after the reader stops looking. */
+.health-check-bulk {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.health-heal {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 36%, transparent);
+  background: var(--accent-soft);
+  font-weight: 600;
+}
+.health-heal:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 18%, var(--bg-surface));
+}
+.health-check-bulk button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* The run line. Indented to the panel's own gutter so it lines up with the
+   reasoning rather than with the badge. */
+.health-check-run {
+  margin: 0 0 var(--sp-2);
+  padding-left: calc(20px + var(--sp-3));
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+}
+.health-check-run[data-state="running"] {
+  color: var(--text-tertiary);
+}
+.health-check-run[data-state="good"] .health-check-run-line {
+  color: var(--success);
+  font-weight: 600;
+}
+.health-check-run[data-state="bad"] .health-check-run-line {
+  color: var(--danger);
+  font-weight: 600;
+}
+.health-check-run-line {
+  margin: 0;
+}
+.health-check-run-errors {
+  margin: var(--sp-1) 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text-tertiary);
+}
+.health-check-run-errors li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  padding: 1px 0;
+  min-width: 0;
+}
+
+/* ── Health overview redesign ─────────────────────────────────────────────── */
+
+.health-metrics {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--sp-3);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.health-metric {
+  min-height: 92px;
+  justify-content: center;
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--text-primary) 5%, transparent);
+}
+.health-metric:first-child {
+  border-left: 1px solid var(--border);
+}
+.health-metric[data-primary] {
+  border-color: color-mix(in srgb, var(--accent) 25%, var(--border));
+  background: linear-gradient(145deg, var(--accent-soft), var(--bg-surface) 72%);
+}
+.health-metric-value {
+  font-size: clamp(var(--fs-lg), 3cqi, 1.65rem);
+}
+.health-verdict {
+  margin-top: var(--sp-4);
+}
+
+.health-inventory {
+  margin-top: var(--sp-5);
+  padding: var(--sp-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--bg-card);
+}
+.health-inventory-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-4);
+}
+.health-kicker {
+  display: block;
+  margin-bottom: var(--sp-1);
+  color: var(--text-tertiary);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.health-inventory-head h3 {
+  margin: 0;
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+}
+.health-inventory-head p {
+  max-width: 650px;
+  margin: var(--sp-1) 0 0;
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-body);
+}
+.health-freshness {
+  flex: 0 0 auto;
+  padding: 3px var(--sp-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-size: var(--fs-xs);
+}
+.health-freshness[data-state="current"] {
+  border-color: color-mix(in srgb, var(--success) 30%, var(--border));
+  color: var(--success);
+}
+.health-inventory-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 72px minmax(0, 1fr);
+  align-items: center;
+  margin-top: var(--sp-4);
+}
+.health-place {
+  min-width: 0;
+  padding: var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+}
+.health-place.is-unavailable {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: 148px;
+  color: var(--text-tertiary);
+}
+.health-place-title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.health-place-title strong,
+.health-place.is-unavailable strong {
+  color: var(--text-primary);
+}
+.health-place-title p,
+.health-place.is-unavailable p {
+  margin: 1px 0 0;
+  color: var(--text-tertiary);
+  font-size: var(--fs-xs);
+}
+.health-place-icon {
+  display: inline-grid;
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: var(--radius-md);
+  background: var(--bg-active);
+  color: var(--text-secondary);
+}
+.health-place-primary {
+  display: block;
+  margin-top: var(--sp-4);
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  line-height: 1;
+}
+.health-place-primary-label {
+  color: var(--text-tertiary);
+  font-size: var(--fs-xs);
+}
+.health-place dl {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sp-2);
+  margin: var(--sp-4) 0 0;
+}
+.health-place dl div {
+  min-width: 0;
+  padding-top: var(--sp-2);
+  border-top: 1px solid var(--border);
+}
+.health-place dt {
+  color: var(--text-tertiary);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+.health-place dd {
+  margin: 2px 0 0;
+  color: var(--text-primary);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.health-inventory-bridge {
+  display: flex;
+  align-items: center;
+  color: var(--text-tertiary);
+}
+.health-inventory-line {
+  flex: 1;
+  height: 1px;
+  background: var(--border-strong);
+}
+.health-inventory-result {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-top: var(--sp-5);
+  padding: var(--sp-3);
+  border: 1px solid color-mix(in srgb, var(--tone) 26%, var(--border));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--tone-soft) 60%, var(--bg-surface));
+}
+.health-inventory-result-icon {
+  display: grid;
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: var(--radius-pill);
+  background: var(--tone-soft);
+  color: var(--tone);
+}
+.health-inventory-result-copy {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.health-inventory-result-copy strong {
+  color: var(--text-primary);
+  font-size: var(--fs-sm);
+}
+.health-inventory-result-copy p {
+  margin: 2px 0 0;
+  color: var(--text-secondary);
+  font-size: var(--fs-xs);
+}
+.health-inventory-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: var(--sp-2);
+}
+.health-difference-breakdown {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-4);
+  margin-top: var(--sp-5);
+}
+.health-difference-side {
+  min-width: 0;
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+}
+.health-difference-side:only-child {
+  grid-column: 1 / -1;
+}
+.health-difference-side > strong {
+  color: var(--text-primary);
+  font-size: var(--fs-sm);
+}
+.health-difference-side dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--sp-2);
+  margin: var(--sp-2) 0 0;
+}
+.health-difference-side dl div {
+  min-width: 0;
+}
+.health-difference-side dt {
+  color: var(--text-tertiary);
+  font-size: var(--fs-xs);
+}
+.health-difference-side dd {
+  margin: 2px 0 0;
+  color: var(--text-primary);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.health-difference-side p {
+  margin: var(--sp-2) 0 0;
+  color: var(--text-secondary);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-body);
+}
+.health-differences {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-5) var(--sp-4);
+  margin-top: var(--sp-6);
+}
+.health-difference-group {
+  min-width: 0;
+  padding: var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+}
+.health-difference-group h4 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--fs-sm);
+}
+.health-difference-group h4 span {
+  margin-left: var(--sp-1);
+  color: var(--warning);
+}
+.health-difference-group > p {
+  margin: var(--sp-1) 0 var(--sp-3);
+  color: var(--text-tertiary);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-body);
+}
+.health-difference-group ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.health-difference-group li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  min-width: 0;
+  padding: var(--sp-2) 0;
+  border-top: 1px solid var(--border);
+}
+.health-difference-group li .health-path {
+  min-width: 0;
+}
+.health-difference-rowcopy {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+}
+.health-difference-rowcopy small {
+  margin-top: 2px;
+  color: var(--text-tertiary);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-body);
+}
+/* File names and controls get separate rows, including in narrow cards. */
+.health-missing-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-4);
+}
+.health-missing-files li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-2);
+  padding: var(--sp-3) 0;
+}
+.health-missing-files li:last-child {
+  padding-bottom: 0;
+}
+.health-missing-path {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--text-primary);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-body);
+}
+.health-missing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-4);
+}
+.health-missing-actions > button {
+  flex: 0 0 auto;
+  max-width: 100%;
+  font-size: var(--fs-xs);
+}
+.health-missing-files .health-missing-error {
+  color: var(--danger);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.health-tab > .health-section {
+  margin-top: var(--sp-5);
+  padding: var(--sp-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--bg-surface);
+}
+.health-advanced {
+  margin-top: var(--sp-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--bg-card);
+  overflow: hidden;
+}
+.health-advanced > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  padding: var(--sp-4) var(--sp-5);
+  color: var(--text-primary);
+  cursor: pointer;
+  list-style: none;
+}
+.health-advanced > summary::-webkit-details-marker {
+  display: none;
+}
+.health-advanced > summary > span:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.health-advanced > summary > span:first-child small {
+  color: var(--text-tertiary);
+  font-size: var(--fs-xs);
+  font-weight: 400;
+}
+.health-advanced-summary-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  color: var(--text-tertiary);
+}
+.health-advanced-summary-meta > svg {
+  flex: 0 0 auto;
+  transition: transform var(--t-fast) var(--ease);
+}
+.health-advanced-summary-pill {
+  padding: 3px var(--sp-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--bg-surface);
+  color: var(--text-tertiary);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.health-advanced-summary-pill[data-tone="good"] {
+  border-color: color-mix(in srgb, var(--success) 28%, var(--border));
+  color: var(--success);
+}
+.health-advanced-summary-pill[data-tone="warn"] {
+  border-color: color-mix(in srgb, var(--warning) 30%, var(--border));
+  color: var(--warning);
+}
+.health-advanced[open] > summary {
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-surface);
+}
+.health-advanced[open] > summary .health-advanced-summary-meta > svg {
+  transform: rotate(90deg);
+}
+.health-advanced-body {
+  display: grid;
+  gap: var(--sp-4);
+  padding: var(--sp-4) var(--sp-5) var(--sp-5);
+}
+.health-diagnostics-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--sp-3) var(--sp-5);
+  align-items: center;
+  padding: var(--sp-4);
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, var(--accent-soft), var(--bg-surface) 68%);
+}
+.health-diagnostics-toolbar-copy h3,
+.health-diagnostic-heading h3 {
+  margin: 0;
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+}
+.health-diagnostics-toolbar-copy p,
+.health-diagnostic-heading p {
+  margin: var(--sp-1) 0 0;
+  color: var(--text-tertiary);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-body);
+}
+.health-diagnostics-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+.health-diagnostics-hint,
+.health-diagnostics-feedback {
+  grid-column: 1 / -1;
+  margin: calc(var(--sp-2) * -1) 0 0;
+  font-size: var(--fs-xs);
+  line-height: var(--lh-body);
+}
+.health-diagnostics-hint {
+  color: var(--text-tertiary);
+}
+.health-diagnostics-feedback {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  color: var(--tone);
+}
+.health-diagnostics-feedback[data-tone="good"] {
+  --tone: var(--success);
+}
+.health-diagnostics-feedback[data-tone="bad"] {
+  --tone: var(--danger);
+}
+.health-diagnostic-card {
+  min-width: 0;
+  padding: var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+}
+.health-diagnostic-heading {
+  margin-bottom: var(--sp-4);
+}
+.health-diagnostic-heading .health-kicker {
+  margin-bottom: 2px;
+}
+.health-diagnostic-inspector .health-inspector-field {
+  max-width: 100%;
+}
+.health-diagnostic-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: var(--sp-4);
+}
+
+/* The activity and storage cards only sit side by side when each has enough
+   room for a useful file name plus every action. Settings dialogs normally
+   stay below this threshold, so their contents stack at full width. */
+@container health (min-width: 1040px) {
+  .health-diagnostic-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container health (max-width: 600px) {
+  .health-table .health-modified {
+    display: none;
+  }
+}
+
+@container health (max-width: 720px) {
+  .health-metrics {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .health-metric:nth-child(odd) {
+    border-left: 1px solid var(--border);
+  }
+  .health-inventory-grid {
+    grid-template-columns: 1fr;
+  }
+  .health-inventory-bridge {
+    height: 38px;
+    flex-direction: column;
+  }
+  .health-inventory-line {
+    width: 1px;
+    height: auto;
+  }
+  .health-inventory-result {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .health-inventory-actions {
+    width: 100%;
+    padding-left: 42px;
+  }
+  .health-differences {
+    grid-template-columns: 1fr;
+  }
+  .health-difference-breakdown {
+    grid-template-columns: 1fr;
+  }
+  .health-diagnostics-toolbar {
+    grid-template-columns: 1fr;
+  }
+  .health-diagnostics-actions {
+    justify-content: flex-start;
+  }
+  .health-advanced-summary-pill {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .health-advanced-summary-meta > svg {
+    transition: none;
+  }
+}
+
+.health-metric-detail {
+  display: block;
+  margin-top: var(--sp-2);
+  color: var(--text-secondary);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-body);
+}
+
+/* ── Page head ────────────────────────────────────────────────────────────── */
+
+/* The page title and its two actions share one row; the dialog skips its own
+   heading for this tab. */
+.health-page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-5);
+}
+.health-page-head .settings-section-title {
+  margin: 0;
+}
+.health-page-head .health-page-actions {
+  margin-left: auto;
+}
+.health-page-head + .health-inventory {
+  margin-top: 0;
+}
+
+/* ── Left-on-disk group head ──────────────────────────────────────────────── */
+
+.health-group-head {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+}
+.health-group-status {
+  color: var(--text-secondary);
+  font-size: var(--fs-xs);
+}
+.health-group-actions {
+  display: flex;
+  gap: var(--sp-2);
+  margin-left: auto;
+}
+.health-group-errors {
+  flex-basis: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--fs-xs);
+}
+.health-group-errors li {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: var(--sp-1) 0;
+  border-top: 1px solid var(--border);
+}
+.health-group-errors small {
+  color: var(--danger);
+}
+
+/* ── One-line issue rows ──────────────────────────────────────────────────── */
+
+span.health-issue-summary {
+  align-items: center;
+  cursor: default;
+}
+.health-issue-main.health-issue-oneline {
+  flex-direction: row;
+  align-items: baseline;
+  gap: var(--sp-2);
+  overflow: hidden;
+}
+.health-issue-oneline .health-issue-title {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.health-issue-meta {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-tertiary);
+  font-size: var(--fs-xs);
+}
+.health-issue-meta .health-path {
+  display: inline;
+}
+.health-issue-primary {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+/* ── Difference groups under Needs attention ──────────────────────────────── */
+
+/* One full-width column of compact groups, each: a count + title line, one
+   muted line, its bulk controls, then one-line rows. */
+.health-inventory-differences .health-differences,
+.health-differences {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-6);
+  margin-top: 0;
+}
+.health-inventory-differences + .health-issue-toolbar,
+.health-inventory-differences + .health-allclear {
+  margin-top: var(--sp-6);
+}
+.health-difference-grouphead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+.health-difference-grouphead h4 {
+  min-width: 0;
+}
+.health-difference-group > p {
+  margin-bottom: var(--sp-3);
+}
+.health-difference-group li,
+.health-missing-files li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-2) 0;
+}
+.health-difference-rowcopy {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.health-missing-row {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+  cursor: pointer;
+}
+.health-missing-path {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+.health-missing-actions {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+}
+.health-missing-toolbar {
+  margin-bottom: var(--sp-3);
+}
+
+/* ── Needs attention: one list ────────────────────────────────────────────── */
+
+/* Difference groups and issue groups are siblings in ONE grid, so they share
+   header style, one-line rows and spacing. The wrappers dissolve. */
+.health-attention-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-6);
+  min-width: 0;
+}
+.health-attention-list .health-inventory-differences,
+.health-attention-list .health-differences {
+  display: contents;
+}
+.health-attention-list > .health-issue-toolbar,
+.health-attention-list > .health-bulkbar,
+.health-attention-list > .health-selectall {
+  margin: 0;
+}
+.health-issue-group .health-issues li.health-issue {
+  display: block;
+  padding: 0;
+  border-radius: 0;
+  border-top: 1px solid var(--border);
+}
+.health-issue-group .health-issue-head {
+  align-items: center;
+  padding: var(--sp-2) 0;
+}
+.health-issue-group .health-issue-check {
+  margin-top: 0;
+}
+.health-issue-group .health-issue-title {
+  font-size: var(--fs-sm);
+}
+.health-issue-group .health-group-head {
+  margin: 0 0 var(--sp-3);
+}
+
+/* DEV-only fixture mode label, beside the page title. */
+.health-page-head .health-demo-chip {
+  margin-right: auto;
+}
+
+/* Group headers carry their actions on the same line, right-aligned. */
+.health-difference-grouphead {
+  flex-wrap: wrap;
+}
+.health-difference-grouphead .health-group-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.health-issue-sentence {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+}
+.health-issue-group .health-issue-primary {
+  flex: 0 0 auto;
+}
+
+/* The two place groups: type icon + path on one line. */
+.health-place-row {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+.health-place-kind {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: var(--text-tertiary);
+}
+.health-pro-tag {
+  color: var(--text-tertiary);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+/* Keeps rows without a checkbox aligned with rows that have one. */
+.health-place-checkslot {
+  flex: 0 0 auto;
+  width: 13px;
+}

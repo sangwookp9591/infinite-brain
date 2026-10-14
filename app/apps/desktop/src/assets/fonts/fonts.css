@@ -1,0 +1,49 @@
+/* ============================================================
+   Open Sauce Two — body / UI typeface.
+   Bundled locally (woff2, converted from the official OTFs at
+   github.com/marcologous/open-sauce-fonts, SIL OFL 1.1).
+   No runtime CDN — this ships offline with the desktop app.
+   ============================================================ */
+
+@font-face {
+  font-family: "Open Sauce Two";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./OpenSauceTwo-Regular.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Open Sauce Two";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./OpenSauceTwo-Italic.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Open Sauce Two";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("./OpenSauceTwo-Medium.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Open Sauce Two";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("./OpenSauceTwo-SemiBold.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Open Sauce Two";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("./OpenSauceTwo-Bold.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Open Sauce Two";
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+  src: url("./OpenSauceTwo-BoldItalic.woff2") format("woff2");
+}

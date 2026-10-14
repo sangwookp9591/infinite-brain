@@ -1,0 +1,375 @@
+---
+type: status-tracker
+product: Baalda
+date: 2026-07-13
+tags: [baalda, status, roadmap]
+---
+
+# Baalda: Build Status
+
+> Live checklist. Update as phases land. Back to index: [[Baalda]].
+
+## Where we are
+
+- **Specs:** ✅ Complete (2026-07-13); see `specs/` (requirements yardstick: [[REQUIREMENTS]]).
+- **Build:** 🟢 Phases 0–3 complete. Server (auth + ACL + sync + attachment blob store)
+  and desktop (bridge + auth + per-doc sync + presence + sharing UI + attachment sync)
+  are wired end-to-end and tested.
+- **Deployment:** 🟢 Production-ready (2026-07-15). The sync WebSocket is served on the HTTP
+  port at `/sync` (single-port topology), and the repo ships a Dockerfile, Railway IaC at
+  `app/.railway/railway.ts` (Dockerfile build, pre-deploy migrations + healthcheck), and [[DEPLOY]]. The managed backend is live at
+  `https://api.baalda.com`; desktop releases ship via `v*` tags → signed installers → Tauri updater.
+- **Billing:** 🟢 Per-vault Pro via Polar, with the full subscription lifecycle (2026-09-09, #109–#111):
+  deleting a vault cancels at period end before it deletes, subscriptions survive as tombstones, and an
+  owner can transfer one between their vaults from Vault Settings → Billing.
+  **2026-10-07 (branch `feat/team-seat-billing`):** Free + Team pricing behind `BILLING_MODEL=team`
+  (default `vault` until the production flip). Free: 2 people per account, 1 synced vault, MCP
+  included, no Assistant, no standalone file sync. Team: $10 per seat per month or $110 per seat
+  per year, minimum 3 seats, unlimited vaults on one account, managed in Account Settings → Plan &
+  Usage. A lapsed account syncs read-only; local files stay editable. Per-vault transfer is retired
+  under the Team model (`transfer_retired`); existing subscribers keep their price through a Polar
+  discount.
+- **Offline reconciliation:** 🟡 In review (2026-09-26, branch `feat/offline-reconciliation`): inbound
+  deletes/revocations gate on a server-acknowledged state vector (unsent edits get a recovery copy
+  first), same-path creates become two notes, closed-app renames keep their id, a once-per-session
+  summary banner, and a server-side 30-day per-vault Trash (Restore, pushes into deleted notes
+  accepted, purge keeps a tombstone row).
+- **Next action:** Phase 4 polish / launch decisions (WYSIWYG, vector search, OAuth, iOS).
+
+> **Requirement coverage:** Phases 0–3 deliver **10 of the 12** core requirements,
+> including the two no OSS tool combined (#7 AI-editable plain files + #11 built-in real-time collab).
+> Deferred: #8 iOS (Phase 4) and #12 open source (a launch/business decision). Full map: [[REQUIREMENTS]].
+
+---
+
+## Build order
+
+Each phase is independently useful and ships something real. Do not start a phase before the prior
+one is solid. In particular, do not add networking (Phase 2) before the bridge (Phase 1) is tested.
+
+### Phase 0: Single-user local app _(no CRDT, no server)_ ✅
+Smallest useful product: an Obsidian-lite over a local folder of `.md`.
+- [x] `create-tauri-app` scaffold (React + Vite + TS). Build on macOS first.
+- [x] Rust command surface: `pick_vault`, `list_tree`, `read_note`, `write_note`, `start_watcher`.
+- [x] react-arborist file tree fed by `list_tree`, refreshed on watcher events.
+- [x] CodeMirror 6 editor (`@codemirror/lang-markdown`); debounced autosave → `write_note`.
+- [x] External-edit reload: `file-changed` event reloads the open note.
+- [x] SQLite index: `notes` + `notes_fts` (FTS5) + `links` (backlinks) + `tags`. Rebuild on change.
+- [x] New/rename/delete note + folder.
+- **Milestone:** open a vault, edit a note, save to disk, external edit shows up, search works.
+  **AI-editable is free here**: any BYOK LLM edits the `.md` and the watcher reflects it.
+- Specs: [[01-desktop-app]], [[02-database-architecture]]
+
+### Phase 1: Local CRDT bridge _(still single-user)_ ✅
+De-risk the hardest part before networking.
+- [x] One `Y.Text` Y.Doc per note; persist Yjs updates in SQLite.
+- [x] file → CRDT ingest (diff-match-patch, origin-tagged transaction).
+- [x] CRDT → file egest (debounced serialize + atomic write + `lastWrittenHash`).
+- [x] Echo-loop suppression + debounce on both sides.
+- [x] Golden markdown round-trip tests; echo-loop test; concurrent file+CRDT edit test.
+- **Milestone:** editing through the CRDT and editing the file externally both converge, no loops.
+- Specs: [[03-sync-engine]]
+
+### Phase 2: Sync server _(multi-device, single user)_ ✅
+- [x] Hocuspocus server + Postgres; store binary Y.Doc only (`doc_updates` + `doc_snapshots`).
+- [x] Client network provider (`@hocuspocus/provider`) alongside local persistence (`lib/sync`).
+- [x] Better Auth: accounts, email+password (argon2id), server-side sessions; token in OS keychain
+  (Rust `keyring` crate, service `com.baalda.context`; `lib/auth` + `lib/api`).
+- [x] `users` / `sessions` / `vaults` / `notes` tables; join notes↔docs on `doc_id` (registry
+  reconcile writes the server vault id + doc-id map to `.context/config.json`).
+- **Milestone:** two of my own devices converge on the same vault through the server. ✔ (proven by the
+  env-gated client↔server integration test: two providers converge).
+- Specs: [[03-sync-engine]], [[02-database-architecture]], [[04-team-collaboration]]
+
+### Phase 3: Team collaboration ✅
+- [x] Better Auth organization plugin: `organization` / `member` / `invitation`; roles owner/admin/member
+  (server) + Vault panel (Vault Settings): create org, members, invite by email, pending/accept (client).
+- [x] Folder ACL (`folder` / `file` / `share`): view/edit, additive, folder-inherited, highest-wins
+  (server) + folder/file Share dialog on right-click (client).
+- [x] `/sync-token` endpoint mints short-lived per-doc tokens; Hocuspocus `onAuthenticate` + `readOnly`
+  enforce; client mints per doc, refreshes before expiry, and makes the editor read-only for view grants.
+- [x] Yjs awareness: live cursors (y-codemirror.next + CSS) + "who's viewing this note" avatars;
+  deterministic per-user color.
+- [x] Attachment blob store: Postgres **BYTEA** store for v0.1 (S3/R2 via the reserved
+  `storage_url` is a production upgrade). Session-authed vault blob routes (upload w/ server-side
+  sha256 + per-vault dedupe, list, download), path-validated Rust binary I/O, and a content-hash
+  client sync that mirrors `attachments/` both ways (debounced on watcher events; never CRDT-indexed).
+  Server snapshot compaction ✔; resumable sync cursors N/A (Yjs SyncStep1/2 + backoff cover reconnect).
+- **Milestone:** invite a teammate, share a folder as edit, both see live cursors; unshare cuts sync.
+  ✔ (integration test: invite→accept→file share→view-only client's writes rejected; server force-closes
+  sockets on revoke).
+- Specs: [[04-team-collaboration]]
+
+> **Phase 2+3 client startup ordering (spec 03 §5):** when signed in, the doc-open path pulls the
+> server's state FIRST (bridge opens with `seedFromFile:false`), waits for initial sync, then seeds a
+> local orphan only if the doc is still empty, preventing split-brain. Remote provider edits DO egest
+> to the local `.md` (only `'disk'`-origin changes are dropped).
+
+### Push-to-talk voice broadcast ✔
+- [x] Hold-to-talk on the vault relay: 16 kHz mono PCM16 chunks ride a new binary frame
+  (`VOICE_FRAME`) on `/vault-sync`, fanned out vault-wide via `PS_VOICE` like `member-joined`
+  (audio is addressed to the team, and the vault token already proves membership). The speaker
+  is stamped from the token, never trusted from the payload.
+- [x] **Nothing is persisted** — no blob, no row, no file, no history. A chunk is played and
+  dropped; a listener who was offline simply missed it. Adds no storage and no retention policy.
+- [x] Capture `getUserMedia` → `AudioWorklet` → downsample → PCM16; playback schedules buffers
+  back-to-back on an `AudioContext` cursor so the stream is gapless. Zero new dependencies:
+  no Opus/wasm encoder, no `MediaRecorder` container problem, no WebRTC/SFU. The `fmt` wire
+  field leaves room for a native WebCodecs Opus path later without a protocol change.
+- [x] Per-speaker leaky-bucket rate limit on the relay (the channel had no abuse guard before).
+- [x] Older clients are protected by a `hello` capability flag — a new *binary* frame would
+  otherwise be misparsed as a doc update, and releases auto-update.
+- **Milestone:** two teammates in one vault, one holds the talk button, the other hears them
+  live with nothing written to disk on either side. ✔ (unit-tested end to end through the relay;
+  real-hardware audio between two machines still unverified)
+- **Known limitation (narrowed):** note **content** is no longer TTL-bound — member removal and
+  org deletion now publish `acl-changed`, so a removed member's readable set empties at once and
+  every doc is dropped. What remains is the vault-**wide** frames that are deliberately not
+  doc-gated (voice, `member-joined`): the socket itself survives, so a removed member can still
+  hear audio and see joins until it drops or their vault token expires (≤600s). Closing that
+  needs a `PS_MEMBER_REMOVED` frame each connection self-terminates on.
+- Specs: [[05-vault-sync-engine]] (transport), [[04-team-collaboration]] (membership gate)
+
+### Access & vault shape ✔ (v0.1.30)
+Six changes that together make a vault something a team can actually govern.
+- [x] **Access panel is a real tree.** Folders expand in place and pull their contents in on demand
+  (the sidebar loads folders lazily, so a flat list could only ever show what someone had already
+  clicked elsewhere) — which is what made the notes *inside* a folder reachable for the first time.
+  Row-building lives in `lib/accessTree.ts` so the "an un-listed folder is expandable, not empty"
+  rule is pinned by a test.
+- [x] **Private, at two scales.** A new `shares.permission = 'denied'` row (migration 018) — the
+  only row in the model that SUBTRACTS. Per-**member** (`principal_type 'user'`) it blocks one
+  person and beats everything, authorship included. Per-**item** (`principal_type 'org'`) it takes
+  a folder or note out of the team's reach, leaving only the people shared with by name — which is what finally made item-Private work at all: clearing an item's own grants left
+  the vault-wide grant still reaching it, so Private snapped straight back to Shared. Both are
+  mirrored in the readable-set dual. See [[04-team-collaboration]] §3.
+- [x] **Access settings apply to the person setting them.** The owner/admin and note-creator
+  branches were shortcuts that ran *before* any grant was consulted, so a vault set to Read-only
+  still let its owner edit and a folder set to Private still showed up for them — the one person
+  who couldn't check their own restriction was the one who made it. Both shortcuts are now skipped
+  under item-Private and under a Read-only vault, so the posture is a ceiling for everyone; a
+  folder marked Shared, or naming yourself in the per-member list, is the way back out. The panel's
+  "who can access" list now resolves through the same branches as the enforcer — the two disagreed
+  on a member's own note, and a list that contradicts what it describes is worse than no list.
+- [x] **Losing access de-syncs the file.** A revocation used to leave the `.md` on the ex-reader's
+  disk, which made it cosmetic — they could open the note in any editor forever. It now moves to
+  the vault's trash on every device that had it, alongside the existing tombstone path, with three
+  rails: it only fires when the server actually answered about deletions (`tombstones !== null`),
+  it trashes rather than destroys, and it refuses any doc whose content this device never confirmed
+  upstream, so a permission change can't take work that exists nowhere else. Revocations are capped
+  separately from deletions and more loosely — a whole shared folder leaving at once is ordinary,
+  a mass delete rarely is. An ACL change now also triggers the registry re-pull that carries this
+  out, so it lands in seconds instead of waiting for a restart. Restoring access re-materialises
+  the file and it hydrates on open — a permission toggle is never a one-way door.
+- [x] **The Access list reads the server's structure, not this machine's disk.** New owner/admin
+  endpoint `GET /api/vaults/:id/access-tree` (ids and paths, no content, deliberately not ACL
+  filtered). Every other listing is filtered, which is right for sync and fatal for administration:
+  once Private removed the file, the panel — which drew its rows from the disk — lost the only row
+  the restriction could be lifted from. Kept as a separate endpoint rather than a flag on the sync
+  listings, because an unfiltered response reaching the reconciler would have it materialise notes
+  it has no right to sync. Management stays role-gated
+  (`canManage`) so an owner can always undo what they applied to themselves. Note this governs
+  **sync, not disk**: losing access has never deleted anyone's local `.md` files, so the items stay
+  in your own sidebar — they just go read-only/no-access and leave every teammate's vault.
+- [x] **Permission writes narrate themselves.** Applying a mode is several round trips plus a socket
+  kick; the panel now says "Applying…" instead of looking stuck.
+- [x] **Reveal in Finder** on any note/folder — notes really are files on disk, so the shortest
+  bridge to the rest of the machine belongs in the context menu.
+- [x] **Freeze vault root** (General settings). A structural latch, not a permission: once the top
+  level is settled, nothing new lands beside it — for everyone, owners included, because the
+  accidental root folder is nearly always created by someone who does have permission. Only
+  owner/admin lifts it. Enforced on the HTTP registry AND the MCP tools; re-registering a root item
+  that predates the latch still works, so freezing can't break sync.
+- [x] **One popover select, everywhere.** The Access panel's per-member picker was the last native
+  `<select>` in the product; it now uses the Members page's popover (`MenuSelect`, which `RoleSelect`
+  is also a wrapper over). The Freeze-root checkbox became an animated `Switch` — a setting like
+  that is a decision, and a knob that slides confirms it landed.
+- [x] **Account menu leads with Home.** The popover's top row was a second copy of the identity
+  card that its own trigger already shows permanently in the sidebar footer. Home takes that row
+  instead; it was previously below the fold on an account with several vaults.
+- [x] **Shareable note links.** `baalda://note/<vault>/<doc>` via `tauri-plugin-deep-link`
+  (+ single-instance, so a click on Windows/Linux doesn't spawn a second app). The link carries
+  **identity, not access** — ids only, resolved against whoever opens it — and is keyed by `doc_id`,
+  so it survives every rename and move.
+- [x] **Vault revert is owner *or admin*.** It's the recovery half of an action admins could already
+  take; owner-only left a team whose owner was away able to take checkpoints and not use them.
+- [x] **Item colors sync.** `folders.color` / `notes.color` ride the registry pull, keyed by id so a
+  rename keeps the tint. Colors set before a vault gained sync are adopted upward once.
+- [x] **Future-member access defaults and bulk access.** Owners/admins choose what future joiners
+  initially see (Private by default) without changing existing memberships. The Folder and File
+  list supports multi-selection, Everyone or named-member audiences, and atomic subtree replacement;
+  the same owner/admin operations are available through MCP.
+- [x] **Personal automatic colours.** Every otherwise-uncoloured folder/file gets a stable,
+  account-personal colour when enabled in Account Settings; the optional automatic layer is off by
+  default and never deletes manual colours.
+- [x] **Open an existing vault from Vault Settings.** The Vaults tab exposes the same direct folder
+  chooser as the welcome flow, with safe sync teardown before switching.
+
+### Google sign-in on an existing password account ✔ (v0.1.30)
+- [x] `account_not_linked` on the Google callback for anyone who first signed up with a password —
+  i.e. everyone except users created *through* Google, who had nothing to link. The cause was a
+  Better Auth default, not our code: `accountLinking.requireLocalEmailVerified` is **true** unless
+  set, and it refuses to link while the local row is unverified. `requireEmailVerification` is off
+  (no email round-trip in the MVP), so every password sign-up has `emailVerified = false` forever
+  — which made the `accountLinking` block dead code from the day it was written.
+- [x] Set `requireLocalEmailVerified: false`. **A knowingly-taken trade:** the check exists because,
+  with no verification at sign-up, someone can register an address they don't own, and linking then
+  joins the real owner to the squatter's account rather than locking them out. Accepted because the
+  squat is already possible without linking and Google's verified email is the strongest signal we
+  have. **Email verification at sign-up is the real fix** — it now ships (soft) when email is
+  configured, see below; requiring it is still owed.
+- [x] Pinned by a config test — the failure mode was a silent default, so the three options that
+  have to agree (`enabled`, `trustedProviders`, `requireLocalEmailVerified`) are asserted together.
+
+### Password reset, verification + invitation emails ✔ (#99)
+- [x] Outbound email is opt-in via env (`EMAIL_FROM` + `SMTP_URL` or `RESEND_API_KEY`; `email/mailer.ts`),
+  on the Google-OAuth pattern: unconfigured servers offer none of it, `GET /api/auth-methods`
+  advertises `passwordReset` / `invitationEmail`, and the desktop keys its controls off that.
+- [x] **Password reset**: "Forgot password?" in the desktop dialog and on `/oauth/login` →
+  `POST /api/password-reset/request` (ours, not Better Auth's neutral endpoint: it answers sent /
+  `no_account` / `send_failed` with the provider's reason, so a wrong-server address or a refused
+  send is said out loud) → emailed single-use, 1-hour link to the server-rendered `/reset-password`
+  page → Better Auth `reset-password` (revokes other sessions; creates the credential for a
+  Google-only account, so the same flow sets a first password) → `baalda://signin` bounces back into
+  the app, which notices its revoked session and opens the sign-in card. Admin escape hatch for
+  servers without email: `pnpm run set-password -- <email>`.
+- [x] **Sign-up verification email** (soft): sent on sign-up, `emailVerified` set on click, lands on
+  `/email-verified` → `baalda://verified` → the app re-reads its session; Account settings shows
+  "Email confirmed ✓" / a Resend button. Not yet required to sign in — pre-existing accounts were
+  never verified.
+- [x] **Invitation emails** → `POST /api/invitations/:id/send` (explicit, reports sent/failed; not a
+  Better Auth hook, which swallows send errors) → `/invite/:id` landing page →
+  `baalda://invite/<id>?server=` deep link → the app signs in/up with the invited address and
+  accepts. Members shows "Invitation emailed" only on a confirmed send, the provider's error + the
+  link otherwise, plus Copy-link + Revoke per pending invitation. Re-inviting re-sends.
+- [x] **Invite inbox actually works**: Better Auth's `list-user-invitations` 403s for any unverified
+  email (= every password sign-up), so the in-app inbox had been empty for almost everyone.
+  `GET /api/invitations/mine` reads the table directly; the desktop uses it first.
+- [x] **Join code = email invite**: redeeming a code consumes a pending invitation for the same address
+  (invited role honoured, invitation marked accepted, seat not double-counted).
+
+### Phase 4: Polish / upgrades _(deferred)_ ⬜
+- [ ] Structural rich-text CRDT (y-prosemirror / `Y.XmlFragment`) for full WYSIWYG.
+- [ ] Vector / hybrid search (Orama) for semantic + AI retrieval.
+- [ ] AI-as-CRDT-peer for live collaborative sessions.
+- [ ] libSQL at-rest encryption; OAuth / social login (Tauri PKCE deep-link).
+- [ ] **iOS app** (Tauri 2, same Rust core) as a dedicated milestone.
+
+---
+
+## Open decisions / risks to revisit
+
+- **Sync backend:** committed to **Hocuspocus** for v0.1 (all-TS, colocates with Better Auth). Revisit
+  **y-sweet** (Rust, S3-backed, what Relay forked) if we want zero doc-DB ops or hit Node scale limits.
+- **CRDT model:** `Y.Text`-of-markdown for v0.1. Move to structural `Y.XmlFragment` only when WYSIWYG
+  is a product requirement (Phase 4); it reintroduces lossy markdown serialization.
+- **Bus-factor of references:** Noteriv/memrynote/YAOS are solo-maintainer projects. We study them,
+  we don't depend on them. Hocuspocus/Better Auth/Yjs are the funded, safe dependencies.
+- **Yjs at scale:** some teams report pain; not a v0.1 concern. Loro is the re-evaluation candidate
+  if on-disk CRDT size becomes a cost.
+
+## Housekeeper Pro preview
+
+- Reviewed broken-wikilink suggestions in Vault Settings → AI, using the
+  OpenRouter SDK with Jev Decisions or a configurable structured-output chat model.
+- Strict server-side Pro/membership gates on status, scan, apply and undo;
+  billing-disabled mode does not bypass this commercial feature.
+- Permission-filtered candidates, explicit excerpt-sharing consent, exact-change
+  previews, revision-guarded Yjs writes, and guarded short-lived Undo.
+- Commercial engine under `ee/`; open-core builds remain independent. Provider
+  credentials and a Pro vault (Team under `BILLING_MODEL=team`) are required for live use. See [setup and preview
+  limits](HOUSEKEEPER.md). Real-provider quality evaluation remains outstanding.
+
+The Assistant now lives in **AI** with a compact provider card, user-owned
+OpenRouter keys in the OS keychain, Jev 1.13 as default, and a custom model picker.
+Diagnostic review prioritizes all 15 local checks using counts only. Local preview
+has an explicit development + loopback-database override; production remains Pro.
+
+Advanced diagnostics moved into AI’s Smart diagnostics centre. Existing manual
+checks and repair confirmations remain Free; the Pro Assistant chooses priorities and
+allowlisted next steps in one batched call. Suggested index rebuilds and sync
+retries recheck access and current findings before using existing actions.
+
+The Assistant’s AI page now uses Diagnostics/Settings subtabs, selecting setup when no
+key is saved. The default scan refreshes whole-vault measurements and displays
+only dynamic, model-prioritized findings and relevant tools. The permanent
+advanced-tool sections and link-repair panel are replaced by finding details.
+
+Assistant repair expansion: bounded model-reviewed property/title edits and empty-note
+version recovery now share guarded apply/undo. Local action previews cover distinct
+file names, backups, history cleanup, recovery downloads and re-registration, plus
+copying an access request. Previews recheck scope, findings and rename authority.
+Oversized-note backups do not split content or resolve size limits; permission
+requests do not grant access. These distinctions are explicit in the action UI.
+
+The Assistant now ships under Apache-2.0 in the standard server package rather than
+`ee/`. Billing-disabled self-hosters have access with their own model key;
+billing-enabled vaults retain the Pro gate. Free synced vaults on billing-enabled
+servers accept up to 20,000 live notes; extra registrations return
+`note_limit_reached` and local files remain intact. Existing identities still
+reconcile. Registry batches and MCP creation share a per-vault advisory lock for
+capacity checks. The sync banner links to the upgrade page with updated benefits.
+(2026-10-07: under `BILLING_MODEL=team` the Free cap is the hidden `ABUSE_MAX_NOTES` ceiling,
+100,000 per vault by default, and the Assistant requires Team instead of Pro.)
+Sign-in uses a body portal. The sidebar alone says AI (Beta), with an accented
+sparkle; provider settings use a warm amber card and a key-ready indicator.
+
+Deployment access policy is now independent of billing. `BAALDA_DEPLOYMENT=self-hosted`
+keeps the Assistant available when operator billing is enabled, disabled, or configured
+later. `cloud` (the fail-closed default) requires Pro even without payment
+credentials and enforces the Free note cap. Self-hosting `.env.example` opts in
+explicitly; no managed configuration is stored in this repository.
+
+## Members and access page (2026-10-04)
+
+Vault Settings' Members and Access tabs are merged into one **Members and access** tab. Owners and
+admins set the **Everyone** row (Can edit / Can view / No access, the same `open`/`readonly`/`private`
+wire values), the **New members** row (the existing `join_default`) and a per-person level (Can edit
+everything / Can view everything / No access / Custom). A person's profile has an Access tab with
+per-folder checkboxes that apply immediately; plain members see a read-only roster. Existing
+per-folder Everyone overrides can only be reset, not created. **Invite people** sends invitations
+with a role and an access level, applied on acceptance by email link or join code. On the server a
+per-user vault row is now that person's absolute vault level ("person wins either way"), kept in
+lockstep across the resolver, the readable set, the create gates and the locks listing. Migration 046
+adds `member.last_seen_at` and `invitation_access`; `GET /api/orgs/:orgId/members/overview` and
+`POST /api/orgs/:orgId/invitations` are new. Invitations last 7 days by default
+(`INVITATION_EXPIRES_HOURS`).
+
+Later the same day: the member profile has Personal info / Access / Activity tabs, and the Access
+tab toggles (per device, `context.memberAccess.view`) between **List**, the checkbox tree,
+and **Board**, the default (Can edit / Can view / No access columns, drag-and-drop or arrows, Set everything to
++ Reset to vault default; same one-resource bulk-access writes; single-row moves need no confirm
+and report through the standard toast, with no undo; pointer-event drag, since Tauri swallows
+native HTML5 drag-and-drop). The overview
+now carries `invitedBy`, and `GET /api/orgs/:orgId/members/:userId/activity` (owner/admin or self;
+404 `not_member`) returns joined / created / edited / accessGranted events filtered to the
+caller's readable set. Vault Settings lost its Updates tab (now Account Settings → About), the
+Health tab was removed for good on 2026-10-04 (#289), the two settings dialogs cross-link,
+and hover/pressed colours are one accent tint (`--bg-hover`/`--bg-active`).
+
+## One-step note sync, checkpoint healing, backend notice (2026-10-04)
+
+- **Notes register with their content.** On a server advertising `notes-with-state`, every new
+  note, one or thousands, registers through `notes/batch` carrying its binary Yjs state; the server
+  writes the row and the first state in the same request (`registry/seed-on-register.ts`). No new
+  note opens a per-note socket, and teammates never see a row without content. A conflict or an
+  adopt onto another id is merged over HTTP (`bootstrap` `only` + a docs/batch merge push), never
+  applied blindly. Old servers keep register-then-push; the per-doc uploader is now a fallback.
+- **Receivers skip placeholders** when a bootstrap download will create the files with content;
+  placeholders remain for server-empty docs, small deltas and single live notes.
+- **Rename banner fixed.** The open note's "was removed" banner waits out the delete-grace window and
+  re-checks the disk, and in-app renames re-point the open note before the server call. Renamed
+  empty notes now pair instead of reaching the server as delete + create.
+- **`ackedSv`** is recorded on every push path, including the per-doc uploader and one-step creates.
+- **Checkpoints heal.** A note's first content never triggers the daily checkpoint; captures defer
+  while uploads are in flight (120 s window, 30 min cap); late first content tops up the newest
+  checkpoint within 1 h; files and attachments are pinned per checkpoint (migration 047) and restored
+  under their original ids on revert.
+- **One-step file upload (server only).** A blob intent can carry the file's registration and
+  `complete` creates the `files` row with the bytes (migration 048, `files-with-bytes`); the Pro gate
+  runs before any row exists. The desktop does not use it yet.
+- **`GET /health`** reports `version`, `minDesktopVersion` and `features`; `[sync-metrics]` log lines
+  count seeds, `ready.empty`/`ready.behind` sizes and structure-only checkpoint notes.
+- **Backend-behind notice.** The desktop shows a persistent line at the bottom of the sidebar when its
+  server lacks a feature it needs (judged from `/health` `features`, never the version), with
+  separate copy for the managed service and self-hosted servers.

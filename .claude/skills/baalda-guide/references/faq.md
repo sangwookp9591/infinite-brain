@@ -1,0 +1,187 @@
+# Ready answers to common questions
+
+Each answer is written for a non-technical reader. Reuse the wording; trim to fit.
+
+## What is Baalda, in one breath?
+A notes app for teams where every note is a plain Markdown file on your own computer, your
+teammates can edit the same note with you live, and an AI assistant can read and edit those
+notes too. Think "Obsidian, but multiplayer and AI-friendly".
+
+## Is it free?
+The desktop app and the server are open source (Apache 2.0). Using it on your own computer is
+free forever, and you can run your own server for free with no limits. The managed backend
+(hosted by Baalda, the app's default) also starts free: up to 2 people and 1 synced vault, with
+the AI connection point (MCP) included. Past that, upgrade to Team from inside the app.
+
+## What does the paid plan cost, and can my team start today?
+Yes, today. Sign up in the app, turn on sync, invite the team. Free covers 2 people and 1 synced
+vault. For more, the owner opens Account Settings → Plan & Billing and buys Team: $10 per seat per
+month or $110 per seat per year, minimum 3 seats, one seat per person including the owner. One
+Team account covers all the owner's vaults, and adds the Baalda Assistant and standalone file
+sync. baalda.com/pricing is the place to ask questions or talk to the team, but nobody has to wait
+for a call to get started.
+
+## Can I leave a vault someone else owns?
+Yes. Open Account Settings → Vaults, click **Leave** next to the vault and confirm. You lose access
+straight away on every device you are signed in on, the vault leaves your switcher, and the folder
+on that device goes to the Trash rather than staying behind as a copy. The owner is emailed that
+you left (and you get a receipt) when the server sends email. Nobody else's access changes. If you
+want back in, ask the owner for a new invitation or join code. The owner of a vault cannot leave
+it; they delete it instead. If you only want the vault off one computer but want to stay a member,
+use **Remove from device**.
+
+## What happens if our payment stops?
+Once the paid period ends (or a failed payment runs out of its grace period), every vault on the
+account keeps syncing read-only for everyone until the owner renews or gets back under the Free
+limits. Notes stay editable on each computer and nothing is deleted.
+
+## We already paid for Pro. Does our price change?
+No. Existing subscriptions move to Team at the price you pay today, shown in the app as a legacy
+discount. Seats you add later cost the regular Team price.
+
+## I forgot my password.
+On the sign-in screen choose **Forgot password?**, enter your email, and follow the link we
+send (valid for one hour). Setting a new password signs out every other device. If you first
+joined with Google, the same link lets you add a password. On a self-hosted server without
+email set up, ask the person running it: they can set a new password from the server
+(`pnpm run set-password`).
+
+## Do I need an account?
+No. You can open a folder and start writing with no account and no internet. An account is only
+needed for sync between devices, team collaboration, and the hosted AI endpoint.
+
+## Does it work offline?
+Yes. Everything local (editing, search, backlinks, graph) works with no connection. When you
+reconnect, your changes merge with everyone else's; there are no conflict dialogs.
+
+## What happens if two people edit the same note at once?
+Both edits are kept and merged character by character, live, with visible cursors. The same is
+true when an AI edits a note while a person is typing in it.
+
+## Where are my notes stored?
+In a folder you choose on your disk (default `~/Documents/Baalda Vaults/<vault name>`). They are ordinary `.md`
+files you can open in any editor, back up, or put in Git. A hidden `.context/` folder inside the
+vault holds the search index and sync state; you can delete it and Baalda rebuilds it.
+
+## What does the server store? Can Baalda read my notes?
+The server stores the sync history as binary change records, not `.md` files, and each device
+rebuilds its own files from that. Be honest here: the server *can* reconstruct note text; that
+is how server-side search, public links and the MCP endpoint work. Notes are not end-to-end
+encrypted today (at-rest encryption is on the roadmap). If that matters, self-host.
+
+## Can I use it with my Obsidian vault?
+Yes. Open the folder. Markdown, folders, `[[wikilinks]]` and `#tags` carry over. Obsidian
+plugins do not. See `file-formats.md` for what happens to non-Markdown files.
+
+## Which platforms?
+macOS (Apple Silicon and Intel), Windows 10/11, Linux (AppImage, .deb, .rpm). iOS is planned,
+not available. The macOS build is signed and notarized; Windows and Linux builds are unsigned,
+so a fresh Windows download shows a SmartScreen warning (More info → Run anyway). After the first
+install the app updates itself: it checks, downloads, installs and restarts at a quiet moment,
+verified with Baalda's own signing key, and then shows a short What's New for that version.
+
+## How do I share notes with my team?
+Sign in, turn on sync for your vault, then open Vault Settings → **Members and access** →
+**Invite people**. Add email addresses, choose a role and an access level, or share the join code.
+New vaults are shared with the whole team by default. The **Everyone** row sets Can edit, Can view
+or No access for all members; each person can get their own level, which wins for them, and their
+profile's **Access** tab lets you pick folders one by one. Roles are owner, admin, member.
+
+## Can I share a note with someone who does not use Baalda?
+Yes. "Copy link" on a note offers a public link: a read-only web page anyone with the link can
+open. Revoke it any time. There is also a private link that only works for teammates with access.
+
+## Does editing the title at the top of a note rename the file?
+Yes — that title *is* the file name. Type a new one and press Enter and the file is renamed on
+disk; the tab, the sidebar and every list follow. Links to the note keep working, because Baalda
+tracks notes by an internal id rather than by their path, so a rename never breaks a
+`[[wikilink]]` or a backlink. Headings inside the note are ordinary headings and do not rename
+anything. If the name is illegal (`/ \ : * ? " < > |`, or starting with a dot) or a neighbouring
+note already uses it, you are told inline and nothing is renamed.
+
+## Will Baalda rewrite my frontmatter?
+Only the exact value you change. Editing a property in the Properties panel replaces those few
+characters and nothing else — comments, quoting and key order all stay as you wrote them. And if
+your frontmatter uses something Baalda's panel does not support (nested structures, multi-line
+values, anchors, a repeated key), it does not try: it shows the raw text with a short note, and
+leaves the file alone.
+
+## Can I edit the vault folder from outside the app?
+Yes, and it is a supported way to work. Create, edit, delete, rename and move `.md` files with any
+tool — Finder, a script, an AI agent — and Baalda picks the change up and syncs it, merging an
+outside edit with whatever a teammate is typing rather than overwriting it. A delete on disk takes
+a couple of seconds to reach the team (long enough that an editor's save or a rename is not
+mistaken for one); no extra local copy is kept, but the note goes to the vault's Trash for 30
+days and can be restored from there. The
+one folder to leave alone is the hidden `.context` folder inside the vault: that is Baalda's own
+index and sync state.
+
+## What happens when someone deletes a note I was editing offline?
+Your work is kept. Deleted notes go to the vault's **Trash** for 30 days, and edits you made while
+offline still reach that note when you reconnect, so a teammate who restores it gets your changes
+too. If your copy had changes the server never saw, Baalda also keeps a copy on your computer
+before removing the file, and tells you once in a summary. Anyone who can edit the note (or a vault
+owner or admin) can **Restore** it from Trash; if its name is taken by then, it comes back with
+"(restored <date>)" added. After 30 days the note is removed for good. The same protection applies
+when your access to a note is removed while you have unsent edits: they stay on your computer,
+marked as no longer shared. If two people create a note with the same name while offline, both
+are kept and the later one is renamed with "(conflict <date>)".
+
+## Can I rename, move or delete files and folders outside Baalda?
+Editing the text of notes from any tool is fine at any time, even while Baalda is closed. For
+renaming, moving and deleting, keep Baalda open (or use the sidebar, or the AI tools `move_note`,
+`move_folder`, `delete_note` and `delete_folder`):
+- With Baalda open, a note or a whole folder renamed or moved in Finder or by a script keeps its
+  history, links and permissions.
+- Removing a lot of notes at once makes Baalda ask: delete them for everyone, or restore them.
+- If you rename or move the vault folder itself, Baalda stops syncing it and asks you to reopen it
+  from its new location.
+- Renames made while Baalda is closed are recognised on the next launch when the note's text is
+  unchanged, so the note keeps its history. Deletes made while Baalda is closed are undone (the
+  note comes back from the server); delete it again from the app to delete it for everyone.
+  Baalda shows a short summary when it reconciles anything like this.
+- Symbolic links (aliases made with `ln -s`) inside a vault are not supported; Baalda ignores them.
+
+## How does the AI part work?
+Two ways. (1) Local: because notes are plain files, any tool on your computer, for example
+Claude Code, can edit them directly; Baalda notices the change and syncs it. (2) Remote: Baalda
+has a built-in MCP endpoint (Model Context Protocol, the standard way AI assistants connect to
+tools). Create a token in Vault Settings → MCP, give it to your AI client, and the AI can list,
+search, read, create, update, move and delete notes, limited by the same permissions as a person.
+There is no built-in chat panel or bundled AI model; you bring your own AI.
+
+## Is there version history?
+Yes. Each note keeps versions (captured automatically after a pause in editing, and before any
+revert) that you can preview and restore. Owners and admins can also take a checkpoint of the
+whole vault and revert to it.
+
+## Can I lock a note?
+Yes. Lock a note or folder so it becomes read-only for everyone, including admins, until unlocked.
+
+## What is the voice button?
+Push-to-talk. Hold it to speak to teammates who are in the same vault. Nothing is recorded or
+stored; if someone was offline they simply did not hear it.
+
+## Does it have a graph view, backlinks, tags, search?
+Yes to all. Full-text search runs locally and instantly. When a vault is synced there is also a
+server-side semantic search. Backlinks survive renames and moves because notes are tracked by a
+stable id, not by filename.
+
+## Is there a mobile app or web app?
+Not yet. Desktop only; iOS is on the roadmap. Public note links open in any browser, read-only.
+
+## Can I self-host?
+Yes. The server is Node + Postgres. One-click deploy to Railway, a Docker Compose bundle, or
+plain Docker; see `docs/DEPLOY.md`. The app asks which server on first run — "managed
+service, or your own?" — and you enter your URL there; it is checked before it is saved.
+Later you can change it in Account settings → Connection. To save your team the typing,
+send them `https://<your-server>/open/connect`: clicking it opens Baalda and asks them to
+confirm connecting to your server. Self-hosted servers have no plan limits.
+Keep the server updated: the app updates itself, and when it needs something your server does not
+offer yet it shows a notice at the bottom of the sidebar until you update the server (redeploy the
+Railway project, or pull the latest code and rebuild the Docker image).
+
+## What is NOT there (so you do not overpromise)?
+Rich WYSIWYG block editing, in-app AI chat, comments and @mentions, end-to-end encryption,
+a mobile app, Office file conversion, plugins, two-factor authentication, SSO, audit logs. Several are on the Phase 4 roadmap in
+`docs/STATUS.md`; say "planned", never "available".

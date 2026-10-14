@@ -1,0 +1,35 @@
+// The Vault Settings tab names, as a leaf module.
+//
+// They live here rather than in `components/VaultSettingsDialog.tsx` because the
+// STORE now names one: anything in the app can ask for Settings to open on a
+// particular page (`requestSettings("members")`), and the store importing a
+// 2,900-line lazy-loaded component — even type-only — is a layering inversion
+// waiting to become an import cycle.
+//
+// The dialog re-exports this type, so its existing importers are unchanged.
+
+export type SettingsTab =
+  | "general"
+  | "ai"
+  | "dashboards"
+  // Signed-out only: the vault list moved to Account Settings → Vaults, and a
+  // signed-out app has no account page to show its local folders on.
+  | "vaults"
+  | "members"
+  | "billing"
+  | "mcp"
+  | "versioning"
+  | "import-export"
+  | "appearance";
+
+/** Account settings stay separate from vault settings but use the same
+ * request-token pattern when another surface links to a particular page. */
+export type AccountSettingsTab =
+  | "profile"
+  | "status"
+  | "appearance"
+  | "notifications"
+  | "connection"
+  | "plan"
+  | "vaults"
+  | "about";

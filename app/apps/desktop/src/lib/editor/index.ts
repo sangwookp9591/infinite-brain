@@ -1,0 +1,263 @@
+// Editor factory. Builds the CodeMirror 6 extension set for a note — markdown
+// by default, and plain text for a `.txt` (see `noteLanguage`).
+// Designed so Phase 1 can append a Yjs `y-codemirror.next` binding to
+// `extraExtensions` without changing any callsite.
+
+import { autocompletion, closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
+import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
+import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
+import { foldKeymap, indentOnInput, indentUnit } from "@codemirror/language";
+import { searchKeymap } from "@codemirror/search";
+import { Compartment, EditorState, type Extension } from "@codemirror/state";
+import {
+  drawSelection,
+  dropCursor,
+  EditorView,
+  keymap,
+  lineNumbers,
+} from "@codemirror/view";
+import { GFM } from "@lezer/markdown";
+import type { NoteTitle } from "../ipc";
+import { isMarkdownNote, stemOf } from "../notePath";
+import { blockDecorations } from "./blocks";
+import { codeFenceFlair } from "./codeFence";
+import { codeLanguages } from "./codeLanguages";
+import { folding } from "./folding";
+import { formattingKeymap } from "./formatting";
+import { frontmatterDecorations } from "./frontmatter";
+import { indentGuides } from "./indentGuides";
+import { listKeymap } from "./lists";
+import { livePreview } from "./livePreview";
+import { noteHeader, type NoteHeaderOptions } from "./noteHeader";
+import { ofmDecorations, ofmMarkdown, tagCompletions, type TagSuggestion } from "./ofm";
+import { richNoteCopy, type ReadCopyAttachment } from "./copy";
+import { smartPaste, type SaveAttachment } from "./paste";
+import { tableAtomicRanges } from "./table/atomic";
+import { minimalInputChanges } from "./minimalChanges";
+import { tripleClickLine } from "./selection";
+import { slashCompletions } from "./slash";
+import { checkboxes, taskKeymap } from "./tasks";
+import { editorTheme, markdownHighlight } from "./theme";
+import { wikilinkCompletions, wikilinks } from "./wikilinks";
+
+export interface CreateEditorOptions {
+  doc: string;
+  getTitles: () => NoteTitle[];
+  /**
+   * Every `#tag` in the vault, most-used first, for the `#` completion. Omitted
+   * (the version-preview view, the tests) → typing `#` suggests nothing.
+   */
+  getTags?: () => TagSuggestion[];
+  onNavigate: (target: string) => void;
+  /** Phase-0 buffer callback; omitted for CRDT-managed notes (yCollab syncs). */
+  onChange?: (doc: string) => void;
+  /** Later phases (Yjs binding) append here. */
+  extraExtensions?: Extension[];
+  /**
+   * Turn an image `src` from a note into a URL the webview can load. Local
+   * vault paths become `asset:` URLs (via convertFileSrc); http/data URLs pass
+   * through. Omitted → images render with their raw `src`.
+   */
+  resolveAsset?: (src: string) => string;
+  /**
+   * Persist pasted/dropped image bytes into the vault and return the markdown
+   * `src` to embed. Omitted → image paste/drop falls back to default handling.
+   */
+  saveAttachment?: SaveAttachment;
+  copyAttachments?: { notePath: string; read: ReadCopyAttachment };
+  /**
+   * When true, a Yjs `y-codemirror.next` binding (passed via extraExtensions)
+   * owns change propagation and undo history, so we drop CM6's local
+   * `history()` + its keymap and the buffer `onChange` listener (spec 03 §5).
+   */
+  collab?: boolean;
+  /**
+   * The inline title + Properties panel above the body. Omitted for editors
+   * with no note behind them — the version-preview view and the tests — which
+   * then keep the plain dimmed frontmatter block.
+   */
+  header?: NoteHeaderOptions;
+  /**
+   * Show the line-number gutter (Settings → Appearance; off by default, because
+   * a gutter takes real width from the prose column). Compartmented so the
+   * toggle reconfigures the live view instead of rebuilding it.
+   */
+  lineNumbers?: { on: boolean; compartment: Compartment };
+}
+
+/** The `lineNumbers()` gutter, or nothing. Exported for the Editor's toggle. */
+export function lineNumberExtension(on: boolean): Extension {
+  return on ? lineNumbers() : [];
+}
+
+/**
+ * The note's grammar — markdown, or none at all.
+ *
+ * The CRDT editor family is md/markdown/mdx **and txt** (`notePath.ts
+ * isEditorNote`), and only the first three are markdown. Handing a `.txt` the
+ * markdown language would turn every syntax-tree-driven extension loose on
+ * prose: `# eggs` in a shopping list becomes a heading, `*star*` folds into
+ * italics, and a line of `---` becomes a rule — in the one file format a person
+ * picks BECAUSE it has no syntax. Dropping the language leaves those extensions
+ * reading an empty tree, which is exactly the plain-text buffer we want; the
+ * keymaps, wrapping, theme, header and paste handling all still apply.
+ *
+ * Keyed off `header.path`, the only place the factory learns which file it is.
+ * With no header — the version-preview view and the tests, which have no note
+ * behind them — the answer stays markdown, exactly as before.
+ */
+function isPlainTextNote(opts: CreateEditorOptions): boolean {
+  return opts.header != null && !isMarkdownNote(opts.header.path);
+}
+
+function noteLanguage(opts: CreateEditorOptions): Extension {
+  if (isPlainTextNote(opts)) return [];
+  // GFM adds tables, task lists, strikethrough, and autolinks; `ofmMarkdown`
+  // adds Obsidian's `==highlight==`, `%%comment%%` and `#tag` on top, so a
+  // vault reads the same here and in Obsidian.
+  // `codeLanguages` are LanguageDescriptions with dynamic imports: nothing
+  // here reaches the startup bundle, and a grammar is fetched only when a
+  // fence in an open note claims that language.
+  return markdown({
+    base: markdownLanguage,
+    extensions: [GFM, ...ofmMarkdown],
+    codeLanguages,
+  });
+}
+
+export function baseExtensions(opts: CreateEditorOptions): Extension[] {
+  const collab = opts.collab ?? false;
+  // A `.txt` is plain text: no grammar, and nothing that RENDERS markdown over
+  // its bytes. Almost every decoration follows the grammar for free (an empty
+  // syntax tree yields nothing), so `checkboxes` is the only extra gate — it
+  // matches `- [ ]` with a regex (`tasks.ts TASK_RE`), language or not, and
+  // would otherwise replace those five characters with a widget in a file that
+  // has no task syntax.
+  const plain = isPlainTextNote(opts);
+  const keys = [
+    ...closeBracketsKeymap,
+    ...defaultKeymap,
+    // CRDT notes use the Yjs UndoManager keymap (added via extraExtensions);
+    // the local CM6 history keymap would fight it, so drop it in collab mode.
+    ...(collab ? [] : historyKeymap),
+    ...searchKeymap,
+  ];
+
+  return [
+    // Local history only for the non-CRDT path; yCollab supplies undo otherwise.
+    ...(collab ? [] : [history()]),
+    drawSelection(),
+    // Typing over a selection changes only what differs, never a delete and
+    // re-insert of text (frontmatter, hidden markers) that came back unchanged.
+    minimalInputChanges,
+    // Triple-click selects a line's content without its trailing newline, so
+    // the selection highlight doesn't bleed onto the next line.
+    tripleClickLine,
+    dropCursor(),
+    EditorState.allowMultipleSelections.of(true),
+    indentOnInput(),
+    // Two spaces: what `lists.ts`'s Tab, `indentOnInput` and every CodeMirror
+    // indent command all read, so there is one answer to "how wide is a level".
+    indentUnit.of("  "),
+    EditorView.lineWrapping,
+    closeBrackets(),
+    // Markdown-aware editing keys, ahead of the base keymap so they win:
+    //   Mod-b/i/e/k/…  inline formatting toggles
+    //   Mod-Alt-1…6    heading level      Shift-Enter  hard break
+    //   Mod-l          task toggle        Tab/Shift-Tab list indent
+    // (Enter is lang-markdown's, at `Prec.high` — see lists.ts.)
+    formattingKeymap(),
+    listKeymap(),
+    taskKeymap(),
+    keymap.of([...foldKeymap, ...keys]),
+    // One autocompletion surface, shared by the slash-command block menu and
+    // the [[wiki-link]] source (two `autocompletion()` configs would conflict).
+    autocompletion({
+      override: [
+        slashCompletions,
+        wikilinkCompletions({ getTitles: opts.getTitles, onNavigate: opts.onNavigate }),
+        ...(opts.getTags ? [tagCompletions({ getTags: opts.getTags })] : []),
+      ],
+    }),
+    // Markdown, or nothing for a `.txt` (see `noteLanguage`).
+    noteLanguage(opts),
+    markdownHighlight,
+    // Frontmatter first: blocks.ts and livePreview.ts both read its range so
+    // nothing else decorates inside it (see lib/editor/frontmatter.ts).
+    frontmatterDecorations,
+    // The inline title and the Properties panel. After frontmatterDecorations,
+    // which yields the region to it (one authority: `frontmatterView`).
+    ...(opts.header ? [noteHeader(opts.header)] : []),
+    blockDecorations,
+    // Live-preview inline rendering: hide markers off the active line, render
+    // bullets/links/images/tables, and preview embedded HTML blocks (never run).
+    livePreview({
+      resolveAsset: opts.resolveAsset,
+      onNavigate: opts.onNavigate,
+      // Older notes can carry a first `# Heading` that repeats the filename
+      // title introduced later. Live preview collapses only that exact legacy
+      // duplicate; the Markdown stays in the buffer and reveals for editing.
+      inlineTitle: opts.header && !plain ? stemOf(opts.header.path) : undefined,
+    }),
+    // A table is always rendered, so the caret must never walk into one.
+    tableAtomicRanges,
+    // Clickable `- [ ]` task checkboxes (markdown only — see `plain`).
+    ...(plain ? [] : [checkboxes]),
+    // A copy button on every code fence.
+    codeFenceFlair,
+    // Paste a URL over a selection → link; paste/drop an image → attachment.
+    smartPaste(opts.saveAttachment),
+    ...(opts.copyAttachments ? [richNoteCopy(opts.copyAttachments.notePath, opts.copyAttachments.read)] : []),
+    editorTheme,
+    wikilinks({ getTitles: opts.getTitles, onNavigate: opts.onNavigate }),
+    // Callout tinting + tag pills. After livePreview, whose QuoteMark rule
+    // hides the `>` a callout's marker line still carries.
+    ...ofmDecorations,
+    // Fold placeholder + hover chevrons. The fold RANGES all come from
+    // lang-markdown (see ./folding.ts); this only draws the affordance.
+    ...folding,
+    // Faint rules down each indent level of a nested list.
+    ...indentGuides,
+    ...(opts.lineNumbers
+      ? [opts.lineNumbers.compartment.of(lineNumberExtension(opts.lineNumbers.on))]
+      : []),
+    // Only mirror doc changes into the store buffer for the Phase-0 path.
+    ...(collab || !opts.onChange
+      ? []
+      : [
+          EditorView.updateListener.of((u) => {
+            if (u.docChanged) opts.onChange!(u.state.doc.toString());
+          }),
+        ]),
+    ...(opts.extraExtensions ?? []),
+  ];
+}
+
+export function createEditorState(opts: CreateEditorOptions): EditorState {
+  return EditorState.create({ doc: opts.doc, extensions: baseExtensions(opts) });
+}
+
+/**
+ * The note editor's LOOK without its editing machinery, for read-only views
+ * (the compare panes, an opened recovery copy, a Trash preview): the same
+ * theme, font, measure, wrapping, markdown grammar and syntax highlighting as
+ * `baseExtensions`, in SOURCE form. Live preview is deliberately left out: it
+ * hides markers off the active line, and a diff must show every character that
+ * changed. Line numbers follow the editor's own setting. Adds nothing to
+ * `baseExtensions`, so the note editor's behaviour is unchanged.
+ */
+export function readOnlyEditorExtensions(opts: { path?: string; lineNumbers?: boolean } = {}): Extension[] {
+  const plain = opts.path ? !isMarkdownNote(opts.path) : false;
+  return [
+    EditorState.readOnly.of(true),
+    EditorView.editable.of(false),
+    drawSelection(),
+    EditorView.lineWrapping,
+    plain
+      ? []
+      : markdown({ base: markdownLanguage, extensions: [GFM, ...ofmMarkdown], codeLanguages }),
+    markdownHighlight,
+    editorTheme,
+    lineNumberExtension(opts.lineNumbers ?? false),
+  ];
+}

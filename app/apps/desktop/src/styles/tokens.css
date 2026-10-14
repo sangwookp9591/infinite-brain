@@ -1,0 +1,353 @@
+/* ============================================================
+   Baalda — Design Tokens ("Atomize PLUS")
+   Light-first layered surfaces, 4pt grid, pill radii, soft diffuse
+   shadows, violet primary. The same scale is mirrored for dark.
+   All UI styling MUST consume these variables — no hardcoded colors.
+
+   Theming: light lives on :root. Dark is applied by [data-theme="dark"]
+   (set by src/lib/theme.ts, which resolves the light/dark/system toggle).
+   A prefers-color-scheme fallback covers the pre-hydration frame before
+   the toggle script paints data-theme.
+   ============================================================ */
+
+:root {
+  color-scheme: light;
+
+  /* Toasts sit above every modal/overlay layer (highest is the lightbox, 1000). */
+  --z-toast: 1100;
+
+  /* Surfaces (light) */
+  --bg-app: #faf9f8;            /* app background / canvas — baalda.com's beige (#fcf9f7), cooled a touch */
+  --bg-surface: #ffffff;        /* cards, editor sheet, dialogs — Notion's page white */
+  /* The neutral fills share --bg-app's slight warmth (red a hair above blue);
+     the old lavender-cool greys read blue against the beige. */
+  --bg-subtle: #f5f4f2;         /* subtle wells, input fills */
+  --bg-card: #faf9f8;           /* panel cards in settings/health — the brand beige, same as --bg-app */
+  --bg-hover: color-mix(in srgb, var(--accent-soft) 60%, transparent); /* hover fills: the one app-wide hover, a light accent tint */
+  --bg-active: var(--accent-soft-hover); /* pressed / selected fills: a deeper step of the hover tint */
+  --members-row-hover: color-mix(in srgb, var(--accent-soft) 18%, transparent); /* member table rows: lighter than --bg-hover */
+
+  /* Text */
+  --text-primary: #1a1a1e;
+  --text-secondary: #6b6b76;
+  --text-tertiary: #9a9aa5;
+  /* The faint tier: markdown syntax markers (#, **, `, >, -), the fold
+     chevrons and the line-number gutter. One step quieter than tertiary —
+     present enough to find, quiet enough that prose reads as prose. Every
+     theme block below must define it too: miss one and every marker in the
+     editor turns black for a frame (or forever, in that theme). */
+  --text-faint: #bfbfc8;
+  --text-on-accent: #ffffff;
+
+  /* Accent (Atomize violet — from the Figma kit) */
+  --accent: #7f73ff;
+  --accent-hover: #6a5cf5;
+  --accent-soft: #efedff;       /* soft fills, selection tints */
+  --accent-soft-hover: #e4e0ff;
+  --accent-gradient: linear-gradient(135deg, #9a8fff 0%, #7f73ff 100%);
+  /* Rare decorative-only partner (hero art), never for controls */
+  --decor-gradient: linear-gradient(135deg, #7f73ff 0%, #ff6a3d 120%);
+
+  /* Links (secondary accent) */
+  --link: #3b82f6;
+
+  /* Text selection is its own interaction colour. Our editor lifts
+     drawSelection's wash above rich content, while native selection paints
+     behind text, so they need separate values for the two rendering paths. */
+  --selection-bg: #d8d3ff;
+  --selection-text: var(--text-primary);
+  --editor-selection-bg: rgba(127, 115, 255, 0.28);
+  --editor-selection-bg-inactive: rgba(127, 115, 255, 0.28);
+
+  /* Brand — Baalda logo. Fixed identity colors (not themed): the
+     bracket mark's dot + wordmark brackets are green; the mark tile is a
+     dark app-icon square so the off-white brackets read in either theme. */
+  --brand-green: #57bd9c;
+  --brand-green-bright: #64cba9;
+  --brand-ink: #ededea;         /* off-white brackets on the dark tile */
+  --brand-tile: linear-gradient(155deg, #23232b 0%, #111116 100%);
+  /* baalda.com's violet and its lavender tint (violet at ~12%). */
+  --brand-violet: #7c5cff;
+  --brand-violet-tint: #f0ebfd;
+
+  /* Semantic */
+  /* baalda.com pairs each tone with a deep, slightly earthy text colour
+     (green-4 #3f8850, yellow-4 #987e1b) and a ~12% tint; this is the red in
+     that family — a muted brick, not a bright cool alarm red. */
+  --danger: #b8473a;
+  --danger-soft: #f6e9e7;
+  --success: #30a46c;
+  --success-soft: #e9f6ef;
+  --warning: #d98a00;
+  --warning-soft: #fff4e0;
+
+  /* Access board columns (Can edit / Can view / No access): baalda.com's
+     green / yellow tints with a deeper text colour of the same hue, plus a
+     neutral grey. Each fg is >= 4.5:1 on its bg. */
+  --access-edit-bg: #e9f6ef;
+  --access-edit-fg: #2f7044;
+  --access-view-bg: #fff4e0;
+  --access-view-fg: #7a6212;
+  --access-none-bg: #f0f0f2;
+  --access-none-fg: #55555f;
+
+  /* Borders */
+  --border: rgba(30, 27, 24, 0.09);
+  --border-strong: rgba(30, 27, 24, 0.15);
+  --focus-ring: 0 0 0 3px rgba(127, 115, 255, 0.30);
+
+  /* Radii (generously rounded, pills for actions/chips) */
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-pill: 999px;
+
+  /* Shadows (soft, diffuse, never harsh) */
+  --shadow-sm: 0 1px 2px rgba(20, 20, 40, 0.05), 0 1px 6px rgba(20, 20, 40, 0.04);
+  --shadow-md: 0 8px 24px rgba(20, 20, 40, 0.08);
+  --shadow-lg: 0 16px 40px rgba(20, 20, 40, 0.16);
+
+  /* Spacing — 4pt grid */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-10: 40px;
+
+  /* The editor's prose column. One pair of tokens so the CM6 theme
+     (`lib/editor/theme.ts`) and the loading skeleton (`components/editor.css`)
+     can never drift — the skeleton must land exactly where the real text does.
+     88ch is the readable measure — past roughly ninety characters the eye
+     loses the start of the next line, which is where every typographic rule of
+     thumb (and Obsidian's own default) lands. `--editor-gutter` is the minimum
+     breathing room at each edge on narrow windows (see the `max(...)` the
+     consumers wrap these in). This is only the DEFAULT: Settings → Appearance →
+     "Content width" overrides `--editor-measure` inline on `.editor-column`
+     (60–120ch, or 100% for full width — `lib/editorMeasure.ts`), and every
+     consumer then follows for free — which only works because `--editor-pad-x`
+     is composed on `.editor-column` and not here. See the note on it below. */
+  --editor-measure: 88ch;
+  --editor-gutter: 64px;
+
+  /* The inline note title — the note's filename, rendered as an editable
+     heading above the body. Sized to match `t.heading1` in the editor's
+     HighlightStyle so a title and an H1 look like the same typography. */
+  --inline-title-size: 1.75em;
+  --inline-title-weight: 700;
+  --inline-title-family: var(--font-display);
+  --inline-title-color: var(--text-primary);
+  --inline-title-placeholder: var(--text-tertiary);
+  /* Title → properties/body. */
+  --inline-title-gap: var(--sp-4);
+
+  /* Extra inset for native overlay controls. macOS runs `titleBarStyle:
+     "Overlay"` with traffic lights over our top-left corner. Windows places
+     custom caption buttons in the chrome row, so it needs no extra inset;
+     Linux draws its own title bar above the webview.
+     `[data-platform]` is stamped on <html> by `lib/platform.ts`. */
+  --titlebar-inset: 0px;
+  /* Height of the top chrome row (tabs, sidebar/search tools, the floating
+     controls pill). Everything in it is centred on half of this. */
+  --chrome-row-h: 48px;
+
+  /* Typography */
+  --font-body: "Open Sauce Two", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-display: "Radio Canada Big", "Open Sauce Two", -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", ui-monospace, monospace;
+  --fs-xs: 11px;
+  --fs-sm: 12.5px;
+  --fs-md: 14px;
+  --fs-lg: 16px;
+  --fs-xl: 20px;
+  --fs-2xl: 28px;
+  --lh-tight: 1.25;
+  --lh-body: 1.6;
+
+  /* Motion */
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  /* Playful overshoot — reserved for tiny elements (avatars, chips) */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --t-fast: 120ms;
+  --t-med: 200ms;
+
+  /* ---- Editor syntax surfaces (see lib/editor/theme.ts + ofm/) ---- */
+
+  /* The `==highlight==` wash. A literal yellow on purpose: a highlighter is
+     the one editor colour that must NOT follow the accent — it reads as ink
+     on the page, not as UI chrome. */
+  --highlight-bg: rgba(255, 208, 0, 0.28);
+  /* How much of a callout's own colour tints its body. A percentage, so the
+     same value works against either theme's surface. */
+  --callout-tint: 8%;
+  /* The fold-chevron column to the left of the prose (Stage 3b). */
+  --editor-fold-gutter: 24px;
+  /* Indentation guides. Reuse the border tiers so they follow the theme
+     rather than introducing a third grey. */
+  --indent-guide: var(--border);
+  --indent-guide-active: var(--border-strong);
+}
+
+/* The editor's horizontal inset. It lives on `.cm-line` (not `.cm-content`)
+   because CodeMirror's drawSelection() derives every selection rect from the
+   FIRST `.cm-line`'s padding and cannot see padding on the content element —
+   full-line rects used to start ~58px left of the text and overrun its right
+   edge. Percentages resolve at the USE site, and every consumer's containing
+   block is `.cm-content`'s content box, so the value is identical for lines,
+   block widgets (`cm-block-inset`) and the loading skeleton.
+
+   DECLARED ON `.editor-column`, AND IT HAS TO BE. `var()` inside a custom
+   property is substituted at computed-value time ON THE DECLARING ELEMENT, and
+   the result inherits as a finished token stream. Declared on `:root` — where
+   it lived until 2026-09-11 — this baked `:root`'s own 88ch into the stream, so
+   overriding `--editor-measure` further down the tree changed nothing at all
+   and the width control was inert. (The two-state "Readable line length" switch
+   this replaced never worked either, for exactly this reason: its
+   `.editor-column[data-measure="full"] { --editor-measure: 100% }` had no other
+   consumer to reach.) `--editor-measure` and `--editor-gutter` keep their
+   defaults on `:root`; only the element that composes them moves, to the one
+   element the inline override is set on (`lib/editorMeasure.ts`). Every
+   consumer — the CM6 theme's `.cm-line`, block widgets, blockquote, rule, copy
+   button and indent guides, plus the loading skeleton — lives inside an
+   `.editor-column`, including the version-history preview's own CodeMirror.
+   Anything mounted outside one would resolve `var(--editor-pad-x)` to nothing
+   and lose its inset, so keep it here. */
+.editor-column {
+  --editor-pad-x: max(
+    var(--editor-gutter),
+    calc((100% - var(--editor-measure)) / 2)
+  );
+}
+
+/* Traffic lights are ~12px tall centred around y≈19, so 28px clears them —
+   the same strip macOS would have reserved for itself before we took the
+   title bar over. Deliberately outside the theme blocks: it's a property of
+   the host OS, not of light/dark. */
+:root[data-platform="macos"] {
+  --titlebar-inset: 28px;
+  /* Twice the traffic lights' centre (26px), which `trafficLightPosition` in
+     tauri.conf.json sets: change one, change both. Its `y` is NOT the centre —
+     `y: 28` measured out at a 26px centre. */
+  --chrome-row-h: 52px;
+}
+
+/* ---- Dark theme tokens (shared by explicit toggle + system fallback) ---- */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* Neutral charcoal layers: elevation gets lighter in small, predictable
+     steps, so cards and controls separate without purple-grey colour noise. */
+  --bg-app: #121214;
+  --bg-surface: #1c1c20;
+  --bg-subtle: #242429;
+  --bg-card: #242429;
+  --bg-hover: #29273d;          /* hover: the accent at 13% over --bg-surface (solid, so contrast is checkable) */
+  --bg-active: #343156;         /* pressed / selected: the accent at 24% over --bg-surface; text-tertiary stays ≥ 4.5:1 */
+  --members-row-hover: #201f29; /* member table rows: the accent at ~4% over --bg-surface */
+
+  /* Off-white body copy is comfortable over long sessions. Secondary and
+     tertiary copy remain above 4.5:1 even on the lighter interaction layers. */
+  --text-primary: #ececf1;
+  --text-secondary: #b8b8c0;
+  --text-tertiary: #9d9da7;
+  --text-faint: #85858f;
+
+  --accent: #a69cff;
+  --accent-hover: #bbb4ff;
+  --accent-soft: rgba(127, 115, 255, 0.18);
+  --accent-soft-hover: rgba(127, 115, 255, 0.26);
+  --accent-gradient: linear-gradient(135deg, #9a8fff 0%, #7f73ff 100%);
+  --decor-gradient: linear-gradient(135deg, #7f73ff 0%, #ff6a3d 120%);
+
+  --link: #82b7ff;
+
+  --selection-bg: #384f83;
+  --selection-text: #f4f4f6;
+  /* drawSelection sits above editor text and opaque widgets. A restrained
+     navy overlay keeps selected body text at 7:1 and links at 4.5:1. */
+  --editor-selection-bg: rgba(53, 90, 159, 0.32);
+  --editor-selection-bg-inactive: rgba(53, 90, 159, 0.20);
+
+  --danger-soft: rgba(229, 72, 77, 0.18);
+  --brand-violet-tint: rgba(124, 92, 255, 0.16);
+  --success: #3cb883;
+  --success-soft: rgba(48, 164, 108, 0.18);
+  --warning: #f0b429;
+  --warning-soft: rgba(240, 180, 41, 0.16);
+
+  --access-edit-bg: rgba(48, 164, 108, 0.18);
+  --access-edit-fg: #74d39c;
+  --access-view-bg: rgba(240, 180, 41, 0.16);
+  --access-view-fg: #f2c45c;
+  --access-none-bg: rgba(255, 255, 255, 0.06);
+  --access-none-fg: #b6b6bf;
+
+  --border: rgba(255, 255, 255, 0.09);
+  --border-strong: rgba(255, 255, 255, 0.18);
+  --focus-ring: 0 0 0 3px rgba(143, 132, 255, 0.40);
+
+  --highlight-bg: rgba(255, 208, 0, 0.22);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.55);
+}
+
+/* Pre-hydration fallback: honour the OS until the toggle script paints
+   data-theme. Once data-theme is set (light or dark), this no longer matches. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) {
+    color-scheme: dark;
+
+    --bg-app: #121214;
+    --bg-surface: #1c1c20;
+    --bg-subtle: #242429;
+    --bg-card: #242429;
+    --bg-hover: #29273d;          /* hover: the accent at 13% over --bg-surface (solid, so contrast is checkable) */
+    --bg-active: #343156;         /* pressed / selected: the accent at 24% over --bg-surface; text-tertiary stays ≥ 4.5:1 */
+  --members-row-hover: #201f29; /* member table rows: the accent at ~4% over --bg-surface */
+
+    --text-primary: #ececf1;
+    --text-secondary: #b8b8c0;
+    --text-tertiary: #9d9da7;
+    --text-faint: #85858f;
+
+    --accent: #a69cff;
+    --accent-hover: #bbb4ff;
+    --accent-soft: rgba(127, 115, 255, 0.18);
+    --accent-soft-hover: rgba(127, 115, 255, 0.26);
+    --link: #82b7ff;
+
+    --selection-bg: #384f83;
+    --selection-text: #f4f4f6;
+    --editor-selection-bg: rgba(53, 90, 159, 0.32);
+    --editor-selection-bg-inactive: rgba(53, 90, 159, 0.20);
+
+    --danger-soft: rgba(229, 72, 77, 0.18);
+    --brand-violet-tint: rgba(124, 92, 255, 0.16);
+    --success: #3cb883;
+    --success-soft: rgba(48, 164, 108, 0.18);
+    --warning: #f0b429;
+    --warning-soft: rgba(240, 180, 41, 0.16);
+
+    --access-edit-bg: rgba(48, 164, 108, 0.18);
+    --access-edit-fg: #74d39c;
+    --access-view-bg: rgba(240, 180, 41, 0.16);
+    --access-view-fg: #f2c45c;
+    --access-none-bg: rgba(255, 255, 255, 0.06);
+    --access-none-fg: #b6b6bf;
+
+    --border: rgba(255, 255, 255, 0.09);
+    --border-strong: rgba(255, 255, 255, 0.18);
+    --focus-ring: 0 0 0 3px rgba(143, 132, 255, 0.40);
+
+    --highlight-bg: rgba(255, 208, 0, 0.22);
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+    --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
+    --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.55);
+  }
+}
