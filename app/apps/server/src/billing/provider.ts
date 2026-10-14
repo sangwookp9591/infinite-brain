@@ -291,7 +291,7 @@ export interface CreateCheckoutArgs {
    */
   successUrl: string;
   /**
-   * The allow-listed desktop scheme that started the checkout (`baalda`,
+   * The allow-listed desktop scheme that started the checkout (`infinitebrain`,
    * `infinitebrain-staging`, `infinitebrain-dev`), recorded as checkout metadata
    * `client_scheme` for support; the hand-back itself rides on `successUrl`.
    */

@@ -22,8 +22,8 @@ const under = files.filter((f) => f.startsWith("051_") || f.startsWith("052_"));
 // uses `context`), so the create/drop below can never hit a real database.
 const baseUrl = new URL(config.databaseUrl);
 const baseName = baseUrl.pathname.slice(1);
-const testDbName = baseName.startsWith("context_test") ? `${baseName}_mig` : "context_test_mig";
-if (!testDbName.startsWith("context_test")) {
+const testDbName = baseName.startsWith("context_test") ? `${baseName}_mig` : `context_test_${baseName}_mig`;
+if (!/^context_test[a-z0-9_]+$/.test(testDbName)) {
   throw new Error(`refusing to run the migration suite against ${testDbName}`);
 }
 const migUrl = new URL(config.databaseUrl);

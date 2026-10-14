@@ -427,7 +427,7 @@ data can still be cleaned up. Billing-disabled self-hosts remain unlimited.
 | `S3_CHECKSUM_MODE` | no | `auto` | `auto` \| `sha256` \| `md5` \| `none`. `auto` = sha256 on real AWS, md5 against any custom endpoint (R2 implements only `Content-MD5`). |
 | `S3_MULTIPART_THRESHOLD_BYTES` | no | `104857600` | Where a single PUT becomes a presigned multipart upload (100 MB, AWS's own threshold). |
 | `S3_MULTIPART_PART_BYTES` | no | `16777216` | Bytes per multipart part (16 MB). Raised automatically if an object would need more than 10 000 parts. |
-| `DEEP_LINK_SCHEME` | no | `baalda` | URL scheme of the desktop app the server's pages bounce into. Set `infinitebrain-staging` on the server behind the Staging app so production and staging links open the right app on a machine that has both. |
+| `DEEP_LINK_SCHEME` | no | `infinitebrain` | URL scheme of the desktop app the server's pages bounce into. Set `infinitebrain-staging` on the server behind the Staging app so production and staging links open the right app on a machine that has both. |
 | `EMAIL_FROM` | for email | unset | **Outbound email (optional).** Sender address, e.g. `Infinite Brain <no-reply@example.com>`. With this and ONE transport below, password reset ("Forgot password?"), sign-up verification and invitation emails switch on. Unset ⇒ email off and none of those is offered (invitations are shared as a link instead). |
 | `SMTP_URL` | one transport | unset | Any SMTP server: `smtp://user:pass@host:587` (STARTTLS) or `smtps://user:pass@host:465` (TLS). |
 | `RESEND_API_KEY` | one transport | unset | [Resend](https://resend.com) API key — the HTTPS alternative to SMTP. |

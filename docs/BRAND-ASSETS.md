@@ -1,6 +1,6 @@
 # Infinite Brain 브랜드 자산
 
-원본 SVG는 `app/apps/desktop/src/assets/brand/infinite-brain-icon.svg`이다. 남색 바탕의 무한 궤도와 별은 이 포크에서 직접 그린 Apache-2.0 자산이다. 기존 Baalda 아이콘·워드마크 이미지와 내장 data URI는 제거했다.
+원본 SVG는 `app/apps/desktop/src/assets/brand/infinite-brain-icon.svg`이다. 남색 바탕의 무한 궤도와 별은 이 포크에서 직접 그린 Apache-2.0 자산이다. 상류 프로젝트의 아이콘·워드마크 이미지와 내장 data URI는 제거했다.
 
 아이콘을 재생성하려면 `app/`에서 다음 명령을 실행한다.
 
