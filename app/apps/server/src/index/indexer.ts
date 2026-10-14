@@ -1,3 +1,4 @@
+import { setImmediate } from "node:timers/promises";
 import * as Y from "yjs";
 import { pgText } from "../db/text.js";
 import type pg from "pg";
@@ -92,8 +93,9 @@ export async function indexDoc(
     vault_id: string;
     title: string | null;
     rel_path: string;
+    read_at: string;
   }>(
-    "SELECT vault_id, title, rel_path FROM notes WHERE id = $1 AND deleted_at IS NULL",
+    "SELECT vault_id, title, rel_path, clock_timestamp()::text AS read_at FROM notes WHERE id = $1 AND deleted_at IS NULL",
     [docId],
   );
   const note = rows[0];
@@ -116,18 +118,22 @@ export async function indexDoc(
   // Embed title + body so a query matching the title still ranks the note.
   const vector = embed(`${title ?? ""}\n${content}`);
 
-  await db.query(
+  const indexed = await db.query(
     `INSERT INTO note_index (doc_id, vault_id, title, content, vector, embed_version, updated_at)
-     VALUES ($1, $2, $3, $4, $5::jsonb, $6, now())
+     SELECT $1, $2, $3, $4, $5::jsonb, $6, clock_timestamp()
+      WHERE EXISTS (SELECT 1 FROM notes WHERE id = $1 AND deleted_at IS NULL AND updated_at <= $7::timestamptz)
      ON CONFLICT (doc_id) DO UPDATE
        SET vault_id = EXCLUDED.vault_id,
            title = EXCLUDED.title,
            content = EXCLUDED.content,
            vector = EXCLUDED.vector,
            embed_version = EXCLUDED.embed_version,
-           updated_at = now()`,
-    [docId, note.vault_id, title, content, JSON.stringify(vector), EMBED_VERSION],
+           updated_at = clock_timestamp()
+       WHERE note_index.updated_at <= $7::timestamptz`,
+    [docId, note.vault_id, title, content, JSON.stringify(vector), EMBED_VERSION, note.read_at],
   );
+
+  if (!indexed.rowCount) return false;
 
   // Which attachments this note points at (migration 027). Derived from the
   // SAME text `note_index.content` was just written from, so the two can never
@@ -220,45 +226,68 @@ export async function flushIndexQueue(): Promise<void> {
  * module), so an up-to-date row is strictly the newer of the two and is left
  * alone.
  */
-export async function backfillIndex(db: Queryable = defaultPool): Promise<number> {
-  const { rows } = await db.query<{ id: string }>(
-    `SELECT n.id FROM notes n
-       LEFT JOIN note_index ni ON ni.doc_id = n.id
-      WHERE n.deleted_at IS NULL
-        AND (ni.doc_id IS NULL OR ni.updated_at < n.updated_at
-             OR ni.embed_version IS DISTINCT FROM $1)`,
-    [EMBED_VERSION],
-  );
-  let count = 0;
-  for (const { id } of rows) {
-    try {
-      if (await indexDoc(id, db)) count++;
-    } catch (err) {
-      console.error(`[indexer] backfill failed for ${id}:`, err);
-    }
-  }
-  let afterBlob = "";
-  for (;;) {
-    const { rows: staleBlobs } = await db.query<{ blob_id: string; content: string }>(
-      `SELECT blob_id, content FROM blob_text
-        WHERE embed_version IS DISTINCT FROM $1 AND blob_id > $2
-        ORDER BY blob_id LIMIT 100`,
-      [EMBED_VERSION, afterBlob],
-    );
-    if (staleBlobs.length === 0) break;
-    for (const row of staleBlobs) {
-      try {
-        await db.query(
-          "UPDATE blob_text SET vector = $2::jsonb, embed_version = $3, updated_at = now() WHERE blob_id = $1",
-          [row.blob_id, JSON.stringify(embed(row.content)), EMBED_VERSION],
-        );
-      } catch (err) {
-        console.error(`[indexer] blob backfill failed for ${row.blob_id}:`, err);
+export async function backfillIndex(pool: pg.Pool = defaultPool): Promise<number> {
+  const db = await pool.connect();
+  let locked = false;
+  try {
+    const lock = await db.query<{ ok: boolean }>("SELECT pg_try_advisory_lock(hashtextextended('index-backfill', 0)) AS ok");
+    locked = lock.rows[0].ok;
+    if (!locked) return 0;
+    let count = 0;
+    let afterDoc = "";
+    for (;;) {
+      const { rows } = await db.query<{
+        id: string; vector_only: boolean; title: string | null; content: string; indexed_at: string;
+      }>(
+        `SELECT n.id, ni.updated_at >= n.updated_at AS vector_only,
+                ni.title, ni.content, ni.updated_at::text AS indexed_at
+           FROM notes n LEFT JOIN note_index ni ON ni.doc_id = n.id
+          WHERE n.deleted_at IS NULL AND n.id > $2
+            AND (ni.doc_id IS NULL OR ni.updated_at < n.updated_at OR ni.embed_version IS DISTINCT FROM $1)
+          ORDER BY n.id LIMIT 20`, [EMBED_VERSION, afterDoc],
+      );
+      if (!rows.length) break;
+      for (const row of rows) {
+        try {
+          if (row.vector_only) {
+            const updated = await db.query(
+              `UPDATE note_index ni SET vector = $2::jsonb, embed_version = $3, updated_at = clock_timestamp()
+                WHERE doc_id = $1 AND ni.updated_at = $4::timestamptz
+                  AND EXISTS (SELECT 1 FROM notes n WHERE n.id = ni.doc_id AND n.deleted_at IS NULL AND n.updated_at <= ni.updated_at)`,
+              [row.id, JSON.stringify(embed(`${row.title ?? ""}\n${row.content}`)), EMBED_VERSION, row.indexed_at],
+            );
+            if (updated.rowCount) count++;
+          } else if (await indexDoc(row.id, pool)) count++;
+        } catch (err) { console.error(`[indexer] backfill failed for ${row.id}:`, err); }
       }
+      afterDoc = rows[rows.length - 1].id;
+      await setImmediate();
     }
-    afterBlob = staleBlobs[staleBlobs.length - 1].blob_id;
+    let afterBlob = "";
+    for (;;) {
+      const { rows } = await db.query<{ blob_id: string; content: string; indexed_at: string }>(
+        `SELECT blob_id, content, updated_at::text AS indexed_at FROM blob_text
+          WHERE embed_version IS DISTINCT FROM $1 AND blob_id > $2
+          ORDER BY blob_id LIMIT 20`, [EMBED_VERSION, afterBlob],
+      );
+      if (!rows.length) break;
+      for (const row of rows) {
+        try {
+          await db.query(
+            "UPDATE blob_text SET vector = $2::jsonb, embed_version = $3, updated_at = clock_timestamp() WHERE blob_id = $1 AND updated_at = $4::timestamptz",
+            [row.blob_id, JSON.stringify(embed(row.content)), EMBED_VERSION, row.indexed_at],
+          );
+        } catch (err) { console.error(`[indexer] blob backfill failed for ${row.blob_id}:`, err); }
+      }
+      afterBlob = rows[rows.length - 1].blob_id;
+      await setImmediate();
+    }
+    return count;
+  } finally {
+    try { if (locked) await db.query("SELECT pg_advisory_unlock(hashtextextended('index-backfill', 0))"); }
+    catch (error) { db.release(true); throw error; }
+    db.release();
   }
-  return count;
 }
 
 /**

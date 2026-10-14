@@ -171,6 +171,7 @@ describe("indexer — boot backfill", () => {
     await pool.query("UPDATE notes SET updated_at = now() WHERE id = $1", [stale]);
     await pool.query("UPDATE note_index SET embed_version = 'old' WHERE doc_id = $1", [fresh]);
 
+    await pool.query("INSERT INTO note_links (vault_id, from_doc, to_title) VALUES ($1, $2, 'preserve cached links')", [vault, fresh]);
     expect(await indexedContent(stale)).toBe("first body");
     const freshBefore = (
       await pool.query<{ updated_at: Date }>(
@@ -190,6 +191,7 @@ describe("indexer — boot backfill", () => {
       )
     ).rows[0].updated_at.getTime();
     expect(freshAfter).toBeGreaterThan(freshBefore);
+    expect((await pool.query("SELECT to_title FROM note_links WHERE from_doc = $1", [fresh])).rows).toEqual([{ to_title: "preserve cached links" }]);
     const { EMBED_VERSION, embed } = await import("../src/index/embedder.js");
     const freshVersion = await pool.query<{ embed_version: string }>(
       "SELECT embed_version FROM note_index WHERE doc_id = $1", [fresh],
@@ -201,6 +203,39 @@ describe("indexer — boot backfill", () => {
     expect(blob.rows[0].embed_version).toBe(EMBED_VERSION);
     expect(blob.rows[0].vector).toEqual(embed("legacy extracted text"));
   });
+  it("skips a competing instance and cannot overwrite a concurrent fresh index", async () => {
+    const { pool } = await import("../src/db/pool.js");
+    const { backfillIndex, indexDoc } = await import("../src/index/indexer.js");
+    const { seedOrg, seedVault, seedNote } = await import("./helpers/seed.js");
+    const org = await seedOrg("Lock", "lock-backfill");
+    const vault = await seedVault(org);
+    const note = await seedNote(vault, null, "race.md");
+    await indexDoc(note);
+    await pool.query("UPDATE note_index SET embed_version = 'old' WHERE doc_id = $1", [note]);
+    const blocker = await pool.connect();
+    try {
+      await blocker.query("SELECT pg_advisory_lock(hashtextextended('index-backfill', 0))");
+      expect(await backfillIndex()).toBe(0);
+    } finally {
+      await blocker.query("SELECT pg_advisory_unlock(hashtextextended('index-backfill', 0))");
+      blocker.release();
+    }
+    const client = await pool.connect();
+    let raced = false;
+    const racingPool = { connect: async () => ({
+      query: async (sql: string, args?: unknown[]) => {
+        const result = await client.query(sql, args);
+        if (!raced && sql.includes("AS vector_only")) {
+          raced = true;
+          await pool.query("UPDATE note_index SET content = 'new content', vector = '[99]'::jsonb, embed_version = 'new', updated_at = clock_timestamp() WHERE doc_id = $1", [note]);
+        }
+        return result;
+      }, release: (destroy?: boolean) => client.release(destroy),
+    }) } as unknown as typeof pool;
+    expect(await backfillIndex(racingPool)).toBe(0);
+    expect((await pool.query("SELECT content, vector FROM note_index WHERE doc_id = $1", [note])).rows[0]).toEqual({ content: "new content", vector: [99] });
+  });
+
 });
 
 // One close for the whole file: both DB-backed suites above share the pool, and
