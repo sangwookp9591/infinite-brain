@@ -5835,6 +5835,14 @@ button.sync-badge-retry:hover {
   word-break: break-all;
 }
 
+/* AI connector guidance and scoped connection cards. */
+.ai-connect-steps { padding-left: 1.5rem; margin: var(--sp-3) 0; }
+.ai-connect-steps li { margin-bottom: var(--sp-2); line-height: 1.5; }
+.ai-connect-advanced summary { cursor: pointer; margin-bottom: var(--sp-2); font-weight: 600; }
+.mcp-conn-scopes { font-size: var(--fs-xs); color: var(--text-secondary); overflow-wrap: anywhere; }
+.mcp-conn-head { flex-wrap: wrap; }
+.mcp-conn-title { flex-wrap: wrap; overflow-wrap: anywhere; }
+
 /* MCP connections — one card per token: live status, client, usage, tools. */
 .mcp-conn-list {
   list-style: none;

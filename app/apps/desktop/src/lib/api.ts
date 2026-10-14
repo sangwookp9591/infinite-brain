@@ -559,6 +559,7 @@ export interface PublicLink {
 }
 
 export interface McpTokenRow {
+  scopes: string[];
   id: string;
   name: string;
   tokenPrefix: string;
@@ -570,8 +571,14 @@ export interface McpTokenRow {
   lastClient: string | null;
 }
 
+export interface McpConnection extends Omit<McpTokenRow, "tokenPrefix"> {
+  kind: "token" | "oauth";
+  tokenPrefix?: string;
+}
+
 /** One MCP tool a connection can reach, classified for a compact access badge. */
 export interface McpToolInfo {
+  scope?: string;
   name: string;
   description: string;
   access: "read" | "write" | "destructive";
@@ -579,6 +586,7 @@ export interface McpToolInfo {
 
 /** The MCP connections view for a vault: each token plus the shared tool catalog. */
 export interface McpConnections {
+  connections: McpConnection[];
   tokens: McpTokenRow[];
   tools: McpToolInfo[];
 }
@@ -2159,30 +2167,35 @@ export class ApiClient {
 
   /** The caller's MCP tokens for the active vault (metadata only). */
   async listMcpTokens(): Promise<McpTokenRow[]> {
-    return (await this.listMcpConnections()).tokens;
+    const { data } = await this.request<{ tokens: McpTokenRow[] }>("GET", "/api/mcp/tokens");
+    return data.tokens ?? [];
   }
 
   /**
-   * The caller's MCP connections for the active vault: each token (with live
-   * usage/activity metadata) plus the shared tool catalog every one can reach.
+   * OAuth and token connections for the active vault, with approved scopes
+   * and activity. Each scope and per-file ACL still gate tool access.
    */
   async listMcpConnections(): Promise<McpConnections> {
-    const { data } = await this.request<McpConnections>("GET", "/api/mcp/tokens");
-    return { tokens: data.tokens ?? [], tools: data.tools ?? [] };
+    const { data } = await this.request<McpConnections>("GET", "/api/mcp/connections");
+    return { connections: data.connections ?? [], tokens: data.tokens ?? [], tools: data.tools ?? [] };
   }
 
   /** Mint a new MCP token. The `token` field is the plaintext — shown once. */
-  async createMcpToken(name: string): Promise<McpTokenRow & { token: string }> {
+  async createMcpToken(name: string, scopes?: string[]): Promise<McpTokenRow & { token: string }> {
     const { data } = await this.request<McpTokenRow & { token: string }>(
       "POST",
       "/api/mcp/tokens",
-      { body: { name } },
+      { body: { name, scopes } },
     );
     return data;
   }
 
   async revokeMcpToken(id: string): Promise<void> {
     await this.request<unknown>("DELETE", `/api/mcp/tokens/${encodeURIComponent(id)}`);
+  }
+
+  async revokeMcpConnection(kind: McpConnection["kind"], id: string): Promise<void> {
+    await this.request<unknown>("DELETE", `/api/mcp/connections/${kind}/${encodeURIComponent(id)}`);
   }
 
   // ---- Public links ---------------------------------------------------------

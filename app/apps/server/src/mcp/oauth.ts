@@ -2,6 +2,7 @@ import type pg from "pg";
 import { pool as defaultPool } from "../db/pool.js";
 import { orgRole } from "../permissions/lookup.js";
 import { auth } from "../auth/auth.js";
+import { effectiveScopes, type McpScope } from "./scopes.js";
 import type { McpAuth } from "./tokens.js";
 
 /**
@@ -27,13 +28,14 @@ export async function setVaultBinding(
   userId: string,
   organizationId: string,
   db: Queryable = defaultPool,
+  scopes?: McpScope[],
 ): Promise<void> {
   await db.query(
-    `INSERT INTO mcp_oauth_vault (client_id, user_id, organization_id)
-     VALUES ($1, $2, $3)
+    `INSERT INTO mcp_oauth_vault (client_id, user_id, organization_id, scopes)
+     VALUES ($1, $2, $3, $4)
      ON CONFLICT (client_id, user_id)
-       DO UPDATE SET organization_id = EXCLUDED.organization_id, updated_at = now()`,
-    [clientId, userId, organizationId],
+       DO UPDATE SET organization_id = EXCLUDED.organization_id, scopes = EXCLUDED.scopes, updated_at = now()`,
+    [clientId, userId, organizationId, scopes?.join(" ") ?? null],
   );
 }
 
@@ -42,12 +44,12 @@ async function getVaultBinding(
   clientId: string,
   userId: string,
   db: Queryable = defaultPool,
-): Promise<string | null> {
-  const { rows } = await db.query<{ organization_id: string }>(
-    "SELECT organization_id FROM mcp_oauth_vault WHERE client_id = $1 AND user_id = $2",
+): Promise<{ organization_id: string; scopes: string | null } | null> {
+  const { rows } = await db.query<{ organization_id: string; scopes: string | null }>(
+    "SELECT organization_id, scopes FROM mcp_oauth_vault WHERE client_id = $1 AND user_id = $2",
     [clientId, userId],
   );
-  return rows[0]?.organization_id ?? null;
+  return rows[0] ?? null;
 }
 
 /** Fallback when no binding exists: the user's sole vault, else null. */
@@ -81,8 +83,14 @@ export async function resolveOAuthMcpAuth(
   const session = await auth.api.getMcpSession({ headers });
   if (!session?.userId || !session.clientId) return null;
 
+  const binding = await getVaultBinding(session.clientId, session.userId, db);
+  // Scoped grants must keep their approved vault binding, including after revoke.
+  if (!binding && session.scopes.split(/\s+/).some((scope) => scope.startsWith("notes:") || scope.startsWith("access:"))) {
+    onFailure?.("no_vault_selected");
+    return null;
+  }
   const organizationId =
-    (await getVaultBinding(session.clientId, session.userId, db)) ??
+    binding?.organization_id ??
     (await soleVault(session.userId, db));
   if (!organizationId) {
     onFailure?.("no_vault_selected");
@@ -91,9 +99,104 @@ export async function resolveOAuthMcpAuth(
 
   if (!(await orgRole(organizationId, session.userId, db))) return null;
 
-  const { rows } = await db.query<{ name: string | null }>(
+  const scopes = effectiveScopes(session.scopes).filter((scope) => effectiveScopes(binding?.scopes).includes(scope));
+  if (!binding) await setVaultBinding(session.clientId, session.userId, organizationId, db);
+  await db.query(
+    `UPDATE mcp_oauth_vault SET last_used_at = now(), last_client = COALESCE($3, last_client)
+      WHERE client_id = $1 AND user_id = $2`,
+    [session.clientId, session.userId, headers.get("user-agent")?.slice(0, 200) ?? null],
+  );
+  const { rows: app } = await db.query<{ name: string | null }>(
     'SELECT name FROM "oauthApplication" WHERE "clientId" = $1', [session.clientId],
   );
-  return { userId: session.userId, organizationId,
-    connection: { kind: "oauth", id: session.clientId, label: rows[0]?.name ?? session.clientId } };
+  return { userId: session.userId, organizationId, scopes, oauthClientId: session.clientId,
+    connection: { kind: "oauth", id: session.clientId, label: app[0]?.name ?? session.clientId } };
+}
+
+/** Read the pending grant from Better Auth rather than trusting query/form scopes. */
+export async function getOAuthConsentGrant(code: string, clientId: string, userId: string): Promise<{
+  clientId: string; userId: string; requireConsent: boolean; scope: string[];
+} | null> {
+  const ctx = await auth.$context;
+  const grant = await ctx.internalAdapter.findVerificationValue(code);
+  if (!grant || grant.expiresAt <= new Date()) return null;
+  let value;
+  try { value = JSON.parse(grant.value); } catch { return null; }
+  if (!value || typeof value !== "object" || value.clientId !== clientId || value.userId !== userId || value.requireConsent !== true
+      || !Array.isArray(value.scope) || !value.scope.every((s: unknown) => typeof s === "string")) return null;
+  return value;
+}
+
+/** Better Auth 1.6 copies verification scopes into both consent and token rows. */
+export async function prepareOAuthConsent(
+  code: string, clientId: string, userId: string, scopes?: McpScope[],
+): Promise<boolean> {
+  const value = await getOAuthConsentGrant(code, clientId, userId);
+  if (!value) return false;
+  if (scopes) {
+    const requested = value.scope.filter((s) => s.startsWith("notes:") || s.startsWith("access:"));
+    if (requested.length && scopes.some((scope) => !requested.includes(scope))) return false;
+    const oidc = value.scope.filter((s) => !s.startsWith("notes:") && !s.startsWith("access:"));
+    const ctx = await auth.$context;
+    await ctx.internalAdapter.updateVerificationByIdentifier(code, {
+      value: JSON.stringify({ ...value, scope: [...oidc, ...scopes] }),
+    });
+  }
+  return true;
+}
+
+export async function listOAuthConnections(auth: McpAuth, db: Queryable = defaultPool) {
+  const { rows } = await db.query<{
+    id: string; name: string; scopes: string | null; createdAt: string;
+    lastUsedAt: string | null; lastClient: string | null; useCount: number;
+  }>(
+    `SELECT a."clientId" AS id, a.name, COALESCE(b.scopes, g.scopes) AS scopes,
+            COALESCE(b.created_at, g."createdAt") AS "createdAt", b.last_used_at AS "lastUsedAt",
+            b.last_client AS "lastClient", COALESCE(b.use_count, 0) AS "useCount"
+       FROM "oauthApplication" a
+       JOIN LATERAL (
+         SELECT "scopes", "createdAt" FROM "oauthAccessToken" WHERE "clientId" = a."clientId" AND "userId" = $1
+         UNION ALL
+         SELECT "scopes", "createdAt" FROM "oauthConsent" WHERE "clientId" = a."clientId" AND "userId" = $1 AND "consentGiven" = true
+         ORDER BY "createdAt" DESC LIMIT 1
+       ) g ON true
+       LEFT JOIN mcp_oauth_vault b ON b.client_id = a."clientId" AND b.user_id = $1
+      WHERE b.organization_id = $2 OR (b.client_id IS NULL
+        AND (SELECT count(*) FROM member WHERE "userId" = $1) = 1
+        AND EXISTS (SELECT 1 FROM member WHERE "userId" = $1 AND "organizationId" = $2))
+      ORDER BY "createdAt" DESC`,
+    [auth.userId, auth.organizationId],
+  );
+  return rows.map((r) => ({ ...r, kind: "oauth" as const, scopes: effectiveScopes(r.scopes) }));
+}
+
+/** Remove access and refresh tokens, consent, and the vault binding together. */
+export async function revokeOAuthConnection(userId: string, organizationId: string, clientId: string): Promise<boolean> {
+  const db = await defaultPool.connect();
+  try {
+    await db.query("BEGIN");
+    const connections = await listOAuthConnections({ userId, organizationId }, db);
+    const found = connections.some((c) => c.id === clientId);
+    if (found) {
+      const { rows: grants } = await db.query<{ id: string; value: string }>(
+        "SELECT id, value FROM verification WHERE position($1 in value) > 0 AND position($2 in value) > 0",
+        [JSON.stringify(clientId), JSON.stringify(userId)],
+      );
+      const ids = grants.filter((grant) => {
+        try {
+          const value = JSON.parse(grant.value);
+          return value?.clientId === clientId && value?.userId === userId;
+        } catch { return false; }
+      }).map((grant) => grant.id);
+      if (ids.length) await db.query("DELETE FROM verification WHERE id = ANY($1::text[])", [ids]);
+      await db.query("DELETE FROM mcp_oauth_vault WHERE client_id = $1 AND user_id = $2 AND organization_id = $3", [clientId, userId, organizationId]);
+      await db.query('DELETE FROM "oauthAccessToken" WHERE "clientId" = $1 AND "userId" = $2', [clientId, userId]);
+      await db.query('DELETE FROM "oauthConsent" WHERE "clientId" = $1 AND "userId" = $2', [clientId, userId]);
+    }
+    await db.query("COMMIT");
+    return found;
+  } catch (error) {
+    await db.query("ROLLBACK");
+    throw error;
+  } finally { db.release(); }
 }

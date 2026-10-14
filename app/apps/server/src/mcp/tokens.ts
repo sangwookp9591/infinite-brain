@@ -1,6 +1,7 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import type pg from "pg";
 import { pool as defaultPool } from "../db/pool.js";
+import { effectiveScopes, MCP_SCOPES, type McpScope } from "./scopes.js";
 import { orgRole } from "../permissions/lookup.js";
 
 /**
@@ -18,6 +19,7 @@ const PREFIX = "mcp_";
 const DISPLAY_LEN = PREFIX.length + 6;
 
 export interface McpTokenRow {
+  scopes: McpScope[];
   id: string;
   name: string;
   tokenPrefix: string;
@@ -30,6 +32,8 @@ export interface McpTokenRow {
 }
 
 export interface McpAuth {
+  scopes?: McpScope[];
+  oauthClientId?: string;
   userId: string;
   organizationId: string;
   /**
@@ -59,18 +63,20 @@ export async function createMcpToken(
   name: string,
   db: Queryable = defaultPool,
 ): Promise<{ token: string; row: McpTokenRow }> {
+  const scopes = auth.scopes ?? [...MCP_SCOPES];
   const token = generateToken();
   const id = randomUUID();
   const tokenPrefix = token.slice(0, DISPLAY_LEN) + "…";
   const { rows } = await db.query<{ created_at: string }>(
-    `INSERT INTO mcp_tokens (id, user_id, organization_id, name, token_hash, token_prefix)
-     VALUES ($1, $2, $3, $4, $5, $6)
+    `INSERT INTO mcp_tokens (id, user_id, organization_id, name, token_hash, token_prefix, scopes)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
      RETURNING created_at`,
-    [id, auth.userId, auth.organizationId, name, hashToken(token), tokenPrefix],
+    [id, auth.userId, auth.organizationId, name, hashToken(token), tokenPrefix, scopes.join(" ")],
   );
   return {
     token,
     row: {
+      scopes,
       id,
       name,
       tokenPrefix,
@@ -95,14 +101,16 @@ export async function listMcpTokens(
     last_used_at: string | null;
     use_count: number;
     last_client: string | null;
+    scopes: string;
   }>(
-    `SELECT id, name, token_prefix, created_at, last_used_at, use_count, last_client
+    `SELECT id, name, token_prefix, created_at, last_used_at, use_count, last_client, scopes
        FROM mcp_tokens
       WHERE user_id = $1 AND organization_id = $2
       ORDER BY created_at DESC`,
     [auth.userId, auth.organizationId],
   );
   return rows.map((r) => ({
+    scopes: effectiveScopes(r.scopes),
     id: r.id,
     name: r.name,
     tokenPrefix: r.token_prefix,
@@ -148,8 +156,9 @@ export async function verifyMcpToken(
     user_id: string;
     organization_id: string;
     name: string;
+    scopes: string;
   }>(
-    "SELECT id, user_id, organization_id, name FROM mcp_tokens WHERE token_hash = $1",
+    "SELECT id, user_id, organization_id, name, scopes FROM mcp_tokens WHERE token_hash = $1",
     [hashToken(token)],
   );
   const row = rows[0];
@@ -168,7 +177,7 @@ export async function verifyMcpToken(
     [row.id, client],
   ).catch(() => {});
 
-  return { userId: row.user_id, organizationId: row.organization_id, tokenId: row.id,
+  return { userId: row.user_id, organizationId: row.organization_id, tokenId: row.id, scopes: effectiveScopes(row.scopes),
     connection: { kind: "token", id: row.id, label: row.name } };
 }
 
