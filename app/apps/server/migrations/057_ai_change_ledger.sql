@@ -1,5 +1,5 @@
 -- SPDX-License-Identifier: Apache-2.0
-CREATE TABLE ai_change_ledger (
+CREATE TABLE IF NOT EXISTS ai_change_ledger (
   id TEXT PRIMARY KEY,
   org_id TEXT NOT NULL REFERENCES organization(id) ON DELETE CASCADE,
   vault_id TEXT NOT NULL REFERENCES vaults(id) ON DELETE CASCADE,
@@ -25,6 +25,6 @@ CREATE TABLE ai_change_ledger (
   CHECK (before_text IS NULL OR octet_length(before_text) <= 1048576),
   CHECK (after_text IS NULL OR octet_length(after_text) <= 1048576)
 );
-CREATE INDEX ai_change_ledger_vault_time ON ai_change_ledger(vault_id, created_at DESC, id DESC);
-CREATE INDEX ai_change_ledger_connection ON ai_change_ledger(vault_id, connection_id, created_at DESC);
-CREATE INDEX ai_change_ledger_doc ON ai_change_ledger(doc_id);
+CREATE INDEX IF NOT EXISTS ai_change_ledger_vault_time ON ai_change_ledger(vault_id, created_at DESC, id DESC);
+CREATE INDEX IF NOT EXISTS ai_change_ledger_connection ON ai_change_ledger(vault_id, connection_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS ai_change_ledger_doc ON ai_change_ledger(doc_id);
