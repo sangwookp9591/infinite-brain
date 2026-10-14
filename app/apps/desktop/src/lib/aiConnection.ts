@@ -33,7 +33,7 @@ export const CONNECTION_STEPS: Record<AiTarget, readonly string[]> = {
   ],
   cli: [
     "Advanced: install Claude Code or Codex yourself. Copy the Claude Code command below; without a token, run /mcp in Claude Code to sign in with OAuth.",
-    "For Codex, use the TOML below in ~/.codex/config.toml and set BAALDA_MCP_TOKEN in your shell to a token created in Advanced.",
+    "For Codex, use the TOML below in ~/.codex/config.toml and set INFINITE_BRAIN_MCP_TOKEN in your shell to a token created in Advanced.",
     "List your notes in the CLI, then check the connection below. Keep tokens out of URLs and source control.",
   ],
 };
@@ -56,7 +56,7 @@ export function connectionSnippet(target: AiTarget, url: string, token?: string)
 }
 
 export function codexSnippet(url: string): string {
-  return `[mcp_servers.infiniteBrain]\nurl = ${JSON.stringify(url)}\nbearer_token_env_var = "BAALDA_MCP_TOKEN"`;
+  return `[mcp_servers.infiniteBrain]\nurl = ${JSON.stringify(url)}\nbearer_token_env_var = "INFINITE_BRAIN_MCP_TOKEN"`;
 }
 
 export function connectionScopes(preset: string, manage: boolean): string[] {

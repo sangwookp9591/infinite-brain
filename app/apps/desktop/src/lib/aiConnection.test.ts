@@ -34,7 +34,7 @@ describe("AI connection wizard", () => {
     expect(connectionSnippet("cli", url)).toBe(`claude mcp add --transport http context '${url}'`);
     expect(connectionSnippet("cli", url, "mcp_DEMO")).toContain("--header 'Authorization: Bearer mcp_DEMO'");
     expect(connectionSnippet("cli", "https://vault.example/$(touch injected)'" )).toContain("'\\''");
-    expect(codexSnippet(url)).toContain('bearer_token_env_var = "BAALDA_MCP_TOKEN"');
+    expect(codexSnippet(url)).toContain('bearer_token_env_var = "INFINITE_BRAIN_MCP_TOKEN"');
   });
 
   it("defaults token access to read+write and only adds destructive/admin grants explicitly", () => {

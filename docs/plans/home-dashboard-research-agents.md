@@ -68,10 +68,10 @@ codex exec "<prompt>" \
 - Detect login state with `codex login status`. `~/.codex/auth.json` exists once the user has logged in.
 - **MCP:**
   ```bash
-  codex mcp add baalda --url http://localhost:3010/api/mcp --bearer-token-env-var BAALDA_MCP_TOKEN
+  codex mcp add baalda --url http://localhost:3010/api/mcp --bearer-token-env-var INFINITE_BRAIN_MCP_TOKEN
   ```
   This writes a `[mcp_servers.baalda]` entry in `~/.codex/config.toml` with `url` and `bearer_token_env_var`. For a per-run setup that leaves the user's config alone, pass it with `-c` instead:
-  `-c 'mcp_servers.infinitebrain.url="…"' -c 'mcp_servers.infinitebrain.bearer_token_env_var="BAALDA_MCP_TOKEN"'`
+  `-c 'mcp_servers.infinitebrain.url="…"' -c 'mcp_servers.infinitebrain.bearer_token_env_var="INFINITE_BRAIN_MCP_TOKEN"'`
   and put the token in the child's environment.
 - **Detection:** `codex --version`. On this Mac it lives at `~/.nvm/versions/node/v24.12.0/bin/codex`, which a GUI app will NOT find without the PATH fix. It can also come from Homebrew or the npm `@openai/codex` package.
 
