@@ -27,7 +27,26 @@ export async function recordAiChange(
   const connection = auth.connection;
   // Non-MCP writers (versions, recovery, tests) have no connection to attribute.
   if (!connection) return;
+  // Standalone creates need the same transaction/lock as CRDT and structural writes.
+  if (db === pool) {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await recordAiChange(vaultId, docId, actor, before, after, client);
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally { client.release(); }
+    return;
+  }
+  await db.query("SELECT pg_advisory_xact_lock(hashtextextended('ai-ledger:' || $1, 0))", [vaultId]);
+  const { rows: usage } = await db.query<{ bytes: string }>(
+    `SELECT COALESCE(sum(COALESCE(octet_length(before_text), 0) + COALESCE(octet_length(after_text), 0)), 0)::text AS bytes
+       FROM ai_change_ledger WHERE vault_id = $1`, [vaultId],
+  );
   const bounded = (text: string) => Buffer.byteLength(text, "utf8") <= LEDGER_TEXT_MAX_BYTES ? text : null;
+  const overBudget = config.aiChangesMaxBytes === 0 || Number(usage[0].bytes) + Buffer.byteLength(bounded(before) ?? "") + Buffer.byteLength(bounded(after) ?? "") > config.aiChangesMaxBytes;
   await db.query(
     `INSERT INTO ai_change_ledger
        (id, org_id, vault_id, doc_id, actor_user_id, connection_kind, connection_id,
@@ -36,10 +55,10 @@ export async function recordAiChange(
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
     [randomUUID(), auth.organizationId, vaultId, docId, auth.userId, connection.kind,
       connection.id, connection.label.slice(0, 200), actor.tool ?? `${op}_note`, op, textHash(before), textHash(after),
-      bounded(before), bounded(after), actor.beforePath, actor.afterPath,
+      overBudget ? null : bounded(before), overBudget ? null : bounded(after), actor.beforePath, actor.afterPath,
       actor.beforeTitle ?? null, actor.afterTitle ?? null,
       { beforeBytes: Buffer.byteLength(before), afterBytes: Buffer.byteLength(after),
-        oversized: bounded(before) === null || bounded(after) === null }],
+        oversized: bounded(before) === null || bounded(after) === null, quotaExceeded: overBudget }],
   );
 }
 

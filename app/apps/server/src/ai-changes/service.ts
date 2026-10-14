@@ -102,6 +102,14 @@ function conflict(row: AiChangeRow, current: string, currentPath?: string): neve
 }
 
 export async function revertAiChange(userId: string, id: string, deps: AiChangeDeps) {
+  if ((pool.options.max ?? 30) < 2) {
+    throw new AiChangeError(409, "undo_unavailable", "Undo requires PG_POOL_MAX of at least 2");
+  }
+  // Queue before taking a pool slot: concurrent reverts must leave room for DocWriter.
+  return withDocLock("ai-change-reverts", () => revertAiChangeLocked(userId, id, deps));
+}
+
+async function revertAiChangeLocked(userId: string, id: string, deps: AiChangeDeps) {
   // Repeated requests serialize on the ledger row; different entries on one doc
   // still use DocWriter's shared doc lock and revision guard.
   const client = await pool.connect();
@@ -118,7 +126,7 @@ export async function revertAiChange(userId: string, id: string, deps: AiChangeD
     }
     if (row.reverted_at) { await client.query("COMMIT"); return { id, status: "already_reverted" }; }
     if (row.before_text === null || row.after_text === null) {
-      throw new AiChangeError(413, "snapshot_too_large", "This change exceeds the 1 MiB undo snapshot limit");
+      throw new AiChangeError(413, "snapshot_too_large", "This change has no undo snapshot (size or vault retention quota)");
     }
     const { rows: notes } = await client.query<{
       rel_path: string; title: string | null; deleted_at: Date | null; purged_at: Date | null;

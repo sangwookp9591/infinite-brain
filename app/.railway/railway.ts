@@ -129,6 +129,8 @@ const SERVER_ENV = [
   "DEEP_LINK_SCHEME",
   // Note Trash retention and the optional Infinite Brain Assistant module override.
   "TRASH_RETENTION_DAYS",
+  "AI_CHANGES_RETENTION_DAYS",
+  "AI_CHANGES_MAX_BYTES",
   "HOUSEKEEPER_MODULE",
   // Content-write safety (#251, #252): the oldest desktop build allowed to push
   // note content, what a build that reports no version gets, and the burst

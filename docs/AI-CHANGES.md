@@ -1,6 +1,6 @@
 # AI 변경 원장과 되돌리기
 
-Activity 패널의 **AI 변경**에서 MCP 노트 변경을 연결별로 확인하고, 항목을 눌러 변경 전후 diff를 볼 수 있다. 되돌리기는 모든 동기화 참여자에게 적용된다. 연결을 선택하면 최근 1시간 변경을 최신순으로 일괄 되돌릴 수 있으며, 성공과 충돌을 항목별로 표시한다.
+Activity 패널의 **AI 변경**에서 MCP 노트 변경을 연결별로 확인하고, 항목을 눌러 변경 전후 diff를 볼 수 있다. 되돌리기는 모든 동기화 참여자에게 적용된다. 연결을 선택하면 본인이 해당 연결로 수행한 최근 1시간 변경을 최신순으로 일괄 되돌릴 수 있으며, 성공과 충돌을 항목별로 표시한다.
 
 ## 저장 및 연결 식별
 
@@ -8,7 +8,11 @@ Activity 패널의 **AI 변경**에서 MCP 노트 변경을 연결별로 확인�
 
 `DocWriter`는 문서 잠금 안에서 전후 텍스트를 캡처한다. MCP 콘텐츠 변경의 바이너리 Yjs 업데이트와 원장 행은 같은 Postgres 트랜잭션에 커밋한다. 라이브 Hocuspocus의 `onChange`는 이 커밋을 기다리며 동일 업데이트를 중복 저장하지 않는다. 이동·삭제의 registry 변경과 원장도 함께 커밋한다. 변경이 없는 콘텐츠 요청과 중복 append는 추가 원장 행을 만들지 않는다. 기존 노트를 채택해 빈 본문을 채운 create는 `tool=create_note`, `op=update`로 기록해 되돌리기가 기존 노트를 삭제하지 않도록 한다.
 
-본문 스냅샷은 기존 `note_texts`처럼 서버 DB에 평문으로 저장한다. 전후 각각 **UTF-8 1MiB**까지 저장하며 초과 시 해시와 크기 요약만 남기고 diff/되돌리기는 제공하지 않는다. 볼트 삭제는 CASCADE, 휴지통 영구 정리는 해당 노트 원장을 제거한다. 노트 프로토콜과 CRDT 저장은 계속 바이너리 Yjs 업데이트를 사용한다.
+본문 스냅샷은 기존 `note_texts`처럼 서버 DB에 평문으로 저장한다. 전후 각각 **UTF-8 1MiB**까지 저장하며 초과 시 해시와 크기 요약만 남기고 diff/되돌리기는 제공하지 않는다. 볼트당 전후 본문 합계는 기본 **64 MiB**(`AI_CHANGES_MAX_BYTES`, 0이면 해시만 기록)로 제한한다. 트랜잭션 단위 볼트 잠금으로 동시 쓰기에서도 상한을 지키고, 초과 시 새로운 행의 전후 본문을 모두 생략하며 해시·크기·경로·연결 정보만 남긴다. 본문이 생략된 항목은 **413 `snapshot_too_large`**로 되돌리기를 거부한다.
+
+원장 행과 평문은 기본 **90일**(`AI_CHANGES_RETENTION_DAYS`, 최소 1일) 보존 후 제거한다. 서버 시작 시와 매시간 정리하며, 배치당 5,000행·회당 최대 20배치를 처리한다. 여러 인스턴스는 advisory lock으로 정리를 직렬화한다. 서버 정지 기간 또는 정리 지연 동안 만료 행이 잠시 남을 수 있다. 이 상한은 본문 저장량이며 행 메타데이터/DB 인덱스 크기까지 제한하지 않는다. 해시도 민감한 짧은 값의 추측을 막아주는 암호화는 아니다.
+
+볼트 삭제는 CASCADE, 휴지통 영구 정리는 해당 노트 원장을 제거한다. 노트 프로토콜과 CRDT 저장은 계속 바이너리 Yjs 업데이트를 사용한다.
 
 ## API
 
@@ -19,18 +23,18 @@ Activity 패널의 **AI 변경**에서 MCP 노트 변경을 연결별로 확인�
 | `GET /api/vaults/:vaultId/ai-changes?connection=&doc=&limit=` | 해당 볼트에서 읽을 수 있는 문서의 변경 요약. 기본 50, 최대 200. 본문은 제외한다. |
 | `GET /api/ai-changes/:id` | 읽기 권한을 재검사한 상세 스냅샷. 접근 불가 항목은 404. |
 | `POST /api/ai-changes/:id/revert` | 문서 edit 권한을 재검사하고 역편집 또는 구조 복원을 적용한다. |
-| `POST /api/vaults/:vaultId/ai-changes/revert-batch` | `{connectionId, since}`. 읽을 수 있는 미복원 항목 최대 200개를 최신순 처리하고 개별 결과와 `truncated`를 반환한다. |
+| `POST /api/vaults/:vaultId/ai-changes/revert-batch` | `{connectionId, since}`. 현재 사용자(actor_user_id)의 해당 연결에서 읽을 수 있는 미복원 항목 최대 200개를 최신순 처리하고 개별 결과와 `truncated`를 반환한다. |
 
 조회는 삭제 행을 고려하는 기존 권한 리졸버를 사용한다. 잠금·개인 차단·청구 계정의 읽기 전용 정책을 그대로 따른다. 권한을 잃은 문서의 본문이나 충돌 diff를 반환하지 않는다. 목록은 최대 2,000개 후보를 검사하고 읽기 권한 필터 이후에 visible limit를 적용한다. 상한에 도달하면 `truncated=true`이다.
 
 ## 되돌리기 가드
 
 - update/append/edit: `DocWriter.editContent`의 현재 텍스트로 변경 후 해시를 검사하고 최소 변경 구간의 Y.Text 역연산을 적용한다.
-- create: 변경 후 텍스트·경로·제목·삭제 상태가 일치하면 soft delete로 휴지통에 넣는다.
+- create: `canDeleteItem`로 생성자 또는 owner/admin을 확인하고, 거부 시 403 `delete_not_creator`. 변경 후 텍스트·경로·제목·삭제 상태가 일치하면 soft delete로 휴지통에 넣는다.
 - delete: 동일 가드를 통과하면 기존 trash restore를 사용한다. 경로가 점유되었을 때는 기존 복원 함수의 이름 변경 정책을 따른다.
 - move: 동일 가드를 통과하면 원래 경로와 제목으로 이동한다. 대상 폴더 edit 권한과 root freeze를 검사한다.
 
-현재 텍스트가 변경 후 스냅샷과 다르면 **409 `conflict`**와 `{expected,current,before,expectedPath,currentPath}` diff를 반환한다. 이 구현은 다른 구간에서 일어난 후속 편집도 보수적으로 충돌로 처리한다. 원장 행의 잠금과 `reverted_at/reverted_by`로 동시·반복 요청을 직렬화한다. 재실행한 일괄 작업은 이미 되돌린 항목을 제외한다.
+현재 텍스트가 변경 후 스냅샷과 다르면 **409 `conflict`**와 `{expected,current,before,expectedPath,currentPath}` diff를 반환한다. 이 구현은 다른 구간에서 일어난 후속 편집도 보수적으로 충돌로 처리한다. 프로세스 내 되돌리기는 DB 연결을 얻기 전에 직렬화해 DocWriter가 필요한 추가 풀 연결을 확보할 수 있게 한다. 원장 행의 잠금과 `reverted_at/reverted_by`로 동시·반복 요청을 직렬화한다. 재실행한 일괄 작업은 이미 되돌린 항목을 제외한다.
 
 ## 확인 범위와 운영 한계
 

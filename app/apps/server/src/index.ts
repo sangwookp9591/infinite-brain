@@ -1,3 +1,4 @@
+import { startAiChangesRetention, stopAiChangesRetention } from "./ai-changes/retention.js";
 import { noteLastSeenForVault } from "./members/last-seen.js";
 import { serve } from "@hono/node-server";
 import type { Server as HttpServer } from "node:http";
@@ -382,6 +383,7 @@ async function main() {
   startBlobGc();
   // Trash retention: notes past `purge_after` lose their CRDT, versions and row.
   startTrashPurge();
+  startAiChangesRetention();
   // Billing lapse (account read-only): on a flip, the same ACL fan-out as
   // PUT team-access, and close the collection's live sockets so
   // `onAuthenticate` re-admits them with the new readOnly.
@@ -404,6 +406,7 @@ async function main() {
     versionCapture?.stop();
     stopBlobGc();
     stopTrashPurge();
+    stopAiChangesRetention();
     stopLapseScheduler();
     stopInvitationSweep();
     syncWss.close();

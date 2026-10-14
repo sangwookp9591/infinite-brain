@@ -10,6 +10,8 @@ import { createDocWriter } from "../src/mcp/doc-writer.js";
 import type { SyncContext } from "../src/sync/hocuspocus.js";
 import { MCP_SCOPES } from "../src/mcp/scopes.js";
 import { createMcpToken } from "../src/mcp/tokens.js";
+import { config } from "../src/config.js";
+import { pruneAiChanges } from "../src/ai-changes/retention.js";
 import { recordAiChange } from "../src/ai-changes/store.js";
 import { resetDb } from "./helpers/db.js";
 import { testAppDeps } from "./helpers/app.js";
@@ -96,6 +98,20 @@ describe("AI change ledger", () => {
     expect((await pool.query("SELECT deleted_at FROM notes WHERE id=$1", [doc])).rows[0].deleted_at).toBeNull();
     expect(await writer.readContent(vault, doc)).toBe("before 😀");
   });
+  it("queues concurrent undo before acquiring transaction connections", async () => {
+    await call("update_note", { docId: doc, content: "parallel" });
+    const row = await latest();
+    const { revertAiChange } = await import("../src/ai-changes/service.js");
+    const max = pool.options.max;
+    pool.options.max = 1;
+    try {
+      await expect(revertAiChange(owner.userId, row.id, { docWriter: writer, disconnectDoc: () => {} })).rejects.toMatchObject({ status: 409, code: "undo_unavailable" });
+    } finally { pool.options.max = max; }
+    const results = await Promise.all(Array.from({ length: 33 }, () => revertAiChange(owner.userId, row.id, { docWriter: writer, disconnectDoc: () => {} })));
+    expect(results.filter(r => r.status === "reverted")).toHaveLength(1);
+    expect(results.filter(r => r.status === "already_reverted")).toHaveLength(32);
+    expect(await writer.readContent(vault, doc)).toBe("before 😀");
+  });
   it("records empty creates, append, edit and move; reverses path and title", async () => {
     await call("create_note", { vaultId: vault, relPath: "empty.md" });
     expect((await latest()).op).toBe("create");
@@ -168,6 +184,22 @@ describe("AI change ledger", () => {
     expect(detail.before_text).toBeNull();
     expect(detail.connection_kind).toBe("oauth");
     expect((await undo(row.id)).status).toBe(413);
+  });
+  it("expires ledger rows and serializes the per-vault plaintext budget", async () => {
+    const previous = config.aiChangesMaxBytes;
+    config.aiChangesMaxBytes = 9;
+    try {
+      const actor = { auth: { userId: owner.userId, organizationId: org,
+        connection: { kind: "token" as const, id: connectionId, label: "quota" } }, op: "update" as const, beforePath: "note.md", afterPath: "note.md" };
+      await Promise.all([recordAiChange(vault, doc, actor, "123", "456"), recordAiChange(vault, doc, actor, "123", "456")]);
+      const retained = (await pool.query("SELECT before_text, after_text, before_text_hash FROM ai_change_ledger")).rows;
+      expect(retained.filter(r => r.before_text !== null)).toHaveLength(1);
+      expect(retained.every(r => r.before_text_hash.length === 64)).toBe(true);
+      await pool.query("UPDATE ai_change_ledger SET created_at = now() - interval '91 days' WHERE before_text IS NOT NULL");
+      expect(await pruneAiChanges()).toBe(1);
+      expect((await pool.query("SELECT count(*)::int AS count FROM ai_change_ledger")).rows[0].count).toBe(1);
+      expect(await pruneAiChanges()).toBe(0);
+    } finally { config.aiChangesMaxBytes = previous; }
   });
   it("adopted creates record their real tool and undo content without deleting the existing note", async () => {
     await writer.setContent(vault, doc, "");

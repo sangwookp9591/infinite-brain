@@ -160,6 +160,8 @@ export const config = {
    * on a machine that has both installed.
    */
   deepLinkScheme: deepLinkScheme(),
+  aiChangesRetentionDays: Math.max(1, int("AI_CHANGES_RETENTION_DAYS", 90)),
+  aiChangesMaxBytes: Math.max(0, int("AI_CHANGES_MAX_BYTES", 64 * 1024 * 1024)),
   // ---- Outbound email (issue #99) ----
   /** Sender address, e.g. `Infinite Brain <no-reply@example.com>`. Required to send
    *  anything; with it and ONE transport below, password reset + sign-up
