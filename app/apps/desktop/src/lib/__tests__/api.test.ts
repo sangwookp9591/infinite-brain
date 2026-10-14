@@ -669,3 +669,33 @@ describe("vaultStorage", () => {
     expect(calls[0].url).toBe("http://localhost:3010/api/vaults/v%201/storage");
   });
 });
+
+
+describe("MCP connections", () => {
+  it("reads both kinds from the connection endpoint while preserving the old token listing", async () => {
+    const rows = [{ id: "c1", kind: "oauth", scopes: ["notes:read"] }];
+    const { impl, calls } = fakeFetch((call) => ({ json: call.url.endsWith("/connections") ? { connections: rows, tools: [] } : { tokens: [{ id: "t1" }] } }));
+    const api = new ApiClient({ baseUrl: "https://vault.example", token: "session", fetchImpl: impl });
+    expect((await api.listMcpConnections()).connections).toEqual(rows);
+    expect(await api.listMcpTokens()).toEqual([{ id: "t1" }]);
+    expect(calls.map((call) => call.url)).toEqual(["https://vault.example/api/mcp/connections", "https://vault.example/api/mcp/tokens"]);
+  });
+
+  it("sends approved scopes when minting and preserves omitted scope for older callers", async () => {
+    const { impl, calls } = fakeFetch(() => ({ json: { token: "mcp_DEMO" } }));
+    const api = new ApiClient({ baseUrl: "https://vault.example", token: "session", fetchImpl: impl });
+    await api.createMcpToken("read-only", ["notes:read"]);
+    await api.createMcpToken("legacy");
+    expect(calls[0].body).toEqual({ name: "read-only", scopes: ["notes:read"] });
+    expect(calls[1].body).toEqual({ name: "legacy" });
+    expect(calls[0].headers.Authorization).toBe("Bearer session");
+  });
+
+  it("revokes by connection kind and encodes the opaque id", async () => {
+    const { impl, calls } = fakeFetch(() => ({ json: { revoked: true } }));
+    const api = new ApiClient({ baseUrl: "https://vault.example", token: "session", fetchImpl: impl });
+    await api.revokeMcpConnection("oauth", "client/one");
+    expect(calls[0].method).toBe("DELETE");
+    expect(calls[0].url).toBe("https://vault.example/api/mcp/connections/oauth/client%2Fone");
+  });
+});

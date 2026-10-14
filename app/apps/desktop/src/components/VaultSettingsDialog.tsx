@@ -7,12 +7,13 @@ import {
   ApiError,
   type BillingUsage,
   type McpToolInfo,
-  type McpTokenRow,
+  type McpConnection,
   type MyBillingAccount,
   type MyBillingVault,
   type UnsyncPreview,
   type VaultCheckpoint,
 } from "../lib/api";
+import { AI_TARGETS, CONNECTION_STEPS, connectionSnippet, codexSnippet, connectionScopes, connectionTools, isConnected, relTime, type AiTarget } from "../lib/aiConnection";
 import { toast } from "../lib/toast";
 import { agoFromIso, checkpointTitle, noteCountLabel } from "./versionFormat";
 import { authManager } from "../lib/auth/authManager";
@@ -126,7 +127,7 @@ const SETTINGS_TABS: Array<{ id: SettingsTab; label: string; icon: React.ReactNo
   { id: "dashboards", label: "Dashboards", icon: <MenuIcon><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></MenuIcon> },
   {
     id: "mcp",
-    label: "MCP",
+    label: "AI 연결",
     icon: (
       <MenuIcon>
         <path d="M4 17l6-6-6-6" />
@@ -363,7 +364,7 @@ export function VaultSettingsDialog({
           ) : shown === "billing" ? (
             <BillingTab canManage={canManage} isSynced={isSynced} />
           ) : shown === "mcp" ? (
-            <McpTab />
+            <McpTab canManage={canManage} />
           ) : shown === "versioning" ? (
             <VersioningTab canManage={canManage} />
           ) : shown === "import-export" ? (
@@ -1868,27 +1869,23 @@ function VersioningTab({ canManage }: { canManage: boolean }) {
   );
 }
 
-/**
- * MCP: expose this vault to AI clients over the Model Context Protocol.
- * The MCP endpoint is part of the same server; a client authenticates with a
- * token minted here and then gets the SAME CRUD access to notes/folders that
- * the signed-in user has (owners/admins see everything; members see what's
- * shared with them). This is where you grab the URL + a token.
- */
-function McpTab() {
+function McpTab({ canManage }: { canManage: boolean }) {
   const session = useStore((s) => s.session);
   const serverUrl = useStore((s) => s.serverUrl);
 
   const mcpUrl = `${serverUrl.replace(/\/+$/, "")}/api/mcp`;
   const hasVault = !!session?.activeOrganizationId;
 
-  const [tokens, setTokens] = useState<McpTokenRow[]>([]);
+  const [connections, setConnections] = useState<McpConnection[]>([]);
+  const [target, setTarget] = useState<AiTarget>("claude");
+  const [preset, setPreset] = useState("write");
+  const [manageAccess, setManageAccess] = useState(false);
   const [tools, setTools] = useState<McpToolInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [justCreated, setJustCreated] = useState<{ name: string; token: string } | null>(
+  const [justCreated, setJustCreated] = useState<{ id: string; name: string; token: string } | null>(
     null,
   );
   const [copied, setCopied] = useState<string | null>(null);
@@ -1901,16 +1898,22 @@ function McpTab() {
       setLoading(false);
       return;
     }
+    setLoading(true);
+    setConnections([]);
+    setJustCreated(null);
+    setManageAccess(false);
+    setExpanded(null);
     let cancelled = false;
     const load = () =>
       authManager.api
         .listMcpConnections()
-        .then(({ tokens, tools }) => {
+        .then(({ connections, tools }) => {
           if (cancelled) return;
-          setTokens(tokens);
+          setConnections(connections);
+          setError(null);
           setTools(tools);
         })
-        .catch(() => {})
+        .catch((e) => { if (!cancelled) setError(e instanceof Error ? e.message : String(e)); })
         .finally(() => {
           if (!cancelled) setLoading(false);
         });
@@ -1923,7 +1926,7 @@ function McpTab() {
       window.clearInterval(poll);
       window.clearInterval(tickle);
     };
-  }, [hasVault]);
+  }, [hasVault, session?.activeOrganizationId, serverUrl]);
 
   const copy = async (text: string, tag: string) => {
     try {
@@ -1931,7 +1934,7 @@ function McpTab() {
       setCopied(tag);
       window.setTimeout(() => setCopied((c) => (c === tag ? null : c)), 1500);
     } catch {
-      /* clipboard unavailable */
+      setError("Clipboard unavailable. Select and copy the text manually.");
     }
   };
 
@@ -1939,10 +1942,10 @@ function McpTab() {
     setBusy(true);
     setError(null);
     try {
-      const created = await authManager.api.createMcpToken(name.trim() || "MCP token");
-      setJustCreated({ name: created.name, token: created.token });
+      const created = await authManager.api.createMcpToken(name.trim() || "MCP token", connectionScopes(preset, canManage && manageAccess));
+      setJustCreated({ id: created.id, name: created.name, token: created.token });
       const { token: _t, ...row } = created;
-      setTokens((prev) => [row, ...prev]);
+      setConnections((prev) => [{ ...row, kind: "token" }, ...prev]);
       setName("");
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
@@ -1955,12 +1958,13 @@ function McpTab() {
     }
   };
 
-  const revoke = async (id: string) => {
+  const revoke = async (connection: McpConnection) => {
     setBusy(true);
     setError(null);
     try {
-      await authManager.api.revokeMcpToken(id);
-      setTokens((prev) => prev.filter((t) => t.id !== id));
+      await authManager.api.revokeMcpConnection(connection.kind, connection.id);
+      if (connection.kind === "token") setJustCreated((current) => current?.id === connection.id ? null : current);
+      setConnections((prev) => prev.filter((t) => t.kind !== connection.kind || t.id !== connection.id));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -1976,99 +1980,99 @@ function McpTab() {
     );
   }
 
-  const snippet = justCreated
-    ? `claude mcp add --transport http context ${mcpUrl} \\\n  --header "Authorization: Bearer ${justCreated.token}"`
-    : "";
+  const snippet = connectionSnippet(target, mcpUrl, justCreated?.token);
 
   return (
     <>
-      <div className="muted">
-        Connect any MCP-compatible AI client to this vault. It gets the same
-        access you do: read, search, create, edit and delete notes and folders.
-        Owners and admins can also manage the team's access from the same chat —
-        ask Claude or ChatGPT to share a folder with someone, make it view only,
-        or set what new members see.
-      </div>
-
-      <div className="subhead">Endpoint URL</div>
+      <div className="muted">Connect an AI to this vault. Choose its access when you sign in; your existing sharing permissions still apply.</div>
+      <label className="subhead" htmlFor="ai-connect-target">Choose your AI</label>
+      <select id="ai-connect-target" value={target} onChange={(e) => setTarget(e.target.value as AiTarget)}>
+        {AI_TARGETS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+      </select>
+      <ol className="ai-connect-steps">{CONNECTION_STEPS[target].map((step) => <li key={step}>{step}</li>)}</ol>
+      <div className="subhead">Connector URL</div>
       <div className="join-code-row">
-        <code className="vault-root-path" title={mcpUrl}>
-          {mcpUrl}
-        </code>
-        <button className="link-btn" onClick={() => void copy(mcpUrl, "url")}>
-          {copied === "url" ? "Copied ✓" : "Copy"}
-        </button>
+        <code className="vault-root-path" title={mcpUrl}>{mcpUrl}</code>
+        <button className="link-btn" onClick={() => void copy(mcpUrl, "url")}>{copied === "url" ? "Copied ✓" : "Copy URL"}</button>
       </div>
-
-      <div className="menu-sep" />
-      <div className="subhead">Access tokens</div>
-      <div className="muted">
-        A token authenticates the client and scopes it to you in this vault.
-        Add it as an <code>Authorization: Bearer</code> header. Revoke any time.
-      </div>
-
-      <div className="row invite-bar">
-        <input
-          placeholder="Token name, e.g. Claude Desktop"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") void create();
-          }}
-        />
-        <button className="primary" disabled={busy} onClick={() => void create()}>
-          Create token
-        </button>
-      </div>
-
+      {snippet && <div className="join-code-row">
+        <code className="mcp-snippet">{snippet}</code>
+        <button className="link-btn" onClick={() => void copy(snippet, "snippet")}>{copied === "snippet" ? "Copied ✓" : "Copy settings"}</button>
+      </div>}
+      {target === "cli" && <div className="join-code-row">
+        <code className="mcp-snippet">{codexSnippet(mcpUrl)}</code>
+        <button className="link-btn" onClick={() => void copy(codexSnippet(mcpUrl), "codex")}>{copied === "codex" ? "Copied ✓" : "Copy Codex settings"}</button>
+      </div>}
       {error && <div className="auth-error">{error}</div>}
 
-      {justCreated && (
-        <div className="mcp-new-token">
-          <div className="subhead">Copy your token now — it won't be shown again</div>
-          <div className="join-code-row">
-            <code className="join-code mcp-token-value" title={justCreated.token}>
-              {justCreated.token}
-            </code>
-            <button
-              className="link-btn"
-              onClick={() => void copy(justCreated.token, "token")}
-            >
-              {copied === "token" ? "Copied ✓" : "Copy"}
-            </button>
-          </div>
-          <div className="muted">Example — add it to Claude Code:</div>
-          <div className="join-code-row">
-            <code className="mcp-snippet">{snippet}</code>
-            <button className="link-btn" onClick={() => void copy(snippet, "snippet")}>
-              {copied === "snippet" ? "Copied ✓" : "Copy"}
-            </button>
-          </div>
-          <button className="link-btn" onClick={() => setJustCreated(null)}>
-            Done
+      <div className="menu-sep" />
+      <details className="ai-connect-advanced">
+        <summary>Advanced · Access tokens</summary>
+        <div className="muted">
+          A token authenticates the client and scopes it to you in this vault.
+          Add it as an <code>Authorization: Bearer</code> header. Revoke any time.
+        </div>
+
+        <label className="subhead" htmlFor="ai-token-scope">Token access</label>
+        <select id="ai-token-scope" value={preset} onChange={(e) => setPreset(e.target.value)}>
+          <option value="read">Read only</option>
+          <option value="write">Read + write</option>
+          <option value="delete">Read + write + delete/move</option>
+        </select>
+        {canManage && <label className="row"><input type="checkbox" checked={manageAccess} onChange={(e) => setManageAccess(e.target.checked)} />Manage team access (off by default)</label>}
+        <div className="row invite-bar">
+          <input
+            aria-label="Token name"
+            placeholder="Token name, e.g. Claude Desktop"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void create();
+            }}
+          />
+          <button className="primary" disabled={busy} onClick={() => void create()}>
+            Create token
           </button>
         </div>
-      )}
 
-      <div className="menu-sep" />
+        {justCreated && (
+          <div className="mcp-new-token">
+            <div className="subhead">Copy your token now — it won't be shown again</div>
+            <div className="join-code-row">
+              <code className="join-code mcp-token-value" title={justCreated.token}>
+                {justCreated.token}
+              </code>
+              <button
+                className="link-btn"
+                onClick={() => void copy(justCreated.token, "token")}
+              >
+                {copied === "token" ? "Copied ✓" : "Copy"}
+              </button>
+            </div>
+            <button className="link-btn" onClick={() => setJustCreated(null)}>
+              Done
+            </button>
+          </div>
+        )}
+
+        <div className="menu-sep" />
+      </details>
       <div className="subhead">Connections</div>
-      <div className="muted">
-        Every token is a connection into this vault. Each reaches the same{" "}
-        {tools.length || ""} tools, gated by your access — expand one to see them,
-        how active it is, and how much it's been used.
-      </div>
+      <div className="muted">OAuth and token connections. Disconnect to stop their next request. Status reflects recent requests, not a live socket.</div>
 
       {loading ? (
         <div className="muted">Loading…</div>
-      ) : tokens.length === 0 ? (
+      ) : connections.length === 0 ? (
         <div className="muted">No connections yet.</div>
       ) : (
         <ul className="mcp-conn-list">
-          {tokens.map((t) => {
+          {connections.map((t) => {
+            const key = `${t.kind}:${t.id}`;
+            const allowedTools = connectionTools(t.scopes, tools);
             const live = isConnected(t.lastUsedAt);
-            const open = expanded === t.id;
+            const open = expanded === key;
             return (
-              <li key={t.id} className={`mcp-conn${open ? " open" : ""}`}>
+              <li key={key} className={`mcp-conn${open ? " open" : ""}`}>
                 <div className="mcp-conn-head">
                   <span
                     className={`mcp-dot ${live ? "on" : "off"}`}
@@ -2085,30 +2089,32 @@ function McpTab() {
                     <div className="mcp-conn-sub muted">
                       {clientLabel(t.lastClient)}
                       {" · "}
-                      {t.tokenPrefix}
+                      {t.kind === "oauth" ? "OAuth" : t.tokenPrefix}
                       {" · "}
                       {t.useCount} {t.useCount === 1 ? "call" : "calls"}
                       {" · "}
                       {t.lastUsedAt ? `last active ${relTime(t.lastUsedAt)}` : "never used"}
                     </div>
+                    <div className="mcp-conn-scopes">{t.scopes?.join(" · ") ?? "Full access (legacy)"}</div>
                   </div>
                   <button
                     className="link-btn"
-                    onClick={() => setExpanded((e) => (e === t.id ? null : t.id))}
+                    aria-expanded={open}
+                    onClick={() => setExpanded((e) => (e === key ? null : key))}
                   >
-                    {open ? "Hide tools" : `Tools · ${tools.length}`}
+                    {open ? "Hide tools" : `Tools · ${allowedTools.length}`}
                   </button>
                   <AsyncButton
                     className="link-btn danger"
                     disabled={busy}
-                    onClick={() => revoke(t.id)}
+                    onClick={() => revoke(t)}
                   >
-                    Revoke
+                    Disconnect
                   </AsyncButton>
                 </div>
                 {open && (
                   <ul className="mcp-tool-list">
-                    {tools.map((tool) => (
+                    {allowedTools.map((tool) => (
                       <li key={tool.name} title={tool.description}>
                         <span className={`mcp-tool-badge ${tool.access}`}>
                           {tool.access === "read"
@@ -2129,27 +2135,6 @@ function McpTab() {
       )}
     </>
   );
-}
-
-/** A connection is "active" when it made a request in the last few minutes
- *  (MCP here is stateless HTTP — there's no socket to watch, so recency is it). */
-const CONNECTED_WINDOW_MS = 3 * 60 * 1000;
-function isConnected(lastUsedAt: string | null): boolean {
-  if (!lastUsedAt) return false;
-  return Date.now() - new Date(lastUsedAt).getTime() < CONNECTED_WINDOW_MS;
-}
-
-/** Compact relative time: "just now", "5m ago", "3h ago", "2d ago", else a date. */
-function relTime(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  if (diff < 60_000) return "just now";
-  const m = Math.floor(diff / 60_000);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  const d = Math.floor(h / 24);
-  if (d < 7) return `${d}d ago`;
-  return new Date(iso).toLocaleDateString();
 }
 
 /** Best-effort human name for a client from its User-Agent. */

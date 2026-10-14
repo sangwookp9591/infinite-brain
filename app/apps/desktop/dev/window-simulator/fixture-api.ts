@@ -173,6 +173,7 @@ const myBilling = () => ({
 });
 const tokens = [
   {
+    scopes: ["notes:read", "notes:write"],
     id: "preview-mcp-1",
     name: "Local assistant (sample)",
     tokenPrefix: "DEMO_ONLY",
@@ -182,6 +183,11 @@ const tokens = [
     lastClient: "Sample desktop assistant",
   },
 ];
+const oauthConnections = [{
+  id: "preview-oauth-1", kind: "oauth", name: "Claude (sample OAuth)",
+  scopes: ["notes:read"], createdAt: ago(24), lastUsedAt: ago(0.01),
+  useCount: 7, lastClient: "Claude sample connector",
+}];
 const tools = [
   { name: "list_notes", description: "List readable notes", access: "read" },
   { name: "read_note", description: "Read a note", access: "read" },
@@ -523,9 +529,20 @@ export async function previewFetch(
   if (/^\/api\/billing\/orgs\/[^/]+$/.test(p)) return ok(orgBilling);
   if (p.startsWith("/api/billing/"))
     return blocked("Payment actions are unavailable in this visual preview.");
+  if (p === "/api/mcp/connections") return ok({
+    tokens, connections: [...tokens.map((t) => ({ ...t, kind: "token" })), ...oauthConnections], tools,
+  });
+  if (p.startsWith("/api/mcp/connections/") && method === "DELETE") {
+    const parts = p.split("/");
+    const rows = parts[4] === "oauth" ? oauthConnections : tokens;
+    const i = rows.findIndex((t) => t.id === parts[5]);
+    if (i >= 0) rows.splice(i, 1);
+    return ok({});
+  }
   if (p === "/api/mcp/tokens") {
     if (method === "POST") {
       const row = {
+        scopes: body.scopes ?? ["notes:read", "notes:write", "notes:delete", "access:manage"],
         id: crypto.randomUUID(),
         name: body.name,
         tokenPrefix: "DEMO_ONLY",
