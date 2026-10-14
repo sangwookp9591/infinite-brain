@@ -101,12 +101,16 @@ function conflict(row: AiChangeRow, current: string, currentPath?: string): neve
   });
 }
 
+let undoQueue = Promise.resolve();
+
 export async function revertAiChange(userId: string, id: string, deps: AiChangeDeps) {
   if ((pool.options.max ?? 30) < 2) {
     throw new AiChangeError(409, "undo_unavailable", "Undo requires PG_POOL_MAX of at least 2");
   }
   // Queue before taking a pool slot: concurrent reverts must leave room for DocWriter.
-  return withDocLock("ai-change-reverts", () => revertAiChangeLocked(userId, id, deps));
+  const result = undoQueue.then(() => revertAiChangeLocked(userId, id, deps));
+  undoQueue = result.then(() => {}, () => {});
+  return result;
 }
 
 async function revertAiChangeLocked(userId: string, id: string, deps: AiChangeDeps) {

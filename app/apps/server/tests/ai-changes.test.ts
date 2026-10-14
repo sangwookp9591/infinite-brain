@@ -112,6 +112,16 @@ describe("AI change ledger", () => {
     expect(results.filter(r => r.status === "already_reverted")).toHaveLength(32);
     expect(await writer.readContent(vault, doc)).toBe("before 😀");
   });
+  it("keeps the undo queue separate from arbitrary TEXT document identities", async () => {
+    const reserved = await seedNote(vault, null, "reserved.md", owner.userId, "ai-change-reverts");
+    await writer.setContent(vault, reserved, "created");
+    const title = (await pool.query("SELECT title FROM notes WHERE id = $1", [reserved])).rows[0].title;
+    await recordAiChange(vault, reserved, { auth: { userId: owner.userId, organizationId: org,
+      connection: { kind: "token", id: connectionId, label: "reserved" } }, op: "create",
+      beforePath: "reserved.md", afterPath: "reserved.md", afterTitle: title }, "", "created");
+    expect((await undo((await latest()).id)).status).toBe(200);
+    expect((await pool.query("SELECT deleted_at FROM notes WHERE id = $1", [reserved])).rows[0].deleted_at).not.toBeNull();
+  });
   it("records empty creates, append, edit and move; reverses path and title", async () => {
     await call("create_note", { vaultId: vault, relPath: "empty.md" });
     expect((await latest()).op).toBe("create");
