@@ -96,4 +96,3 @@ export function relTime(iso: string, now = Date.now()): string {
   if (d < 7) return `${d}d ago`;
   return new Date(iso).toLocaleDateString();
 }
-
