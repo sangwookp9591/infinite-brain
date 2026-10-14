@@ -9,7 +9,7 @@
 
 ## 변경 내용
 
-1. `056_ai_change_ledger.sql`: TEXT identity, 조직/볼트/문서 참조, 사용자, OAuth/토큰 연결 ID·라벨, 실제 툴, create/update/append/edit/delete/move, 전후 SHA-256·본문·경로·제목, 크기 요약, 시각과 복원자 필드.
+1. `057_ai_change_ledger.sql`: TEXT identity, 조직/볼트/문서 참조, 사용자, OAuth/토큰 연결 ID·라벨, 실제 툴, create/update/append/edit/delete/move, 전후 SHA-256·본문·경로·제목, 크기 요약, 시각과 복원자 필드.
 2. 인증 경로에서 OAuth 클라이언트 ID/이름과 MCP 토큰 행 ID/라벨을 전달한다. 토큰 값과 비밀 키는 기록하지 않는다.
 3. MCP 콘텐츠 변경은 문서별 잠금 안에서 전후 본문을 캡처하며 바이너리 Yjs 업데이트와 원장을 같은 Postgres 트랜잭션에 저장한다. 라이브 Hocuspocus 훅은 이 커밋을 기다리고 중복 저장하지 않는다. 이동·삭제도 registry 변경과 원장을 함께 저장한다. 새 빈 노트 생성도 기록한다. 채택한 기존 빈 노트를 채운 create는 `tool=create_note`, `op=update`여서 undo가 기존 노트를 삭제하지 않는다. 콘텐츠 no-op과 idempotent append 재시도는 원장을 중복 추가하지 않는다.
 4. 세션 인증 API: 볼트별 목록(연결/문서/limit 필터), 권한을 재검사한 상세, 개별 되돌리기, `{connectionId,since}` 일괄 되돌리기. 목록은 본문을 제외하고 삭제 행을 고려하는 기존 권한 리졸버를 적용한 뒤 visible limit를 계산한다. 읽기 권한 없는 상세·복원은 404, 보기 권한만 있으면 복원 403이다.

@@ -4,7 +4,7 @@ Activity 패널의 **AI 변경**에서 MCP 노트 변경을 연결별로 확인�
 
 ## 저장 및 연결 식별
 
-마이그레이션 `056_ai_change_ledger.sql`이 `ai_change_ledger`를 만든다. 기록 대상은 MCP의 노트 create/update/append/edit/delete/move이다. `doc_id`는 기존 노트 identity를 그대로 사용한다. OAuth는 클라이언트 ID와 이름, 토큰은 토큰 행 ID와 라벨을 기록한다. 인증 토큰이나 비밀 키는 기록하지 않는다. 삭제한 연결의 과거 라벨은 원장에 남는다.
+마이그레이션 `057_ai_change_ledger.sql`이 `ai_change_ledger`를 만든다. 기록 대상은 MCP의 노트 create/update/append/edit/delete/move이다. `doc_id`는 기존 노트 identity를 그대로 사용한다. OAuth는 클라이언트 ID와 이름, 토큰은 토큰 행 ID와 라벨을 기록한다. 인증 토큰이나 비밀 키는 기록하지 않는다. 삭제한 연결의 과거 라벨은 원장에 남는다.
 
 `DocWriter`는 문서 잠금 안에서 전후 텍스트를 캡처한다. MCP 콘텐츠 변경의 바이너리 Yjs 업데이트와 원장 행은 같은 Postgres 트랜잭션에 커밋한다. 라이브 Hocuspocus의 `onChange`는 이 커밋을 기다리며 동일 업데이트를 중복 저장하지 않는다. 이동·삭제의 registry 변경과 원장도 함께 커밋한다. 변경이 없는 콘텐츠 요청과 중복 append는 추가 원장 행을 만들지 않는다. 기존 노트를 채택해 빈 본문을 채운 create는 `tool=create_note`, `op=update`로 기록해 되돌리기가 기존 노트를 삭제하지 않도록 한다.
 
