@@ -238,3 +238,22 @@ fn files_are_indexed_extracted_and_searchable() {
     assert!(text.chars > 0 && text.text.contains("sardonic marmalade"));
     assert_eq!(text.sha256.len(), 64);
 }
+
+#[test]
+fn trigram_paths_follow_note_and_folder_renames_without_content_changes() {
+    let tmp = tempfile::tempdir().unwrap();
+    let vault = tmp.path();
+    notefile::write_note(vault, "회의자료.md", "---\ntitle: Fixed title\n---\nEnglish body\n").unwrap();
+    notefile::write_note(vault, "옛날폴더/note.md", "# Child\nEnglish body\n").unwrap();
+    let idx = Index::open(vault).unwrap();
+    idx.rebuild(vault).unwrap();
+    let id = idx.get_note_meta("회의자료.md").unwrap().unwrap().id;
+    std::fs::rename(vault.join("회의자료.md"), vault.join("프로젝트계획.md")).unwrap();
+    idx.rename_note(vault, &vault.join("회의자료.md"), &vault.join("프로젝트계획.md")).unwrap();
+    assert_eq!(idx.search_notes("프로젝트계획").unwrap()[0].id, id);
+    assert!(idx.search_notes("회의자료").unwrap().is_empty());
+    std::fs::rename(vault.join("옛날폴더"), vault.join("새로운폴더")).unwrap();
+    idx.rename_note(vault, &vault.join("옛날폴더"), &vault.join("새로운폴더")).unwrap();
+    assert_eq!(idx.search_notes("새로운폴더").unwrap()[0].path, "새로운폴더/note.md");
+    assert!(idx.search_notes("옛날폴더").unwrap().is_empty());
+}

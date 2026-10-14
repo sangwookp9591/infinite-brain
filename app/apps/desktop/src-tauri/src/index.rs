@@ -1311,6 +1311,10 @@ impl Index {
                 "UPDATE notes SET path = ?1 WHERE id = ?2",
                 params![new_rel, id],
             )?;
+            tx.execute(
+                "UPDATE notes_fts_tri SET path = ?1 WHERE rowid = (SELECT rowid FROM notes WHERE id = ?2)",
+                params![new_rel, id],
+            )?;
             Self::remember_file_identity(&tx, &id, &new_rel, new_abs)?;
         }
 
@@ -1329,6 +1333,10 @@ impl Index {
             let new_path = format!("{new_rel}/{suffix}");
             tx.execute(
                 "UPDATE notes SET path = ?1 WHERE id = ?2",
+                params![new_path, id],
+            )?;
+            tx.execute(
+                "UPDATE notes_fts_tri SET path = ?1 WHERE rowid = (SELECT rowid FROM notes WHERE id = ?2)",
                 params![new_path, id],
             )?;
             Self::remember_file_identity(&tx, &id, &new_path, &vault.join(&new_path))?;
