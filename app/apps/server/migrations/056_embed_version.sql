@@ -1,0 +1,2 @@
+ALTER TABLE note_index ADD COLUMN IF NOT EXISTS embed_version TEXT;
+ALTER TABLE blob_text ADD COLUMN IF NOT EXISTS embed_version TEXT;

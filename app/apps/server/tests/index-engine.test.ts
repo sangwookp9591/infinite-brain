@@ -76,6 +76,12 @@ describe("embedder helpers", () => {
     expect(tokenize("Hello, World_2!")).toEqual(["hello", "world_2"]);
   });
 
+  it("normalizes Unicode and adds CJK character bigrams", () => {
+    expect(tokenize("e\u0301 검색기능 日本語")).toEqual([
+      "é", "검색기능", "검색", "색기", "기능", "日本語", "日本", "本語",
+    ]);
+  });
+
   it("l2normalize leaves an all-zero vector unchanged", () => {
     expect(l2normalize([0, 0, 0])).toEqual([0, 0, 0]);
   });
@@ -123,11 +129,11 @@ describe("indexer — boot backfill", () => {
     const { resetDb } = await import("./helpers/db.js");
     await resetDb();
   });
-  it("re-indexes a stale row, leaves an up-to-date one alone, and fills a missing one", async () => {
+  it("re-indexes stale and old-version vectors, fills missing rows, and leaves fresh rows alone", async () => {
     const { pool } = await import("../src/db/pool.js");
     const { backfillIndex, indexDoc } = await import("../src/index/indexer.js");
     const { appendUpdate } = await import("../src/yjs/persistence.js");
-    const { seedOrg, seedVault, seedNote } = await import("./helpers/seed.js");
+    const { seedOrg, seedVault, seedNote, seedBlob, seedBlobText } = await import("./helpers/seed.js");
     const Y = await import("yjs");
 
     const write = async (docId: string, text: string) => {
@@ -155,11 +161,15 @@ describe("indexer — boot backfill", () => {
     await write(missing, "never indexed");
     await indexDoc(stale);
     await indexDoc(fresh);
+    const blobId = await seedBlob(vault, org, "attachments/legacy.txt");
+    await seedBlobText(blobId, vault, null, "legacy extracted text");
+    await pool.query("UPDATE blob_text SET embed_version = 'old', vector = '[]'::jsonb WHERE blob_id = $1", [blobId]);
 
     // The stale one: its body moved on (a batch push whose debounced index was
     // lost to a restart) and the note row was stamped, but note_index was not.
     await write(stale, " — rewritten by an agent");
     await pool.query("UPDATE notes SET updated_at = now() WHERE id = $1", [stale]);
+    await pool.query("UPDATE note_index SET embed_version = 'old' WHERE doc_id = $1", [fresh]);
 
     expect(await indexedContent(stale)).toBe("first body");
     const freshBefore = (
@@ -169,7 +179,7 @@ describe("indexer — boot backfill", () => {
       )
     ).rows[0].updated_at.getTime();
 
-    expect(await backfillIndex()).toBe(2); // the stale one and the missing one
+    expect(await backfillIndex()).toBe(3); // stale body, old embedder, and missing row
 
     expect(await indexedContent(stale)).toContain("rewritten by an agent");
     expect(await indexedContent(missing)).toBe("never indexed");
@@ -179,7 +189,17 @@ describe("indexer — boot backfill", () => {
         [fresh],
       )
     ).rows[0].updated_at.getTime();
-    expect(freshAfter).toBe(freshBefore); // untouched
+    expect(freshAfter).toBeGreaterThan(freshBefore);
+    const { EMBED_VERSION, embed } = await import("../src/index/embedder.js");
+    const freshVersion = await pool.query<{ embed_version: string }>(
+      "SELECT embed_version FROM note_index WHERE doc_id = $1", [fresh],
+    );
+    expect(freshVersion.rows[0].embed_version).toBe(EMBED_VERSION);
+    const blob = await pool.query<{ vector: number[]; embed_version: string }>(
+      "SELECT vector, embed_version FROM blob_text WHERE blob_id = $1", [blobId],
+    );
+    expect(blob.rows[0].embed_version).toBe(EMBED_VERSION);
+    expect(blob.rows[0].vector).toEqual(embed("legacy extracted text"));
   });
 });
 

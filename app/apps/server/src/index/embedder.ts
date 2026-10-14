@@ -12,16 +12,21 @@
  */
 
 export const EMBED_DIM = 256;
+export const EMBED_VERSION = "local-hash-unicode-v2";
 
 export interface Embedder {
   readonly dim: number;
   embed(text: string): number[];
 }
 
-/** Split into lowercase word tokens (letters/digits/underscore runs). */
+/** Split Unicode words and add character bigrams for CJK tokens. */
 export function tokenize(text: string): string[] {
-  const matches = text.toLowerCase().match(/[a-z0-9_]+/g);
-  return matches ?? [];
+  const words = text.normalize("NFC").toLowerCase().normalize("NFC").match(/[\p{L}\p{N}_]+/gu) ?? [];
+  return words.flatMap((word) => {
+    if (!/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u.test(word)) return [word];
+    const chars = Array.from(word);
+    return chars.length < 2 ? [word] : [word, ...chars.slice(0, -1).map((ch, i) => ch + chars[i + 1])];
+  });
 }
 
 /** 32-bit FNV-1a hash of a string (unsigned). */

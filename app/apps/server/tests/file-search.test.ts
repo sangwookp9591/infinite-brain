@@ -137,6 +137,11 @@ describe("search over extracted file text", () => {
     expect(hits).toEqual([]);
   });
 
+  it("drops file candidates when both keyword and vector scores are zero", async () => {
+    await seedVaultGrant(org, "edit");
+    expect(await search(owner, vault, "우주선 행성")).toEqual([]);
+  });
+
   it("keeps the text of a file whose blob is still pending out of results", async () => {
     await seedVaultGrant(org, "edit");
     await pool.query("UPDATE blobs SET status = 'pending' WHERE rel_path = 'Team/q3.xlsx'");

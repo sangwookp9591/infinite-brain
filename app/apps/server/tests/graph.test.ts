@@ -93,6 +93,15 @@ describe("note index: graph + search endpoints", () => {
     expect(results[0].score).toBeGreaterThan(0);
   });
 
+  it("rejects a whitespace-only HTTP search query", async () => {
+    const owner = await signUp("owner@search-blank.com");
+    const org = await createOrg(owner, "Blank", "acme-search-blank");
+    const vault = await seedVault(org.id);
+    await seedVaultGrant(org.id, "edit");
+    const res = await search(owner.token, vault, " \n\t ");
+    expect(res.status).toBe(400);
+  });
+
   it("gates non-members (403) and unknown vaults (404)", async () => {
     const owner = await signUp("owner@graph2.com");
     const org = await createOrg(owner, "Acme", "acme-graph2");

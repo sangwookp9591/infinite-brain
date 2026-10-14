@@ -372,6 +372,11 @@ impl Index {
                 tokenize='unicode61 remove_diacritics 2'
             );
 
+            CREATE VIRTUAL TABLE IF NOT EXISTS notes_fts_tri USING fts5(
+                title, body, path,
+                tokenize='trigram'
+            );
+
             CREATE TABLE IF NOT EXISTS tags (
                 id   INTEGER PRIMARY KEY,
                 name TEXT UNIQUE
@@ -520,6 +525,12 @@ impl Index {
                 sha256   TEXT NOT NULL
             );
             "#,
+        )?;
+        self.conn.execute(
+            "INSERT OR IGNORE INTO notes_fts_tri (rowid, title, body, path)
+             SELECT f.rowid, f.title, f.body, n.path FROM notes_fts f
+             JOIN notes n ON n.rowid = f.rowid",
+            [],
         )?;
         Ok(())
     }
@@ -970,6 +981,7 @@ impl Index {
 
     fn delete_note_rows(tx: &Connection, id: &str, rowid: i64) -> AppResult<()> {
         tx.execute("DELETE FROM notes_fts WHERE rowid = ?1", params![rowid])?;
+        tx.execute("DELETE FROM notes_fts_tri WHERE rowid = ?1", params![rowid])?;
         tx.execute("DELETE FROM note_tags WHERE note_id = ?1", params![id])?;
         tx.execute("DELETE FROM links WHERE src_note_id = ?1", params![id])?;
         tx.execute("DELETE FROM notes WHERE id = ?1", params![id])?;
@@ -1415,9 +1427,14 @@ impl Index {
                 r.get(0)
             })?;
         tx.execute("DELETE FROM notes_fts WHERE rowid = ?1", params![rowid])?;
+        tx.execute("DELETE FROM notes_fts_tri WHERE rowid = ?1", params![rowid])?;
         tx.execute(
             "INSERT INTO notes_fts (rowid, title, body) VALUES (?1, ?2, '')",
             params![rowid, stem],
+        )?;
+        tx.execute(
+            "INSERT INTO notes_fts_tri (rowid, title, body, path) VALUES (?1, ?2, '', ?3)",
+            params![rowid, stem, rel],
         )?;
         tx.execute("DELETE FROM note_tags WHERE note_id = ?1", params![id])?;
         tx.execute("DELETE FROM links WHERE src_note_id = ?1", params![id])?;
@@ -1542,9 +1559,14 @@ impl Index {
 
         // FTS: replace the row (contentless_delete lets us DELETE by rowid).
         tx.execute("DELETE FROM notes_fts WHERE rowid = ?1", params![rowid])?;
+        tx.execute("DELETE FROM notes_fts_tri WHERE rowid = ?1", params![rowid])?;
         tx.execute(
             "INSERT INTO notes_fts (rowid, title, body) VALUES (?1, ?2, ?3)",
             params![rowid, parsed.title, parsed.body],
+        )?;
+        tx.execute(
+            "INSERT INTO notes_fts_tri (rowid, title, body, path) VALUES (?1, ?2, ?3, ?4)",
+            params![rowid, parsed.title, parsed.body, rel],
         )?;
 
         // Tags.
@@ -1834,6 +1856,7 @@ impl Index {
             return Ok(Vec::new());
         }
         let mut hits = self.search_notes_ranked(&match_query)?;
+        self.add_cjk_hits(query, &mut hits)?;
         hits.extend(self.search_files_ranked(&match_query)?);
         Ok(merge_ranked(hits, SEARCH_LIMIT))
     }
@@ -1847,6 +1870,7 @@ impl Index {
             return Ok(Vec::new());
         }
         let mut hits = self.search_notes_ranked(&match_query)?;
+        self.add_cjk_hits(query, &mut hits)?;
         hits.sort_by(rank_order);
         hits.truncate(SEARCH_LIMIT);
         Ok(hits.into_iter().map(|h| h.result).collect())
@@ -1873,6 +1897,74 @@ impl Index {
              LIMIT 100",
         )?;
         let rows = stmt.query_map(params![match_query], |r| {
+            let path: String = r.get(1)?;
+            Ok(RankedHit {
+                score: r.get::<_, f64>(4)?,
+                result: SearchResult {
+                    id: r.get(0)?,
+                    ext: ext_of(&path),
+                    path,
+                    title: r.get(2)?,
+                    snippet: mark_snippet(r.get::<_, String>(3)?),
+                    kind: "note".to_string(),
+                },
+            })
+        })?;
+        Ok(rows.collect::<Result<Vec<_>, _>>()?)
+    }
+
+    fn add_cjk_hits(&self, query: &str, hits: &mut Vec<RankedHit>) -> AppResult<()> {
+        let (cjk_terms, other_terms) = cjk_search_terms(query);
+        let Some(first) = cjk_terms.first() else {
+            return Ok(());
+        };
+        let mut extra = self.search_notes_cjk_ranked(first)?;
+        for term in &cjk_terms[1..] {
+            let matching: std::collections::HashSet<_> = self
+                .search_notes_cjk_ranked(term)?
+                .into_iter()
+                .map(|hit| hit.result.id)
+                .collect();
+            extra.retain(|hit| matching.contains(&hit.result.id));
+        }
+        if !other_terms.is_empty() {
+            let matching: std::collections::HashSet<_> = self
+                .search_notes_ranked(&build_fts_query(&other_terms.join(" ")))?
+                .into_iter()
+                .map(|hit| hit.result.id)
+                .collect();
+            extra.retain(|hit| matching.contains(&hit.result.id));
+        }
+        let seen: std::collections::HashSet<_> = hits.iter().map(|hit| hit.result.id.clone()).collect();
+        hits.extend(extra.into_iter().filter(|hit| !seen.contains(&hit.result.id)));
+        Ok(())
+    }
+
+    /// Korean/CJK phrases need substring lookup alongside unicode61 prefixes.
+    fn search_notes_cjk_ranked(&self, term: &str) -> AppResult<Vec<RankedHit>> {
+        let (predicate, param): (String, String) = if term.chars().count() < 3 {
+            (
+                "lower(f.title || ' ' || f.body || ' ' || n.path) LIKE lower(?1)".into(),
+                format!("%{term}%"),
+            )
+        } else {
+            ("notes_fts_tri MATCH ?1".into(), format!("\"{term}\""))
+        };
+        let sql = if term.chars().count() < 3 {
+            format!(
+                "SELECT n.id, n.path, n.title, snippet(notes_fts, 1, char(1), char(2), '…', 12), bm25(notes_fts)
+                 FROM notes_fts f JOIN notes n ON n.rowid = f.rowid WHERE {predicate} LIMIT 100"
+            )
+        } else {
+            format!(
+                "SELECT n.id, n.path, n.title, snippet(notes_fts, 1, char(1), char(2), '…', 12), bm25(notes_fts_tri)
+                 FROM notes_fts_tri JOIN notes n ON n.rowid = notes_fts_tri.rowid
+                 JOIN notes_fts ON notes_fts.rowid = n.rowid WHERE {predicate}
+                 ORDER BY bm25(notes_fts_tri) LIMIT 100"
+            )
+        };
+        let mut stmt = self.conn.prepare(&sql)?;
+        let rows = stmt.query_map(params![param], |r| {
             let path: String = r.get(1)?;
             Ok(RankedHit {
                 score: r.get::<_, f64>(4)?,
@@ -3168,6 +3260,26 @@ fn build_fts_query(input: &str) -> String {
     terms.join(" AND ")
 }
 
+fn cjk_search_terms(input: &str) -> (Vec<String>, Vec<String>) {
+    let mut cjk = Vec::new();
+    let mut other = Vec::new();
+    for raw in input.split_whitespace() {
+        let term: String = raw
+            .chars()
+            .filter(|c| c.is_alphanumeric() || *c == '_' || *c == '-')
+            .collect();
+        if term.is_empty() {
+            continue;
+        }
+        if term.chars().any(|c| matches!(c as u32, 0x3040..=0x30ff | 0x3400..=0x9fff | 0xac00..=0xd7af)) {
+            cjk.push(term);
+        } else {
+            other.push(term);
+        }
+    }
+    (cjk, other)
+}
+
 /// Escape an FTS snippet and turn the sentinels back into `<mark>` tags. The
 /// ONE place `<mark>` is emitted in the whole app — both tiers come through it.
 fn mark_snippet(raw: String) -> String {
@@ -4348,6 +4460,42 @@ mod tests {
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].title, "Beta");
         assert!(results[0].snippet.contains("<mark>"));
+    }
+
+    #[test]
+    fn cjk_search_finds_substrings_and_korean_path_stems() {
+        let tmp = tempfile::tempdir().unwrap();
+        let v = tmp.path().to_path_buf();
+        write_note(&v, "한글노트.md", "# 한글노트\n\n검색기능과 한국어검색을 테스트합니다").unwrap();
+        write_note(&v, "다른파일명.md", "# 별도제목\n\n본문입니다").unwrap();
+        write_note(&v, "English.md", "# English\n\nQuick brown fox database running café").unwrap();
+        let idx = Index::open(&v).unwrap();
+        idx.rebuild(&v).unwrap();
+
+        for query in [
+            "검색",
+            "기능",
+            "검색기능",
+            "어검색",
+            "한국",
+            "한국어검색",
+            "테스트",
+            "한국어",
+            "한글노트",
+        ] {
+            let hits = idx.search_notes(query).unwrap();
+            assert_eq!(hits.first().map(|h| h.path.as_str()), Some("한글노트.md"), "{query}");
+        }
+        let filename = idx.search_notes("다른파일명").unwrap();
+        assert_eq!(filename.first().map(|h| h.path.as_str()), Some("다른파일명.md"));
+        assert_eq!(
+            idx.search_notes("한국 어검색").unwrap()[0].path,
+            "한글노트.md"
+        );
+        assert!(idx.search_notes("우주선").unwrap().is_empty());
+        assert!(idx.search_notes("행성").unwrap().is_empty());
+        assert!(idx.search_notes("무관").unwrap().is_empty());
+        assert_eq!(idx.search_notes("quick").unwrap()[0].path, "English.md");
     }
 
     #[test]

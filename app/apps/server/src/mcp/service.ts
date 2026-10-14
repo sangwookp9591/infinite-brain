@@ -1209,6 +1209,7 @@ export async function searchNotes(
   k = 10,
   includeFiles = true,
 ) {
+  if (!query.trim()) throw new McpToolError("query must not be blank", "bad_request");
   await requireVaultInScope(ctx.auth, vaultId);
   const limit = Number.isFinite(k) && k > 0 ? Math.min(Math.trunc(k), 50) : 10;
 

@@ -4,7 +4,7 @@ import type pg from "pg";
 import { pool as defaultPool } from "../db/pool.js";
 import { loadDocState } from "../yjs/persistence.js";
 import { purgeBlobRefs, replaceBlobRefs } from "../blobs/refs.js";
-import { cosineSimilarity, embed, tokenize } from "./embedder.js";
+import { cosineSimilarity, EMBED_VERSION, embed, tokenize } from "./embedder.js";
 
 /**
  * Note indexing engine (spec: links + vectors).
@@ -117,15 +117,16 @@ export async function indexDoc(
   const vector = embed(`${title ?? ""}\n${content}`);
 
   await db.query(
-    `INSERT INTO note_index (doc_id, vault_id, title, content, vector, updated_at)
-     VALUES ($1, $2, $3, $4, $5::jsonb, now())
+    `INSERT INTO note_index (doc_id, vault_id, title, content, vector, embed_version, updated_at)
+     VALUES ($1, $2, $3, $4, $5::jsonb, $6, now())
      ON CONFLICT (doc_id) DO UPDATE
        SET vault_id = EXCLUDED.vault_id,
            title = EXCLUDED.title,
            content = EXCLUDED.content,
            vector = EXCLUDED.vector,
+           embed_version = EXCLUDED.embed_version,
            updated_at = now()`,
-    [docId, note.vault_id, title, content, JSON.stringify(vector)],
+    [docId, note.vault_id, title, content, JSON.stringify(vector), EMBED_VERSION],
   );
 
   // Which attachments this note points at (migration 027). Derived from the
@@ -203,7 +204,8 @@ export async function flushIndexQueue(): Promise<void> {
 }
 
 /**
- * Backfill: index any live note whose derived row is MISSING or STALE, using its
+ * Backfill: index live notes whose derived row is MISSING, STALE, or written by
+ * an older embedder version, using its
  * already-stored Yjs state. Runs once on boot so existing docs become
  * searchable/graphable without waiting for a fresh edit. Best-effort — a
  * failure on one doc is logged and skipped. Returns the count indexed.
@@ -223,7 +225,9 @@ export async function backfillIndex(db: Queryable = defaultPool): Promise<number
     `SELECT n.id FROM notes n
        LEFT JOIN note_index ni ON ni.doc_id = n.id
       WHERE n.deleted_at IS NULL
-        AND (ni.doc_id IS NULL OR ni.updated_at < n.updated_at)`,
+        AND (ni.doc_id IS NULL OR ni.updated_at < n.updated_at
+             OR ni.embed_version IS DISTINCT FROM $1)`,
+    [EMBED_VERSION],
   );
   let count = 0;
   for (const { id } of rows) {
@@ -232,6 +236,27 @@ export async function backfillIndex(db: Queryable = defaultPool): Promise<number
     } catch (err) {
       console.error(`[indexer] backfill failed for ${id}:`, err);
     }
+  }
+  let afterBlob = "";
+  for (;;) {
+    const { rows: staleBlobs } = await db.query<{ blob_id: string; content: string }>(
+      `SELECT blob_id, content FROM blob_text
+        WHERE embed_version IS DISTINCT FROM $1 AND blob_id > $2
+        ORDER BY blob_id LIMIT 100`,
+      [EMBED_VERSION, afterBlob],
+    );
+    if (staleBlobs.length === 0) break;
+    for (const row of staleBlobs) {
+      try {
+        await db.query(
+          "UPDATE blob_text SET vector = $2::jsonb, embed_version = $3, updated_at = now() WHERE blob_id = $1",
+          [row.blob_id, JSON.stringify(embed(row.content)), EMBED_VERSION],
+        );
+      } catch (err) {
+        console.error(`[indexer] blob backfill failed for ${row.blob_id}:`, err);
+      }
+    }
+    afterBlob = staleBlobs[staleBlobs.length - 1].blob_id;
   }
   return count;
 }
@@ -291,7 +316,8 @@ export interface NoteSearchHit {
 const SEARCH_BATCH = 500;
 
 /**
- * How many `blob_text` rows one query may score.
+ * How many `blob_text` rows one query may score. TODO: replace this blind prefix
+ * window with an indexed candidate query that preserves the ACL predicate.
  *
  * Files are capped where notes are not, and the asymmetry is deliberate: a
  * note's body is a few KB and a `blob_text` row is up to a megabyte, so the
@@ -330,11 +356,8 @@ function extOf(relPath: string): string {
  * notes the caller may not read are never scored (they'd be a content oracle).
  * The same rule governs the FILE pass — see `searchBlobText`.
  *
- * Note on `lower()`: query tokens are ASCII by construction (`tokenize` yields
- * `[a-z0-9_]+`), and Postgres `lower()` matches JS `toLowerCase()` on ASCII, so
- * substring matching is equivalent for every realistic input. Exotic Unicode
- * that case-folds INTO ASCII (e.g. U+212A KELVIN SIGN) is the only place the two
- * could disagree, and only in the small keyword-boost term.
+ * Keyword tokens are NFC-normalized Unicode; SQL normalizes stored text before
+ * the substring check so canonically equivalent text matches.
  */
 export async function searchNoteIndex(opts: {
   vaultId: string;
@@ -384,7 +407,7 @@ export async function searchNoteIndex(opts: {
               ni.vector,
               (
                 SELECT count(*) FROM unnest($4::text[]) AS t(tok)
-                 WHERE position(t.tok IN lower(coalesce(ni.title, '') || ' ' || ni.content)) > 0
+                 WHERE position(t.tok IN lower(normalize(coalesce(ni.title, '') || ' ' || ni.content, NFC))) > 0
               )::int AS matched
          FROM note_index ni
          JOIN notes n ON n.id = ni.doc_id AND n.deleted_at IS NULL
@@ -399,7 +422,8 @@ export async function searchNoteIndex(opts: {
     for (const r of rows) {
       const sim = r.vector ? cosineSimilarity(qVec, r.vector) : 0;
       const boost = qTokens.length > 0 ? 0.1 * (r.matched / qTokens.length) : 0;
-      scored.push({ docId: r.doc_id, score: sim + boost });
+      const score = sim + boost;
+      if (score > 0) scored.push({ docId: r.doc_id, score });
     }
     after = rows[rows.length - 1].doc_id;
     if (rows.length < SEARCH_BATCH) break;
@@ -505,7 +529,7 @@ async function searchBlobText(opts: {
             bt.vector,
             (
               SELECT count(*) FROM unnest($3::text[]) AS t(tok)
-               WHERE position(t.tok IN lower(coalesce(b.rel_path, '') || ' ' || bt.content)) > 0
+               WHERE position(t.tok IN lower(normalize(coalesce(b.rel_path, '') || ' ' || bt.content, NFC))) > 0
             )::int AS matched
        FROM blob_text bt
        JOIN blobs b ON b.id = bt.blob_id AND b.status = 'ready'
@@ -533,7 +557,7 @@ async function searchBlobText(opts: {
       kind: "file" as const,
     };
   });
-  return scored.sort((a, b) => b.score - a.score).slice(0, opts.k);
+  return scored.filter((hit) => hit.score > 0).sort((a, b) => b.score - a.score).slice(0, opts.k);
 }
 
 /** Filename stem of a rel_path, used as a fallback title. */

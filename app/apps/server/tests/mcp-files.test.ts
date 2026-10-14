@@ -218,6 +218,14 @@ describe("MCP file tools", () => {
     expect(notesOnly.data.results).toEqual([]);
   });
 
+  it("rejects blank search_notes queries", async () => {
+    for (const query of ["", "   ", "\n\t"]) {
+      const result = await call(ownerToken, "search_notes", { vaultId: vault, query });
+      expect(result.isError).toBe(true);
+      expect(result.text).toContain("bad_request");
+    }
+  });
+
   describe("delete_file / move_file (#215)", () => {
     it("owner deletes a file: row gone, tombstoned, registry-changed broadcast", async () => {
       rec.registryBroadcasts.length = 0;

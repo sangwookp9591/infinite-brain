@@ -377,14 +377,17 @@ export const TOOLS: McpTool[] = [
       required: ["vaultId", "query"],
       additionalProperties: false,
     },
-    handler: (ctx, a) =>
-      searchNotes(
+    handler: (ctx, a) => {
+      const query = a.query;
+      if (typeof query !== "string") throw new McpToolError("Missing required string argument: query");
+      return searchNotes(
         ctx,
         reqStr(a, "vaultId"),
-        reqStr(a, "query"),
+        query,
         optNum(a, "k"),
         optBool(a, "includeFiles"),
-      ),
+      );
+    },
   },
   {
     name: "list_attachments",
