@@ -148,6 +148,21 @@ describe("MCP connection scopes", () => {
     expect(refreshed.status).toBe(401);
   });
 
+  it("disconnect invalidates approved codes that have not yet been exchanged", async () => {
+    const started = await begin();
+    const approved = await consent(started.code, started.clientId, "read");
+    const code = new URL(approved.headers.get("location")!).searchParams.get("code")!;
+    const revoked = await request(`/api/mcp/connections/oauth/${started.clientId}`, { method: "DELETE", headers: sessionHeaders() });
+    expect(revoked.status).toBe(200);
+    expect((await exchange(started.clientId, started.verifier, code)).status).not.toBe(200);
+  });
+
+  it("does not revive a scoped token through the legacy sole-vault fallback", async () => {
+    const linked = await connect("read");
+    await pool.query("DELETE FROM mcp_oauth_vault WHERE client_id = $1 AND user_id = $2", [linked.clientId, user.userId]);
+    expect((await rpc(linked.access_token)).status).toBe(401);
+  });
+
   it("lists and revokes legacy OAuth grants even before their first MCP request", async () => {
     const started = await begin();
     const token = `legacy-${randomUUID()}`;

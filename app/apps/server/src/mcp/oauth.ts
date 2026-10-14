@@ -84,6 +84,11 @@ export async function resolveOAuthMcpAuth(
   if (!session?.userId || !session.clientId) return null;
 
   const binding = await getVaultBinding(session.clientId, session.userId, db);
+  // Scoped grants must keep their approved vault binding, including after revoke.
+  if (!binding && session.scopes.split(/\s+/).some((scope) => scope.startsWith("notes:") || scope.startsWith("access:"))) {
+    onFailure?.("no_vault_selected");
+    return null;
+  }
   const organizationId =
     binding?.organization_id ??
     (await soleVault(session.userId, db));
@@ -169,6 +174,17 @@ export async function revokeOAuthConnection(userId: string, organizationId: stri
     const connections = await listOAuthConnections({ userId, organizationId }, db);
     const found = connections.some((c) => c.id === clientId);
     if (found) {
+      const { rows: grants } = await db.query<{ id: string; value: string }>(
+        "SELECT id, value FROM verification WHERE position($1 in value) > 0 AND position($2 in value) > 0",
+        [JSON.stringify(clientId), JSON.stringify(userId)],
+      );
+      const ids = grants.filter((grant) => {
+        try {
+          const value = JSON.parse(grant.value);
+          return value?.clientId === clientId && value?.userId === userId;
+        } catch { return false; }
+      }).map((grant) => grant.id);
+      if (ids.length) await db.query("DELETE FROM verification WHERE id = ANY($1::text[])", [ids]);
       await db.query("DELETE FROM mcp_oauth_vault WHERE client_id = $1 AND user_id = $2 AND organization_id = $3", [clientId, userId, organizationId]);
       await db.query('DELETE FROM "oauthAccessToken" WHERE "clientId" = $1 AND "userId" = $2', [clientId, userId]);
       await db.query('DELETE FROM "oauthConsent" WHERE "clientId" = $1 AND "userId" = $2', [clientId, userId]);
