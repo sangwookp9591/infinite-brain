@@ -1,0 +1,12 @@
+{
+  "results": [
+    "windows: search input accepted",
+    "windows: narrow settings, keyboard selection/open, reduced motion passed",
+    "macos: search input accepted",
+    "macos: narrow settings, keyboard selection/open, reduced motion passed",
+    "GPU contexts denied: capped 2D fallback and keyboard open passed",
+    "Pointer hover glow/links and fly-to/open passed",
+    "WebGPU absent: automatic WebGL2 passed"
+  ],
+  "errors": []
+}
