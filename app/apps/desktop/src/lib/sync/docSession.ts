@@ -29,6 +29,7 @@ import { runClosedAppEdits } from "./closedAppEdits";
 import { hintUpdateAvailable } from "../updateHint";
 import { isNoteExt } from "../formats";
 import { markOnce } from "../perf";
+import { recordOnboardingStage } from "../onboardingTimer";
 import { api, authManager } from "../auth/authManager";
 import { colorForUser, presenceUser } from "../presence/color";
 import { viewingDocId } from "../presence/viewingDocId";
@@ -3583,6 +3584,7 @@ export class SyncManager implements InboundHost {
       isPushed: (docId) => this.registry.isPushed(docId),
       markAcked: (docId, sv) => this.registry.recordAck?.(docId, sv),
       markPushed: (docId) => {
+        recordOnboardingStage("first_note_synced");
         this.registry.markPushed(docId);
         this.unhydratedPlaceholders.delete(docId);
         this.registry.clearUnhydratedPlaceholder?.(docId);
@@ -4342,6 +4344,7 @@ export class SyncManager implements InboundHost {
         }
       }
     }
+    recordOnboardingStage("first_note_synced");
     this.registry.markPushed(docId);
     let ack = sv;
     if (!ack) {
@@ -5410,6 +5413,7 @@ export class SyncManager implements InboundHost {
           return store.knownDocs();
         },
         markPushed: (docId) => {
+          recordOnboardingStage("first_note_synced");
           this.registry.markPushed(docId);
           this.serverEmpty.delete(docId);
           this.serverBehind.delete(docId);
@@ -5497,6 +5501,7 @@ export class SyncManager implements InboundHost {
       work,
       progress: progress ?? undefined,
       markPushed: (docId) => {
+        recordOnboardingStage("first_note_synced");
         this.registry.markPushed(docId);
         this.divergedDocs.delete(docId); // a confirmed push carries any merged ops
         this.serverEmpty.delete(docId);
@@ -5628,6 +5633,7 @@ export class SyncManager implements InboundHost {
           this.registry.isUnhydratedPlaceholder?.(docId)),
       markAcked: (docId, sv) => this.registry.recordAck?.(docId, sv),
       markPushed: (docId) => {
+        recordOnboardingStage("first_note_synced");
         this.registry.markPushed(docId);
         this.unhydratedPlaceholders.delete(docId);
         this.registry.clearUnhydratedPlaceholder?.(docId);
@@ -5797,6 +5803,7 @@ export class SyncManager implements InboundHost {
       priority: (docId) => this.serverEmpty.has(docId),
       markAcked: (docId, sv) => this.registry.recordAck?.(docId, sv),
       markPushed: (docId) => {
+        recordOnboardingStage("first_note_synced");
         this.registry.markPushed(docId);
         this.unhydratedPlaceholders.delete(docId);
         this.registry.clearUnhydratedPlaceholder?.(docId);
@@ -6571,6 +6578,7 @@ export class SyncManager implements InboundHost {
       // why `pushed` stays an optimisation and `ready.empty` stays the authority.)
       onConverged: (docId) => {
         if (!scope.isCurrent() || this.divergedDocs.has(docId)) return;
+        recordOnboardingStage("first_note_synced");
         this.registry.markPushed(docId);
         this.serverEmpty.delete(docId);
       },
@@ -7288,6 +7296,7 @@ export class SyncManager implements InboundHost {
     // the doc is confirmed without a flush.
     if (!sync.readOnly && !(await sync.whenFlushed(30_000))) return;
     if (!current()) return;
+    recordOnboardingStage("first_note_synced");
     this.registry.markPushed(docId);
     // Flushed and editable: the server holds every op this doc had. (A view-only
     // doc is confirmed without a flush, so it proves nothing about local ops.)
@@ -7492,6 +7501,7 @@ export class SyncManager implements InboundHost {
       await store.demote(docId).catch(() => {});
     }
     // The server's copy IS the content: nothing is left to send.
+    recordOnboardingStage("first_note_synced");
     this.registry.markPushed(docId);
     this.divergedDocs.delete(docId);
     this.serverBehind.delete(docId);

@@ -1,6 +1,6 @@
 import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
-import type { InviteManyResult, TeamAccessMode } from "../lib/api";
+import type { AccessDefault, InviteManyResult, TeamAccessMode } from "../lib/api";
 import { authManager } from "../lib/auth/authManager";
 import { classifyLimitError, freeLimitOf, invitePrewarning, limitFromError, peopleLimitReason, type LimitKind } from "../lib/billing";
 import { buildInviteLink } from "../lib/inviteLink";
@@ -18,7 +18,7 @@ const ACCESS_OPTIONS: ReadonlyArray<{ value: InviteAccess; label: string; hint?:
   { value: "open", label: "Can edit" },
   { value: "readonly", label: "Can view" },
   { value: "private", label: "No access" },
-  { value: "default", label: "Default for new members", hint: "Whatever the New members setting says" },
+  { value: "default", label: "Use New members default", hint: "Use the setting selected above" },
 ];
 
 /** Add typed or pasted text to the chip list, de-duplicated case-insensitively. */
@@ -56,6 +56,8 @@ export function InvitePeopleDialog({ orgId, canManageBilling = false, seatAccoun
   const [draft, setDraft] = useState("");
   const [role, setRole] = useState<"member" | "admin">("member");
   const [access, setAccess] = useState<InviteAccess>("default");
+  const [newMemberDefault, setNewMemberDefault] = useState<AccessDefault | null>(null);
+  const [savingDefault, setSavingDefault] = useState(false);
   const [code, setCode] = useState<string | null>(null);
   const [results, setResults] = useState<InviteManyResult[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -66,8 +68,9 @@ export function InvitePeopleDialog({ orgId, canManageBilling = false, seatAccoun
   useEffect(() => {
     let live = true;
     authManager.api.getJoinCode().then((c) => { if (live) setCode(c); }).catch(() => {});
+    authManager.api.getAccessDefault(orgId).then((value) => { if (live) setNewMemberDefault(value); }).catch(() => {});
     return () => { live = false; };
-  }, []);
+  }, [orgId]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape" && !upgradeOpen) onClose(); };
@@ -160,6 +163,26 @@ export function InvitePeopleDialog({ orgId, canManageBilling = false, seatAccoun
           <div className="auth-error">{invalid.length === 1 ? `“${invalid[0]}” isn't an email address.` : `${invalid.length} entries aren't email addresses.`}</div>
         )}
         <div className="invite-people-fields">
+          <label className="invite-field invite-field-default">
+            <span className="invite-field-label">New members</span>
+            <MenuSelect
+              value={newMemberDefault?.mode ?? "private"}
+              options={[{ value: "open", label: "Can edit" }, { value: "readonly", label: "Can view" }, { value: "private", label: "No access" }]}
+              onSelect={(mode) => {
+                setSavingDefault(true);
+                void authManager.api.setAccessDefault(orgId, mode as TeamAccessMode)
+                  .then(setNewMemberDefault)
+                  .catch((e) => setError(e instanceof Error ? e.message : String(e)))
+                  .finally(() => setSavingDefault(false));
+              }}
+              ariaLabel="New members access"
+              triggerClassName="invite-field-trigger"
+              menuClassName="access-menu"
+              disabled={!newMemberDefault || savingDefault}
+            />
+          </label>
+        </div>
+        <div className="invite-people-fields">
           <label className="invite-field">
             <span className="invite-field-label">Role</span>
             <MenuSelect
@@ -188,7 +211,7 @@ export function InvitePeopleDialog({ orgId, canManageBilling = false, seatAccoun
           <div className="invite-people-code">
             <span className="muted">Or share the join code</span>
             <code className="invite-people-code-value">{code}</code>
-            <button type="button" className="link-btn invite-people-copy" onClick={() => void copy(code)}>Copy</button>
+            <button type="button" className="link-btn invite-people-copy" aria-label="Copy join code" onClick={() => void copy(code)}>Copy</button>
           </div>
         )}
         {error && <div className="auth-error">{error}</div>}
@@ -217,21 +240,21 @@ export function InvitePeopleDialog({ orgId, canManageBilling = false, seatAccoun
           const link = r.invitationId ? buildInviteLink(serverUrl, r.invitationId) : null;
           return (
             <div key={r.email} className={`invite-notice${r.error ? " is-warning" : ""}`}>
-              {r.emailed ? (
-                <span>Invitation emailed to {r.email}.</span>
-              ) : !r.invitationId ? (
+              {!r.invitationId ? (
                 <span>Couldn't invite {r.email}{r.error && !inviteLimitError(r.error) ? ` (${r.error})` : ""}.</span>
               ) : (
                 <>
                   <span>
-                    {r.error
-                      ? `Invitation created, but the email to ${r.email} couldn't be sent (${r.error}). Share this link instead:`
-                      : `Invitation created — this server doesn't send email, so share this link with ${r.email}:`}
+                    {r.emailed
+                      ? `Invitation emailed to ${r.email}. You can also share this link:`
+                      : r.error
+                        ? `Invitation created, but the email to ${r.email} couldn't be sent (${r.error}). Share this link instead:`
+                        : `Invitation created. Share this link with ${r.email}:`}
                   </span>
                   {link && (
                     <div className="invite-notice-link">
                       <code>{link}</code>
-                      <button className="link-btn" onClick={() => void copy(link)}>Copy</button>
+                      <button className="link-btn" aria-label={`Copy invitation link for ${r.email}`} onClick={() => void copy(link)}>Copy</button>
                     </div>
                   )}
                 </>

@@ -9514,6 +9514,9 @@ button.member-access-twisty:hover {
   grid-template-columns: 1fr 1fr;
   gap: var(--sp-3);
 }
+.invite-field-default {
+  grid-column: 1 / -1;
+}
 .invite-field {
   display: flex;
   align-items: center;
