@@ -127,6 +127,7 @@ import { isEditorNote } from "./lib/notePath";
 import { isNoteExt } from "./lib/formats";
 import { parseNoteLink } from "./lib/shareLink";
 import { parseInviteDeepLink } from "./lib/inviteLink";
+import { recordOnboardingStage, startOnboarding } from "./lib/onboardingTimer";
 import type { AccountLinkKind } from "./lib/accountLink";
 import { normalizeServerUrl } from "./lib/auth/serverChoice";
 import { readLastTab, writeLastTab, type RightPanelTab } from "./components/rightPanelTab";
@@ -2798,6 +2799,7 @@ export const useStore = create<AppStore>((set, get) => ({
   openInviteLink: async (url) => {
     const link = parseInviteDeepLink(url);
     if (!link) return;
+    startOnboarding();
 
     // 1. Wrong server? Park the invite and ask. A deep link must never repoint
     // this device on its own — that value decides where a password gets posted
@@ -3282,6 +3284,7 @@ export const useStore = create<AppStore>((set, get) => ({
     try {
       await authManager.signIn({ email, password });
       const session = await authManager.currentSession();
+      if (session) recordOnboardingStage("signed_in");
       set({ session, authStatus: session ? "signed-in" : "signed-out" });
       if (session) {
         await get().refreshVault();
@@ -3319,6 +3322,7 @@ export const useStore = create<AppStore>((set, get) => ({
     // must NOT flash a late error. See AuthDialog.googleSignIn.
     await authManager.signInWithGoogle();
     const session = await authManager.currentSession();
+    if (session) recordOnboardingStage("signed_in");
     set({ session, authStatus: session ? "signed-in" : "signed-out" });
     if (session) {
       await get().refreshVault();
@@ -3341,6 +3345,7 @@ export const useStore = create<AppStore>((set, get) => ({
     try {
       await authManager.signUp({ name, email, password });
       const session = await authManager.currentSession();
+      if (session) recordOnboardingStage("signed_in");
       set({ session, authStatus: session ? "signed-in" : "signed-out" });
       if (session) {
         await get().refreshVault();
@@ -4267,6 +4272,7 @@ export const useStore = create<AppStore>((set, get) => ({
     ++authInitGen;
     const inv = get().userInvitations.find((i) => i.id === invitationId);
     await authManager.api.acceptInvitation(invitationId);
+    recordOnboardingStage("invite_accepted");
     // Make the joined vault active through the switch path so it gets its
     // own folder and turns sync on. Accepting an invitation IS asking to work
     // in that vault — landing anywhere else is a bug.
@@ -4291,6 +4297,7 @@ export const useStore = create<AppStore>((set, get) => ({
     }
     if (orgId) {
       await get().setActiveOrganization(orgId);
+      recordOnboardingStage("vault_opened");
     }
     // The invite card is spent — leaving it up would offer to accept an
     // invitation that no longer exists. Only the CARD: the queue is cleared by
