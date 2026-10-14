@@ -35,7 +35,7 @@ const TOOL_CATALOG = TOOLS.map((t) => {
  * protected-resource metadata so they can discover the auth server and start
  * the OAuth flow instead of expecting a hand-pasted token.
  */
-const WWW_AUTHENTICATE = `Bearer resource_metadata="${config.betterAuthUrl}/.well-known/oauth-protected-resource", scope="notes:read notes:write"`;
+const WWW_AUTHENTICATE = `Bearer resource_metadata="${config.betterAuthUrl}/.well-known/oauth-protected-resource", scope="${MCP_SCOPES.join(" ")}"`;
 
 /**
  * The Model Context Protocol surface, part of the same server as everything

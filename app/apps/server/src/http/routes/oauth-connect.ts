@@ -162,7 +162,10 @@ oauthConnectRoutes.get("/oauth/consent", async (c) => {
   if (!grant) return c.html(page({ title: "Invalid request", body: "<h1>Invalid or expired consent</h1>" }), 400);
   const hasScopes = grant.scope.some((scope) => scope.startsWith("notes:") || scope.startsWith("access:"));
   const canRequest = (scope: string) => !hasScopes || grant.scope.includes(scope);
-  const defaultPreset = canRequest("notes:read") && canRequest("notes:write") ? "write" : "read";
+  const defaultPreset = canRequest("notes:read") && canRequest("notes:write") ? "write" : canRequest("notes:read") ? "read" : "write-only";
+  if (!canRequest("notes:read") && !canRequest("notes:write")) {
+    return c.html(page({ title: "Unsupported scope", body: "<h1>Request notes:read or notes:write to connect a vault.</h1>" }), 400);
+  }
   const app = await clientName(clientId);
   const { rows: vaults } = await pool.query<{ id: string; name: string; role: string }>(
     `SELECT o.id, o.name, m.role
@@ -210,10 +213,11 @@ oauthConnectRoutes.get("/oauth/consent", async (c) => {
       ${options}
       <fieldset class="scopes">
         <legend>Choose access</legend>
+        ${!canRequest("notes:read") && canRequest("notes:write") ? '<label><input type="radio" name="scope_preset" value="write-only" checked required /> Write content only / 쓰기만</label>' : ""}
         <label><input type="radio" name="scope_preset" value="read" required ${defaultPreset === "read" ? "checked" : ""} ${canRequest("notes:read") ? "" : "disabled"} /> Read only / 읽기만</label>
         <label><input type="radio" name="scope_preset" value="write" ${defaultPreset === "write" ? "checked" : ""} ${canRequest("notes:read") && canRequest("notes:write") ? "" : "disabled"} /> Read + write / 읽기+쓰기</label>
         <label><input type="radio" name="scope_preset" value="delete" ${canRequest("notes:read") && canRequest("notes:write") && canRequest("notes:delete") ? "" : "disabled"} /> + Delete and move / +삭제·이동</label>
-        <p>Only within your existing sharing permissions.</p>
+        <p>Only within your existing sharing permissions. Writing can replace or clear note content.</p>
       </fieldset>
       <div class="row">
         <button type="submit" name="decision" value="deny" class="ghost">Deny</button>
@@ -253,17 +257,30 @@ oauthConnectRoutes.post("/oauth/consent", async (c) => {
     return c.html(page({ title: "Invalid request", body: "<h1>Invalid or expired consent</h1>" }), 400);
   }
 
+  const previous = accept ? (await pool.query<{ organization_id: string; scopes: string | null; updated_at: string }>(
+    "SELECT organization_id, scopes, updated_at::text FROM mcp_oauth_vault WHERE client_id = $1 AND user_id = $2", [clientId, session.userId],
+  )).rows[0] : undefined;
+  let bindingVersion: string | undefined;
   try {
+    if (accept) bindingVersion = await setVaultBinding(clientId, session.userId, organizationId, undefined, scopes!);
     const result = (await auth.api.oAuthConsent({
       body: { accept, consent_code: consentCode },
       headers: c.req.raw.headers,
     })) as { redirectURI?: string };
     if (result?.redirectURI) {
-      if (accept) await setVaultBinding(clientId, session.userId, organizationId, undefined, scopes!);
       return c.redirect(withIssuer(result.redirectURI));
     }
     throw new Error("no redirect");
   } catch {
+    // Compensate only our binding generation; never overwrite a newer consent.
+    if (bindingVersion) {
+      if (previous) await pool.query(
+        `UPDATE mcp_oauth_vault SET organization_id = $4, scopes = $5, updated_at = $6::timestamptz
+          WHERE client_id = $1 AND user_id = $2 AND updated_at = $3::timestamptz`,
+        [clientId, session.userId, bindingVersion, previous.organization_id, previous.scopes, previous.updated_at],
+      );
+      else await pool.query("DELETE FROM mcp_oauth_vault WHERE client_id = $1 AND user_id = $2 AND updated_at = $3::timestamptz", [clientId, session.userId, bindingVersion]);
+    }
     return c.html(
       page({
         title: "Authorization failed",

@@ -23,7 +23,7 @@ export function validScopes(value: unknown): value is McpScope[] {
 }
 
 export function scopePreset(preset: unknown, manage: boolean): McpScope[] | null {
-  const scopes: McpScope[] = preset === "read" ? ["notes:read"]
+  const scopes: McpScope[] = preset === "write-only" ? ["notes:write"] : preset === "read" ? ["notes:read"]
     : preset === "write" ? [...DEFAULT_MCP_SCOPES]
     : preset === "delete" ? [...DEFAULT_MCP_SCOPES, "notes:delete"] : [];
   if (!scopes.length) return null;

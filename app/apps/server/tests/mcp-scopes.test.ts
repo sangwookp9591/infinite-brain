@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash, randomUUID } from "node:crypto";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "../src/http/app.js";
-import { authPool } from "../src/auth/auth.js";
+import { auth, authPool } from "../src/auth/auth.js";
 import { config } from "../src/config.js";
 import { pool } from "../src/db/pool.js";
 import { createMcpToken } from "../src/mcp/tokens.js";
@@ -225,6 +225,34 @@ describe("MCP connection scopes", () => {
     expect((await consent(started.code, started.clientId, "delete")).status).toBe(400);
   });
 
+  it("commits the approved binding before issuing consent and restores it on failure", async () => {
+    const { setVaultBinding } = await import("../src/mcp/oauth.js");
+    const started = await begin();
+    const other = await seedOrg("Prior", `prior-${randomUUID()}`);
+    await setVaultBinding(started.clientId, user.userId, other, undefined, ["notes:read"]);
+    const api = vi.spyOn(auth.api, "oAuthConsent").mockImplementationOnce(async () => {
+      const { rows } = await pool.query("SELECT organization_id, scopes FROM mcp_oauth_vault WHERE client_id = $1 AND user_id = $2", [started.clientId, user.userId]);
+      expect(rows[0]).toEqual({ organization_id: org, scopes: "notes:read notes:write" });
+      throw new Error("consent failure");
+    });
+    try {
+      expect((await consent(started.code, started.clientId)).status).toBe(400);
+      const { rows } = await pool.query("SELECT organization_id, scopes FROM mcp_oauth_vault WHERE client_id = $1 AND user_id = $2", [started.clientId, user.userId]);
+      expect(rows[0]).toEqual({ organization_id: other, scopes: "notes:read" });
+    } finally { api.mockRestore(); }
+  });
+  it("supports a write-only grant without expanding requested permissions", async () => {
+    const started = await begin("notes:write");
+    const page = await request(`/oauth/consent?client_id=${started.clientId}&consent_code=${started.code}`, { headers: sessionHeaders() });
+    expect(await page.text()).toContain('value="write-only" checked required');
+    const approved = await consent(started.code, started.clientId, "write-only");
+    expect(approved.status).toBe(302);
+    const code = new URL(approved.headers.get("location")!).searchParams.get("code")!;
+    const response = await exchange(started.clientId, started.verifier, code);
+    const body = await response.json() as { access_token: string };
+    expect(await names(body.access_token)).toContain("update_note");
+    expect(await names(body.access_token)).not.toContain("read_note");
+  });
   it("rejects a wrong resource at authorize and token, while legacy omitted resource still works", async () => {
     expect((await request("/api/auth/mcp/authorize?resource=https://other.example/api/mcp&prompt=consent")).status).toBe(400);
     const token = await request("/api/auth/mcp/token", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ resource: "https://other.example/api/mcp" }) });
@@ -234,7 +262,7 @@ describe("MCP connection scopes", () => {
     expect(repeated.status).toBe(400);
     expect((await connect("read")).access_token).toBeTruthy();
     const challenge = await rpc("bad-token");
-    expect(challenge.headers.get("www-authenticate")).toContain('scope="notes:read notes:write"');
+    expect(challenge.headers.get("www-authenticate")).toContain(`scope="${MCP_SCOPES.join(" ")}"`);
   });
 
   it("does not let another vault revoke a connection", async () => {

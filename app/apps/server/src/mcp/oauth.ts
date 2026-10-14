@@ -29,14 +29,16 @@ export async function setVaultBinding(
   organizationId: string,
   db: Queryable = defaultPool,
   scopes?: McpScope[],
-): Promise<void> {
-  await db.query(
+): Promise<string> {
+  const { rows } = await db.query<{ updated_at: string }>(
     `INSERT INTO mcp_oauth_vault (client_id, user_id, organization_id, scopes)
      VALUES ($1, $2, $3, $4)
      ON CONFLICT (client_id, user_id)
-       DO UPDATE SET organization_id = EXCLUDED.organization_id, scopes = EXCLUDED.scopes, updated_at = now()`,
+       DO UPDATE SET organization_id = EXCLUDED.organization_id, scopes = EXCLUDED.scopes, updated_at = clock_timestamp()
+     RETURNING updated_at::text`,
     [clientId, userId, organizationId, scopes?.join(" ") ?? null],
   );
+  return rows[0].updated_at;
 }
 
 /** The vault bound to (client, user), or null if none was recorded. */
