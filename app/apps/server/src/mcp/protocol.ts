@@ -1,3 +1,4 @@
+import { allowsTool } from "./scopes.js";
 import { inc } from "../metrics/sync-metrics.js";
 import { McpToolError, type McpContext } from "./service.js";
 import { TOOLS, TOOLS_BY_NAME } from "./tools.js";
@@ -98,7 +99,7 @@ export async function handleMcpMessage(
 
     case "tools/list":
       return ok(msg.id, {
-        tools: TOOLS.map((t) => ({
+        tools: TOOLS.filter((t) => allowsTool(ctx.auth.scopes, t)).map((t) => ({
           name: t.name,
           title: t.annotations.title,
           description: t.description,
@@ -115,6 +116,9 @@ export async function handleMcpMessage(
       const tool = TOOLS_BY_NAME.get(params.name);
       if (!tool) {
         return ok(msg.id, toolError(`Unknown tool: ${params.name}`));
+      }
+      if (!allowsTool(ctx.auth.scopes, tool)) {
+        return ok(msg.id, toolError("This connection has not approved this tool", "insufficient_scope"));
       }
       const args =
         params.arguments && typeof params.arguments === "object"

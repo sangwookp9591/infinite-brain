@@ -7,7 +7,7 @@ import { getSession } from "../session.js";
 import type { DocWriter } from "../../mcp/doc-writer.js";
 import { handleMcpMessage, type JsonRpcRequest } from "../../mcp/protocol.js";
 import type { McpContext } from "../../mcp/service.js";
-import { resolveOAuthMcpAuth } from "../../mcp/oauth.js";
+import { listOAuthConnections, revokeOAuthConnection, resolveOAuthMcpAuth } from "../../mcp/oauth.js";
 import {
   bumpMcpTokenUsage,
   createMcpToken,
@@ -15,23 +15,19 @@ import {
   revokeMcpToken,
   verifyMcpToken,
 } from "../../mcp/tokens.js";
+import { MCP_SCOPES, toolScope, validScopes } from "../../mcp/scopes.js";
 import { TOOLS } from "../../mcp/tools.js";
 
-/**
- * The tool catalog every connection can reach (identical for all tokens; the
- * per-file ACL gates what each call actually touches). Surfaced to the desktop
- * so a connection card can show "which tools it has access to" without the UI
- * hard-coding the list. `access` classifies each tool for a compact badge.
- */
-const TOOL_CATALOG = TOOLS.map((t) => ({
-  name: t.name,
-  description: t.description,
-  access: t.annotations?.destructiveHint
-    ? ("destructive" as const)
-    : t.annotations?.readOnlyHint
-      ? ("read" as const)
-      : ("write" as const),
-}));
+/** Tool annotations classify note reads/writes/deletes; file ACLs still apply. */
+const TOOL_CATALOG = TOOLS.map((t) => {
+  const scope = toolScope(t);
+  return {
+    name: t.name,
+    description: t.description,
+    scope,
+    access: scope === "notes:read" ? "read" : scope === "notes:delete" ? "destructive" : "write",
+  };
+});
 
 /**
  * Sent on every 401 from the MCP endpoint. Per the MCP auth spec (RFC 9728),
@@ -39,7 +35,7 @@ const TOOL_CATALOG = TOOLS.map((t) => ({
  * protected-resource metadata so they can discover the auth server and start
  * the OAuth flow instead of expecting a hand-pasted token.
  */
-const WWW_AUTHENTICATE = `Bearer resource_metadata="${config.betterAuthUrl}/.well-known/oauth-protected-resource"`;
+const WWW_AUTHENTICATE = `Bearer resource_metadata="${config.betterAuthUrl}/.well-known/oauth-protected-resource", scope="notes:read notes:write"`;
 
 /**
  * The Model Context Protocol surface, part of the same server as everything
@@ -219,8 +215,12 @@ export function createMcpRoutes(deps: McpDeps): Hono {
       if (res) responses.push(res);
     }
 
-    // Attribute real tool work to the connection (token-auth only; OAuth has no row).
+    // Attribute tool calls to either the minted token or OAuth vault binding.
     if (auth.tokenId) bumpMcpTokenUsage(auth.tokenId, toolCalls);
+    if (auth.oauthClientId && toolCalls) {
+      await pool.query("UPDATE mcp_oauth_vault SET use_count = use_count + $3 WHERE client_id = $1 AND user_id = $2",
+        [auth.oauthClientId, auth.userId, toolCalls]);
+    }
 
     if (responses.length === 0) return c.body(null, 202); // notifications only
     return c.json(Array.isArray(body) ? responses : responses[0]);
@@ -242,9 +242,36 @@ export function createMcpRoutes(deps: McpDeps): Hono {
       return c.json({ error: "Not a member of this vault" }, 403);
     }
     const tokens = await listMcpTokens({ userId: session.userId, organizationId: org });
-    // `tools` is the catalog every connection can reach — the desktop shows it
-    // as "tools it has access to" per connection.
+    // Clients filter this shared catalog by the token's approved scopes.
     return c.json({ tokens, tools: TOOL_CATALOG });
+  });
+
+  app.get("/mcp/connections", async (c) => {
+    const session = await getSession(c);
+    if (!session) return c.json({ error: "Authentication required" }, 401);
+    const org = await resolveActiveOrg(session.userId, session.activeOrganizationId);
+    if (!org) return c.json({ error: "No active vault" }, 400);
+    if (!(await orgRole(org, session.userId))) return c.json({ error: "Not a member of this vault" }, 403);
+    const identity = { userId: session.userId, organizationId: org };
+    const [tokens, oauth] = await Promise.all([listMcpTokens(identity), listOAuthConnections(identity)]);
+    return c.json({ tokens, connections: [...tokens.map((t) => ({ ...t, kind: "token" })), ...oauth], tools: TOOL_CATALOG });
+  });
+
+  app.delete("/mcp/connections/:kind/:id", async (c) => {
+    const session = await getSession(c);
+    if (!session) return c.json({ error: "Authentication required" }, 401);
+    const org = await resolveActiveOrg(session.userId, session.activeOrganizationId);
+    if (!org || !(await orgRole(org, session.userId))) return c.json({ error: "No active vault" }, 403);
+    const id = c.req.param("id");
+    const kind = c.req.param("kind");
+    let revoked = false;
+    if (kind === "oauth") revoked = await revokeOAuthConnection(session.userId, org, id);
+    else if (kind === "token") {
+      const tokens = await listMcpTokens({ userId: session.userId, organizationId: org });
+      if (tokens.some((t) => t.id === id)) revoked = await revokeMcpToken(session.userId, id);
+    } else return c.json({ error: "Unknown connection type" }, 400);
+    if (!revoked) return c.json({ error: "Connection not found" }, 404);
+    return c.json({ revoked: id });
   });
 
   app.post("/mcp/tokens", async (c) => {
@@ -252,14 +279,20 @@ export function createMcpRoutes(deps: McpDeps): Hono {
     if (!session) return c.json({ error: "Authentication required" }, 401);
     const org = await resolveActiveOrg(session.userId, session.activeOrganizationId);
     if (!org) return c.json({ error: "No active vault" }, 400);
-    if (!(await orgRole(org, session.userId))) {
+    const role = await orgRole(org, session.userId);
+    if (!role) {
       return c.json({ error: "Not a member of this vault" }, 403);
     }
-    const body = (await c.req.json().catch(() => ({}))) as { name?: unknown };
+    const body = (await c.req.json().catch(() => ({}))) as { name?: unknown; scopes?: unknown };
+    if (body.scopes !== undefined && !validScopes(body.scopes)) return c.json({ error: "Invalid scopes" }, 400);
+    const scopes = body.scopes ?? [...MCP_SCOPES];
+    if (body.scopes !== undefined && scopes.includes("access:manage") && role !== "owner" && role !== "admin") {
+      return c.json({ error: "Only owners/admins can approve access:manage" }, 403);
+    }
     const name =
       typeof body.name === "string" && body.name.trim() ? body.name.trim() : "MCP token";
     const { token, row } = await createMcpToken(
-      { userId: session.userId, organizationId: org },
+      { userId: session.userId, organizationId: org, scopes },
       name,
     );
     // The plaintext token is returned exactly once.

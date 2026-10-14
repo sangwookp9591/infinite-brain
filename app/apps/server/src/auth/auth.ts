@@ -3,6 +3,7 @@ import { APIError, createAuthMiddleware } from "better-auth/api";
 import { bearer, mcp, organization } from "better-auth/plugins";
 import { Algorithm, hash as argonHash, verify as argonVerify } from "@node-rs/argon2";
 import pg from "pg";
+import { MCP_SCOPES } from "../mcp/scopes.js";
 import { config } from "../config.js";
 import { BRAND_NAME } from "../brand.js";
 import { canAddMember, canCreateOrganization } from "../billing/entitlements.js";
@@ -44,6 +45,11 @@ import { announceInvitation, announceInvitationGone } from "../sync/user-events.
 // argon2id (OWASP default). @node-rs/argon2 already defaults to argon2id; we set
 // the algorithm explicitly to satisfy the spec's mandate.
 const argonOpts = { algorithm: Algorithm.Argon2id } as const;
+
+const mcpMetadata = {
+  scopes_supported: ["openid", "profile", "email", "offline_access", ...MCP_SCOPES],
+  authorization_response_iss_parameter_supported: true,
+};
 
 export const authPool = new pg.Pool({ connectionString: config.databaseUrl });
 
@@ -431,6 +437,8 @@ export const auth = betterAuth({
       resource: `${config.betterAuthUrl}/api/mcp`,
       loginPage: `${config.betterAuthUrl}/oauth/login`,
       oidcConfig: {
+        scopes: [...MCP_SCOPES],
+        metadata: mcpMetadata,
         // loginPage is duplicated here only to satisfy OIDCOptions' type; the
         // mcp plugin overrides it with the top-level `loginPage` above.
         loginPage: `${config.betterAuthUrl}/oauth/login`,

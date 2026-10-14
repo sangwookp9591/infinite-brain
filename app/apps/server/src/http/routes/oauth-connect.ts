@@ -4,7 +4,8 @@ import { auth, googleEnabled } from "../../auth/auth.js";
 import { config } from "../../config.js";
 import { orgRole } from "../../permissions/lookup.js";
 import { getSession } from "../session.js";
-import { setVaultBinding } from "../../mcp/oauth.js";
+import { getOAuthConsentGrant, prepareOAuthConsent, setVaultBinding } from "../../mcp/oauth.js";
+import { scopePreset } from "../../mcp/scopes.js";
 import { BRAND_NAME } from "../../brand.js";
 import { emailEnabled } from "../../email/mailer.js";
 import { esc, page } from "../pages.js";
@@ -157,6 +158,11 @@ oauthConnectRoutes.get("/oauth/consent", async (c) => {
     );
   }
 
+  const grant = await getOAuthConsentGrant(consentCode, clientId, session.userId);
+  if (!grant) return c.html(page({ title: "Invalid request", body: "<h1>Invalid or expired consent</h1>" }), 400);
+  const hasScopes = grant.scope.some((scope) => scope.startsWith("notes:") || scope.startsWith("access:"));
+  const canRequest = (scope: string) => !hasScopes || grant.scope.includes(scope);
+  const defaultPreset = canRequest("notes:read") && canRequest("notes:write") ? "write" : "read";
   const app = await clientName(clientId);
   const { rows: vaults } = await pool.query<{ id: string; name: string; role: string }>(
     `SELECT o.id, o.name, m.role
@@ -189,7 +195,8 @@ oauthConnectRoutes.get("/oauth/consent", async (c) => {
         <span class="ws-meta"><span class="ws-name">${esc(w.name)}</span><span class="ws-role">${esc(
           w.role,
         )}</span></span>
-      </label>`,
+      </label>${(w.role === "owner" || w.role === "admin") && canRequest("access:manage") ? `
+      <div class="manage"><label><input type="checkbox" name="manage_${esc(w.id)}" value="yes" /> Manage team access (access:manage)</label></div>` : ""}`,
     )
     .join("");
 
@@ -201,18 +208,20 @@ oauthConnectRoutes.get("/oauth/consent", async (c) => {
       <input type="hidden" name="client_id" value="${esc(clientId)}" />
       <label>Choose a vault to connect</label>
       ${options}
-      <div class="scopes"><ul>
-        <li>Read and search notes you can access</li>
-        <li>Create, edit and organize notes on your behalf</li>
-        <li>Only within your existing sharing permissions</li>
-      </ul></div>
+      <fieldset class="scopes">
+        <legend>Choose access</legend>
+        <label><input type="radio" name="scope_preset" value="read" required ${defaultPreset === "read" ? "checked" : ""} ${canRequest("notes:read") ? "" : "disabled"} /> Read only / 읽기만</label>
+        <label><input type="radio" name="scope_preset" value="write" ${defaultPreset === "write" ? "checked" : ""} ${canRequest("notes:read") && canRequest("notes:write") ? "" : "disabled"} /> Read + write / 읽기+쓰기</label>
+        <label><input type="radio" name="scope_preset" value="delete" ${canRequest("notes:read") && canRequest("notes:write") && canRequest("notes:delete") ? "" : "disabled"} /> + Delete and move / +삭제·이동</label>
+        <p>Only within your existing sharing permissions.</p>
+      </fieldset>
       <div class="row">
         <button type="submit" name="decision" value="deny" class="ghost">Deny</button>
         <button type="submit" name="decision" value="allow" class="primary">Allow access</button>
       </div>
     </form>
     <p class="foot">You can revoke this anytime in ${esc(BRAND_NAME)} vault settings.</p>`;
-  return c.html(page({ title: "Authorize", body }));
+  return c.html(page({ title: "Authorize", body, head: "<style>.manage{display:none}.ws:has(input:checked)+.manage{display:block}</style>" }));
 });
 
 oauthConnectRoutes.post("/oauth/consent", async (c) => {
@@ -234,19 +243,14 @@ oauthConnectRoutes.post("/oauth/consent", async (c) => {
     return c.html(page({ title: "Invalid request", body: `<h1>Invalid request</h1>` }), 400);
   }
 
-  // On Allow: bind the chosen vault BEFORE completing consent, and only if
-  // the user is really a member of it (the picker is user-supplied input).
-  if (accept) {
-    if (!organizationId || !(await orgRole(organizationId, session.userId))) {
-      return c.html(
-        page({
-          title: "Authorize",
-          body: `<h1>Pick a vault</h1><p class="sub">Select a vault you belong to, then try again.</p>`,
-        }),
-        400,
-      );
-    }
-    await setVaultBinding(clientId, session.userId, organizationId);
+  const role = organizationId ? await orgRole(organizationId, session.userId) : null;
+  const manage = form[`manage_${organizationId}`] === "yes";
+  const scopes = scopePreset(form.scope_preset ?? "write", manage);
+  if (accept && (!role || !scopes || (manage && role !== "owner" && role !== "admin"))) {
+    return c.html(page({ title: "Invalid access", body: "<h1>Invalid vault or access selection</h1>" }), 400);
+  }
+  if (!(await prepareOAuthConsent(consentCode, clientId, session.userId, accept ? scopes! : undefined))) {
+    return c.html(page({ title: "Invalid request", body: "<h1>Invalid or expired consent</h1>" }), 400);
   }
 
   try {
@@ -254,7 +258,10 @@ oauthConnectRoutes.post("/oauth/consent", async (c) => {
       body: { accept, consent_code: consentCode },
       headers: c.req.raw.headers,
     })) as { redirectURI?: string };
-    if (result?.redirectURI) return c.redirect(result.redirectURI);
+    if (result?.redirectURI) {
+      if (accept) await setVaultBinding(clientId, session.userId, organizationId, undefined, scopes!);
+      return c.redirect(withIssuer(result.redirectURI));
+    }
     throw new Error("no redirect");
   } catch {
     return c.html(
@@ -266,3 +273,49 @@ oauthConnectRoutes.post("/oauth/consent", async (c) => {
     );
   }
 });
+
+export function withIssuer(uri: string): string {
+  const url = new URL(uri);
+  if (url.searchParams.has("code") || url.searchParams.has("error")) url.searchParams.set("iss", config.betterAuthUrl);
+  return url.toString();
+}
+
+/** Add RFC 9207 issuer to callbacks without replacing Better Auth's validation. */
+export async function handleOAuthRequest(request: Request): Promise<Response> {
+  const url = new URL(request.url);
+  const mcp = url.pathname === "/api/auth/mcp/authorize" || url.pathname === "/api/auth/mcp/token";
+  if (mcp) {
+    let resources: unknown[] = url.searchParams.getAll("resource");
+    if (request.method === "POST") {
+      try {
+        if (request.headers.get("content-type")?.includes("application/json")) {
+          const body = await request.clone().json() as Record<string, unknown>;
+          if (body.resource !== undefined) resources.push(body.resource);
+        } else {
+          resources.push(...(await request.clone().formData()).getAll("resource"));
+        }
+      } catch { /* Better Auth reports malformed bodies. */ }
+    }
+    if (resources.some((resource) => resource !== `${config.betterAuthUrl}/api/mcp`)) {
+      return Response.json({ error: "invalid_target", error_description: "resource must identify this MCP endpoint" }, { status: 400 });
+    }
+  }
+  // TODO: Better Auth 1.6 discards resource in its grant/token schema; full
+  // audience binding and CIMD require provider support, not metadata claims.
+  const response = await auth.handler(request);
+  if (!mcp && url.pathname !== "/api/auth/oauth2/consent") return response;
+  const headers = new Headers(response.headers);
+  const location = headers.get("location");
+  if (location) {
+    headers.set("location", withIssuer(location));
+    return new Response(response.body, { status: response.status, headers });
+  }
+  if (url.pathname === "/api/auth/oauth2/consent" && response.ok) {
+    const body = await response.clone().json().catch(() => null) as { redirectURI?: unknown } | null;
+    if (typeof body?.redirectURI === "string") {
+      headers.delete("content-length");
+      return new Response(JSON.stringify({ ...body, redirectURI: withIssuer(body.redirectURI) }), { status: response.status, headers });
+    }
+  }
+  return response;
+}

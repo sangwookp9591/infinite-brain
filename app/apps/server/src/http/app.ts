@@ -1,3 +1,4 @@
+import { MCP_SCOPES } from "../mcp/scopes.js";
 import { Hono } from "hono";
 import { readFileSync } from "node:fs";
 import { NOTES_WITH_STATE_FEATURE } from "../registry/seed-on-register.js";
@@ -13,7 +14,7 @@ import {
   clientVersionPolicy,
   requireSupportedClient,
 } from "./client-version.js";
-import { oauthConnectRoutes } from "./routes/oauth-connect.js";
+import { handleOAuthRequest, oauthConnectRoutes } from "./routes/oauth-connect.js";
 import { accountPageRoutes } from "./routes/account-pages.js";
 import { invitationRoutes } from "./routes/invitations.js";
 import { createMemberShareRoutes, memberRoutes } from "./routes/members.js";
@@ -270,9 +271,16 @@ export function createApp(deps: AppDeps): Hono {
   // the origin as the authorization server, so an MCP client (e.g. a Claude
   // custom connector) fetches /.well-known/* from the origin, not /api/auth.
   // The helpers proxy to the Better Auth `mcp` plugin's own endpoints.
-  app.get("/.well-known/oauth-authorization-server", (c) =>
-    oAuthDiscoveryMetadata(auth)(c.req.raw),
-  );
+  const discovery = async (request: Request) => {
+    const response = await oAuthDiscoveryMetadata(auth)(request);
+    if (!response.ok) return response;
+    const metadata = await response.json() as Record<string, unknown>;
+    return new Response(JSON.stringify({ ...metadata,
+      scopes_supported: ["openid", "profile", "email", "offline_access", ...MCP_SCOPES],
+      authorization_response_iss_parameter_supported: true,
+    }), { status: response.status, headers: response.headers });
+  };
+  app.get("/.well-known/oauth-authorization-server", (c) => discovery(c.req.raw));
   app.get("/.well-known/oauth-protected-resource", (c) =>
     oAuthProtectedResourceMetadata(auth)(c.req.raw),
   );
@@ -284,7 +292,7 @@ export function createApp(deps: AppDeps): Hono {
     if (!res.ok) return res;
     const body = (await res.json()) as Record<string, unknown>;
     const resource = typeof body.resource === "string" ? body.resource : new URL(c.req.url).origin;
-    return new Response(JSON.stringify({ ...body, resource: `${resource.replace(/\/+$/, "")}/api/mcp` }), {
+    return new Response(JSON.stringify({ ...body, resource: resource.endsWith("/api/mcp") ? resource : `${resource.replace(/\/+$/, "")}/api/mcp` }), {
       status: res.status,
       headers: res.headers,
     });
@@ -292,9 +300,7 @@ export function createApp(deps: AppDeps): Hono {
   // Clients following the older MCP discovery treat the MCP URL as the issuer
   // and insert its path (RFC 8414 §3.1). Our issuer is the origin, so this is
   // the same document as the bare one.
-  app.get("/.well-known/oauth-authorization-server/api/mcp", (c) =>
-    oAuthDiscoveryMetadata(auth)(c.req.raw),
-  );
+  app.get("/.well-known/oauth-authorization-server/api/mcp", (c) => discovery(c.req.raw));
   // The human-facing login + consent screens of that OAuth flow.
   app.route("/", oauthConnectRoutes);
   // Account pages the emails link to: forgot/reset password, email verified,
@@ -312,7 +318,7 @@ export function createApp(deps: AppDeps): Hono {
   // Better Auth owns everything under /api/auth (web-standard Request handler).
   // Email sign-in passes the per-account failure throttle first (#237).
   app.post("/api/auth/sign-in/email", (c) => throttledSignIn(c.req.raw, auth.handler));
-  app.on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw));
+  app.on(["GET", "POST"], "/api/auth/*", (c) => handleOAuthRequest(c.req.raw));
 
   // Desktop Google sign-in handoff — deliberately NOT under /api/auth (the
   // catch-all above would shadow it). See desktop-oauth.ts.
