@@ -106,7 +106,7 @@ fn full_index_lifecycle_on_disk_vault() {
     assert_eq!(resolved.path, "Projects/Infinite Brain.md");
 
     // Backlinks: Infinite Brain is linked from Index + Daily → 2 backlinks.
-    let baalda = idx.get_note_meta("Projects/Infinite Brain.md").unwrap().unwrap();
+    let infinitebrain = idx.get_note_meta("Projects/Infinite Brain.md").unwrap().unwrap();
     let backlinks = idx.get_backlinks(&infinitebrain.id).unwrap();
     assert_eq!(backlinks.len(), 2, "baalda backlinks: {:?}", backlinks);
 

@@ -179,7 +179,7 @@ mod tests {
         assert_eq!(nest_vaults_root(&h.join("Desktop"), None), h.join("Desktop/Infinite Brain Vaults"));
         assert_eq!(nest_vaults_root(&h, None), h.join("Infinite Brain Vaults"));
         assert_eq!(nest_vaults_root(&h.join("Documents/Infinite Brain Vaults"), None), h.join("Documents/Infinite Brain Vaults"));
-        assert_eq!(nest_vaults_root(&h.join("Sync/baalda vaults"), None), h.join("Sync/baalda vaults"));
+        assert_eq!(nest_vaults_root(&h.join("Sync/infinite brain vaults"), None), h.join("Sync/infinite brain vaults"));
         // Re-picking the stored root (an older one not named "Infinite Brain Vaults") keeps it.
         let old = h.join("Infinite Brain");
         assert_eq!(nest_vaults_root(&old, Some(&old)), old);
