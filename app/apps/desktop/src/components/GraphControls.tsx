@@ -115,6 +115,7 @@ export function GraphControls(props: GraphControlsProps): React.JSX.Element {
             type="text"
             className="graph-control-search"
             placeholder="Filter by title…"
+            aria-label="Filter notes by title"
             value={settings.search}
             onChange={(e) => onChange({ search: e.target.value })}
           />
