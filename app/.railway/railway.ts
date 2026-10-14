@@ -124,7 +124,7 @@ const SERVER_ENV = [
   "EMAIL_TRANSPORT",
   // Inbox for the desktop's "Report a bug" dialog (needs email on); unset = off.
   "BUG_REPORT_EMAIL",
-  // Desktop URL scheme the server's pages bounce into; `infinitebrain-staging` on the
+  // Desktop URL scheme defaults to `infinitebrain`; use `infinitebrain-staging` on the
   // staging project so its links open the Staging app, not the released one.
   "DEEP_LINK_SCHEME",
   // Note Trash retention and the optional Infinite Brain Assistant module override.

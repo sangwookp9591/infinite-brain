@@ -56,9 +56,9 @@ function int(name: string, fallback: number): number {
 
 /** `DEEP_LINK_SCHEME`, validated to the shape a URL scheme may take. */
 function deepLinkScheme(): string {
-  const v = optional("DEEP_LINK_SCHEME") ?? "baalda";
+  const v = optional("DEEP_LINK_SCHEME") ?? "infinitebrain";
   if (!/^[a-z][a-z0-9+.-]{0,63}$/.test(v)) {
-    throw new Error(`DEEP_LINK_SCHEME must be a URL scheme like "baalda" (got "${v}")`);
+    throw new Error(`DEEP_LINK_SCHEME must be a URL scheme like "infinitebrain" (got "${v}")`);
   }
   return v;
 }
@@ -155,7 +155,7 @@ export const config = {
   /**
    * URL scheme of the desktop app this server's pages bounce into (`/open/*`,
    * `/invite/:id`, `/email-verified`, `/reset-password`). The released app
-   * registers `baalda`; the Staging app registers `infinitebrain-staging`, so a staging
+   * registers `infinitebrain`; the Staging app registers `infinitebrain-staging`, so a staging
    * server must say so or its links open whichever app grabbed `infinitebrain://` last
    * on a machine that has both installed.
    */

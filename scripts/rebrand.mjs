@@ -50,6 +50,11 @@ export const BRAND = {
 };
 
 const replacements = [
+  ['?? "baalda"', '?? "infinitebrain"'],
+  ["?? 'baalda'", "?? 'infinitebrain'"],
+  ["DEEP_LINK_SCHEME=baalda", "DEEP_LINK_SCHEME=infinitebrain"],
+  ['scheme like "baalda"', 'scheme like "infinitebrain"'],
+  ["`baalda`", "`infinitebrain`"],
   ["x-baalda-origin", "x-infinitebrain-origin"],
   ["x-baalda-version", "x-infinitebrain-version"],
   ["x-baalda-cursor", "x-infinitebrain-cursor"],

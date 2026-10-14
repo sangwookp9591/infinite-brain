@@ -37,3 +37,8 @@ test("Tauri production, development, and staging configs use the fork identity",
   assert.deepEqual(staging.plugins["deep-link"].desktop.schemes, [BRAND.stagingDeepLinkScheme]);
   assert.equal(staging.plugins.updater.endpoints[0], BRAND.stagingUpdaterEndpoint);
 });
+
+test("server scheme defaults and examples are rebranded", () => {
+  assert.equal(rebrandText('optional("DEEP_LINK_SCHEME") ?? "baalda"'), 'optional("DEEP_LINK_SCHEME") ?? "infinitebrain"');
+  assert.equal(rebrandText("DEEP_LINK_SCHEME=baalda"), "DEEP_LINK_SCHEME=infinitebrain");
+});
