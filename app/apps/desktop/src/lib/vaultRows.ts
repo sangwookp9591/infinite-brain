@@ -130,7 +130,7 @@ export function unboundRecents(
 
 /**
  * Shorten an absolute vault path for display by dropping the home directory —
- * `/Documents/Baalda Vaults/notes` rather than the full `/Users/…` prefix,
+ * `/Documents/Infinite Brain Vaults/notes` rather than the full `/Users/…` prefix,
  * which is the same on every line and tells you nothing. The full path stays
  * in the tooltip.
  *

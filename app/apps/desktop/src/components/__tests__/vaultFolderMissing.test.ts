@@ -108,7 +108,7 @@ describe("the Reset local copy confirm", () => {
     const copy = resetLocalCopyCopy([]);
     expect(copy.title).toBe("Reset this vault on this device?");
     expect(copy.body).toBe(
-      "Baalda permanently deletes this vault's folder on this device and downloads a fresh copy from the Remote Vault. Nothing changes for your team.",
+      "Infinite Brain permanently deletes this vault's folder on this device and downloads a fresh copy from the Remote Vault. Nothing changes for your team.",
     );
     expect(copy.warning).toBeNull();
     expect(copy.confirmLabel).toBe("Reset");

@@ -284,7 +284,7 @@ function tooLargeIssue(f: HealthContentFailure, ctx: IssueContext): HealthIssue 
 
   const meaning =
     cause === "history"
-      ? "Every edit Baalda has ever merged into this note is stored alongside it so " +
+      ? "Every edit Infinite Brain has ever merged into this note is stored alongside it so " +
         "offline changes can merge instead of overwriting. That stored history has " +
         "grown past what the Remote Vault accepts, so the note stops uploading. Your text " +
         "is intact on this device; only the record of past edits is oversized."
@@ -293,7 +293,7 @@ function tooLargeIssue(f: HealthContentFailure, ctx: IssueContext): HealthIssue 
           "usually because something large is pasted into the file rather than kept " +
           "beside it. The Remote Vault will not accept it at any size above the limit, so " +
           "it stays on this device only."
-        : "The Remote Vault refused this note because of its size. Baalda recorded the " +
+        : "The Remote Vault refused this note because of its size. Infinite Brain recorded the " +
           "refusal but not which half was oversized.";
 
   const fixes =
@@ -342,7 +342,7 @@ function tooLargeIssue(f: HealthContentFailure, ctx: IssueContext): HealthIssue 
     code: null,
     explanation: {
       meaning,
-      next: "Nothing — Baalda will not retry until the note is smaller.",
+      next: "Nothing — Infinite Brain will not retry until the note is smaller.",
       fixes,
       safety: "only-here",
     },
@@ -364,7 +364,7 @@ export function classifyUploadReason(reason: string): string | null {
   const r = reason.trim().toLowerCase();
   if (r.startsWith("open failed")) {
     return (
-      "Baalda could not open this note's local copy to send it, so nothing was " +
+      "Infinite Brain could not open this note's local copy to send it, so nothing was " +
       "uploaded. That is usually a file permission problem or a note the local " +
       "index and the disk disagree about."
     );
@@ -372,7 +372,7 @@ export function classifyUploadReason(reason: string): string | null {
   if (r.includes("did not respond to the initial sync")) {
     return (
       "The connection opened, but the Remote Vault never sent back what it already " +
-      "holds for this note. Baalda refuses to upload before it has read the " +
+      "holds for this note. Infinite Brain refuses to upload before it has read the " +
       "Remote Vault's copy, because uploading first is how two versions of a note end " +
       "up merged into one doubled note. Usually the Remote Vault was unreachable or " +
       "too slow."
@@ -381,7 +381,7 @@ export function classifyUploadReason(reason: string): string | null {
   if (r.includes("did not acknowledge the content")) {
     return (
       "The content was sent, but the Remote Vault never confirmed it had stored it. " +
-      "Baalda will not call a note synced on a guess, so it is reported as " +
+      "Infinite Brain will not call a note synced on a guess, so it is reported as " +
       "failed. A dropped connection or an overloaded Remote Vault both look like this."
     );
   }
@@ -411,7 +411,7 @@ export function classifyUploadReason(reason: string): string | null {
     return "The Remote Vault hit an error of its own while storing this note.";
   }
   if (r.includes("timed out") || r.includes("timeout")) {
-    return "The Remote Vault took too long to answer, so Baalda stopped waiting.";
+    return "The Remote Vault took too long to answer, so Infinite Brain stopped waiting.";
   }
   if (
     r.includes("failed to fetch") ||
@@ -424,7 +424,7 @@ export function classifyUploadReason(reason: string): string | null {
     return "This device could not reach the Remote Vault, so nothing was sent.";
   }
   if (r === "error") {
-    return "The connection Baalda opened for this note failed before the content landed.";
+    return "The connection Infinite Brain opened for this note failed before the content landed.";
   }
   return null;
 }
@@ -445,11 +445,11 @@ function uploadFailedIssue(f: HealthContentFailure): HealthIssue {
     code: null,
     explanation: {
       meaning:
-        (cause ? `${cause} ` : `Baalda recorded: ${capitalize(f.reason)} `) +
+        (cause ? `${cause} ` : `Infinite Brain recorded: ${capitalize(f.reason)} `) +
         "The note itself is safe: it is written to disk on this device exactly as " +
         "you left it. What failed is the copy going to the Remote Vault, so your other " +
         "devices and your teammates do not have it yet.",
-      next: "Baalda retries on the next connect, and again the next time the file changes.",
+      next: "Infinite Brain retries on the next connect, and again the next time the file changes.",
       fixes: [
         "Retry now if you want it to go straight away.",
         "Check you are online and that the Remote Vault is reachable.",
@@ -477,7 +477,7 @@ function noWriteAccessIssue(f: HealthContentFailure): HealthIssue {
     severity: "error",
     title: "Read-only sync needs review",
     why: saved
-      ? "The Remote Vault refused this note as read-only. Baalda kept a recovery copy before restoring the Remote Vault's version."
+      ? "The Remote Vault refused this note as read-only. Infinite Brain kept a recovery copy before restoring the Remote Vault's version."
       : "The Remote Vault refused this note as read-only. Check again to verify whether its current local and remote text already match.",
     remedies: ["retry", "open", "reveal", "export-copy", "copy-details"],
     code: null,
@@ -631,7 +631,7 @@ function registryIssue(f: HealthRegistryFailure, ctx: IssueContext): HealthIssue
           "New notes, new folders, renames and deletes sync through the vault's file list. " +
           "Loading that list from the Remote Vault keeps failing, so these changes are waiting " +
           "on this computer. Nothing was lost.",
-        next: "Baalda tries again on the next change, reconnect or retry, and this clears once it works.",
+        next: "Infinite Brain tries again on the next change, reconnect or retry, and this clears once it works.",
         fixes: [
           "Check your internet connection and the server address in Settings → Connection.",
           "If it keeps happening, send the details below to support.",
@@ -659,8 +659,8 @@ function registryIssue(f: HealthRegistryFailure, ctx: IssueContext): HealthIssue
       explanation: {
         meaning:
           "The Remote Vault has a note at this path, but on this computer the path is a " +
-          "symbolic link. Baalda never writes through a link, so the file it points at was left untouched.",
-        next: "Baalda checks again on the next sync pass.",
+          "symbolic link. Infinite Brain never writes through a link, so the file it points at was left untouched.",
+        next: "Infinite Brain checks again on the next sync pass.",
         fixes: [
           "Remove the link if the real file is already in the vault.",
           "Or move the real file to this path instead of linking to it.",
@@ -684,13 +684,13 @@ function registryIssue(f: HealthRegistryFailure, ctx: IssueContext): HealthIssue
       code: f.code,
       explanation: {
         meaning:
-          "Many notes disappeared from this folder in one go while Baalda was open. Baalda held " +
+          "Many notes disappeared from this folder in one go while Infinite Brain was open. Infinite Brain held " +
           "the change instead of syncing it, so the note is still on the Remote Vault and nothing " +
           "was deleted for your team.",
         next: "It comes back on this device when the notice at the top is dismissed or fades.",
         fixes: [
           "Choose Restore now to bring the notes back from the Remote Vault straight away.",
-          "To delete notes for everyone, delete them inside Baalda instead.",
+          "To delete notes for everyone, delete them inside Infinite Brain instead.",
         ],
         safety: "on-server",
       },
@@ -706,12 +706,12 @@ function registryIssue(f: HealthRegistryFailure, ctx: IssueContext): HealthIssue
       kind: "inbound-blocked",
       severity: "error",
       title: "Local change held for safety",
-      why: `Baalda kept this item on disk because a sync safety check did not pass. ${capitalize(f.reason)}`,
+      why: `Infinite Brain kept this item on disk because a sync safety check did not pass. ${capitalize(f.reason)}`,
       remedies: ["retry", "reveal", "copy-details"],
       code: f.code,
       explanation: {
         meaning: "A removal or move requested by the Remote Vault was not applied. This is a safety check, not a failure to write a downloaded note.",
-        next: "Baalda checks again on the next sync pass. Items stay here until the required checks pass.",
+        next: "Infinite Brain checks again on the next sync pass. Items stay here until the required checks pass.",
         fixes: ["Retry sync to check the current access and structure.", "If this repeats, copy the details for investigation before removing local files."],
         safety: "unknown",
       },
@@ -738,7 +738,7 @@ function registryIssue(f: HealthRegistryFailure, ctx: IssueContext): HealthIssue
           "last step: writing it into your vault folder on this device. The usual " +
           "causes are a folder this app is not allowed to write to, a filename this " +
           "operating system will not accept, or a path that has grown too long.",
-        next: "Baalda tries again on the next sync pass.",
+        next: "Infinite Brain tries again on the next sync pass.",
         fixes: [
           "Check the vault folder is writable and not inside a synced folder that " +
             "locks files (some cloud drives do).",
@@ -778,11 +778,11 @@ function registryIssue(f: HealthRegistryFailure, ctx: IssueContext): HealthIssue
       explanation: {
         meaning:
           "The Remote Vault no longer has this note. Either someone deleted it, or your " +
-          "access to it was withdrawn. Normally Baalda would remove the file here " +
+          "access to it was withdrawn. Normally Infinite Brain would remove the file here " +
           "to match — but this device never got confirmation that the Remote Vault had " +
           "this note's content, so the copy in front of you may be the only one " +
           "that exists. It was kept on purpose rather than deleted.",
-        next: "Nothing. Baalda will not remove it and will not re-upload it on its own.",
+        next: "Nothing. Infinite Brain will not remove it and will not re-upload it on its own.",
         fixes: [
           "Open it and decide whether you still want it.",
           "Put it back on the Remote Vault with Re-register, which creates a fresh note " +
@@ -832,7 +832,7 @@ function registryIssue(f: HealthRegistryFailure, ctx: IssueContext): HealthIssue
         (f.code === "no_write_access"
           ? ` Ask ${ownerPhrase(ctx.owner)} for edit access.`
           : ""),
-      next: "Baalda tries again on the next registry pass, which runs on every sync and whenever the folder changes.",
+      next: "Infinite Brain tries again on the next registry pass, which runs on every sync and whenever the folder changes.",
       fixes:
         f.code === "no_write_access"
           ? [
@@ -901,7 +901,7 @@ export function createRefusalIssue(g: CreateRefusalGroup, ctx: IssueContext): He
         : "This vault's top level is locked, so new notes can only be added inside a folder. " +
           "Nothing was lost — the files are safe on this computer.",
       next: access
-        ? "They sync by themselves as soon as your access changes. Baalda also checks again every 10 minutes."
+        ? "They sync by themselves as soon as your access changes. Infinite Brain also checks again every 10 minutes."
         : "They sync by themselves once they are inside a folder.",
       fixes: access
         ? [
@@ -1156,7 +1156,7 @@ function buildIssues(
           "Remote Vault is turning this vault down. That happens when the vault was set " +
           "to No access, when view access was withdrawn, or when " +
           `you were removed from it. Only ${ownerPhrase(owner)} can change that.`,
-        next: "Nothing until access is granted. Baalda keeps asking, and will resume on its own the moment the answer changes.",
+        next: "Nothing until access is granted. Infinite Brain keeps asking, and will resume on its own the moment the answer changes.",
         fixes: [
           `Ask ${ownerPhrase(owner)} to share this vault with you again.`,
           "If you expected to be removed, your local files are still here and still yours to keep or export.",
@@ -1216,7 +1216,7 @@ function buildIssues(
           meaning:
             "The Remote Vault does not know this note yet. That is normal for a note " +
             "created while you were offline, one added to the folder from outside " +
-            "Baalda a moment ago, or one whose registration is still queued behind " +
+            "Infinite Brain a moment ago, or one whose registration is still queued behind " +
             "others. Nothing has failed — it simply has not had its turn.",
           next: "Registers on the next sync pass, then its content uploads straight after.",
           fixes: [
@@ -1245,7 +1245,7 @@ function buildIssues(
 
 /**
  * The two link findings of the Rust checks (#216). Sync never follows a
- * symbolic link, so a link is a path the user can see in Finder that Baalda
+ * symbolic link, so a link is a path the user can see in Finder that Infinite Brain
  * treats as absent — a warning. Two mapped notes that resolve to ONE file are
  * worse: each identity egests over the same bytes, so the stale one can
  * overwrite the newer text — an error, one per file.
@@ -1263,12 +1263,12 @@ export function linkIssues(checks: VaultChecks | null | undefined): HealthIssue[
       kind: "linked-paths",
       severity: "warn",
       title: `${plural(linked.count, "linked path")} ${linked.count === 1 ? "is" : "are"} ignored by sync`,
-      why: "These paths are symbolic links. Baalda does not sync through links.",
+      why: "These paths are symbolic links. Infinite Brain does not sync through links.",
       remedies: ["copy-details"],
       code: "symlink",
       explanation: {
         meaning:
-          "A symbolic link points at another file or folder. Baalda syncs the real file " +
+          "A symbolic link points at another file or folder. Infinite Brain syncs the real file " +
           "or folder, never the link, so anything reached only through a link stays on this device.",
         next: "Nothing — links are always skipped.",
         fixes: [
@@ -1301,9 +1301,9 @@ export function linkIssues(checks: VaultChecks | null | undefined): HealthIssue[
       code: "shared-file",
       explanation: {
         meaning:
-          "Each of these paths is its own note in Baalda, but they are one file on this computer. " +
+          "Each of these paths is its own note in Infinite Brain, but they are one file on this computer. " +
           "Edits made through one can overwrite the other.",
-        next: "Nothing — Baalda will not pick which note is the real one.",
+        next: "Nothing — Infinite Brain will not pick which note is the real one.",
         fixes: [
           "Remove the symbolic link, so only the real path is left.",
           "If a copy of the note comes back at the linked path afterwards, delete that copy.",
@@ -1576,7 +1576,7 @@ export function safetyLabel(safety: HealthExplanation["safety"]): string {
     case "both":
       return "On this device and on the Remote Vault.";
     case "unknown":
-      return "Not known — Baalda cannot confirm right now where a copy exists.";
+      return "Not known — Infinite Brain cannot confirm right now where a copy exists.";
   }
 }
 
@@ -1615,7 +1615,7 @@ export function composeInspectionVerdict(i: InspectVerdictInput): string {
   if (!i.syncEnabled) return "This folder does not sync, so this note lives on this device only.";
   if (i.issue) return `${i.issue.title} — see Needs attention above for what to do.`;
   if (i.permanentFailure) {
-    return `Baalda stopped trying to sync this note: ${capitalize(i.permanentFailure)}`;
+    return `Infinite Brain stopped trying to sync this note: ${capitalize(i.permanentFailure)}`;
   }
   if (i.queued) return "Waiting to be pushed — it is in the queue for the next sync pass.";
   if (i.diverged) return "Has edits the Remote Vault may not have yet; the next sync pass will send them.";

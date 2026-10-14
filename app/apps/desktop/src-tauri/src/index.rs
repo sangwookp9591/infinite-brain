@@ -2159,7 +2159,7 @@ impl Index {
             })
         };
 
-        // 1. Full relative path (e.g. "Projects/Baalda").
+        // 1. Full relative path (e.g. "Projects/Infinite Brain").
         let full_md = format!("{target}.md");
         if let Some(hit) = self
             .conn

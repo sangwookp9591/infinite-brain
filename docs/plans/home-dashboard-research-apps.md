@@ -1,4 +1,4 @@
-# Research: pins, home/dashboard, interactive HTML views in note apps (for Baalda)
+# Research: pins, home/dashboard, interactive HTML views in note apps (for Infinite Brain)
 
 Date: 2026-10-11. Written here because plan mode blocked the requested scratchpad path
 (`.../scratchpad/research-apps.md`). Items marked **(unverified)** come from prior knowledge, not a page fetched in this session.
@@ -27,16 +27,16 @@ Date: 2026-10-11. Written here because plan mode blocked the requested scratchpa
 All the live-data examples converge on the same three parts:
 
 1. **Sandboxed frame.** An iframe with `sandbox="allow-scripts"` and no `allow-same-origin`, so the guest is an opaque origin and cannot touch the host's DOM, cookies or storage. A CSP `<meta>` delivered via `srcdoc` is parsed before guest code and cannot be removed by it [22]. Anthropic adds full-site process isolation [21]. Obsidian HTML viewers do the same, some keep scripts off until the user opts in [6].
-2. **A message bridge.** The page asks the host for data over `postMessage`. MCP Apps standardise this as JSON-RPC with an `initialize` handshake, `tools/call`, `resources/read`, host context, size-change notifications and teardown [20]. This is the closest ready-made spec for Baalda: the dashboard could call the same read tools Baalda's MCP already exposes (`search_notes`, `list_notes`, `read_note`).
+2. **A message bridge.** The page asks the host for data over `postMessage`. MCP Apps standardise this as JSON-RPC with an `initialize` handshake, `tools/call`, `resources/read`, host context, size-change notifications and teardown [20]. This is the closest ready-made spec for Infinite Brain: the dashboard could call the same read tools Infinite Brain's MCP already exposes (`search_notes`, `list_notes`, `read_note`).
 3. **A small read API over the existing index.** Trilium's `api.searchForNotes/getNote` [17], Dataview's `dv.pages()`, Datacore's `dc` hooks [5], Bases' `file.hasTag/file.inFolder/this` expressions [4], SiYuan's SQL endpoint [18], TiddlyWiki filters [19]. Data is queried at render time from the app's index; nothing is exported into the HTML.
 
 Two contrasting approaches:
 - **Declarative query file** (Bases `.base`, Dataview DQL): safe, AI-writable YAML, no code execution, limited UI.
-- **Code with an API** (Trilium render notes, DataviewJS, Datacore, SiYuan widgets): full interactivity, but Trilium/DataviewJS run unsandboxed in the app context. Baalda should take the code route but keep the Artifacts-style sandbox.
+- **Code with an API** (Trilium render notes, DataviewJS, Datacore, SiYuan widgets): full interactivity, but Trilium/DataviewJS run unsandboxed in the app context. Infinite Brain should take the code route but keep the Artifacts-style sandbox.
 
-Snapshot alternative: Observable Framework data loaders bake data into static files at build time [23]. That is the "duplicated JSON export" Baalda wants to avoid, though it is what most "Claude Code generated an HTML dashboard" workflows do today.
+Snapshot alternative: Observable Framework data loaders bake data into static files at build time [23]. That is the "duplicated JSON export" Infinite Brain wants to avoid, though it is what most "Claude Code generated an HTML dashboard" workflows do today.
 
-AI-native context: Karpathy's "LLM Wiki" gist made the pattern of an agent maintaining a markdown folder with its own index files popular in 2026 [24]. The Obsidian + Claude Code posts treat the vault as plain files the agent reads and rewrites [25]. None found ships an HTML dashboard that reads live vault data through a bridge; that gap is Baalda's opening.
+AI-native context: Karpathy's "LLM Wiki" gist made the pattern of an agent maintaining a markdown folder with its own index files popular in 2026 [24]. The Obsidian + Claude Code posts treat the vault as plain files the agent reads and rewrites [25]. None found ships an HTML dashboard that reads live vault data through a bridge; that gap is Infinite Brain's opening.
 
 ## 3. Templates (what community dashboards pull)
 
@@ -47,7 +47,7 @@ Common widgets in Obsidian dashboards [26][27]:
 - **Charts, stats, embeds, link cards** in a 12-column grid (the "Dashboards" plugin, with Bases/SQL sources) [26].
 - Homepage Dashboard plugin: discovers notes, tasks, journals and projects without a separate database [26].
 
-Suggested Baalda starters, each needing only list/search/tags/links/mtime/frontmatter:
+Suggested Infinite Brain starters, each needing only list/search/tags/links/mtime/frontmatter:
 1. **Daily home**: today's journal link, open tasks (`- [ ]`) across notes, recently edited, pinned notes.
 2. **Project tracker**: notes tagged `#project`, grouped by frontmatter `status`, with last-edited and backlink count.
 3. **Reading list**: notes tagged `#book` with `author/rating/status` frontmatter as cards.
@@ -59,7 +59,7 @@ Suggested Baalda starters, each needing only list/search/tags/links/mtime/frontm
 - **Obsidian** opens a Release Notes tab automatically after every update since v1.0.0; some users asked for an off switch [28].
 - **Notion** introduced Home as a sidebar entry with customisable sections [9].
 - General SaaS pattern: a badge or dot on the menu item, slide-in card, or a "What's new" entry in Cmd+K; announce without hijacking the task, with read/unread state [29].
-- Implication for Baalda: a one-time dot on the new Home button plus a pre-created starter dashboard is lighter than a modal.
+- Implication for Infinite Brain: a one-time dot on the new Home button plus a pre-created starter dashboard is lighter than a modal.
 
 ## Sources
 1. https://community.obsidian.md/plugins/homepage

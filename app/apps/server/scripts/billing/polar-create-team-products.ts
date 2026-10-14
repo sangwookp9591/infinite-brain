@@ -1,8 +1,8 @@
 /**
  * Create (or reuse) the two Polar SANDBOX seat-based products the Team plan needs.
  *
- *   "Baalda Team (monthly)"  recurring month, seat_based usd, one volume tier: min 3, no max, $10/seat
- *   "Baalda Team (yearly)"   recurring year,  seat_based usd, one volume tier: min 3, no max, $110/seat
+ *   "Infinite Brain Team (monthly)"  recurring month, seat_based usd, one volume tier: min 3, no max, $10/seat
+ *   "Infinite Brain Team (yearly)"   recurring year,  seat_based usd, one volume tier: min 3, no max, $110/seat
  *
  * Usage (from app/apps/server):
  *   pnpm exec tsx scripts/billing/polar-create-team-products.ts [--write-env]
@@ -57,7 +57,7 @@ const SPECS: Spec[] = [
   {
     envKey: "POLAR_PRODUCT_TEAM_MONTHLY_ID",
     body: {
-      name: "Baalda Team (monthly)",
+      name: "Infinite Brain Team (monthly)",
       description: "Per-seat Team plan, billed monthly. Minimum 3 seats.",
       recurringInterval: "month",
       prices: [
@@ -72,7 +72,7 @@ const SPECS: Spec[] = [
   {
     envKey: "POLAR_PRODUCT_TEAM_YEARLY_ID",
     body: {
-      name: "Baalda Team (yearly)",
+      name: "Infinite Brain Team (yearly)",
       description: "Per-seat Team plan, billed yearly. Minimum 3 seats.",
       recurringInterval: "year",
       prices: [

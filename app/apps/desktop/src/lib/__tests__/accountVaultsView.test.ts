@@ -84,7 +84,7 @@ describe("vaultSlugLabel", () => {
 
 describe("localCardLabels", () => {
   it("says Local alone when the folder is named like the vault", () => {
-    expect(localCardLabels({ name: "Notes", path: "/Users/a/Baalda/notes" })).toEqual({
+    expect(localCardLabels({ name: "Notes", path: "/Users/a/Infinite Brain/notes" })).toEqual({
       name: "Notes",
       meta: "Local",
       letter: "N",

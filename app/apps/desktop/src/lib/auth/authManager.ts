@@ -23,7 +23,7 @@ import type { SessionVerdict } from "../sync/sessionGuard";
  * CREATED it. Every build up to and including v0.1.8 was ad-hoc signed
  * (`Signature=adhoc`, no team), so the items those builds wrote are owned by an
  * identity the signed app cannot match. Reading one back does not fail quietly —
- * macOS puts up "Baalda wants to use your confidential information", asking for
+ * macOS puts up "Infinite Brain wants to use your confidential information", asking for
  * the user's *login keychain password*. That is indistinguishable from malware
  * to most people, and denying it is worse than it looks: writing the session
  * back needs the same ACL, so a denied user is asked to sign in on every launch,

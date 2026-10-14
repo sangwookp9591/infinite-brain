@@ -143,7 +143,7 @@ pub async fn google_oauth_await(state: State<'_, AppState>) -> AppResult<String>
 ///
 /// The frontend calls this only after the one-time code has been exchanged and
 /// its session token has been stored. Keeping the return inside this process
-/// avoids a `baalda://` handoff selecting a production/staging/dev install that
+/// avoids a `infinitebrain://` handoff selecting a production/staging/dev install that
 /// did not start the flow. Window-manager focus policy can still refuse the
 /// request, so every operation is best-effort and can never turn a completed
 /// sign-in into an authentication error.
@@ -165,14 +165,14 @@ pub fn google_oauth_return_to_app(app: tauri::AppHandle) {
     }
 }
 
-/// The Baalda wordmark (ink version — the "BAALDA" lettering with the neural
+/// The Infinite Brain wordmark (ink version — the "BAALDA" lettering with the neural
 /// connection forming the second A), pre-encoded as a `data:` URI so the loopback
 /// page is fully self-contained. Mirrors `apps/desktop/src/assets/
 /// baalda-wordmark-ink.png`; regenerate with `base64` if the asset changes.
 const WORDMARK: &str = include_str!("assets/wordmark-ink.datauri");
 
-/// Brand-styled CSS for the callback page — light baalda.com aesthetic: airy
-/// off-white canvas, soft signature-green glow, the Baalda wordmark as the mark,
+/// Brand-styled CSS for the callback page — light, airy
+/// off-white canvas, soft signature-green glow, the Infinite Brain wordmark as the mark,
 /// Radio Canada Big display + Inter body. The `__ACCENT__` token is swapped per
 /// outcome (green success, warm red failure). No user input is ever interpolated
 /// into the page.
@@ -197,7 +197,7 @@ font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 @keyframes rise{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.card{animation:none}}"#;
 
-/// Build the full callback page. `ok` selects the accent + status pip; the Baalda
+/// Build the full callback page. `ok` selects the accent + status pip; the Infinite Brain
 /// wordmark is the mark. `title`/`body` are static copy (never user-supplied), so
 /// the page is XSS-free by construction.
 fn render_page(ok: bool, title: &str, body: &str) -> String {
@@ -211,9 +211,9 @@ fn render_page(ok: bool, title: &str, body: &str) -> String {
     format!(
         "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">\
          <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\
-         <title>{title} · Baalda</title><style>{css}</style></head>\
+         <title>{title} · Infinite Brain</title><style>{css}</style></head>\
          <body><main class=\"card\">\
-         <img class=\"wordmark\" src=\"{wordmark}\" alt=\"Baalda\">\
+         <img class=\"wordmark\" src=\"{wordmark}\" alt=\"Infinite Brain\">\
          <h1><span class=\"pip\">{pip}</span>{title}</h1><p>{body}</p>\
          </main></body></html>",
         wordmark = WORDMARK,
@@ -278,7 +278,7 @@ fn handle_connection(mut stream: std::net::TcpStream, expected_state: &str) -> O
         (Some(c), _) => (
             true,
             "Finishing sign-in",
-            "Baalda is completing sign-in and will return to the front automatically. If it doesn't, open Baalda yourself.",
+            "Infinite Brain is completing sign-in and will return to the front automatically. If it doesn't, open Infinite Brain yourself.",
             Ok(c.clone()),
         ),
         (None, Some(e)) => (

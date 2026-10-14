@@ -41,7 +41,7 @@ export function useSwitcherRows(): VaultRow[] {
   const openPath = useStore((s) => s.vault?.path) ?? null;
   const recents = useRecentVaults();
   const allLocals = useLocalVaults();
-  // Owner rule 2026-10-07: only folders never synced to Baalda join the
+  // Owner rule 2026-10-07: only folders never synced to Infinite Brain join the
   // account's own vaults here. A folder stamped for a vault this account is
   // not in (signed out: ANY stamped folder) is hidden, and a folder whose
   // stamp has not settled waits, so no row appears and then vanishes. The

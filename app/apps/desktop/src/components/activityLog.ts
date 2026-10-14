@@ -30,7 +30,7 @@ export interface ActivityLogEntry {
 export const ACTIVITY_LOG_MAX_AGE_MS = 30 * 86_400_000;
 export const ACTIVITY_LOG_MAX = 500;
 export const ACTIVITY_LOG_MAX_PATHS = 50;
-const KEY_PREFIX = "baalda.activity.v1:";
+const KEY_PREFIX = "infinitebrain.activity.v1:";
 
 export const activityLogKey = (vaultRoot: string) => `${KEY_PREFIX}${vaultRoot}`;
 

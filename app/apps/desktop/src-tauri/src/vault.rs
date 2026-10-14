@@ -227,7 +227,7 @@ pub enum PathState {
 }
 
 impl PathState {
-    /// Identity checks treat a link exactly like nothing: Baalda never syncs
+    /// Identity checks treat a link exactly like nothing: Infinite Brain never syncs
     /// through links.
     pub fn is_absent(self) -> bool {
         matches!(self, PathState::Missing | PathState::Symlink)

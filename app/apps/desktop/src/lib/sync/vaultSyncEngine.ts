@@ -775,7 +775,7 @@ export class VaultSyncEngine {
     }
     // The socket may have closed while we were minting/building — guard the send.
     if (!this.ws) return;
-    // `origin` is this app instance's id, matching the `x-baalda-origin` header on
+    // `origin` is this app instance's id, matching the `x-infinitebrain-origin` header on
     // our registry writes, so the server won't ask us to re-pull our own changes.
     // Everything the server sends between this `hello` and its `ready` is
     // backfill, and that window is what the download progress measures.

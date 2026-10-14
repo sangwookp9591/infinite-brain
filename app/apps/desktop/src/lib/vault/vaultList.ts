@@ -1,7 +1,7 @@
 // Which list a recent local folder belongs in (owner decision 2026-10-07).
 //
 // Account Settings → Vaults lists ONLY the synced vaults this account is a
-// member of and the local folders that are not synced to Baalda at all. A
+// member of and the local folders that are not synced to Infinite Brain at all. A
 // folder whose own `.context/config.json` stamp names a vault this account is
 // NOT a member of (another account's, or another server's) is hidden there,
 // and the vault switcher labels it "Synced with another account".
@@ -96,7 +96,7 @@ export function filterRecentsForWelcome<T extends { path: string }>(
  * The local-folder rows a vault list may show (owner correction 2026-10-07),
  * for lists whose synced vaults come from the account itself (the switcher,
  * Account Settings → Vaults): only `local` folders, i.e. never synced to
- * Baalda at all. A `member` folder is that vault's synced row already, and a
+ * Infinite Brain at all. A `member` folder is that vault's synced row already, and a
  * `foreign` one (another account's vault; signed out, EVERY stamped folder,
  * since the member list is empty) is hidden. A folder whose class has not
  * settled is left out, so the caller can wait for `resolved` and never paint a

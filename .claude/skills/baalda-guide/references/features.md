@@ -1,30 +1,30 @@
-# Baalda features, in plain words
+# Infinite Brain features, in plain words
 
 Everything below is shipped unless marked **Planned**. Last verified against the repo on
 2026-09-03 (desktop v0.1.42). When in doubt about a detail, check `docs/STATUS.md`.
 
 ## The idea
 
-Baalda is a "team second brain". Three things that normally do not go together:
+Infinite Brain is a "team second brain". Three things that normally do not go together:
 
 1. **Your notes are plain Markdown files on your disk.** No database lock-in. Open them in any
-   editor, back them up, put them in Git. If Baalda vanished tomorrow you would still have
+   editor, back them up, put them in Git. If Infinite Brain vanished tomorrow you would still have
    everything.
 2. **Teammates edit the same notes live**, with visible cursors, like a shared Google Doc.
 3. **An AI can read and write the notes as a teammate**, either directly on disk or through a
    built-in connection point (MCP), and its edits merge with yours instead of overwriting.
 
 Why nobody else does this: file-based note apps (Obsidian, Logseq) are single-player, and
-collaborative apps (Notion, Confluence) keep your data in their database. Baalda bridges the two.
+collaborative apps (Notion, Confluence) keep your data in their database. Infinite Brain bridges the two.
 
 ## Vaults
 
 - A **vault** is a folder of notes. It can be **Local** (just a folder, no account), **Synced**
   (your folder, backed up and shared through a server) or **Remote** (a team vault you joined
-  that Baalda downloads to your machine).
+  that Infinite Brain downloads to your machine).
 - Create a new vault, open any existing folder, or type a path (even a whole drive) on the
   welcome screen. Recent vaults are listed for quick switching.
-- Default location for new vaults: `~/Documents/Baalda Vaults/<vault name>` (under Documents so it
+- Default location for new vaults: `~/Documents/Infinite Brain Vaults/<vault name>` (under Documents so it
   shows in the Finder/Explorer sidebar). Change the root in settings; existing vaults stay put.
   A `current` shortcut inside that root always points at the vault you have open, handy for
   scripts and AI tools.
@@ -60,7 +60,7 @@ collaborative apps (Notion, Confluence) keep your data in their database. Baalda
   ones you use most first, so a tag stays one tag instead of drifting into three spellings.
 - **Folding.** Hover the left edge of a heading, a list item, a callout or a code block and a
   small `>` appears; click it to fold that section away, leaving a `…` you can click to bring it
-  back. Baalda remembers what you folded per note, on this device, and restores it the next time
+  back. Infinite Brain remembers what you folded per note, on this device, and restores it the next time
   you open the note — even if lines were added above it in the meantime. What you fold is a way
   of reading; it never changes the file.
 - **Keyboard shortcuts** (beyond the usual ⌘N / ⌘W / ⌘F): ⌘B bold, ⌘I italic, ⌘E inline code,
@@ -90,7 +90,7 @@ collaborative apps (Notion, Confluence) keep your data in their database. Baalda
   selected, ready to type. Names with `/ \ : * ? " < > |`, a leading dot, or one already used by
   a neighbouring note are refused with a message, not quietly changed.
 - **Properties** are the block of information at the very top of a Markdown file (what other
-  apps call "frontmatter" or "YAML"). Baalda shows it as a small table you fill in, one row per
+  apps call "frontmatter" or "YAML"). Infinite Brain shows it as a small table you fill in, one row per
   property, with a type you can change from the icon at the left of the row:
   - **Text** · **List** · **Number** · **Checkbox** · **Date** · **Date & time** · **Tags** ·
     **Aliases**. Lists, tags and aliases show as chips: Enter adds one, × removes one.
@@ -99,7 +99,7 @@ collaborative apps (Notion, Confluence) keep your data in their database. Baalda
   note has none.
 - **It is still just text in your file.** Editing a property changes only that one value — your
   comments, your quoting, and the order of your keys are left exactly as they were.
-- **If Baalda cannot read the properties, it shows them as plain text and never rewrites them.**
+- **If Infinite Brain cannot read the properties, it shows them as plain text and never rewrites them.**
   That happens with nested structures, multi-line values, anchors, or a repeated key. You will
   see a short note saying so, and the text stays yours to fix by hand.
 - **Three display modes**, in Settings → Appearance → "Properties in document": *Visible* (the
@@ -126,23 +126,23 @@ collaborative apps (Notion, Confluence) keep your data in their database. Baalda
   already up to date before you click them.
 - What travels: binary change records, never whole files. Each device rebuilds its own `.md`.
 - Deleting a note's file on disk (in Finder, with `rm`, or by asking an AI to tidy the vault) while
-  Baalda is open does remove it for the team, a couple of seconds later. No extra local copy is
+  Infinite Brain is open does remove it for the team, a couple of seconds later. No extra local copy is
   kept; the note goes to the vault's Trash for 30 days, where anyone who can edit it can Restore it.
 - Deleted notes stay in the vault's Trash for 30 days. Edits a teammate made offline still reach a
   deleted note when they reconnect, so nothing typed offline is lost, and a restored note carries
   them. After 30 days the note is removed for good.
   A delete of a note this device had not finished uploading is never propagated. Removing a lot at
-  once (more than a fifth of the vault) makes Baalda ask first: "Delete them for everyone, or
+  once (more than a fifth of the vault) makes Infinite Brain ask first: "Delete them for everyone, or
   restore them?" If the whole vault folder disappeared (an unmounted drive), nothing is deleted and
   nothing is asked. Deleting inside the app is still the clearest way to remove a note everywhere.
 - Renames and moves are tracked by a stable note id, so nothing forks or loses its history — that
   holds for a rename, or a whole folder moved in Finder or by a script, done outside the app
-  while Baalda is open.
-- If the vault folder itself is renamed or moved while Baalda is open, syncing that vault stops and
+  while Infinite Brain is open.
+- If the vault folder itself is renamed or moved while Infinite Brain is open, syncing that vault stops and
   a banner asks you to reopen it from its new location.
-- Structure changes made while Baalda is closed (renames, moves, deletes) are not applied: edits
-  are merged, but old names come back and new names appear as new notes. Baalda shows a notice
-  when it sees this. Keep Baalda open when reorganising. The same applies to other files
+- Structure changes made while Infinite Brain is closed (renames, moves, deletes) are not applied: edits
+  are merged, but old names come back and new names appear as new notes. Infinite Brain shows a notice
+  when it sees this. Keep Infinite Brain open when reorganising. The same applies to other files
   (PDFs, images, office documents). When a teammate deletes a file, a stale copy on another
   device is moved into that vault's local trash (`.context/trash`) instead of being uploaded
   again.
@@ -155,7 +155,7 @@ collaborative apps (Notion, Confluence) keep your data in their database. Baalda
   Can view everything or No access), or hand out the **join code** shown in the same dialog. The
   access you pick is applied the moment they accept. Invitations expire after 7 days.
   On a server with email configured (the managed service does) the invitee gets an email with a
-  link that opens Baalda on the invitation; otherwise Members and access shows a **Copy link** for each
+  link that opens Infinite Brain on the invitation; otherwise Members and access shows a **Copy link** for each
   pending invitation to paste into chat. Someone invited by email who uses the join code instead
   ends up in exactly the same place, with the invited role.
 - **Roles**: owner, admin, member.
@@ -196,7 +196,7 @@ collaborative apps (Notion, Confluence) keep your data in their database. Baalda
 - Not built (deferred): comments and @mentions, activity feed, audit log, sub-teams or custom
   roles, SSO/SAML, two-factor authentication, mandatory email verification.
 - **Public links**: turn a note into a read-only web page anyone with the link can read. Revoke
-  any time. **Private links** (`baalda://note/...`) open a note for teammates who already have
+  any time. **Private links** (`infinitebrain://note/...`) open a note for teammates who already have
   access; they carry no access themselves.
 - **Push-to-talk voice**: hold a button to talk to everyone in the vault. Nothing is recorded.
 - **Members and access** (Vault Settings): one page for people and permissions. Everyone sees the
@@ -211,7 +211,7 @@ collaborative apps (Notion, Confluence) keep your data in their database. Baalda
   device. **List** has a checkbox per folder; each change applies straight away.
   **Board** (the default) sets the same access with Can edit, Can view and No access columns: drag folders and
   notes between columns, set everything at once, or reset to the vault default. Moving one item
-  applies straight away and a short message says what changed. Baalda only asks "are you sure?" when a
+  applies straight away and a short message says what changed. Infinite Brain only asks "are you sure?" when a
   change would take access away completely (No access, Remove all, or Reset to the vault default);
   giving someone view or edit access never asks. Access levels have colours everywhere: green for
   Can edit, amber for Can view, grey for No access. **Activity** lists what
@@ -231,13 +231,13 @@ collaborative apps (Notion, Confluence) keep your data in their database. Baalda
 ## AI
 
 - **Local agents** (Claude Code, Codex, any script): nothing to configure. They edit the `.md`
-  files; Baalda notices and syncs. A human typing and an AI rewriting the same note merge.
+  files; Infinite Brain notices and syncs. A human typing and an AI rewriting the same note merge.
 - **Remote / cloud agents** use the built-in **MCP endpoint** (`<server>/api/mcp`). Create a
   token in Vault Settings → MCP. Tools: list vaults, list/create/move/delete folders,
   list/read/search/create/update/append/edit/move/delete notes, list files and read their
   extracted text, and move/rename/delete files. The AI is bound by the exact same
   permissions as the person who created the token. If a note is open, you watch the AI type.
-- Bring your own model. Baalda ships no AI model, no API key requirement, and no chat panel.
+- Bring your own model. Infinite Brain ships no AI model, no API key requirement, and no chat panel.
 - **Planned**: in-app AI panel, AI as a live collaboration peer, richer vector search.
 
 ## Accounts and security
@@ -253,43 +253,43 @@ collaborative apps (Notion, Confluence) keep your data in their database. Baalda
   search, public links and MCP, so it is **not end-to-end encrypted**. At-rest encryption is
   **Planned**.
 - The macOS app is Developer-ID signed and notarized. Auto-updates on every platform are
-  verified with Baalda's own signing key.
+  verified with Infinite Brain's own signing key.
 - No analytics or tracking in the app or on the site.
 
 ## Platforms and install
 
 - macOS (Apple Silicon + Intel, `.dmg`), Windows 10/11 (`.exe`, `.msi`), Linux x64 (`.AppImage`,
   `.deb`, `.rpm`). Windows/Linux builds are unsigned, so first launch may warn.
-- **Updates itself.** Baalda checks for a new version, downloads it, installs it and restarts
+- **Updates itself.** Infinite Brain checks for a new version, downloads it, installs it and restarts
   at a quiet moment, on every platform — nothing to click. Every update is verified with
-  Baalda's own signing key. On the first launch after one, a short **What's New** shows a
+  Infinite Brain's own signing key. On the first launch after one, a short **What's New** shows a
   handful of points covering only the version you just received. To see your version or check
   for an update by hand, open Account settings → About (Vault settings no longer has an Updates
   tab). Releases at
-  github.com/naveedharri/baalda/releases.
+  github.com/sangwookp9591/infinite-brain/releases.
 - **Planned**: iOS app. No web app for editing (public links are read-only pages).
 
 ## Hosting options
 
 - **Local only**: no server, no account, free.
 - **Self-hosted server**: Node + Postgres. Railway one-click, Docker Compose, or plain Docker.
-  The app asks which server before your first sign-in ("Baalda managed service" or "Your own
+  The app asks which server before your first sign-in ("Infinite Brain managed service" or "Your own
   server"), and the URL is checked against the server before it is saved; you can change it
   later in Account settings → Connection. An account belongs to one server, so the sign-in form
   always names the server it is signing you in to. Admins can send teammates one link,
   `https://<your-server>/open/connect`, which opens the app and asks them to confirm.
   No plan limits, and Google sign-in / billing are optional switches.
-- **Managed server** at `https://api.baalda.com` (the default in the app). Same code as the
+- **Managed server** at `http://localhost:3010` (the default in the app). Same code as the
   self-hosted server. It is live and self-serve today: a team can sign up, sync and collaborate
   right away on Free, and upgrade to Team from inside the app when they need more people.
   - **Free**: $0, forever. Up to 2 people on the account (the owner counts) and 1 synced vault.
     Notes and storage are unlimited for normal use. The AI connection point (MCP) is included.
     Images and files embedded in notes (the `attachments/` folder) sync; standalone files in the
-    sidebar and the Baalda Assistant need Team. Accounts that already had more vaults or members
+    sidebar and the Infinite Brain Assistant need Team. Accounts that already had more vaults or members
     keep what they have; they just cannot add more without Team.
   - **Team**: $10 per seat per month, or $110 per seat per year, with a minimum of 3 seats.
     Every person is a seat, the owner included. One Team account covers every vault the owner
-    has, with unlimited vaults and unlimited people within the seats bought. Adds the Baalda
+    has, with unlimited vaults and unlimited people within the seats bought. Adds the Infinite Brain
     Assistant and standalone file sync.
   - **How to buy**: Account Settings → Plan & Billing (the owner). Pick the number of seats and
     monthly or yearly; checkout opens in the browser. Seats can be added later from the same
@@ -302,13 +302,13 @@ collaborative apps (Notion, Confluence) keep your data in their database. Baalda
   - **Existing subscribers** keep the price they pay today, shown in the app as a legacy
     discount; seats added later cost the regular price.
   - **Cancel or change the plan** from Plan & Billing (the owner).
-  - The public pricing page (baalda.com/pricing) may lag behind the app. The app is the source:
+  - The public pricing page (infinitebrain.com/pricing) may lag behind the app. The app is the source:
     tell people they can upgrade in-app now, and use the pricing page to talk to the team first.
 
 ## Licensing
 
 Apache 2.0 for the whole app and core server. The `ee/` folder is reserved for future
-commercial-only features under a separate licence. The Baalda name is a trademark; forks must
+commercial-only features under a separate licence. The Infinite Brain name is a trademark; forks must
 use their own name.
 
 ## Roadmap (Planned, not shipped)

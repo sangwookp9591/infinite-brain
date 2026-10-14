@@ -70,15 +70,15 @@ async function drain(user: TestUser, vault: string, sessionId: string, maxBytes?
     if (maxBytes) qs.set("maxBytes", String(maxBytes));
     const res = await req(user, "GET", `/api/vaults/${vault}/bootstrap/${sessionId}?${qs}`);
     expect(res.status).toBe(200);
-    expect(res.headers.get("Content-Type")).toBe("application/vnd.baalda.bootstrap");
+    expect(res.headers.get("Content-Type")).toBe("application/vnd.infinitebrain.bootstrap");
     pages++;
     const docs = decodeBootstrapPage(gunzipSync(Buffer.from(await res.arrayBuffer())));
-    expect(Number(res.headers.get("X-Baalda-Docs"))).toBe(docs.length);
+    expect(Number(res.headers.get("X-InfiniteBrain-Docs"))).toBe(docs.length);
     for (const d of docs) {
       order.push(d.docId);
       seen.set(d.docId, { relPath: d.relPath, text: textOf(d.update) });
     }
-    cursor = res.headers.get("X-Baalda-Cursor");
+    cursor = res.headers.get("X-InfiniteBrain-Cursor");
   }
   return { seen, order, pages };
 }
@@ -160,7 +160,7 @@ describe("bootstrap download", () => {
     const session = await startSession(owner);
     const first = await req(owner, "GET", `/api/vaults/${vault}/bootstrap/${session.sessionId}?cursor=0&maxBytes=200`);
     const firstDocs = decodeBootstrapPage(gunzipSync(Buffer.from(await first.arrayBuffer())));
-    const cursor = first.headers.get("X-Baalda-Cursor");
+    const cursor = first.headers.get("X-InfiniteBrain-Cursor");
     expect(cursor).not.toBeNull();
     const rest = await drain(owner, vault, session.sessionId, 200);
     // `drain` starts at 0 again, so the union — not the concatenation — is what

@@ -410,7 +410,7 @@ describe("VaultRegistry.reconcile — seeding and materialization rules", () => 
   it("a mapped path that is a symbolic link is neither materialized nor treated as present", async () => {
     vi.mocked(ipc.writeNoteIfMissing).mockImplementation(async (path: string) => {
       if (path === "Old/n.md") {
-        throw new Error("This path is a symbolic link. Baalda does not sync through links. (Old/n.md)");
+        throw new Error("This path is a symbolic link. Infinite Brain does not sync through links. (Old/n.md)");
       }
       return true;
     });
@@ -444,7 +444,7 @@ describe("VaultRegistry.reconcile — seeding and materialization rules", () => 
         kind: "inbound-blocked",
         path: "Old/n.md",
         docId: "old-id",
-        reason: "This path is a symbolic link. Baalda does not sync through links.",
+        reason: "This path is a symbolic link. Infinite Brain does not sync through links.",
         code: "symlink",
       },
     ]);

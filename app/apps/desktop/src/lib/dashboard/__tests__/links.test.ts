@@ -15,7 +15,7 @@ describe("portable linked dashboards", () => {
   });
   it("accepts HTTPS websites while refusing executable URLs and credentials", () => {
     for (const url of ["javascript:alert(1)", "file:///etc/passwd", "http://example.com", "https://user:pass@example.com"]) expect(() => internetShortcut(url)).toThrow();
-    expect(internetShortcut("https://baalda.com")).toContain("URL=https://baalda.com/");
+    expect(internetShortcut("https://example.com")).toContain("URL=https://example.com/");
     expect(knownFrameBlocked("https://example.workspace.chatgpt.site")).toBe(false);
     expect(knownFrameBlocked("https://claude.ai/artifact/abc")).toBe(true);
   });

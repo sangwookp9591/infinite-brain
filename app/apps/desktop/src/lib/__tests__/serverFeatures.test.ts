@@ -7,8 +7,7 @@ import {
   parseHealth,
 } from "../serverFeatures";
 
-const SELF = "https://baalda.example.org";
-const MANAGED = "https://api.baalda.com";
+const SELF = "https://example.org";
 
 describe("parseHealth", () => {
   it("tolerates the old { ok: true } shape", () => {
@@ -31,7 +30,7 @@ describe("parseHealth", () => {
     });
   });
 
-  it("answers null for anything that is not a Baalda health body", () => {
+  it("answers null for anything that is not an Infinite Brain health body", () => {
     expect(parseHealth(null)).toBeNull();
     expect(parseHealth("ok")).toBeNull();
     expect(parseHealth({ ok: false })).toBeNull();
@@ -69,24 +68,23 @@ describe("backendStatus", () => {
 
   it("fetch failure / unreachable (null) ⇒ not outdated", () => {
     expect(backendStatus(null, SELF)).toEqual({ outdated: false, missing: [], managed: false });
-    expect(backendStatus(null, MANAGED)).toEqual({ outdated: false, missing: [], managed: true });
+    expect(backendStatus(null, "http://localhost:3010")).toEqual({
+      outdated: false,
+      missing: [],
+      managed: false,
+    });
   });
 
-  it("flags the managed host", () => {
-    expect(backendStatus(parseHealth({ ok: true }), MANAGED).managed).toBe(true);
+  it("does not flag a managed host until this fork has one", () => {
+    expect(backendStatus(parseHealth({ ok: true }), "http://localhost:3010").managed).toBe(false);
   });
 });
 
 describe("isManagedServer", () => {
-  it("matches api.baalda.com only, case-insensitively, any path or port", () => {
-    expect(isManagedServer("https://api.baalda.com")).toBe(true);
-    expect(isManagedServer("https://API.Baalda.com/")).toBe(true);
-    expect(isManagedServer(" https://api.baalda.com/sync ")).toBe(true);
-    expect(isManagedServer("https://api.baalda.com.evil.example")).toBe(false);
-    expect(isManagedServer("https://staging.baalda.com")).toBe(false);
-    expect(isManagedServer("http://localhost:3010")).toBe(false);
-    expect(isManagedServer("not a url")).toBe(false);
-    expect(isManagedServer("")).toBe(false);
+  it("returns false until a managed endpoint is configured", () => {
+    for (const url of ["http://localhost:3010", "https://example.com", "not a url", ""]) {
+      expect(isManagedServer(url)).toBe(false);
+    }
     expect(isManagedServer(null)).toBe(false);
   });
 });

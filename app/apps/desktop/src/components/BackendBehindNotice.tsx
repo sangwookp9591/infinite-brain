@@ -9,9 +9,9 @@ import {
 
 /** Copy for the two audiences: a self-hoster can act, a managed user waits. */
 export const BACKEND_BEHIND_SELF_HOSTED =
-  "Your Baalda backend is behind this app. Update your self-hosted server (your Railway Baalda backend project) to keep sync working.";
+  "Your Infinite Brain backend is behind this app. Update your self-hosted server (your Railway Infinite Brain backend project) to keep sync working.";
 export const BACKEND_BEHIND_MANAGED =
-  "The Baalda server is being updated. Some sync features are paused until it finishes.";
+  "The Infinite Brain server is being updated. Some sync features are paused until it finishes.";
 
 /**
  * Polls `/health` and mirrors the verdict into the store. Re-runs when the

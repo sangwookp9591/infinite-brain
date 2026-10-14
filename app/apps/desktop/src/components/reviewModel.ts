@@ -137,7 +137,7 @@ export const reviewState = {
 // pruned, and the rest are re-recorded into the report so the banner and the
 // review tab show them again.
 
-export const REVIEW_STORAGE_PREFIX = "baalda.review.v1:";
+export const REVIEW_STORAGE_PREFIX = "infinitebrain.review.v1:";
 
 export interface PersistedReview {
   items: ReconcileItem[];

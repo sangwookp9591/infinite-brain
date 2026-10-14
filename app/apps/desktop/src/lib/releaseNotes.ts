@@ -94,7 +94,7 @@ export function releaseNoteLines(
  * `docs/RELEASE_NOTES.md` was left empty: "ship it, but don't announce it". It
  * is an HTML comment, so the GitHub release page never shows it.
  */
-export const SILENT_RELEASE_MARKER = "<!-- baalda:silent -->";
+export const SILENT_RELEASE_MARKER = "<!-- infinitebrain:silent -->";
 
 /**
  * Should the What's New modal stay closed for this update? Yes when the

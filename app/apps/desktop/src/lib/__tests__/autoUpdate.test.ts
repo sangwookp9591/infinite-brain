@@ -413,7 +413,7 @@ describe("a server refusing this build (client_outdated, #251)", () => {
 
   it("links the manual download to the releases page", async () => {
     const updater = await loadUpdater();
-    expect(updater.RELEASES_PAGE_URL).toMatch(/^https:\/\/github\.com\/naveedharri\/baalda\/releases\//);
+    expect(updater.RELEASES_PAGE_URL).toMatch(/^https:\/\/github\.com\/sangwookp9591\/infinite-brain\/releases\//);
   });
 });
 

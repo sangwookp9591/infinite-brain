@@ -295,7 +295,7 @@ export type SeatRefusal =
   | { code: "seat_limit_reached"; seats: number; used: number; pending: number; message: string };
 
 export function seatLimitMessage(seats: number): string {
-  return `All ${seats} seats are in use. The vault owner can add seats in Baalda (update the app if you don't see Billing).`;
+  return `All ${seats} seats are in use. The vault owner can add seats in Infinite Brain (update the app if you don't see Billing).`;
 }
 
 /** Is this address (or user) already one of the account's people? */

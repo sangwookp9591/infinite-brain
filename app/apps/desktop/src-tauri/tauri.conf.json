@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Baalda",
+  "productName": "Infinite Brain",
   "version": "0.1.83",
-  "identifier": "com.baalda.context",
+  "identifier": "com.infinitebrain.app",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Baalda",
+        "title": "Infinite Brain",
         "hiddenTitle": true,
         "titleBarStyle": "Overlay",
         "trafficLightPosition": { "x": 16, "y": 28 },
@@ -25,7 +25,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost https://asset.localhost data: blob: https:; media-src 'self' asset: http://asset.localhost https://asset.localhost blob:; frame-src 'self' asset: http://asset.localhost https://asset.localhost baalda-view: http://baalda-view.localhost https://baalda-view.localhost https:; connect-src 'self' ipc: http://ipc.localhost https: wss: http://localhost:* ws://localhost:* http://127.0.0.1:* ws://127.0.0.1:*; font-src 'self' data:; object-src 'none'; base-uri 'self'",
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost https://asset.localhost data: blob: https:; media-src 'self' asset: http://asset.localhost https://asset.localhost blob:; frame-src 'self' asset: http://asset.localhost https://asset.localhost infinitebrain-view: http://infinitebrain-view.localhost https://infinitebrain-view.localhost https:; connect-src 'self' ipc: http://ipc.localhost https: wss: http://localhost:* ws://localhost:* http://127.0.0.1:* ws://127.0.0.1:*; font-src 'self' data:; object-src 'none'; base-uri 'self'",
       "assetProtocol": {
         "enable": true,
         "scope": []
@@ -51,14 +51,14 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEM5M0Y3Mjg4RDcwQTlGMTUKUldRVm53clhpSEkveVZqVG1Ub2RwYzBHR0toeGFRYVIrandud3VLY1BYc0ZIUTRTTGFpdHRRMnQK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDdEMjM4OTM2NzZDMkYyM0MKUldRODhzSjJOb2tqZmV5VG9aNVdiUXRpV0U2VHczS1pEUkl3VXZkUHhLaEtqRHVNRkFEcExwSG0K",
       "endpoints": [
-        "https://github.com/naveedharri/baalda/releases/latest/download/latest.json"
+        "https://github.com/sangwookp9591/infinite-brain/releases/latest/download/latest.json"
       ]
     },
     "deep-link": {
       "desktop": {
-        "schemes": ["baalda"]
+        "schemes": ["infinitebrain"]
       }
     }
   }

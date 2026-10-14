@@ -1,5 +1,5 @@
 <!--
-Thanks for contributing to Baalda! By submitting this PR you agree your
+Thanks for contributing to Infinite Brain! By submitting this PR you agree your
 contribution is licensed under the project's Apache-2.0 license (no CLA required).
 -->
 

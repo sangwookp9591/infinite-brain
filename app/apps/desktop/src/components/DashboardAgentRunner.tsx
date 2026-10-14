@@ -220,7 +220,7 @@ export function DashboardAgentRunner({ path, expectedEpoch, launchTarget, showLa
                 : <div className="dashboard-agent-output-empty">
                   <span className="dashboard-agent-empty-glyph"><AgentGlyph agent={selectedAgent} /></span>
                   <strong>{phase === "idle" ? installed?.runnable ? "Make this dashboard yours" : `Set up ${agentName}` : running ? `${agentName} is on it` : phase === "success" ? "Your update is complete" : phase === "stopped" ? "Update stopped" : "The update couldn't finish"}</strong>
-                  <p>{phase === "idle" ? installed?.runnable ? "Describe a change below. Your agent uses your vault’s context to update this dashboard." : detectionError ? "Could not check installed agents. Restart Baalda and try again." : agents === null ? "Checking your installed agents…" : installed?.detail ?? `Install ${agentName} and sign in from your terminal, then restart Baalda.` : running ? "Its response will appear here as it works." : "No written response was returned."}</p>
+                  <p>{phase === "idle" ? installed?.runnable ? "Describe a change below. Your agent uses your vault’s context to update this dashboard." : detectionError ? "Could not check installed agents. Restart Infinite Brain and try again." : agents === null ? "Checking your installed agents…" : installed?.detail ?? `Install ${agentName} and sign in from your terminal, then restart Infinite Brain.` : running ? "Its response will appear here as it works." : "No written response was returned."}</p>
                   {running && <span className="dashboard-agent-thinking" aria-hidden="true"><i /><i /><i /></span>}
                 </div>}
             </div>
@@ -242,18 +242,18 @@ export function DashboardAgentRunner({ path, expectedEpoch, launchTarget, showLa
   </>;
 }
 
-/** Account Settings → About. Detection is cached until Baalda restarts. */
+/** Account Settings → About. Detection is cached until Infinite Brain restarts. */
 export function InstalledAgentsStatus() {
   const { agents, error } = useInstalledAgents();
   return <div className="installed-agents-status">
     <h3>Installed agents</h3>
-    {error ? <p>Detection is unavailable in this preview.</p> : agents === null ? <p>Checking installed clients…</p> : !agents.length ? <p>No supported CLI detected. Install Claude or Codex and sign in from your terminal, then restart Baalda.</p> : agents.map((agent) =>
+    {error ? <p>Detection is unavailable in this preview.</p> : agents === null ? <p>Checking installed clients…</p> : !agents.length ? <p>No supported CLI detected. Install Claude or Codex and sign in from your terminal, then restart Infinite Brain.</p> : agents.map((agent) =>
       <div key={agent.agent} className="installed-agent-row">
         <strong>{agent.agent === "codex" ? "Codex" : "Claude"}</strong>
         <span>{agent.version} · {agent.signedIn ? "Signed in" : "Sign-in not confirmed"}</span>
         <p>{agent.detail}</p>
       </div>,
     )}
-    <p className="dashboard-agent-description">Detection refreshes when Baalda restarts. Dashboard updates use the selected CLI and its signed-in account.</p>
+    <p className="dashboard-agent-description">Detection refreshes when Infinite Brain restarts. Dashboard updates use the selected CLI and its signed-in account.</p>
   </div>;
 }

@@ -30,8 +30,8 @@ localStorage.setItem(
 const vault = {
   path:
     params.get("platform") === "macos"
-      ? "/Users/kamil/Baalda/Product team"
-      : "C:\\Users\\Kamil\\Baalda\\Product team",
+      ? "/Users/kamil/Infinite Brain/Product team"
+      : "C:\\Users\\Kamil\\Infinite Brain\\Product team",
   name: "Product team",
   epoch: 1,
 };
@@ -42,7 +42,7 @@ localStorage.setItem(
   JSON.stringify({ "preview-org": vault.path }),
 );
 const note =
-  "Three bets this quarter: a simpler Share dialog, a calmer sidebar, and faster sync. Each one has an owner and a date. See [Pricing experiments](Specs/Pricing%20experiments.md) for the numbers behind the second.\n\n## Getting started\n\n- [How Baalda works](https://baalda.com)\n- [Keyboard shortcuts](https://baalda.com)\n- [Collaborating with your team](https://baalda.com)\n";
+  "Three bets this quarter: a simpler Share dialog, a calmer sidebar, and faster sync. Each one has an owner and a date. See [Pricing experiments](Specs/Pricing%20experiments.md) for the numbers behind the second.\n\n## Getting started\n\n- [How Infinite Brain works](https://github.com/sangwookp9591/infinite-brain)\n- [Keyboard shortcuts](https://github.com/sangwookp9591/infinite-brain)\n- [Collaborating with your team](https://github.com/sangwookp9591/infinite-brain)\n";
 const item = (path: string, isDir = false, children?: any[]) => ({
   id: path,
   path,
@@ -101,8 +101,8 @@ mockIPC(
         return [{ ...vault, openedAt: Date.now() }];
       case "get_vaults_root":
         return params.get("platform") === "macos"
-          ? "/Users/kamil/Baalda"
-          : "C:\\Users\\Kamil\\Baalda";
+          ? "/Users/kamil/Infinite Brain"
+          : "C:\\Users\\Kamil\\Infinite Brain";
       case "get_server_url":
         return "http://preview.invalid";
       case "list_tree":

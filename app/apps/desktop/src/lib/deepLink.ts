@@ -1,4 +1,4 @@
-// Receiving end of the app's `baalda://` links: a shared note (`shareLink.ts`),
+// Receiving end of the app's `infinitebrain://` links: a shared note (`shareLink.ts`),
 // a server address (`connectLink.ts`), a team invitation (`inviteLink.ts`), the
 // account hand-offs after email confirmation / password reset
 // (`accountLink.ts`) and the checkout success hand-off (`billingLink.ts`).
@@ -60,7 +60,7 @@ async function handle(urls: string[] | null): Promise<void> {
     }
     return;
   }
-  // Account hand-offs (`baalda://verified`, `baalda://signin`) carry no data;
+  // Account hand-offs (`infinitebrain://verified`, `infinitebrain://signin`) carry no data;
   // they just tell the app to look at its session again.
   for (const url of urls ?? []) {
     const kind = parseAccountLink(url);
@@ -101,7 +101,7 @@ async function handle(urls: string[] | null): Promise<void> {
 }
 
 /**
- * Start listening for `baalda://` opens. Returns a cleanup for React's effect.
+ * Start listening for `infinitebrain://` opens. Returns a cleanup for React's effect.
  *
  * The plugin's subscribe is async, so the unsubscribe can only be applied once
  * it resolves; `cancelled` covers the case where the effect is torn down first

@@ -1,4 +1,4 @@
-// Invite links that point the app at a server — `baalda://connect?server=<url>`.
+// Invite links that point the app at a server — `infinitebrain://connect?server=<url>`.
 //
 // The companion to `shareLink.ts`, and the same shape of problem one step
 // earlier: a self-hosting admin can tell their team the server URL in prose and
@@ -31,9 +31,9 @@ export function buildConnectLink(serverUrl: string): string | null {
 /**
  * Read the server URL out of a connect link, or `null` if it isn't one.
  *
- * Both foldings are accepted: `baalda://connect?…` parses with host "connect"
+ * Both foldings are accepted: `infinitebrain://connect?…` parses with host "connect"
  * and an empty path, while some platforms hand the URL over as
- * `baalda:///connect?…` with the host folded into the path instead. Depending
+ * `infinitebrain:///connect?…` with the host folded into the path instead. Depending
  * on which one a given OS produces is how a link works on one platform and
  * silently does nothing on another.
  */

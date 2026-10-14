@@ -163,7 +163,7 @@ export async function runClosedAppEdits(deps: ClosedAppEditsDeps): Promise<Close
   });
   const shaOf = new Map(drift.map((d) => [d.docId, d.sha256]));
   deps.log?.(
-    `${drift.length} ${drift.length === 1 ? "note" : "notes"} changed on disk while Baalda was closed; checking ${push.length}`,
+    `${drift.length} ${drift.length === 1 ? "note" : "notes"} changed on disk while Infinite Brain was closed; checking ${push.length}`,
   );
   const size = Math.max(1, deps.chunkSize ?? CLOSED_EDIT_CHUNK);
   let chunks = 0;

@@ -1,5 +1,5 @@
 /**
- * The ONLY place the brand lives in server code; durable identifiers use the
- * permanent codename "context" — see docs/BRANDING.md.
+ * The single source for product identity shown in server-generated pages.
  */
-export const BRAND_NAME = "Baalda";
+export const BRAND_NAME = "Infinite Brain";
+export const BRAND_URL = "https://github.com/sangwookp9591/infinite-brain";

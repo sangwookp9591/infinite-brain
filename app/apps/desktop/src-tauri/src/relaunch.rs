@@ -1,6 +1,6 @@
 //! Background relaunch after a silent update.
 //!
-//! An auto-update restarts the app. When Baalda was behind another app at that
+//! An auto-update restarts the app. When Infinite Brain was behind another app at that
 //! moment, the new process must not jump in front of it — but on macOS tao
 //! calls `activateIgnoringOtherApps(true)` in `applicationDidFinishLaunching`,
 //! and Tauri exposes no way to turn that off. So the old process leaves a

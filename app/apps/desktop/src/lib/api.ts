@@ -9,8 +9,8 @@ import { APP_CHANNEL, APP_SCHEME } from "./deepLinkScheme";
 
 /**
  * Which build starts a checkout, so the server's success page hands back to
- * THIS app (`baalda-staging://` for Staging, `baalda-dev://` for a dev build)
- * rather than whichever app owns `baalda://`. The server allow-lists the scheme.
+ * THIS app (`infinitebrain-staging://` for Staging, `infinitebrain-dev://` for a dev build)
+ * rather than whichever app owns `infinitebrain://`. The server allow-lists the scheme.
  */
 const CHECKOUT_CLIENT = { channel: APP_CHANNEL, scheme: APP_SCHEME } as const;
 import type { AssistantProvider, HousekeeperStatus, HousekeeperScan, HousekeeperEdit, DiagnosticInput, DiagnosticReview } from "./housekeeper";
@@ -29,7 +29,7 @@ import type {
   NoteDeleteResult,
 } from "./sync/bulkTypes";
 
-// The ONE typed HTTP boundary to the Baalda server. Every `fetch`
+// The ONE typed HTTP boundary to the Infinite Brain server. Every `fetch`
 // to the server lives here — auth, organizations, registry, shares, sync-token.
 // Components and managers call these methods; they never call `fetch` directly.
 // (Tauri `invoke` lives in `ipc.ts`; these two are the only I/O boundaries.)
@@ -49,15 +49,10 @@ import type {
 // closed) plus "Load failed" on sign-in. Since self-hosting means the server URL
 // is not knowable at build time, connect-src allows `https:`/`wss:` broadly;
 // `script-src 'self'` stays the actual XSS boundary.
-// The server a build points at before the user picks one in Settings. Dev talks
-// to the local stack; a RELEASE build has to default to a server that actually
-// exists for the person who just installed it — defaulting release builds to
-// localhost:3010 meant a fresh install could only ever report "Load failed"
-// until the user found Server settings on their own. Self-hosters override it
-// there; nothing here is pinned at build time beyond this default.
-/** The managed instance. Named so the dev guard below can recognise it. */
-export const PRODUCTION_SERVER_URL = "https://api.baalda.com";
 export const LOCAL_SERVER_URL = "http://localhost:3010";
+// TODO(M0): point this at the hosted server after its endpoint is decided.
+/** Self-hosted default until Infinite Brain has a hosted endpoint. */
+export const PRODUCTION_SERVER_URL = LOCAL_SERVER_URL;
 
 /** Explicit opt-out of everything below: `VITE_SERVER_URL=… pnpm dev:desktop`. */
 const ENV_SERVER_URL =
@@ -78,8 +73,7 @@ export const DEFAULT_SERVER_URL =
  * a local Postgres that was never being used.
  *
  * Any OTHER persisted URL is honoured, so switching a dev build to a staging or
- * LAN server from Settings still works; only "dev build → production" is
- * refused, and `VITE_SERVER_URL=https://api.baalda.com` re-enables even that.
+ * LAN server from Settings still works; only the release default is refused.
  */
 export function resolveServerUrl(persisted: string | null | undefined): string {
   const clean = stripTrailingSlash((persisted ?? "").trim());
@@ -1307,12 +1301,12 @@ export const REGISTRY_PAGE_LIMIT = 1000;
  *
  * The two kinds are worth telling apart because they send the user to different
  * places: `unreachable` means look at the URL, the DNS and whether the box is
- * up; `not-baalda` means the address is fine and something else is answering on
+ * up; `not-infinitebrain` means the address is fine and something else is answering on
  * it (a proxy's default page, a different app, the wrong port).
  */
 export class ServerCheckError extends Error {
   constructor(
-    public kind: "unreachable" | "not-baalda",
+    public kind: "unreachable" | "not-infinitebrain",
     message: string,
   ) {
     super(message);
@@ -1360,7 +1354,7 @@ export const REGISTRY_LISTING_TIMEOUT_MS = 120_000;
 // and Settings → Connection say the same words for the same failure.
 const UNREACHABLE_MESSAGE =
   "Couldn't reach that server. Check the URL and that it's online.";
-const NOT_BAALDA_MESSAGE = "That address answered, but it isn't a Baalda server.";
+const NOT_INFINITE_BRAIN_MESSAGE = "That address answered, but it isn't an Infinite Brain server.";
 
 type FetchLike = typeof fetch;
 
@@ -1374,7 +1368,7 @@ export interface ApiClientOptions {
 }
 
 /** Header carrying `ApiClient.getClientId()`; mirrors the server's ORIGIN_HEADER. */
-export const ORIGIN_HEADER = "x-baalda-origin";
+export const ORIGIN_HEADER = "x-infinitebrain-origin";
 
 /** A random opaque id for one app instance. */
 function newClientId(): string {
@@ -1454,7 +1448,7 @@ export class ApiClient {
   }
 
   /**
-   * This app instance's opaque id. Sent on every HTTP call as `x-baalda-origin`
+   * This app instance's opaque id. Sent on every HTTP call as `x-infinitebrain-origin`
    * and in the vault channel's `hello`, so the server can tell "this structural
    * change came from the client I'm about to notify" and skip the round trip —
    * a reconcile no longer makes the server tell its author to re-pull its own
@@ -1591,7 +1585,7 @@ export class ApiClient {
   // ---- Reachability -------------------------------------------------------
 
   /**
-   * Is there a Baalda server at this address? Resolves if yes, throws a
+   * Is there an Infinite Brain server at this address? Resolves if yes, throws a
    * {@link ServerCheckError} if no.
    *
    * The ONE probe in this file that fails OPEN, and it exists precisely because
@@ -1632,24 +1626,24 @@ export class ApiClient {
     // A 5xx is the server's own, or a proxy in front of it saying the app is
     // down — "check it's online" is the useful thing to say, not "wrong app".
     if (res.status >= 500) throw new ServerCheckError("unreachable", UNREACHABLE_MESSAGE);
-    if (!res.ok) throw new ServerCheckError("not-baalda", NOT_BAALDA_MESSAGE);
+    if (!res.ok) throw new ServerCheckError("not-infinitebrain", NOT_INFINITE_BRAIN_MESSAGE);
     const text = await res.text();
     let parsed: unknown;
     try {
       parsed = JSON.parse(text);
     } catch {
       // 200 with HTML: something is there, it just isn't us.
-      throw new ServerCheckError("not-baalda", NOT_BAALDA_MESSAGE);
+      throw new ServerCheckError("not-infinitebrain", NOT_INFINITE_BRAIN_MESSAGE);
     }
     const ok =
       !!parsed && typeof parsed === "object" && (parsed as { ok?: unknown }).ok === true;
-    if (!ok) throw new ServerCheckError("not-baalda", NOT_BAALDA_MESSAGE);
+    if (!ok) throw new ServerCheckError("not-infinitebrain", NOT_INFINITE_BRAIN_MESSAGE);
   }
 
   /**
    * The server's `/health` body, parsed for capability detection
    * (`lib/serverFeatures.ts`). Unlike {@link health} this never throws:
-   * any failure (timeout, network, 5xx, non-JSON, not Baalda) answers null,
+   * any failure (timeout, network, 5xx, non-JSON, not Infinite Brain) answers null,
    * which the caller reads as "unknown", never as "outdated".
    */
   async getHealth(baseUrl?: string): Promise<ServerHealth | null> {
@@ -2987,7 +2981,7 @@ export class ApiClient {
         retryAfterMs(res.headers.get("retry-after")),
       );
     }
-    const cursorHeader = res.headers.get("x-baalda-cursor");
+    const cursorHeader = res.headers.get("x-infinitebrain-cursor");
     let body = new Uint8Array(await res.arrayBuffer());
     if (body[0] === 0x1f && body[1] === 0x8b) {
       const inflated = new Blob([body]).stream().pipeThrough(new DecompressionStream("gzip"));
@@ -2997,8 +2991,8 @@ export class ApiClient {
       bytes: body,
       // ABSENT means drained. An empty string is not a cursor either.
       nextCursor: cursorHeader ? Number(cursorHeader) : null,
-      docs: numHeader(res.headers.get("x-baalda-docs")),
-      uncompressedBytes: numHeader(res.headers.get("x-baalda-bytes")),
+      docs: numHeader(res.headers.get("x-infinitebrain-docs")),
+      uncompressedBytes: numHeader(res.headers.get("x-infinitebrain-bytes")),
     };
   }
 

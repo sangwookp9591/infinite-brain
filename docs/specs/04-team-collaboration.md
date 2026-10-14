@@ -1,7 +1,7 @@
 ---
 type: spec
 spec: 04-team-collaboration
-product: Baalda
+product: Infinite Brain
 status: draft-v1
 date: 2026-07-13
 tags: [baalda, spec, auth, teams, permissions, presence]
@@ -12,7 +12,7 @@ tags: [baalda, spec, auth, teams, permissions, presence]
 Accounts, teams, folder sharing, permissions, and presence — the layer that turns a single-user vault
 into a shared team brain. The through-line: **auth owns identity + membership; a small ACL owns
 content access; both resolve into short-lived per-doc tokens that gate the sync engine.** Overview:
-[[00-architecture-overview]]. Sync: [[03-sync-engine]]. Index: [[Baalda]].
+[[00-architecture-overview]]. Sync: [[03-sync-engine]]. Index: [[Infinite Brain]].
 
 ---
 
@@ -330,7 +330,7 @@ Two steps (Better Auth invitation flow + our `shares`):
 an Access level; `POST /api/orgs/:orgId/invitations`) → `invitation` row (`pending`, default
 `+7 days`, `INVITATION_EXPIRES_HOURS`) plus an `invitation_access` row (migration 046) → email
 with a link to `/invite/<id>` (a server-rendered page that bounces into the app's
-`baalda://invite/<id>?server=` deep link) → invitee signs up / logs in with the invited address /
+`infinitebrain://invite/<id>?server=` deep link) → invitee signs up / logs in with the invited address /
 accepts → `member` row with the invited role. Email is opt-in per server (`EMAIL_FROM` + a transport);
 without it the admin copies the same link from Members and access. Redeeming the vault's **join
 code** (shown in the Invite people dialog) while an invitation is pending consumes it (same role,

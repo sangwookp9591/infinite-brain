@@ -18,10 +18,10 @@ describe("resolveServerUrl (dev build)", () => {
   });
 
   it("ignores a persisted production URL", () => {
-    // The reported state: config.json held api.baalda.com, so every launch of
+    // The reported state: config.json held localhost:3010, so every launch of
     // `pnpm dev:desktop` was reading and writing real vaults.
     expect(resolveServerUrl(PRODUCTION_SERVER_URL)).toBe(LOCAL_SERVER_URL);
-    expect(resolveServerUrl("https://api.baalda.com/")).toBe(LOCAL_SERVER_URL);
+    expect(resolveServerUrl("http://localhost:3010/")).toBe(LOCAL_SERVER_URL);
   });
 
   it("honours any other persisted server", () => {

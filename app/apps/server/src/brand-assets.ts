@@ -1,4 +1,4 @@
-// AUTO-GENERATED brand assets — the official Baalda logos, embedded as base64
+// AUTO-GENERATED brand assets — the official Infinite Brain logos, embedded as base64
 // data URIs so pages served by this headless server (login/consent for the MCP
 // OAuth flow) are fully self-contained and survive the tsc → dist build (which
 // copies no static files). Source art lives at

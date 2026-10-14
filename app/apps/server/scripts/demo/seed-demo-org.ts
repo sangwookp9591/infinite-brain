@@ -1,6 +1,6 @@
 // ============================================================================
 //  DEMO SEED — "Test Organization"
-//  Builds a big, realistic team vault so you can demo / record Baalda:
+//  Builds a big, realistic team vault so you can demo / record Infinite Brain:
 //    • 1 organization ("Test Organization")
 //    • 15 members with real logins (1 owner, 2 admins, 12 members)
 //    • 1 vault, mirroring the folder tree + content of a source vault

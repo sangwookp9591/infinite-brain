@@ -62,7 +62,7 @@ it("clears submitted text, prevents duplicate in-flight runs and moves a demo ou
 });
 
 it("defaults to dark independently of the host, with an explicit light toggle", () => {
-  const theme = { channel: "baalda.dashboard.v1", event: "theme", result: { theme: "light" } };
+  const theme = { channel: "infinitebrain.dashboard.v1", event: "theme", result: { theme: "light" } };
   dom.window.dispatchEvent(new dom.window.MessageEvent("message", { data: theme, source: dom.window as unknown as Window }));
   expect(dom.window.document.documentElement.dataset.theme).toBe("dark");
   click("#light-theme");

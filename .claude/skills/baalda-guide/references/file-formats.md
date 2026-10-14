@@ -1,12 +1,12 @@
-# What file types Baalda supports
+# What file types Infinite Brain supports
 
 The single most common question. Answer it precisely, because "supports" means
-four different things in Baalda and people usually mean one of them:
+four different things in Infinite Brain and people usually mean one of them:
 
 | Level | What it means | File types |
 |---|---|---|
 | **Note** | Opens in the editor, edited live with teammates and AI, searchable, backlinks, version history, synced to the server | `.md` `.markdown` `.mdx` `.txt` `.html` `.htm` `.canvas` |
-| **Viewable file** | Shows in the sidebar, opens in a built-in viewer, cannot be edited inside Baalda | Images: `.png` `.jpg` `.jpeg` `.gif` `.webp` `.svg` `.avif` · Documents: `.pdf` |
+| **Viewable file** | Shows in the sidebar, opens in a built-in viewer, cannot be edited inside Infinite Brain | Images: `.png` `.jpg` `.jpeg` `.gif` `.webp` `.svg` `.avif` · Documents: `.pdf` |
 | **Attachment** | Any file dragged onto an open note. Copied into the vault's hidden `attachments/` folder, linked from the note, synced to teammates | Anything: `.docx` `.xlsx` `.pptx` `.csv` `.zip` `.mp4`, code files, and so on |
 | **Ignored** | Not shown, not indexed, not synced | Everything else, plus `node_modules`, `dist`, `build`, `target`, `vendor`, `venv`, `__pycache__`, and any dot-folder like `.git` |
 
@@ -26,11 +26,11 @@ converts `.txt` and `.markdown` files to `.md` on the way in so they get the ful
 `.html` files render as a sandboxed read-only page (with a Source toggle); they are not
 co-edited live. There is no rich rendering of `.canvas`.
 
-**Images and PDFs are view-only.** Baalda previews them in place (images inline, PDFs as a
+**Images and PDFs are view-only.** Infinite Brain previews them in place (images inline, PDFs as a
 block) and lets you embed them in notes with `![name](/attachments/...)`. It does not edit them.
 
 **How images and PDFs get into a note.** Paste a screenshot or drag a file onto an open note.
-Baalda copies it into `attachments/` at the vault root, names it by content hash (so the same
+Infinite Brain copies it into `attachments/` at the vault root, names it by content hash (so the same
 file dropped twice is stored once), and inserts the embed for you. HEIC and TIFF photos are
 converted to PNG on import so they display on every platform. That `attachments/` folder is
 hidden from the sidebar on purpose; it is the sync store for binary files.
@@ -41,18 +41,18 @@ sent to the server or to teammates. The registry only registers text notes; bina
 mirrors `attachments/`. If someone asks "why don't my teammates see my image", this is why:
 drop it onto a note instead of copying it into a folder.
 
-**Office files (DOCX, XLSX, PPTX) are attachments, not notes.** Baalda does not open, convert,
+**Office files (DOCX, XLSX, PPTX) are attachments, not notes.** Infinite Brain does not open, convert,
 render, or edit them. You can attach one to a note and it will sync to the team as a download
 link, but that is all. To open the file itself, use "Reveal in Finder/Explorer" and open it
 from the `attachments/` folder with Word or Excel; clicking the link inside the note does not
-launch an external app. To get the *content* into Baalda, convert it to Markdown first (Pandoc,
+launch an external app. To get the *content* into Infinite Brain, convert it to Markdown first (Pandoc,
 "Save as Markdown", or ask your AI to convert it) or export a PDF and attach that.
 
 **Spreadsheets have no special treatment.** A `.csv` is an attachment. Tables inside notes are
 ordinary Markdown tables.
 
-**Code files (`.py`, `.js`, `.ts`, `.rs`, etc.) are deliberately ignored.** Baalda is a notes
-app, not a code editor. The exclusion exists so you can point Baalda at a real project folder
+**Code files (`.py`, `.js`, `.ts`, `.rs`, etc.) are deliberately ignored.** Infinite Brain is a notes
+app, not a code editor. The exclusion exists so you can point Infinite Brain at a real project folder
 (or even a whole drive) and see only your notes, never source files or dependency folders.
 If you want code in your second brain, paste it into a note inside a fenced code block, or
 attach the file to a note. Do not expect syntax highlighting of a standalone `.py` file.
@@ -67,7 +67,7 @@ attach the file to a note. Do not expect syntax highlighting of a standalone `.p
 Local-only vaults have no such limits; these apply when syncing.
 
 **Attachments are never AI-edited.** An AI connected over MCP can list files and read the
-text Baalda extracted from them (PDF, DOCX and similar) with `list_attachments` and
+text Infinite Brain extracted from them (PDF, DOCX and similar) with `list_attachments` and
 `read_attachment_text`, and search ranks file text beside notes. It can rename, move or delete a
 file (`move_file`, `delete_file`) with the same permissions as the token's owner, but it never
 receives or writes a file's raw bytes.
@@ -78,14 +78,14 @@ Q: *Can it hold and sync DOCX, XLSX, PNG, PY and JS files?*
 
 > Partly. PNG (and other common images plus PDF) show in the sidebar and preview in the app.
 > Anything you drag onto a note, including DOCX and XLSX, is stored as an attachment and syncs
-> to your team as a link, but Baalda cannot open or edit Office files; convert them to Markdown
+> to your team as a link, but Infinite Brain cannot open or edit Office files; convert them to Markdown
 > if you want the content inside a note. PY and JS files are ignored on purpose so a project
 > folder does not flood your vault with code; paste code into a note instead. Only Markdown and
 > other text notes get the live editing, search and AI features.
 
 Q: *Can I use my existing Obsidian vault?*
 
-> Yes. Point Baalda at the folder. Your `.md` files, folders, `[[wikilinks]]` and tags work as-is.
+> Yes. Point Infinite Brain at the folder. Your `.md` files, folders, `[[wikilinks]]` and tags work as-is.
 > Obsidian-specific plugins and their data do not carry over, and `.canvas` files open as text.
 
 Q: *Where do pasted images go?*

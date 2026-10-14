@@ -1,4 +1,4 @@
-# Baalda Assistant
+# Infinite Brain Assistant
 
 **Vault Settings → AI → Scan vault** collects fresh whole-vault measurements and
 asks the selected model to produce a prioritized action plan. AI has Diagnostics
@@ -10,7 +10,7 @@ other OpenRouter chat models supporting structured output can be selected.
 
 ## Evidence and decisions
 
-Baalda runs the 15 filesystem/index integrity checks and gathers vault size, note
+Infinite Brain runs the 15 filesystem/index integrity checks and gathers vault size, note
 and file counts, largest-file size, history/index footprint, sync state, failure
 categories and local/remote file differences. The model receives measurements
 and categories, not raw note text, file paths or error logs. The UI joins returned
@@ -39,7 +39,7 @@ Basic Health retains its sync overview and links to individual findings here.
 
 Create a key at <https://openrouter.ai/settings/keys>, enable OpenRouter in AI,
 and save the key. Keys live in the OS keychain, scoped to account and server.
-Inference passes the key through the selected Baalda server to OpenRouter; the
+Inference passes the key through the selected Infinite Brain server to OpenRouter; the
 server does not persist it or fall back to server credentials. Use a server you
 trust. OpenRouter bills the user's account. Status/apply/undo do not include the
 provider key. The provider toggle and model preference persist without storing
@@ -101,7 +101,7 @@ Provider references: [OpenRouter SDK](https://openrouter.ai/docs/client-sdks/typ
 
 ## Agent action lifecycle
 
-The Baalda Agents contract is **observe → investigate → propose → approve →
+The Infinite Brain Agents contract is **observe → investigate → propose → approve →
 execute → verify**. Model output chooses a typed capability; it is never executable
 code. Investigation may gather additional permission-filtered evidence for a
 specific finding. Link replacement previews and legal-filename plans show concrete

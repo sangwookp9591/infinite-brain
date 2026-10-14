@@ -1,11 +1,11 @@
-# Contributing to Baalda
+# Contributing to Infinite Brain
 
-Thanks for your interest in improving Baalda! Contributions of all
+Thanks for your interest in improving Infinite Brain! Contributions of all
 kinds are welcome: bug reports, docs, tests, and code.
 
 ## License of contributions (no CLA)
 
-Baalda is licensed under the **Apache License 2.0**. We do **not**
+Infinite Brain is licensed under the **Apache License 2.0**. We do **not**
 require a Contributor License Agreement. By submitting a contribution
 (a pull request, patch, or otherwise), you agree that your contribution
 is provided under the same Apache-2.0 license as the project. This is
@@ -20,7 +20,7 @@ not required. You can add one with `git commit -s`.
 ## Before you start a large change
 
 For anything beyond a small fix, **open an issue first** so we can align on
-approach. Baalda has a deliberate architecture (see below) and some
+approach. Infinite Brain has a deliberate architecture (see below) and some
 invariants are load-bearing. A quick discussion saves rework.
 
 ## Understanding the codebase
@@ -28,7 +28,7 @@ invariants are load-bearing. A quick discussion saves rework.
 Read these before diving in:
 
 - `CLAUDE.md`: the architectural overview and the invariants that matter.
-- `docs/Baalda.md`: the docs index.
+- `docs/Infinite Brain.md`: the docs index.
 - `docs/specs/`: the design specs (source of truth).
 - `docs/STATUS.md`: current build state.
 

@@ -4,7 +4,7 @@
 // The old sign-in form had ONE server: whatever `DEFAULT_SERVER_URL` said, with
 // a collapsed `<details>` "Server settings" at the bottom of the card. For the
 // managed instance that is right. For a self-hosting team it is a trap: every
-// member who installs the app signs up on api.baalda.com, gets an account and a
+// member who installs the app signs up on localhost:3010, gets an account and a
 // vault there, and only finds out when their admin cannot see them (#91). So the
 // choice is now a step of its own, both options carrying equal weight, and the
 // form that follows says which server it is about to post credentials to.
@@ -37,7 +37,7 @@ export type AuthStep = "choose-server" | "confirm-link" | "form";
  *   from a deep link, not just a keyboard) is refused rather than stored;
  * - trailing slashes go, because the URL is concatenated with paths like
  *   `/health` everywhere downstream;
- * - **a path prefix is kept.** Self-hosters put Baalda behind a reverse proxy at
+ * - **a path prefix is kept.** Self-hosters put Infinite Brain behind a reverse proxy at
  *   e.g. `https://intranet.example.com/baalda`, and stripping that would point
  *   the app at the proxy's root.
  */
@@ -127,7 +127,7 @@ export function impliedServerChoice(
 /**
  * Which step the auth dialog opens on.
  *
- * Order matters: an inbound `baalda://connect` link outranks everything, because
+ * Order matters: an inbound `infinitebrain://connect` link outranks everything, because
  * it is the whole reason the dialog is on screen and it needs an explicit yes
  * before it may touch the server URL (a deep link is untrusted input — it
  * decides where a password gets posted).

@@ -36,14 +36,14 @@ export const WELCOME_NOTE_PATH = "Welcome.md";
 /**
  * The full starter set, in write order. Each entry is a vault-relative path and
  * the exact Markdown to write. Wikilinks reference other notes by basename
- * (case-insensitive), so `[[How Baalda works]]` resolves regardless of folder.
+ * (case-insensitive), so `[[How Infinite Brain works]]` resolves regardless of folder.
  * Keep every `[[…]]` target pointing at a real basename in this list — a typo
  * just yields a dangling link (no graph edge), never an error.
  */
 export const STARTER_NOTES: ReadonlyArray<{ path: string; body: string }> = [
   {
     path: WELCOME_NOTE_PATH,
-    body: `Baalda is your **local-first second brain** — notes that live as plain Markdown files on your own computer.
+    body: `Infinite Brain is your **local-first second brain** — notes that live as plain Markdown files on your own computer.
 
 What makes it different:
 
@@ -51,11 +51,11 @@ What makes it different:
 - **Write together, live.** Invite teammates and edit the same note at the same time, with cursors and presence — like a shared doc, but still just files.
 - **Your AI can edit too.** Connect an assistant like Claude and let it read and write these notes directly, right alongside you.
 
-Most tools give you one of these. Baalda is the bridge between all three.
+Most tools give you one of these. Infinite Brain is the bridge between all three.
 
 ## Start here
 
-- 🚀 [[How Baalda works]] — a two-minute tour of the essentials.
+- 🚀 [[How Infinite Brain works]] — a two-minute tour of the essentials.
 - 🕸️ [[The graph view]] — see how these notes connect.
 - 🤖 \`AGENTS.md\` — how an AI assistant should work in this vault. Every folder has one too, listing what's inside.
 
@@ -73,11 +73,11 @@ status: active
 tags: [meta, routing, guide]
 ---
 
-You are working in a Baalda vault: a folder of plain Markdown files that people and AI assistants read and edit together. Everything durable lives in these files, so whatever you write here becomes context for the next session — yours or a teammate's.
+You are working in an Infinite Brain vault: a folder of plain Markdown files that people and AI assistants read and edit together. Everything durable lives in these files, so whatever you write here becomes context for the next session — yours or a teammate's.
 
 Core context:
 - Where to start: \`Welcome.md\`
-- How Baalda works: \`Getting Started/How Baalda works.md\`
+- How Infinite Brain works: \`Getting Started/How Infinite Brain works.md\`
 
 ## Session Startup
 
@@ -89,7 +89,7 @@ Every piece of information needs one specific home. Do not create catch-all note
 
 | What it is | Where it goes | Read first |
 |---|---|---|
-| How to use Baalda: the basics, shortcuts, AI, teamwork | \`Getting Started/\` | \`Getting Started/AGENTS.md\` |
+| How to use Infinite Brain: the basics, shortcuts, AI, teamwork | \`Getting Started/\` | \`Getting Started/AGENTS.md\` |
 | One idea or method, explained on its own | \`Concepts/\` | \`Concepts/AGENTS.md\` |
 | Working notes: projects, meetings, reading, reviews | \`Examples/\` | \`Examples/AGENTS.md\` |
 | A vault-wide rule for AI assistants | \`AGENTS.md\` (this file) | |
@@ -148,13 +148,13 @@ status: active
 tags: [getting-started, guide]
 ---
 
-How to use Baalda: the essentials, shortcuts, connecting an AI and working with a team. Flat folder of short, standalone guides (no subfolders).
+How to use Infinite Brain: the essentials, shortcuts, connecting an AI and working with a team. Flat folder of short, standalone guides (no subfolders).
 
 ## Notes
 
 | File | What it covers |
 |---|---|
-| \`How Baalda works.md\` | Two-minute tour: plain files, live collaboration, your AI |
+| \`How Infinite Brain works.md\` | Two-minute tour: plain files, live collaboration, your AI |
 | \`Keyboard shortcuts.md\` | The shortcuts worth learning first |
 | \`Working with your AI.md\` | Connecting an assistant over MCP or a coding tool |
 | \`Collaborating with your team.md\` | Sync, live co-editing and per-folder sharing |
@@ -169,7 +169,7 @@ How to use Baalda: the essentials, shortcuts, connecting an AI and working with 
 `,
   },
   {
-    path: "Getting Started/How Baalda works.md",
+    path: "Getting Started/How Infinite Brain works.md",
     body: `A quick tour of the essentials. This whole note is just a Markdown file — try editing it as you read.
 
 ## 1. Everything is a file
@@ -184,7 +184,7 @@ This vault starts out **local** — just files on this computer. Sign in and tur
 
 ## 3. Bring in your AI
 
-Baalda speaks **MCP**, so an assistant like Claude can work in your vault directly — see [[Working with your AI]].
+Infinite Brain speaks **MCP**, so an assistant like Claude can work in your vault directly — see [[Working with your AI]].
 
 When you're ready, open [[The graph view]] to see how everything connects.
 `,
@@ -211,14 +211,14 @@ When you're ready, open [[The graph view]] to see how everything connects.
 
 Typing \`[[\` anywhere starts a link, \`#\` suggests tags you already use, and \`/\` at the start of a line opens the block menu. To rename a note, click its title at the top and type — the file follows.
 
-Hover the left edge of a heading, a list item or a callout for a › to fold it away; Baalda remembers what you folded the next time you open the note.
+Hover the left edge of a heading, a list item or a callout for a › to fold it away; Infinite Brain remembers what you folded the next time you open the note.
 
-That's the core move behind [[Wikilinks and backlinks]]. Back to [[How Baalda works]].
+That's the core move behind [[Wikilinks and backlinks]]. Back to [[How Infinite Brain works]].
 `,
   },
   {
     path: "Getting Started/Working with your AI.md",
-    body: `Baalda exposes your vault over **MCP**, so an assistant like **Claude** (in Claude Desktop or Cowork) can read and write these notes directly.
+    body: `Infinite Brain exposes your vault over **MCP**, so an assistant like **Claude** (in Claude Desktop or Cowork) can read and write these notes directly.
 
 1. Open **Vault Settings → MCP** and create a connection token.
 2. Add it to Claude as an MCP server.
@@ -228,7 +228,7 @@ You can also just open this folder in a coding assistant like Claude Code — fi
 
 Every assistant should start from the \`AGENTS.md\` file at the root of the vault: it says where each kind of note belongs and how to keep the vault tidy. Each folder has its own \`AGENTS.md\` that indexes the notes inside it — keep them current as the vault grows, and your AI will always know where things go.
 
-Good first tasks: turn your [[Ideas inbox]] into [[Atomic notes]], or draft a [[Weekly review]]. Back to [[How Baalda works]].
+Good first tasks: turn your [[Ideas inbox]] into [[Atomic notes]], or draft a [[Weekly review]]. Back to [[How Infinite Brain works]].
 `,
   },
   {
@@ -239,7 +239,7 @@ Good first tasks: turn your [[Ideas inbox]] into [[Atomic notes]], or draft a [[
 - Edits **merge** in real time — nothing gets overwritten.
 - Share a single folder or the whole vault; permissions are per-folder.
 
-Try it on [[Meeting notes]] or a [[Website launch]] plan. Your AI joins the same way — see [[Working with your AI]]. Back to [[How Baalda works]].
+Try it on [[Meeting notes]] or a [[Website launch]] plan. Your AI joins the same way — see [[Working with your AI]]. Back to [[How Infinite Brain works]].
 `,
   },
 
@@ -277,7 +277,7 @@ Short explanations of one idea each — how notes, links and the graph fit toget
     path: "Concepts/Local-first notes.md",
     body: `**Local-first** means the source of truth lives on *your* device, not a server. Your notes are plain \`.md\` files you fully own — they work offline, open in any editor, and sync only when you choose.
 
-Syncing is additive, not a dependency: turn it on for [[Collaborating with your team]], turn it off and everything still works. This is the foundation the rest of [[How Baalda works]] builds on.
+Syncing is additive, not a dependency: turn it on for [[Collaborating with your team]], turn it off and everything still works. This is the foundation the rest of [[How Infinite Brain works]] builds on.
 `,
   },
   {

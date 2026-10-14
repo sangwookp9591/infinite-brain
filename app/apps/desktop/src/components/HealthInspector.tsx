@@ -168,7 +168,7 @@ export function InspectionCard({
 
   const copyFacts = async () => {
     const text = [
-      `Baalda — ${result.path}`,
+      `Infinite Brain — ${result.path}`,
       result.verdict,
       "",
       ...facts.map(([label, value]) => `${label}: ${value}`),

@@ -20,7 +20,7 @@ beforeEach(async () => {
  mocks.detect.mockResolvedValue([]); mocks.launch.mockReset();
  mocks.write.mockReset(); host=document.createElement("div");document.body.appendChild(host);root=createRoot(host);
  await act(async()=>root.render(createElement(HomeDashboardDialog)));
- await act(async()=>window.dispatchEvent(new CustomEvent("baalda:new-dashboard", { detail: { templateId:"daily" } })));
+ await act(async()=>window.dispatchEvent(new CustomEvent("infinitebrain:new-dashboard", { detail: { templateId:"daily" } })));
 });
 afterEach(()=>{act(()=>root.unmount());host.remove();vi.unstubAllGlobals();});
 const input=()=>document.querySelector<HTMLInputElement>(".dashboard-name-input input")!;
@@ -31,7 +31,7 @@ it.each([" .hidden", ".html", "\u007fInvalid"])("rejects invalid normalized name
 it("focuses the editable name after an atomic create collision",async()=>{mocks.write.mockResolvedValue(false);await create();expect(mocks.write).toHaveBeenCalledOnce();expect(input().disabled).toBe(false);expect(document.activeElement).toBe(input());expect(document.querySelector('[role="alert"]')?.textContent).toContain("already exists");});
 
 it("assigns and opens Home directly for an explicit Set a home request", async () => {
- await act(async()=>window.dispatchEvent(new CustomEvent("baalda:new-dashboard", { detail: { setAsHome: true, templateId:"daily" } })));
+ await act(async()=>window.dispatchEvent(new CustomEvent("infinitebrain:new-dashboard", { detail: { setAsHome: true, templateId:"daily" } })));
  mocks.write.mockResolvedValue(true);
  await create();
  expect(mocks.state.setHome).toHaveBeenCalledWith("Dashboards/Home 2.html", "personal");
@@ -40,7 +40,7 @@ it("assigns and opens Home directly for an explicit Set a home request", async (
  expect(document.querySelector(".dashboard-dialog")).toBeNull();
 });
 it("retries assignment without writing the created file again", async () => {
- await act(async()=>window.dispatchEvent(new CustomEvent("baalda:new-dashboard", { detail: { setAsHome: true, templateId:"daily" } })));
+ await act(async()=>window.dispatchEvent(new CustomEvent("infinitebrain:new-dashboard", { detail: { setAsHome: true, templateId:"daily" } })));
  mocks.write.mockResolvedValue(true);
  mocks.state.setHome.mockRejectedValueOnce(new Error("Try again"));
  await create();
@@ -59,7 +59,7 @@ it("keeps ordinary dashboard creation optional and does not assign Home", async 
  expect(document.querySelector(".dashboard-dialog")?.textContent).toContain("Set as my home");
 });
 it("does not assign Home after the captured vault changes", async () => {
- await act(async()=>window.dispatchEvent(new CustomEvent("baalda:new-dashboard", { detail: { setAsHome: true, templateId:"daily" } })));
+ await act(async()=>window.dispatchEvent(new CustomEvent("infinitebrain:new-dashboard", { detail: { setAsHome: true, templateId:"daily" } })));
  mocks.write.mockImplementation(async()=>{mocks.state.vault={path:"/other",epoch:2};return true;});
  await create();
  expect(mocks.state.setHome).not.toHaveBeenCalled();
@@ -68,8 +68,8 @@ it("does not assign Home after the captured vault changes", async () => {
 
 it("offers installed provider actions and launches the exact created file", async () => {
  mocks.detect.mockResolvedValue([{agent:"claude",runnable:true},{agent:"codex",runnable:true}]);
- await act(async()=>window.dispatchEvent(new CustomEvent("baalda:new-dashboard", {detail:{kind:"link"}})));
- await act(async()=>window.dispatchEvent(new CustomEvent("baalda:new-dashboard", { detail: { templateId:"daily" } })));
+ await act(async()=>window.dispatchEvent(new CustomEvent("infinitebrain:new-dashboard", {detail:{kind:"link"}})));
+ await act(async()=>window.dispatchEvent(new CustomEvent("infinitebrain:new-dashboard", { detail: { templateId:"daily" } })));
  mocks.write.mockResolvedValue(true);
  await create();
  expect(document.querySelector(".dashboard-dialog")?.textContent).not.toContain("Copy agent prompt");
@@ -79,9 +79,9 @@ it("offers installed provider actions and launches the exact created file", asyn
 });
 
 it("opens a newly added link without a success modal", async () => {
- await act(async()=>window.dispatchEvent(new CustomEvent("baalda:new-dashboard", { detail: { kind: "link" } })));
+ await act(async()=>window.dispatchEvent(new CustomEvent("infinitebrain:new-dashboard", { detail: { kind: "link" } })));
  const url = document.querySelector<HTMLInputElement>('.dashboard-url-field input')!;
- await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(url,"https://baalda.com");url.dispatchEvent(new Event("input",{bubbles:true}));});
+ await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")!.set!.call(url,"https://example.com");url.dispatchEvent(new Event("input",{bubbles:true}));});
  mocks.write.mockResolvedValue(true);
  await create();
  expect(mocks.state.openNoteByPath).toHaveBeenCalledWith("Dashboards/Home.url");
@@ -97,7 +97,7 @@ it("creates the default Dashboards destination before writing", async () => {
 });
 it("reuses the existing root folder spelling", async () => {
  mocks.state.tree = {path:"",isDir:true,children:[{path:"dashboards",isDir:true,children:[]}]};
- await act(async()=>window.dispatchEvent(new CustomEvent("baalda:new-dashboard", { detail: { templateId:"daily" } })));
+ await act(async()=>window.dispatchEvent(new CustomEvent("infinitebrain:new-dashboard", { detail: { templateId:"daily" } })));
  mocks.write.mockResolvedValue(true);
  await create();
  expect(ipc.ensureFolder).toHaveBeenCalledWith("dashboards", 1);

@@ -323,7 +323,7 @@ describe("right panel", () => {
   beforeEach(() => {
     useStore.setState({ rightPanel: null });
     try {
-      localStorage.removeItem("baalda.rightPanelTab");
+      localStorage.removeItem("infinitebrain.rightPanelTab");
     } catch {
       // node env without storage: the store falls back to "sync"
     }
@@ -368,7 +368,7 @@ describe("right panel", () => {
       useStore.getState().closeRightPanel();
       useStore.getState().openRightPanel();
       expect(useStore.getState().rightPanel).toEqual({ tab: "versions" });
-      store.set("baalda.rightPanelTab", "bogus");
+      store.set("infinitebrain.rightPanelTab", "bogus");
       useStore.getState().openRightPanel();
       expect(useStore.getState().rightPanel).toEqual({ tab: "activity" });
     } finally {

@@ -48,7 +48,7 @@ describe("seedWelcomeContent", () => {
     expect(written.length).toBe(21);
     // No starter note begins with a `# Title`: the file name IS the title (the
     // editor's inline title shows it), so a heading would duplicate it.
-    expect(writeNote.mock.calls[0][1]).toMatch(/^Baalda is your/);
+    expect(writeNote.mock.calls[0][1]).toMatch(/^Infinite Brain is your/);
     for (const [, body] of writeNote.mock.calls) expect(body).not.toMatch(/^# /);
   });
 

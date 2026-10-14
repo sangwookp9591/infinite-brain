@@ -1,6 +1,6 @@
 ---
 name: window-simulator
-description: Run Baalda's real desktop UI in a local browser with synthetic vault data to preview Windows or macOS layouts, investigate visual bugs, and capture screenshots from a Mac. Use for browser UI simulation; native window behavior still requires the target OS.
+description: Run Infinite Brain's real desktop UI in a local browser with synthetic vault data to preview Windows or macOS layouts, investigate visual bugs, and capture screenshots from a Mac. Use for browser UI simulation; native window behavior still requires the target OS.
 ---
 
 # Window simulator
@@ -12,7 +12,7 @@ fixture data cannot masquerade as a platform difference.
 
 ## Start on a Mac
 
-Resolve paths from this Baalda checkout. Read `AGENTS.md` and `CLAUDE.md` before
+Resolve paths from this Infinite Brain checkout. Read `AGENTS.md` and `CLAUDE.md` before
 changing product code. Install dependencies with `pnpm install` in `app/` if needed.
 
 From `app/apps/desktop/`:

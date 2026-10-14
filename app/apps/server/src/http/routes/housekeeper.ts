@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Agent engine host: included for self-hosting, Pro-gated on Baalda Cloud.
+// Agent engine host: included for self-hosting, Pro-gated on Infinite Brain Cloud.
 import { resolveAccountPlan, teamModel } from "../../billing/plan.js";
 import { requiresCloudPlan } from "../../deployment-policy.js";
 import { OpenRouter } from "@openrouter/sdk";
@@ -47,7 +47,7 @@ export async function requireHousekeeperPro(orgId: string): Promise<void> {
   if (teamModel()) {
     // Team model: `limits.assistant` (self-host / billing off ⇒ true).
     const plan = await resolveAccountPlan(pool, { orgId });
-    if (!plan.limits.assistant) throw new HousekeeperError(402, "Baalda Assistant requires the Team plan.");
+    if (!plan.limits.assistant) throw new HousekeeperError(402, "Infinite Brain Assistant requires the Team plan.");
     return;
   }
   const { rows } = await pool.query<{ allowed: boolean }>(
@@ -106,7 +106,7 @@ export function createHousekeeperRoutes(docWriter: DocWriter): Hono {
         authorize,
         requiresPro: requiresCloudPlan,
         providerConfig: () => ({ mode: provider?.mode ?? "decisions", model: provider?.model ?? "typesafe/jev-1.13", configured: true }),
-        createRouter: () => new OpenRouter({ apiKey: provider?.apiKey, appTitle: "Baalda Housekeeper", timeoutMs: 12_000, retryConfig: { strategy: "none" } }),
+        createRouter: () => new OpenRouter({ apiKey: provider?.apiKey, appTitle: "Infinite Brain Housekeeper", timeoutMs: 12_000, retryConfig: { strategy: "none" } }),
         async notes() {
           const readable = await listReadableDocsInVault(userId, vaultId);
           const { rows } = await pool.query<HousekeeperNote>(

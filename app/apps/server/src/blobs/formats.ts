@@ -1,5 +1,5 @@
 /**
- * The server's view of the file formats Baalda carries as attachments: which
+ * The server's view of the file formats Infinite Brain carries as attachments: which
  * MIME types may be stored, how big each kind is allowed to get, which ones are
  * safe to render inline in a browser, and what the bytes say they actually are.
  *

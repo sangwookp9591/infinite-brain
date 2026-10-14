@@ -15,7 +15,7 @@
  * (an un-upgraded self-host, or production in the minutes before it deploys)
  * would refuse the preflight and with it EVERY request. An unknown query
  * parameter is simply ignored by an older server. The server also accepts the
- * `x-baalda-version` header for non-browser clients.
+ * `x-infinitebrain-version` header for non-browser clients.
  *
  * Read from `tauri.conf.json` at BUILD time rather than through Tauri's async
  * `getVersion()`: the very first request of a launch (a sync-token mint) must

@@ -133,7 +133,7 @@ export function accessText(e: AccessEvent): string {
 
 /** Row tooltips: the short explanations the old section descriptions gave. */
 export const ACTIVITY_HINT = {
-  reconcile: "What sync changed for you after being offline, since Baalda launched.",
+  reconcile: "What sync changed for you after being offline, since Infinite Brain launched.",
   trash: "Deleted on the server. It stays in Trash until purged; Restore brings it back for everyone.",
   copy: "Local text sync set aside on this device, in .context/trash. It never syncs.",
   held: "Many notes disappeared from the vault folder at once. Nothing was deleted for your team, and they are being restored here.",

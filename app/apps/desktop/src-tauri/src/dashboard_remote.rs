@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-//! Remote pages use an inline native child webview, with no Baalda capabilities.
+//! Remote pages use an inline native child webview, with no Infinite Brain capabilities.
 //! This respects frame-ancestors instead of proxying or modifying provider HTML.
 use crate::error::{AppError, AppResult};
 use tauri::{Manager, WebviewUrl, Webview, webview::WebviewBuilder, LogicalPosition, LogicalSize};
@@ -88,7 +88,7 @@ mod tests {
     }
     #[test]
     fn rejects_local_urls_credentials_and_provider_lookalikes() {
-        for url in ["file:///etc/passwd", "http://claude.ai", "https://claude.ai.evil.com", "https://evilclaude.ai", "https://user:pass@claude.ai", "https://localhost", "baalda-view://localhost", "https://claude.ai:8443"] {
+        for url in ["file:///etc/passwd", "http://claude.ai", "https://claude.ai.evil.com", "https://evilclaude.ai", "https://user:pass@claude.ai", "https://localhost", "infinitebrain-view://localhost", "https://claude.ai:8443"] {
             assert!(provider_url(url).is_err(), "{url}");
         }
     }

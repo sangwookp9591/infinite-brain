@@ -50,7 +50,7 @@ export interface HelloFrame {
   held?: string[];
   /**
    * Opaque per-app-instance id, echoed by the client on its registry HTTP writes
-   * (`x-baalda-origin`). It lets the channel skip telling a client about a
+   * (`x-infinitebrain-origin`). It lets the channel skip telling a client about a
    * structural change it made itself — a 500-note reconcile used to bounce ~1,100
    * `registry` frames straight back to its author, each costing a full
    * per-subscriber ACL recompute. Absent ⇒ no self-exclusion (older clients).

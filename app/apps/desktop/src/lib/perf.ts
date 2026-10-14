@@ -49,7 +49,7 @@ export function markOnce(name: string): void {
 export function mark(name: string): void {
   const at = performance.now();
   try {
-    performance.mark(`baalda:boot:${name}`);
+    performance.mark(`infinitebrain:boot:${name}`);
   } catch {
     /* `performance.mark` unsupported / disabled — the log line is the payload */
   }

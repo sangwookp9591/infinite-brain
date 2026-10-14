@@ -42,7 +42,7 @@ describe("client version reporting", () => {
     // Never as a header: a server that predates the gate would fail the CORS
     // preflight for an unlisted header and refuse every request.
     for (const h of f.headers) {
-      expect(Object.keys(h).map((k) => k.toLowerCase())).not.toContain("x-baalda-version");
+      expect(Object.keys(h).map((k) => k.toLowerCase())).not.toContain("x-infinitebrain-version");
     }
   });
 

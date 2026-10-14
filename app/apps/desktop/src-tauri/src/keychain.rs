@@ -2,7 +2,7 @@
 //!
 //! Better Auth session tokens are the keys to a user's vault, so they must
 //! never live in `localStorage` or any plaintext file. They live in the OS
-//! keychain under the service `com.baalda.context`, keyed by a caller-supplied
+//! keychain under the service `com.infinitebrain.app`, keyed by a caller-supplied
 //! `service_key` (e.g. `session:<serverUrl>`). The `keyring` crate maps this to
 //! the macOS Keychain (Security framework) / Windows Credential Manager / the
 //! Secret Service on Linux.
@@ -22,12 +22,11 @@
 use crate::error::{AppError, AppResult};
 use keyring::credential::CredentialPersistence;
 
-/// Keychain "service" namespace for all Baalda secrets.
+/// Keychain "service" namespace for all Infinite Brain secrets.
 ///
-/// FROZEN (Layer 3): set once, never changed on a future rebrand — changing it
-/// would orphan every user's already-stored keychain entries (precedent: Slack
-/// still ships under `com.tinyspeck.*`).
-pub const SERVICE: &str = "com.baalda.context";
+/// This fork uses a distinct service so it cannot read or overwrite upstream
+/// credentials. Keep this value aligned with the Tauri bundle identifier.
+pub const SERVICE: &str = "com.infinitebrain.app";
 
 /// A minimal secret store, abstracted so tests can swap in an in-memory fake.
 pub trait SecretStore {

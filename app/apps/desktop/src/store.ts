@@ -200,7 +200,7 @@ export interface PendingVaultFolder {
     /** The vault's folder is GONE (not merely failed to open): the prompt then
      *  offers Restore here / Locate folder…, like the in-vault banner (#228). */
     missing?: boolean;
-    /** macOS refused Baalda the Documents folder, so the default vaults root
+    /** macOS refused Infinite Brain the Documents folder, so the default vaults root
      *  couldn't be created: the prompt offers Open System Settings / Try again
      *  and only a secondary "Choose another folder…". */
     documentsDenied?: boolean;
@@ -323,11 +323,11 @@ interface AppStore {
    * A flow needs the sign-in dialog on screen NOW. Three of them:
    *   - "note-link": a shared link arrived while signed out, and the link is
    *     queued to open right after the sign-in succeeds;
-   *   - "server-link": a `baalda://connect` invite arrived, offering a server
+   *   - "server-link": a `infinitebrain://connect` invite arrived, offering a server
    *     to point this device at (see `pendingServerLink`);
    *   - "invite": a team invitation arrived while signed out, and the dialog
    *     says which vault and which address it is for (see `invitePrompt`);
-   *   - "sign-in": a password was just reset in the browser (`baalda://signin`),
+   *   - "sign-in": a password was just reset in the browser (`infinitebrain://signin`),
    *     this device's session died with it, and the card opens ready for the
    *     new password.
    * App.tsx mounts AuthDialog off this in both root branches; dismissing the
@@ -724,13 +724,13 @@ interface AppStore {
   revealedPath: string | null;
   setRevealedPath: (path: string | null) => void;
   /**
-   * Follow a `baalda://note/<orgId>/<docId>` link: switch to that vault if
+   * Follow a `infinitebrain://note/<orgId>/<docId>` link: switch to that vault if
    * needed, then open the note. Never grants anything — the recipient's own
    * membership and ACL decide whether the note is there to open.
    */
   openNoteLink: (url: string) => Promise<void>;
   /**
-   * Follow a `baalda://invite/<id>?server=<url>` link: confirm the server if it
+   * Follow a `infinitebrain://invite/<id>?server=<url>` link: confirm the server if it
    * names a different one, look the invitation up, then accept it (signed in)
    * or raise the sign-in dialog for it (signed out). Grants nothing on its own
    * — the server re-checks the invitation on accept.
@@ -841,14 +841,14 @@ interface AppStore {
   /** Re-send the sign-up confirmation email to the signed-in address. */
   resendVerificationEmail: () => Promise<void>;
   /**
-   * A `baalda://verified` / `baalda://signin` hand-off arrived from one of the
+   * A `infinitebrain://verified` / `infinitebrain://signin` hand-off arrived from one of the
    * server's account pages: re-read the session so the app reflects what just
    * happened in the browser (address confirmed / sessions revoked by a reset)
    * without a reload.
    */
   handleAccountLink: (kind: AccountLinkKind) => Promise<void>;
   /**
-   * A `baalda://billing/upgraded?org=…` hand-off arrived from the checkout
+   * A `infinitebrain://billing/upgraded?org=…` hand-off arrived from the checkout
    * success page: the server has confirmed the payment, so re-read billing and
    * say so. `orgId` is the vault that was upgraded, when the page knew it.
    */

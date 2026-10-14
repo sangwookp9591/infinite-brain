@@ -13,7 +13,7 @@ export interface LinkRefusal {
 
 /** The one sentence Health shows for a linked path. */
 export const SYMLINK_REFUSAL_REASON =
-  "This path is a symbolic link. Baalda does not sync through links.";
+  "This path is a symbolic link. Infinite Brain does not sync through links.";
 
 /** True for Rust's refusal to write at or through a symbolic link
  *  (`notefile.rs symlink_refusal`). */

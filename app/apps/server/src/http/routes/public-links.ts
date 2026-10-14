@@ -4,7 +4,7 @@ import { Hono } from "hono";
 import type { Context } from "hono";
 import { pool } from "../../db/pool.js";
 import { config } from "../../config.js";
-import { BRAND_NAME } from "../../brand.js";
+import { BRAND_NAME, BRAND_URL } from "../../brand.js";
 import { orgRole } from "../../permissions/lookup.js";
 import { ACCOUNT_READ_ONLY_BODY, refusedForBilling } from "../../permissions/http-gates.js";
 import { effectivePermission } from "../../permissions/resolver.js";
@@ -223,7 +223,7 @@ function esc(s: string): string {
 }
 
 const PAGE_CSS = `
-  /* baalda.com's palette: warm beige page, white sheet, near-black ink, the
+  /* Product palette: warm beige page, white sheet, near-black ink, the
      brand violet for links and the tinted wikilink chip. */
   :root {
     --bg-page: #fcf9f7; --bg-sheet: #ffffff; --bg-soft: #f6f2ee;
@@ -295,7 +295,7 @@ const PAGE_CSS = `
   footer a { color: var(--ink-soft); }
 `;
 
-/** The page frame: brand bar (with "Open in Baalda" when there is a note to
+/** The page frame: brand bar (with "Open in Infinite Brain" when there is a note to
  *  open), the white sheet, and a quiet footer under it. */
 function pageShell(title: string, inner: string, openHref?: string): string {
   const open = openHref
@@ -312,11 +312,11 @@ function pageShell(title: string, inner: string, openHref?: string): string {
 </head>
 <body>
 <div class="wrap">
-<header class="site-top"><a class="brand" href="https://baalda.com" rel="noopener noreferrer">${esc(BRAND_NAME.toUpperCase())}</a>${open}</header>
+<header class="site-top"><a class="brand" href="${BRAND_URL}" rel="noopener noreferrer">${esc(BRAND_NAME.toUpperCase())}</a>${open}</header>
 <main>
 ${inner}
 </main>
-<footer>Shared with ${esc(BRAND_NAME)} · <a href="https://baalda.com" rel="noopener noreferrer">Get ${esc(BRAND_NAME)}</a></footer>
+<footer>Shared with ${esc(BRAND_NAME)} · <a href="${BRAND_URL}" rel="noopener noreferrer">Get ${esc(BRAND_NAME)}</a></footer>
 </div>
 </body>
 </html>`;

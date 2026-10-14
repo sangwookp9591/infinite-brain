@@ -1,4 +1,4 @@
-# Baalda server — Coolify / PaaS Compose bundle (server + Postgres).
+# Infinite Brain server — Coolify / PaaS Compose bundle (server + Postgres).
 #
 # This is the same stack as ../compose/docker-compose.yml, adapted for
 # platforms (Coolify and similar) that run `docker compose` with the repo
@@ -74,7 +74,7 @@ x-server-image: &server-image
 x-server-env: &server-env
   NODE_ENV: production
   BAALDA_DEPLOYMENT: self-hosted
-  DATABASE_URL: postgres://baalda:${SERVICE_PASSWORD_64_POSTGRES}@postgres:5432/baalda
+  DATABASE_URL: postgres://infinitebrain:${SERVICE_PASSWORD_64_POSTGRES}@postgres:5432/baalda
   JWT_SECRET: ${SERVICE_REALBASE64_64_JWT}
   BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3010}
   PORT: "3010"

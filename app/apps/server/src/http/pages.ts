@@ -6,7 +6,7 @@ import { GLYPH_FAVICON_DATA_URI, WORDMARK_DATA_URI } from "../brand-assets.js";
  * MCP OAuth login/consent screens (routes/oauth-connect.ts) and the account
  * pages — password reset, email verified, invitation landing
  * (routes/account-pages.ts). One dark card, the official wordmark embedded as a
- * data URI so nothing depends on a static-file host. Branded with the Baalda
+ * data URI so nothing depends on a static-file host. Branded with the Infinite Brain
  * logos (see brand-assets.ts / docs/BRANDING.md).
  */
 
@@ -19,7 +19,7 @@ export function esc(s: string): string {
     .replace(/'/g, "&#39;");
 }
 
-/** Dark, premium, matches the Baalda brand (black + chrome). */
+/** Dark, premium, matches the Infinite Brain brand (black + chrome). */
 export function page(opts: { title: string; body: string; head?: string }): string {
   return `<!doctype html>
 <html lang="en">

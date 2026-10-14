@@ -443,8 +443,8 @@ function ClosedAppChangesBanner() {
   return (
     <Banner show={visible} role="status">
       <span>
-        Files changed while Baalda was closed. Edits were merged; renames, moves and deletes made
-        while closed were not applied. Keep Baalda open when reorganising.
+        Files changed while Infinite Brain was closed. Edits were merged; renames, moves and deletes made
+        while closed were not applied. Keep Infinite Brain open when reorganising.
       </span>
       <div className="banner-actions">
         <button onClick={dismiss}>Dismiss</button>
@@ -703,7 +703,7 @@ function VaultFolderPrompt() {
  * `launchVersion` is the other way in: the launch gate found an update before
  * sync started (`launchUpdateGate`, #255) and is installing it now, with sync
  * held until the restart. The same card shows the download as "Updating
- * Baalda" — it is not a failure, so there are no retry actions — and goes away
+ * Infinite Brain" — it is not a failure, so there are no retry actions — and goes away
  * if the gate gives up and lets this build open.
  */
 function UpdateGate({ launchVersion = null }: { launchVersion?: string | null }) {
@@ -1022,7 +1022,7 @@ function SyncIndicator({
 
 /**
  * Sign-in dialog raised by a flow, not by a click. Two flows use it, both
- * arriving as a `baalda://` deep link while the app is signed out:
+ * arriving as a `infinitebrain://` deep link while the app is signed out:
  *
  *   - "note-link": a shared note. The link is queued in lib/noteLinkFlow and
  *     signing in here opens it automatically.
@@ -1163,7 +1163,7 @@ export default function App() {
     else useStore.getState().closeVersionPanel();
   }, [versionsTabOpen, versionDocId]);
 
-  // `baalda://` links, from a teammate's chat window into this app. Mounted for
+  // `infinitebrain://` links, from a teammate's chat window into this app. Mounted for
   // the app's whole life (not gated on a vault being open) because the very
   // first thing a link may have to do is switch vaults.
   useEffect(() => listenForNoteLinks(), []);
@@ -1244,7 +1244,7 @@ export default function App() {
       // all — that is where the bugs the new build fixed still live. The tree
       // is already painted above; this only holds the network side. A found
       // update installs and restarts right here (the card says "Updating
-      // Baalda"); no update, an offline launch or a check slower than
+      // Infinite Brain"); no update, an offline launch or a check slower than
       // LAUNCH_CHECK_TIMEOUT_MS falls straight through. Not in a dev build —
       // see the note on the poll below.
       if (!import.meta.env.DEV) {
@@ -1291,8 +1291,8 @@ export default function App() {
       if (typeof detail?.path !== "string" || (detail.scope !== undefined && detail.scope !== "personal" && detail.scope !== "vault")) return;
       void useStore.getState().setHome(detail.path, detail.scope).catch((e) => toast(String(e), "error"));
     };
-    window.addEventListener("baalda:set-home", setHome);
-    return () => window.removeEventListener("baalda:set-home", setHome);
+    window.addEventListener("infinitebrain:set-home", setHome);
+    return () => window.removeEventListener("infinitebrain:set-home", setHome);
   }, []);
 
   // An in-note file chip was clicked (`lib/editor/livePreview.ts` →

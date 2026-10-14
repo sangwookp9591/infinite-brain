@@ -117,7 +117,7 @@ export function setBlobRegistryNotifier(
 }
 /** Same header as `registry.ts ORIGIN_HEADER`; spelled out here because
  *  `registry.ts` imports this module (a cycle otherwise). */
-const ORIGIN_HEADER = "x-baalda-origin";
+const ORIGIN_HEADER = "x-infinitebrain-origin";
 function registryChanged(c: Context, vaultId: string): void {
   try {
     registryNotifier?.(vaultId, c.req.header(ORIGIN_HEADER) ?? null);

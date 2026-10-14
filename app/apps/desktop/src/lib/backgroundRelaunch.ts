@@ -1,6 +1,6 @@
 // Keep a silent update's restart behind whatever app the user is in.
 //
-// Just before an update restarts the app we record whether Baalda was in the
+// Just before an update restarts the app we record whether Infinite Brain was in the
 // background; the new process reads that in Rust `setup` and, on macOS, hides
 // itself again so it never jumps in front (see `src-tauri/src/relaunch.rs`).
 // The What's New modal is simply waiting when the user comes back.

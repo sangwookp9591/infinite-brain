@@ -14,7 +14,7 @@ const MULTI = `<!--
 
 ## 0.1.61
 
-- Baalda now updates itself at a quiet moment.
+- Infinite Brain now updates itself at a quiet moment.
 - What's New covers only the version you were given.
 
 ## 0.1.60
@@ -50,14 +50,14 @@ describe("notesForVersion", () => {
 
   it("falls back to the first (newest) section when no heading matches", () => {
     expect(releaseNoteLines(notesForVersion(MULTI, "9.9.9"))).toEqual([
-      "Baalda now updates itself at a quiet moment.",
+      "Infinite Brain now updates itself at a quiet moment.",
       "What's New covers only the version you were given.",
     ]);
   });
 
   it("falls back to the first section when no version is given", () => {
     expect(releaseNoteLines(notesForVersion(MULTI))).toEqual([
-      "Baalda now updates itself at a quiet moment.",
+      "Infinite Brain now updates itself at a quiet moment.",
       "What's New covers only the version you were given.",
     ]);
   });
@@ -144,7 +144,7 @@ describe("releaseNoteLines", () => {
 
   it("reads the real release body end to end", () => {
     expect(releaseNoteLines(notesForVersion(MULTI, "0.1.61"), 5)).toEqual([
-      "Baalda now updates itself at a quiet moment.",
+      "Infinite Brain now updates itself at a quiet moment.",
       "What's New covers only the version you were given.",
     ]);
   });

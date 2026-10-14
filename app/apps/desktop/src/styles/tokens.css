@@ -1,5 +1,5 @@
 /* ============================================================
-   Baalda — Design Tokens ("Atomize PLUS")
+   Infinite Brain — Design Tokens ("Atomize PLUS")
    Light-first layered surfaces, 4pt grid, pill radii, soft diffuse
    shadows, violet primary. The same scale is mirrored for dark.
    All UI styling MUST consume these variables — no hardcoded colors.
@@ -17,7 +17,7 @@
   --z-toast: 1100;
 
   /* Surfaces (light) */
-  --bg-app: #faf9f8;            /* app background / canvas — baalda.com's beige (#fcf9f7), cooled a touch */
+  --bg-app: #faf9f8;            /* app background / canvas — warm beige (#fcf9f7), cooled a touch */
   --bg-surface: #ffffff;        /* cards, editor sheet, dialogs — Notion's page white */
   /* The neutral fills share --bg-app's slight warmth (red a hair above blue);
      the old lavender-cool greys read blue against the beige. */
@@ -59,19 +59,19 @@
   --editor-selection-bg: rgba(127, 115, 255, 0.28);
   --editor-selection-bg-inactive: rgba(127, 115, 255, 0.28);
 
-  /* Brand — Baalda logo. Fixed identity colors (not themed): the
+  /* Brand — Infinite Brain logo. Fixed identity colors (not themed): the
      bracket mark's dot + wordmark brackets are green; the mark tile is a
      dark app-icon square so the off-white brackets read in either theme. */
   --brand-green: #57bd9c;
   --brand-green-bright: #64cba9;
   --brand-ink: #ededea;         /* off-white brackets on the dark tile */
   --brand-tile: linear-gradient(155deg, #23232b 0%, #111116 100%);
-  /* baalda.com's violet and its lavender tint (violet at ~12%). */
+  /* Violet and its lavender tint (violet at ~12%). */
   --brand-violet: #7c5cff;
   --brand-violet-tint: #f0ebfd;
 
   /* Semantic */
-  /* baalda.com pairs each tone with a deep, slightly earthy text colour
+  /* Pair each tone with a deep, slightly earthy text colour
      (green-4 #3f8850, yellow-4 #987e1b) and a ~12% tint; this is the red in
      that family — a muted brick, not a bright cool alarm red. */
   --danger: #b8473a;
@@ -81,7 +81,7 @@
   --warning: #d98a00;
   --warning-soft: #fff4e0;
 
-  /* Access board columns (Can edit / Can view / No access): baalda.com's
+  /* Access board columns (Can edit / Can view / No access):
      green / yellow tints with a deeper text colour of the same hue, plus a
      neutral grey. Each fg is >= 4.5:1 on its bg. */
   --access-edit-bg: #e9f6ef;

@@ -65,7 +65,7 @@ export const CLIENT_VERSION_PARAM = "clientVersion";
 
 /** Header alternative for non-browser clients (listed in the CORS allow-list
  *  so a future desktop may switch to it once servers have rolled out). */
-export const CLIENT_VERSION_HEADER = "x-baalda-version";
+export const CLIENT_VERSION_HEADER = "x-infinitebrain-version";
 
 /** The first release that ships the empty-file ingest guard. */
 export const DEFAULT_MIN_CLIENT_VERSION = "0.1.49";
@@ -232,7 +232,7 @@ export function requireSupportedClient(): MiddlewareHandler {
     if (verdict.ok) return next();
     return c.json(
       {
-        error: "This version of Baalda is too old to sync. Update the app to continue.",
+        error: "This version of Infinite Brain is too old to sync. Update the app to continue.",
         code: CLIENT_OUTDATED_CODE,
         reason: verdict.reason,
         minVersion: verdict.minVersion,

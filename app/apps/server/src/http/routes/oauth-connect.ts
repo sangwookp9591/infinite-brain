@@ -19,7 +19,7 @@ import { esc, page } from "../pages.js";
  *   POST /oauth/consent  → records the vault binding, completes consent,
  *                          bounces back to the client's redirect_uri.
  *
- * Served by this (headless) server itself so the flow works on api.baalda.com
+ * Served by this (headless) server itself so the flow works on localhost:3010
  * and any self-hoster with no separate web frontend. Page chrome + branding come
  * from ../pages.ts (shared with the account pages).
  */
