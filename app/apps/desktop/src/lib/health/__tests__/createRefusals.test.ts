@@ -21,7 +21,7 @@ function input(over: Partial<HealthInput> = {}): HealthInput {
     openFolderIsSynced: true,
     syncProgress: null,
     lastSyncedAt: NOW - 120_000,
-    serverUrl: "https://api.baalda.com",
+    serverUrl: "http://localhost:3010",
     now: NOW,
     docIdByPath: {},
     docSyncState: {},

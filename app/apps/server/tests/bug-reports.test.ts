@@ -15,7 +15,7 @@ import { __resetBugReportThrottleForTests } from "../src/http/routes/bug-reports
 const app = createApp(testAppDeps());
 
 /** Only what reached the operator inbox (sign-up also sends a verification email). */
-const reports = () => memoryOutbox.filter((m) => m.to === "bugs@baalda.local");
+const reports = () => memoryOutbox.filter((m) => m.to === "bugs@infinitebrain.local");
 
 function report(body: unknown, token?: string) {
   return app.request("/api/bug-reports", {
@@ -57,7 +57,7 @@ describe("bug reports", () => {
 
     expect(reports()).toHaveLength(1);
     const mail = reports()[0]!;
-    expect(mail.to).toBe("bugs@baalda.local");
+    expect(mail.to).toBe("bugs@infinitebrain.local");
     expect(mail.replyTo).toBe("alice@bugs.io");
     expect(mail.subject).toBe("Bug report: Sidebar froze <b>after</b> a rename");
     expect(mail.text).toContain("App version: 0.1.73");

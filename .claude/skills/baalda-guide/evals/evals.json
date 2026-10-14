@@ -9,7 +9,7 @@
       "assertions": [
         "Leads with a direct answer (yes/no/partly) in the first sentence",
         "States that PY and JS (code files) are ignored / not shown in the vault",
-        "States that DOCX and XLSX cannot be opened or edited in Baalda but can be attached to a note",
+        "States that DOCX and XLSX cannot be opened or edited in Infinite Brain but can be attached to a note",
         "States that PNG (images) preview in the app and sync when embedded in a note",
         "Does not use the words CRDT, Yjs, or Hocuspocus",
         "Under 250 words"
@@ -17,7 +17,7 @@
     },
     {
       "id": 1,
-      "prompt": "My team of 6 uses Obsidian with a shared Dropbox folder and it keeps making conflicted copies. Would Baalda fix that? Do we all need to pay, and can we keep our existing vault?",
+      "prompt": "My team of 6 uses Obsidian with a shared Dropbox folder and it keeps making conflicted copies. Would Infinite Brain fix that? Do we all need to pay, and can we keep our existing vault?",
       "expected_output": "Yes: live merge, no conflicted copies; existing Obsidian vault opens as-is (plugins don't carry over); free locally/self-hosted; managed Free covers 2 people and 1 synced vault, so a team of 6 needs Team at $10 per seat per month or $110 per seat per year (minimum 3 seats, 6 seats = $60/month), bought in-app; team can start today.",
       "files": [],
       "assertions": [
@@ -31,7 +31,7 @@
     },
     {
       "id": 2,
-      "prompt": "I'm not technical. If I invite my assistant to my Baalda vault, can I stop her from seeing my personal folder? And can I let ChatGPT or Claude read my notes, and would it also see her stuff?",
+      "prompt": "I'm not technical. If I invite my assistant to my Infinite Brain vault, can I stop her from seeing my personal folder? And can I let ChatGPT or Claude read my notes, and would it also see her stuff?",
       "expected_output": "Yes: make the folder private / share per person with view or edit; AI via MCP token is bound to the token creator's permissions, or a local agent edits files on disk; no built-in chat; mention where in the app.",
       "files": [],
       "assertions": [

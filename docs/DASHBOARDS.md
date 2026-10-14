@@ -1,7 +1,7 @@
 # Home and dashboards
 
-Baalda renders. It never generates. A dashboard is an ordinary `.html` or `.htm`
-note in your vault. You or your agent author the page; Baalda displays it, watches
+Infinite Brain renders. It never generates. A dashboard is an ordinary `.html` or `.htm`
+note in your vault. You or your agent author the page; Infinite Brain displays it, watches
 for edits, and synchronizes it through the existing note access model. Markdown
 notes remain the source material. There is no exported dashboard database.
 
@@ -27,7 +27,7 @@ app actions only while the current effective Home is open, including Markdown,
 HTML and linked Home notes (shortened to provider names in narrow windows).
 Other HTML pages offer Dashboard options (`···`) with View source and Set as my
 home; Home itself has no overflow menu. Source mode
-keeps Save and Back to dashboard controls. You can also use Baalda's MCP tools
+keeps Save and Back to dashboard controls. You can also use Infinite Brain's MCP tools
 or let an agent edit the file on disk.
 The watcher reloads the open preview after the file changes. Pages using the SDK
 restore scroll and can retain widget state on this device.
@@ -89,27 +89,27 @@ Pin notes or folders from their row menu. Personal pins live on this device.
 Owners/admins can also pin for everyone; shared pins appear first and members
 cannot remove the shared pin. Personal duplicates appear only once. Note pins and
 Home use the stable note ID, so a recognized rename or move keeps the reference.
-Folder pins follow moves made in Baalda and folder moves recognized by sync.
+Folder pins follow moves made in Infinite Brain and folder moves recognized by sync.
 Unavailable pins are hidden without erasing saved references during an incomplete
 listing, startup, or loss of access; a restored note with the same ID reappears.
 
 Local external note moves retain IDs when the filesystem supplies reliable file
 identity and creation time. Identical copies keep separate IDs. On filesystems
-without that metadata, use Baalda's rename/move action or the existing sync
+without that metadata, use Infinite Brain's rename/move action or the existing sync
 reconciliation rather than relying on local external move recognition.
 
 ## Agent paths
 
 - **MCP:** create or update an HTML note with the normal note tools. Dashboard
   content uses the same permissions and sync as other notes.
-- **Files:** run your agent in the vault and edit the HTML directly. Baalda's
+- **Files:** run your agent in the vault and edit the HTML directly. Infinite Brain's
   watcher picks up the change.
 - **Routines:** configure your agent's scheduler to edit the file or use the
-  Baalda MCP connector. Scheduling belongs to the agent; Baalda adds no scheduler.
+  Infinite Brain MCP connector. Scheduling belongs to the agent; Infinite Brain adds no scheduler.
 - **Installed agents:** On the effective Home, Update with Claude and Update with Codex each open a
   prompt and streaming log for that installed CLI. Stop cancels the process and
   its children. Detection and compatibility appear under Account Settings → About.
-  Sign in through the CLI first; Baalda never opens credential files. Inherited
+  Sign in through the CLI first; Infinite Brain never opens credential files. Inherited
   API credentials can select API billing instead of the CLI subscription.
 
 Codex requires CLI 0.160.1 or newer and the supported named permission-profile
@@ -128,14 +128,14 @@ fetched by the CLI also applies.
 
 Claude requires the installed CLI's `--restricted`, `--safe-mode`, headless and
 permission-control flags. Restricted mode confines its file tools to the vault's
-working directory; Baalda exposes only Read, Glob, Grep, Edit and Write. This is
+working directory; Infinite Brain exposes only Read, Glob, Grep, Edit and Write. This is
 Claude Code's tool-permission boundary, **not an OS sandbox**. Shell, code,
 subagent, web and MCP tools are unavailable. Private vault-root paths listed
 above have explicit Read and Edit denials; Claude applies Read denials to Write
 and best-effort search filtering as well. Permission prompts are automatically
 denied rather than bypassed. Safe mode disables user customizations while
 preserving CLI authentication; managed policy still applies. No-session-persistence
-keeps the conversation from being saved. Baalda does not use `--bare`, which would
+keeps the conversation from being saved. Infinite Brain does not use `--bare`, which would
 disable subscription/keychain authentication.
 
 Home can be any supported note format, including Markdown, HTML, canvas, and
@@ -173,15 +173,15 @@ A handwritten page needs no SDK. Include the following only when you want live
 reads, app navigation, theme tokens, scroll restoration, or device-local state:
 
 ```html
-<script src="/__baalda/sdk.js"></script>
+<script src="/__infinitebrain/sdk.js"></script>
 <script>
-  baalda.ready.then(async () => {
-    const notes = await baalda.notes.list({ tag: "project", limit: 50 });
+  infinitebrain.ready.then(async () => {
+    const notes = await infinitebrain.notes.list({ tag: "project", limit: 50 });
     const list = document.querySelector("#projects");
     for (const note of notes) {
       const button = document.createElement("button");
       button.textContent = note.title;
-      button.onclick = () => baalda.app.open({ docId: note.id });
+      button.onclick = () => infinitebrain.app.open({ docId: note.id });
       list.append(button);
     }
   }).catch(console.error);
@@ -195,20 +195,20 @@ permission change.
 
 | API | Result / arguments |
 | --- | --- |
-| `baalda.ready`, `baalda.vault.info()` | Vault name, user display name, platform, theme, CSS tokens |
-| `baalda.notes.search(q, limit)` | Search results for readable notes; at most 200 |
-| `baalda.notes.list(query)` | Note metadata: `id`, `path`, `title`, `mtime` (Unix seconds), `frontmatter` (JSON string or null), `tags` |
-| `baalda.notes.read(note)` | Note source text |
-| `baalda.notes.meta(note)` | Metadata for one note, or null |
-| `baalda.notes.backlinks(note)` | Readable backlinks |
-| `baalda.graph.edges()` | Links whose endpoints are both readable |
-| `baalda.tags.list()` | `{name, count}` rows |
-| `baalda.properties.keys()` | `{key, count}` rows |
-| `baalda.properties.values(key)` | Distinct scalar values as strings |
-| `baalda.vault.stats()` | Local vault health, or readable-note counts/activity for a synced vault |
-| `baalda.state.get(key)`, `baalda.state.set(key, value)` | JSON widget state, device-local per dashboard; 64 KB total |
-| `baalda.app.open(note)` | Open a readable note in Baalda |
-| `baalda.app.openExternal(url)` | Open an HTTPS or mailto link in the system handler |
+| `infinitebrain.ready`, `infinitebrain.vault.info()` | Vault name, user display name, platform, theme, CSS tokens |
+| `infinitebrain.notes.search(q, limit)` | Search results for readable notes; at most 200 |
+| `infinitebrain.notes.list(query)` | Note metadata: `id`, `path`, `title`, `mtime` (Unix seconds), `frontmatter` (JSON string or null), `tags` |
+| `infinitebrain.notes.read(note)` | Note source text |
+| `infinitebrain.notes.meta(note)` | Metadata for one note, or null |
+| `infinitebrain.notes.backlinks(note)` | Readable backlinks |
+| `infinitebrain.graph.edges()` | Links whose endpoints are both readable |
+| `infinitebrain.tags.list()` | `{name, count}` rows |
+| `infinitebrain.properties.keys()` | `{key, count}` rows |
+| `infinitebrain.properties.values(key)` | Distinct scalar values as strings |
+| `infinitebrain.vault.stats()` | Local vault health, or readable-note counts/activity for a synced vault |
+| `infinitebrain.state.get(key)`, `infinitebrain.state.set(key, value)` | JSON widget state, device-local per dashboard; 64 KB total |
+| `infinitebrain.app.open(note)` | Open a readable note in Infinite Brain |
+| `infinitebrain.app.openExternal(url)` | Open an HTTPS or mailto link in the system handler |
 
 `note` accepts a path string, `{path: "Projects/Plan.md"}`, or `{docId: "…"}`.
 `notes.list` accepts `folder`, `tag`, `property: {key, value}`, `modifiedSince`
@@ -229,7 +229,7 @@ The saved HTML itself can still render offline. UI title caches are not authorit
 ## Runtime boundaries
 
 Local pages run in an opaque-origin iframe with scripts and popup links enabled.
-They receive neither same-origin access nor Tauri IPC. A separate `baalda-view`
+They receive neither same-origin access nor Tauri IPC. A separate `infinitebrain-view`
 protocol supplies the mounted HTML and local presentation assets, with an epoch
 and per-view lease. Paths reject traversal, hidden metadata and symlink escape;
 switching vaults invalidates the view. Raw notes are available only through the
@@ -274,7 +274,7 @@ available. Browser simulation covers the host layout only, not native rendering.
 ### Imported template library and previews
 
 The library contains 26 templates: 20 upstream dashboard templates, three original
-Baalda Agentic OS templates (Orbit, Waystation, and Meridian), and three adapted
+Infinite Brain Agentic OS templates (Orbit, Waystation, and Meridian), and three adapted
 user-supplied deployments (Cosmos, Sales OS, and Marketing OS). Bundled HTML,
 styles, scripts, fonts and images live in `app/apps/desktop/public/dashboard-templates/`.
 `SOURCES.json` records repositories, revisions, source-page hashes and final artifact
@@ -320,8 +320,8 @@ sandboxed HTML; returning to the library unmounts it. For a recognized saved
 dashboard, the expanded preview opens the vault file so edits remain visible.
 Card images represent the original template, not a live snapshot of user edits.
 
-Native template previews use the separate `baalda-view` protocol's fixed
-`/__baalda/template/<id>` allowlist and guest CSP, without a vault SDK bridge.
+Native template previews use the separate `infinitebrain-view` protocol's fixed
+`/__infinitebrain/template/<id>` allowlist and guest CSP, without a vault SDK bridge.
 The simulator serves the same bundled HTML directly. Public assets avoid Vite
 rewriting these self-contained pages as application entry points. Existing vault
 HTML with the old template-credit banner has that banner hidden during rendering.

@@ -1,4 +1,4 @@
-# Working on Baalda
+# Working on Infinite Brain
 
 ## Start here
 
@@ -7,7 +7,7 @@ reference for this repository; this file provides the agent entry point and a
 compact working guide. Consult the relevant code and tests before relying on
 historical implementation details in either document.
 
-- Product and docs index: `docs/Baalda.md`.
+- Product and docs index: `docs/Infinite Brain.md`.
 - Design specs: `docs/specs/00`–`04` and `docs/specs/REQUIREMENTS.md`.
 - Build status: `docs/STATUS.md`; branding: `docs/BRANDING.md`.
 - Contribution rules: `CONTRIBUTING.md`; release process: `docs/RELEASE.md`.
@@ -20,7 +20,7 @@ changing an architectural contract.
 
 ## Product and code map
 
-Baalda (internal codename **Context**) is a local-first desktop knowledge app:
+Infinite Brain (internal codename **Context**) is a local-first desktop knowledge app:
 plain Markdown files can be edited by local AI tools while people collaborate
 on the same notes in real time.
 
@@ -36,7 +36,6 @@ on the same notes in real time.
   permissions, blobs, billing, and MCP. Start at `index.ts` / `http/app.ts`.
 - Server `src/permissions/`: shared authorization rules; `src/registry/tree-ops.ts`:
   structural operations shared by HTTP and MCP.
-- `ee/`: separately licensed commercial features. The website is outside this repo.
 
 ## Invariants to preserve
 
@@ -127,6 +126,5 @@ header specified in `CONTRIBUTING.md`.
   releases are driven by the version gate on `main` or a `v*` tag; tags can ship
   immediately to installed apps. Follow `docs/RELEASE.md` for promotion and the
   coordinated four-file version bump. Do not treat pushes/tags as local checks.
-- This is a public repository. Never commit credentials, `.env` files, or private
-  managed-service operations/configuration. Keep managed-instance work in its
-  private repositories and respect the separate `ee/` license.
+- This is a public repository. Never commit credentials, `.env` files, updater
+  private keys, or private managed-service operations/configuration.

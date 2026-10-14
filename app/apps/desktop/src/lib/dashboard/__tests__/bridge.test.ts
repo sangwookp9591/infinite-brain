@@ -49,8 +49,8 @@ describe("dashboard boundary", () => {
   });
   it("rejects filesystem and navigation escapes", () => {
     for (const path of ["../x.md", "/x.md", ".context/config.json", "a/.secret.md", "a\\x.md", "https://evil/x.html", "x.png", "node_modules/x.md", "x\u0000.md"]) expect(() => dashboardPath(path)).toThrow();
-    for (const url of ["javascript:alert(1)", "http://example.com", "https://user:pass@example.com", "baalda://x"]) expect(() => dashboardExternalUrl(url)).toThrow();
-    expect(dashboardUrl("Projects/My Home.html", 4, "windows")).toBe("http://baalda-view.localhost/__baalda/vault/4/Projects/My%20Home.html");
+    for (const url of ["javascript:alert(1)", "http://example.com", "https://user:pass@example.com", "infinitebrain://x"]) expect(() => dashboardExternalUrl(url)).toThrow();
+    expect(dashboardUrl("Projects/My Home.html", 4, "windows")).toBe("http://infinitebrain-view.localhost/__infinitebrain/vault/4/Projects/My%20Home.html");
     expect(() => dashboardUrl("Home.html", NaN, "windows")).toThrow();
   });
 });

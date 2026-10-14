@@ -1,13 +1,13 @@
 ---
 type: status-tracker
-product: Baalda
+product: Infinite Brain
 date: 2026-07-13
 tags: [baalda, status, roadmap]
 ---
 
-# Baalda: Build Status
+# Infinite Brain: Build Status
 
-> Live checklist. Update as phases land. Back to index: [[Baalda]].
+> Live checklist. Update as phases land. Back to index: [[Infinite Brain]].
 
 ## Where we are
 
@@ -18,7 +18,7 @@ tags: [baalda, status, roadmap]
 - **Deployment:** 🟢 Production-ready (2026-07-15). The sync WebSocket is served on the HTTP
   port at `/sync` (single-port topology), and the repo ships a Dockerfile, Railway IaC at
   `app/.railway/railway.ts` (Dockerfile build, pre-deploy migrations + healthcheck), and [[DEPLOY]]. The managed backend is live at
-  `https://api.baalda.com`; desktop releases ship via `v*` tags → signed installers → Tauri updater.
+  `http://localhost:3010`; desktop releases ship via `v*` tags → signed installers → Tauri updater.
 - **Billing:** 🟢 Per-vault Pro via Polar, with the full subscription lifecycle (2026-09-09, #109–#111):
   deleting a vault cancels at period end before it deletes, subscriptions survive as tombstones, and an
   owner can transfer one between their vaults from Vault Settings → Billing.
@@ -74,7 +74,7 @@ De-risk the hardest part before networking.
 - [x] Hocuspocus server + Postgres; store binary Y.Doc only (`doc_updates` + `doc_snapshots`).
 - [x] Client network provider (`@hocuspocus/provider`) alongside local persistence (`lib/sync`).
 - [x] Better Auth: accounts, email+password (argon2id), server-side sessions; token in OS keychain
-  (Rust `keyring` crate, service `com.baalda.context`; `lib/auth` + `lib/api`).
+  (Rust `keyring` crate, service `com.infinitebrain.app`; `lib/auth` + `lib/api`).
 - [x] `users` / `sessions` / `vaults` / `notes` tables; join notes↔docs on `doc_id` (registry
   reconcile writes the server vault id + doc-id map to `.context/config.json`).
 - **Milestone:** two of my own devices converge on the same vault through the server. ✔ (proven by the
@@ -187,7 +187,7 @@ Six changes that together make a vault something a team can actually govern.
 - [x] **Account menu leads with Home.** The popover's top row was a second copy of the identity
   card that its own trigger already shows permanently in the sidebar footer. Home takes that row
   instead; it was previously below the fold on an account with several vaults.
-- [x] **Shareable note links.** `baalda://note/<vault>/<doc>` via `tauri-plugin-deep-link`
+- [x] **Shareable note links.** `infinitebrain://note/<vault>/<doc>` via `tauri-plugin-deep-link`
   (+ single-instance, so a click on Windows/Linux doesn't spawn a second app). The link carries
   **identity, not access** — ids only, resolved against whoever opens it — and is keyed by `doc_id`,
   so it survives every rename and move.
@@ -230,16 +230,16 @@ Six changes that together make a vault something a team can actually govern.
   `no_account` / `send_failed` with the provider's reason, so a wrong-server address or a refused
   send is said out loud) → emailed single-use, 1-hour link to the server-rendered `/reset-password`
   page → Better Auth `reset-password` (revokes other sessions; creates the credential for a
-  Google-only account, so the same flow sets a first password) → `baalda://signin` bounces back into
+  Google-only account, so the same flow sets a first password) → `infinitebrain://signin` bounces back into
   the app, which notices its revoked session and opens the sign-in card. Admin escape hatch for
   servers without email: `pnpm run set-password -- <email>`.
 - [x] **Sign-up verification email** (soft): sent on sign-up, `emailVerified` set on click, lands on
-  `/email-verified` → `baalda://verified` → the app re-reads its session; Account settings shows
+  `/email-verified` → `infinitebrain://verified` → the app re-reads its session; Account settings shows
   "Email confirmed ✓" / a Resend button. Not yet required to sign in — pre-existing accounts were
   never verified.
 - [x] **Invitation emails** → `POST /api/invitations/:id/send` (explicit, reports sent/failed; not a
   Better Auth hook, which swallows send errors) → `/invite/:id` landing page →
-  `baalda://invite/<id>?server=` deep link → the app signs in/up with the invited address and
+  `infinitebrain://invite/<id>?server=` deep link → the app signs in/up with the invited address and
   accepts. Members shows "Invitation emailed" only on a confirmed send, the provider's error + the
   link otherwise, plus Copy-link + Revoke per pending invitation. Re-inviting re-sends.
 - [x] **Invite inbox actually works**: Better Auth's `list-user-invitations` 403s for any unverified
@@ -276,7 +276,7 @@ Six changes that together make a vault something a team can actually govern.
   billing-disabled mode does not bypass this commercial feature.
 - Permission-filtered candidates, explicit excerpt-sharing consent, exact-change
   previews, revision-guarded Yjs writes, and guarded short-lived Undo.
-- Commercial engine under `ee/`; open-core builds remain independent. Provider
+- Billing and provider integrations are part of the server workspace. Provider
   credentials and a Pro vault (Team under `BILLING_MODEL=team`) are required for live use. See [setup and preview
   limits](HOUSEKEEPER.md). Real-provider quality evaluation remains outstanding.
 
@@ -302,8 +302,8 @@ copying an access request. Previews recheck scope, findings and rename authority
 Oversized-note backups do not split content or resolve size limits; permission
 requests do not grant access. These distinctions are explicit in the action UI.
 
-The Assistant now ships under Apache-2.0 in the standard server package rather than
-`ee/`. Billing-disabled self-hosters have access with their own model key;
+The Assistant ships under Apache-2.0 as part of the server package. Billing-disabled
+self-hosters have access with their own model key;
 billing-enabled vaults retain the Pro gate. Free synced vaults on billing-enabled
 servers accept up to 20,000 live notes; extra registrations return
 `note_limit_reached` and local files remain intact. Existing identities still

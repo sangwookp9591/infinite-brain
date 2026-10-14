@@ -29,10 +29,10 @@ export const DEPLOYED_OS_TEMPLATES: DashboardTemplate[] = [
   },
 ].map((template) => ({
   ...template,
-  author: "Ben AI · adapted for Baalda",
+  author: "Ben AI · adapted for Infinite Brain",
   previewUrl: `/dashboard-templates/${template.id}.html`,
   thumbnailUrl: `/dashboard-thumbnails/${template.id}.webp`,
-  prompt: `Personalize ${template.name} using supported facts from my vault. Read the customization comment and sample data first. Preserve the downloaded interface, pages, themes, responsive spacing and motion controls. Replace fictional records with my workflow. Keep simulated actions labeled until deliberately connected; do not invent service connections, execute workflows or send messages from this template. Use Baalda's permission-checked dashboard API when live reads are useful. Preserve this HTML file's identity and upstream attribution and dependency notices.`,
+  prompt: `Personalize ${template.name} using supported facts from my vault. Read the customization comment and sample data first. Preserve the downloaded interface, pages, themes, responsive spacing and motion controls. Replace fictional records with my workflow. Keep simulated actions labeled until deliberately connected; do not invent service connections, execute workflows or send messages from this template. Use Infinite Brain's permission-checked dashboard API when live reads are useful. Preserve this HTML file's identity and upstream attribution and dependency notices.`,
   loadHtml: async () => {
     const response = await fetch(`/dashboard-templates/${template.id}.html`);
     if (!response.ok) throw new Error("This template is unavailable. Try another template.");

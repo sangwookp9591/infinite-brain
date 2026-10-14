@@ -235,7 +235,7 @@ export function BugReportDialog({ onClose }: { onClose: () => void }) {
               {email ? (
                 <>Sent to support. Any reply will come to {email}.</>
               ) : (
-                "Sent to support. Thanks for helping make Baalda better."
+                "Sent to support. Thanks for helping make Infinite Brain better."
               )}
             </p>
             <div className="bug-report-actions">

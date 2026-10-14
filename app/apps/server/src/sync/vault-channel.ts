@@ -208,7 +208,7 @@ export class VaultChannel {
    *
    * Coalesced per vault over `registryCoalesceMs`: a reconcile fires this once
    * per created row, and every broadcast makes every subscriber recompute its
-   * readable-doc set. `originId` (the writing client's `x-baalda-origin`) rides
+   * readable-doc set. `originId` (the writing client's `x-infinitebrain-origin`) rides
    * along so the author of the change isn't told to re-pull its own writes; a
    * window that mixes several origins — or any change of unknown origin — is
    * broadcast to everyone.

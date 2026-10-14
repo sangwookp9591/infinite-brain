@@ -23,14 +23,14 @@ import { getSession } from "../session.js";
  * convenient and is not: the page is a hand-mirrored binary format, its decoder
  * is tested against byte fixtures, and a transport that silently rewrites the
  * bytes on some platforms and not others is the one thing that would make those
- * fixtures a lie. The client gunzips explicitly, and the `X-Baalda-Bytes` header
+ * fixtures a lie. The client gunzips explicitly, and the `X-InfiniteBrain-Bytes` header
  * reports the UNCOMPRESSED size so a progress bar matches `session.bytes`.
  */
 
 /** `/health` feature: `POST …/bootstrap` accepts `only: string[]`. */
 export const BOOTSTRAP_ONLY_FEATURE = "bootstrap-only";
 
-export const BOOTSTRAP_CONTENT_TYPE = "application/vnd.baalda.bootstrap";
+export const BOOTSTRAP_CONTENT_TYPE = "application/vnd.infinitebrain.bootstrap";
 
 /** Auth, verbatim from `http/routes/vault-token.ts`: session → vault → member. */
 async function gate(c: Context): Promise<{ userId: string; vaultId: string } | Response> {
@@ -101,9 +101,9 @@ bootstrapRoutes.get("/vaults/:vaultId/bootstrap/:sessionId", async (c) => {
     c.header("Content-Type", BOOTSTRAP_CONTENT_TYPE);
     // ABSENT means drained — the client stops rather than having to compare a
     // sentinel. Present means "ask again from here".
-    if (page.nextCursor !== null) c.header("X-Baalda-Cursor", String(page.nextCursor));
-    c.header("X-Baalda-Docs", String(page.docs));
-    c.header("X-Baalda-Bytes", String(page.bytes));
+    if (page.nextCursor !== null) c.header("X-InfiniteBrain-Cursor", String(page.nextCursor));
+    c.header("X-InfiniteBrain-Docs", String(page.docs));
+    c.header("X-InfiniteBrain-Bytes", String(page.bytes));
     c.header("ETag", `"${sessionId}:${cursor}"`);
     return c.body(page.body as unknown as ArrayBuffer);
   } catch (err) {

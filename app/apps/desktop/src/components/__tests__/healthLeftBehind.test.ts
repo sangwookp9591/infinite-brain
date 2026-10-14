@@ -51,7 +51,7 @@ function snapshot(paths: string[]): VaultHealthSnapshot {
       counts: { total: 3, synced: 0, pending: 0, failed: 0, unsynced: 0, unreported: 0 },
       issues: paths.map(leftBehind),
       lastSyncedAt: null,
-      serverHost: "api.baalda.com",
+      serverHost: "localhost:3010",
     },
     inventory: {
       local: { notes: 3, folders: 0, files: 0, total: 3 },

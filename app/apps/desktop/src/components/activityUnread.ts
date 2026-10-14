@@ -17,7 +17,7 @@ export interface ReadState {
 }
 
 export const READ_STATE_MAX = 5000;
-const KEY_PREFIX = "baalda.activity.read.v1:";
+const KEY_PREFIX = "infinitebrain.activity.read.v1:";
 
 export const readStateKey = (vaultRoot: string) => `${KEY_PREFIX}${vaultRoot}`;
 
@@ -108,7 +108,7 @@ export function saveReadState(vaultRoot: string, state: ReadState): void {
 // device, for this vault. A watermark like the read state, persisted the same
 // way; anything that happens afterwards shows normally.
 
-const CLEARED_PREFIX = "baalda.activity.cleared.v1:";
+const CLEARED_PREFIX = "infinitebrain.activity.cleared.v1:";
 
 export const clearedKey = (vaultRoot: string) => `${CLEARED_PREFIX}${vaultRoot}`;
 

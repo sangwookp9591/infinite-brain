@@ -12,13 +12,13 @@ export interface ItemColor {
   label: string;
   /** The deeper tone: the glyph's outline, and the swatch in the picker. */
   value: string;
-  /** The pastel the glyph is filled with (baalda.com's `*-2` swatches). */
+  /** The pastel the glyph is filled with (`*-2` swatches). */
   fill: string;
   /** Nearby hues that should not form an adjacent automatic-colour batch. */
   family: string;
 }
 
-// baalda.com's pairing: a bright pastel fill (its blue-2 #9ed4ef, green-2
+// Use a bright pastel fill (blue-2 #9ed4ef, green-2
 // #9bd8a9, purple-2 #b8caf5, yellow-2 #fde99b, peach #f7d9be, violet #cbbcf6)
 // under a deeper outline of the same hue (green-4 #3f8850, yellow-4 #987e1b,
 // violet #7c5cff); the other hues are built the same way. The ids are what is

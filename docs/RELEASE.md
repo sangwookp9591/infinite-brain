@@ -1,4 +1,4 @@
-# Releasing the Baalda desktop app
+# Releasing the Infinite Brain desktop app
 
 **The version bump *is* the release.** Bump it in all four places — they must
 agree or the build fails the tag/version check — and merge to `main`. There is no
@@ -25,7 +25,7 @@ lockfile fails *every* platform job at the install step, several minutes in.
 ```markdown
 ## 0.1.61
 
-- Baalda now updates itself: it checks, downloads, installs and restarts …
+- Infinite Brain now updates itself: it checks, downloads, installs and restarts …
 - Vault Settings has a new Health page: a verdict on your vault, …
 ```
 
@@ -60,11 +60,11 @@ base version there still names the release that already shipped.
 
 **Silent updates are the default.** A release announces itself only when its
 own section has points; with no section or an empty one both workflows add a
-`<!-- baalda:silent -->` marker to the release body (invisible on GitHub), and
+`<!-- infinitebrain:silent -->` marker to the release body (invisible on GitHub), and
 the desktop skips the What's New modal (`isSilentRelease`). The update still
 installs and restarts everywhere exactly as usual.
 
-**Background restarts.** An update that restarts the app while Baalda is behind
+**Background restarts.** An update that restarts the app while Infinite Brain is behind
 another app keeps it there: the old process records its focus
 (`lib/backgroundRelaunch.ts` → Rust `set_background_relaunch`) and the new one
 hides itself again in `setup` on macOS, before its window is ever shown
@@ -137,7 +137,7 @@ pointed at a **staging server**.
 `staging` is long-lived and equals `main` plus whatever is under test.
 
 1. **PRs target `staging`**, not `main`.
-2. Merging one pushes `staging`, which builds **Baalda Staging** and replaces the
+2. Merging one pushes `staging`, which builds **Infinite Brain Staging** and replaces the
    rolling `staging` prerelease. Testers' staging apps auto-update into it.
 3. When the batch is proven, **promote**: fast-forward `staging` onto `main` and
    bump the four version files.
@@ -180,7 +180,7 @@ runs, so the first matrix job recreates both at the new commit and the other thr
 upload into it. That is why the updater endpoint can be a fixed URL:
 
 ```
-https://github.com/naveedharri/baalda/releases/download/staging/latest.json
+https://github.com/sangwookp9591/infinite-brain/releases/download/staging/latest.json
 ```
 
 The staging app polls that; production polls `releases/latest`. The two can never
@@ -193,9 +193,9 @@ overlay is ever fumbled.
 | Trigger | version bump merged to `main`, or a `v*` tag | any push to `staging` |
 | Tag | `v<version>`, one per release | `staging`, rolling (deleted + recreated) |
 | Version | `0.1.47` | `0.1.47-staging.<run number>` |
-| Product name | Baalda | Baalda Staging |
-| Bundle identifier | `com.baalda.context` | `com.baalda.context.staging` |
-| Server | built-in default (`api.baalda.com`) | `STAGING_SERVER_URL` variable |
+| Product name | Infinite Brain | Infinite Brain Staging |
+| Bundle identifier | `com.infinitebrain.app` | `com.infinitebrain.app.staging` |
+| Server | built-in default (`localhost:3010`) | `STAGING_SERVER_URL` variable |
 | Updater manifest | `releases/latest/download/latest.json` | `releases/download/staging/latest.json` |
 | Windows bundle | `.msi` + `.exe` | `.exe` (NSIS) only |
 | `cancel-in-progress` | `false` | `true` |
@@ -233,7 +233,7 @@ through the MSI); everything else about the app is identical.
 **variable** named `STAGING_SERVER_URL` (Settings → Secrets and variables →
 Actions → Variables) holding the staging server's base URL. The workflow's
 `prepare` job fails with a clear message when it is empty, or when it points at
-`api.baalda.com` — a staging app that silently fell back to the production server
+`localhost:3010` — a staging app that silently fell back to the production server
 would be worse than no staging channel. It is a *variable* rather than a secret
 because it cannot be kept secret: Vite inlines it into the JS bundle, and we
 publish that bundle. Treat the staging server as internet-facing.
@@ -267,9 +267,9 @@ would reject their own updates. Channel separation is the endpoint, not the key.
 
 Download the installer from the `staging` prerelease on the Releases page (it is
 marked *Pre-release*). Because the bundle identifier differs, macOS treats it as a
-separate application: it installs to `/Applications/Baalda Staging.app`, gets its
+separate application: it installs to `/Applications/Infinite Brain Staging.app`, gets its
 own Dock icon, and Tauri hands it **its own app-config directory**
-(`~/Library/Application Support/com.baalda.context.staging`), so the vault path and
+(`~/Library/Application Support/com.infinitebrain.app.staging`), so the vault path and
 server URL it remembers never mix with the released app's. macOS builds are
 Developer ID signed and notarized exactly like production, so the install is clean.
 
@@ -280,17 +280,17 @@ hurt you:
    server's vault id and doc-id map. Opening a folder you also use with the
    released app points the same notes at two servers, and the result is not a
    merge — it is divergence you cannot unpick. **Use a fresh, throwaway folder.**
-2. **The `baalda://` link scheme.** Both apps register it and the OS picks a single
+2. **The `infinitebrain://` link scheme.** Both apps register it and the OS picks a single
    handler, so a shared note link may open in the other app. This is not fixable
    without breaking staging deep links outright, since the server mints
-   `baalda://` URLs.
-3. **The OS keychain service**, which is the frozen `com.baalda.context` in both
+   `infinitebrain://` URLs.
+3. **The OS keychain service**, which is the frozen `com.infinitebrain.app` in both
    builds (see `keychain.rs`). Session items are keyed `session-v2:<serverUrl>`,
    so a staging app on the staging server and a released app on the production
    server never touch the same item — the different server URL is what separates
    them, not the app. Point the staging app at the *production* server, though,
    and both apps contend for one keychain item whose macOS ACL belongs to whichever
-   app created it, which is exactly how you earn the "Baalda wants to use your
+   app created it, which is exactly how you earn the "Infinite Brain wants to use your
    confidential information" password prompt.
 
 ### Notes on the staging workflow
@@ -366,9 +366,9 @@ switch can never be left off by accident.
 
 ```bash
 gh release download v0.1.11 --pattern '*_aarch64.dmg'
-hdiutil attach Baalda_0.1.11_aarch64.dmg
-xcrun stapler validate /Volumes/Baalda/Baalda.app
-spctl -a -vv /Volumes/Baalda/Baalda.app
+hdiutil attach Infinite Brain_0.1.11_aarch64.dmg
+xcrun stapler validate /Volumes/Infinite Brain/Infinite Brain.app
+spctl -a -vv /Volumes/Infinite Brain/Infinite Brain.app
 ```
 
 `spctl` says `accepted` + `source=Notarized Developer ID` when the ticket is in
@@ -519,9 +519,9 @@ silently on users' machines:
 
 ```bash
 # right arch in the right tarball
-tar xzf Baalda_0.1.10_darwin-x86_64.app.tar.gz && lipo -archs Baalda.app/Contents/MacOS/desktop
+tar xzf Infinite Brain_0.1.10_darwin-x86_64.app.tar.gz && lipo -archs Infinite Brain.app/Contents/MacOS/desktop
 # valid Developer ID signature
-codesign --verify --deep --strict --verbose=2 Baalda.app
+codesign --verify --deep --strict --verbose=2 Infinite Brain.app
 ```
 
 **Publish.** `latest.json` must list one entry per platform key
@@ -530,17 +530,17 @@ the `.dmg` — with `signature` set to the full contents of the matching `.sig`
 file. Then:
 
 ```bash
-gh release create v0.1.10 --title "Baalda v0.1.10" --notes-file notes.md \
-  Baalda_0.1.10_darwin-aarch64.dmg Baalda_0.1.10_darwin-x86_64.dmg \
-  Baalda_0.1.10_darwin-aarch64.app.tar.gz Baalda_0.1.10_darwin-aarch64.app.tar.gz.sig \
-  Baalda_0.1.10_darwin-x86_64.app.tar.gz Baalda_0.1.10_darwin-x86_64.app.tar.gz.sig \
+gh release create v0.1.10 --title "Infinite Brain v0.1.10" --notes-file notes.md \
+  Infinite Brain_0.1.10_darwin-aarch64.dmg Infinite Brain_0.1.10_darwin-x86_64.dmg \
+  Infinite Brain_0.1.10_darwin-aarch64.app.tar.gz Infinite Brain_0.1.10_darwin-aarch64.app.tar.gz.sig \
+  Infinite Brain_0.1.10_darwin-x86_64.app.tar.gz Infinite Brain_0.1.10_darwin-x86_64.app.tar.gz.sig \
   latest.json
 ```
 
 **Confirm the update path** actually resolves — this is the endpoint the app polls:
 
 ```bash
-curl -sL https://github.com/naveedharri/baalda/releases/latest/download/latest.json
+curl -sL https://github.com/sangwookp9591/infinite-brain/releases/latest/download/latest.json
 ```
 
 ## Two kinds of signing
@@ -555,7 +555,7 @@ curl -sL https://github.com/naveedharri/baalda/releases/latest/download/latest.j
 ## macOS code signing
 
 Without this, a downloaded `.dmg`/`.app` trips Gatekeeper
-(*"Baalda is damaged and can't be opened"* / *"unidentified developer"*) and users
+(*"Infinite Brain is damaged and can't be opened"* / *"unidentified developer"*) and users
 must right-click → Open or run `xattr -cr`. A stable Developer ID signature also
 stops the repeated macOS Keychain password prompt during normal use.
 

@@ -256,7 +256,7 @@ describe("Home navigation", () => {
     useStore.setState({ titles: [] });
     expect(renderHome()).toContain("Set a home");
     const requested = vi.fn();
-    window.addEventListener("baalda:new-dashboard", requested);
+    window.addEventListener("infinitebrain:new-dashboard", requested);
     const host = document.createElement("div");
     const root = createRoot(host);
     try {
@@ -267,7 +267,7 @@ describe("Home navigation", () => {
       expect(useStore.getState().homePickerOpen).toBe(false);
     } finally {
       act(() => root.unmount());
-      window.removeEventListener("baalda:new-dashboard", requested);
+      window.removeEventListener("infinitebrain:new-dashboard", requested);
     }
     expect(useStore.getState().homeActivation).toBeNull();
   });

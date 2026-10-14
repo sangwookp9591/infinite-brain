@@ -105,7 +105,7 @@ describe("check definitions", () => {
       const def = CHECK_BY_ID.get(id)!;
       expect(def.heal).toBeUndefined();
       expect(def.howToFix.join(" ")).toMatch(
-        /Baalda (will not|cannot)|Nothing here is broken|create the note yourself/,
+        /Infinite Brain (will not|cannot)|Nothing here is broken|create the note yourself/,
       );
     }
   });

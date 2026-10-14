@@ -1,16 +1,16 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Baalda Staging",
-  "identifier": "com.baalda.context.staging",
+  "productName": "Infinite Brain Staging",
+  "identifier": "com.infinitebrain.app.staging",
   "plugins": {
     "deep-link": {
       "desktop": {
-        "schemes": ["baalda-staging"]
+        "schemes": ["infinitebrain-staging"]
       }
     },
     "updater": {
       "endpoints": [
-        "https://github.com/naveedharri/baalda/releases/download/staging/latest.json"
+        "https://github.com/sangwookp9591/infinite-brain/releases/download/staging/latest.json"
       ]
     }
   }

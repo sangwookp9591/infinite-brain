@@ -24,18 +24,18 @@ describe("share links", () => {
     // Depending on how the OS hands the URL over, "note" can land as the host
     // or as the first path segment. Both have to parse, or links work on one
     // platform and silently do nothing on another.
-    expect(parseNoteLink("baalda:///note/org_1/doc_1")).toEqual({
+    expect(parseNoteLink("infinitebrain:///note/org_1/doc_1")).toEqual({
       orgId: "org_1",
       docId: "doc_1",
     });
   });
 
   it("builds a clickable https link when a server base is known", () => {
-    // Chat apps linkify https; a bare baalda:// scheme just sits there as text.
+    // Chat apps linkify https; a bare infinitebrain:// scheme just sits there as text.
     // The server's /open/note page bounces the click into the app.
     const target = { orgId: "org_123", docId: "d0c-4bcd" };
-    expect(buildNoteLink(target, "https://api.baalda.com")).toBe(
-      "https://api.baalda.com/open/note/org_123/d0c-4bcd",
+    expect(buildNoteLink(target, "http://localhost:3010")).toBe(
+      "http://localhost:3010/open/note/org_123/d0c-4bcd",
     );
     // A reverse-proxy sub-path prefix on the server URL is preserved.
     expect(buildNoteLink(target, "https://example.com/baalda/")).toBe(
@@ -47,7 +47,7 @@ describe("share links", () => {
 
   it("parses the https form, host-agnostic (self-hosted servers mint links too)", () => {
     const target = { orgId: "org_123", docId: "d0c-4bcd" };
-    expect(parseNoteLink(buildNoteLink(target, "https://api.baalda.com"))).toEqual(target);
+    expect(parseNoteLink(buildNoteLink(target, "http://localhost:3010"))).toEqual(target);
     expect(parseNoteLink("https://my.selfhost.io/prefix/open/note/o1/d1")).toEqual({
       orgId: "o1",
       docId: "d1",
@@ -59,9 +59,9 @@ describe("share links", () => {
       "https://example.com/note/org/doc", // https without /open/note
       "https://example.com/open/vault/org_1", // wrong resource
       "https://example.com/open/note/org_1", // no doc id
-      "baalda://vault/org_1",
-      "baalda://note/org_1", // no doc id
-      "baalda://note", // no ids at all
+      "infinitebrain://vault/org_1",
+      "infinitebrain://note/org_1", // no doc id
+      "infinitebrain://note", // no ids at all
       "not a url at all",
       "",
     ]) {

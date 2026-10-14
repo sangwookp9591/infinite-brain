@@ -1,4 +1,4 @@
-// Railway Infrastructure as Code for the Baalda server service.
+// Railway Infrastructure as Code for the Infinite Brain server service.
 //
 // Successor of the repo-root `railway.json`: Railway's legacy "Config as Code"
 // is no longer read by services created after mid-2026 and stops being read
@@ -124,10 +124,10 @@ const SERVER_ENV = [
   "EMAIL_TRANSPORT",
   // Inbox for the desktop's "Report a bug" dialog (needs email on); unset = off.
   "BUG_REPORT_EMAIL",
-  // Desktop URL scheme the server's pages bounce into; `baalda-staging` on the
+  // Desktop URL scheme the server's pages bounce into; `infinitebrain-staging` on the
   // staging project so its links open the Staging app, not the released one.
   "DEEP_LINK_SCHEME",
-  // Note Trash retention and the optional Baalda Assistant module override.
+  // Note Trash retention and the optional Infinite Brain Assistant module override.
   "TRASH_RETENTION_DAYS",
   "HOUSEKEEPER_MODULE",
   // Content-write safety (#251, #252): the oldest desktop build allowed to push
@@ -151,7 +151,7 @@ export default defineRailway((ctx) => {
   const branch = ctx.projectName.toLowerCase().includes("staging") ? "staging" : "main";
 
   const server = service("baalda-server", {
-    source: github("naveedharri/baalda", { branch }),
+    source: github("sangwookp9591/infinite-brain", { branch }),
     build: {
       builder: "DOCKERFILE",
       // Build context is the repo root (pnpm monorepo), so the path is from there.

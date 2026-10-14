@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a problem with Baalda
+description: Report a problem with Infinite Brain
 labels: ["bug"]
 body:
   - type: markdown

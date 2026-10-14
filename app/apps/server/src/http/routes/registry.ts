@@ -92,7 +92,7 @@ export interface RegistryDeps {
    * every open client re-pulls the registry and updates its local tree live —
    * without this, structural changes only surfaced on the next app restart.
    *
-   * `originId` is the calling client's `x-baalda-origin` (the same opaque id it
+   * `originId` is the calling client's `x-infinitebrain-origin` (the same opaque id it
    * sends in its vault-channel hello), or null when it didn't send one. The
    * channel uses it to skip notifying the client that caused the change: a
    * 500-note reconcile otherwise bounced ~1,100 `registry` frames back at its
@@ -102,7 +102,7 @@ export interface RegistryDeps {
 }
 
 /** Header carrying the calling client's opaque instance id (see RegistryDeps). */
-export const ORIGIN_HEADER = "x-baalda-origin";
+export const ORIGIN_HEADER = "x-infinitebrain-origin";
 
 /**
  * Re-exported from `registry/batch-ops.ts`, where it now lives so the batch

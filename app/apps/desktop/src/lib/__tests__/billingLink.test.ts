@@ -3,36 +3,36 @@ import { parseBillingLink } from "../billingLink";
 
 describe("parseBillingLink", () => {
   it("accepts both foldings, with and without a vault", () => {
-    expect(parseBillingLink("baalda://billing/upgraded")).toEqual({ orgId: null });
-    expect(parseBillingLink("baalda:///billing/upgraded/")).toEqual({ orgId: null });
-    expect(parseBillingLink("baalda://billing/upgraded?org=WmpuI6BO")).toEqual({
+    expect(parseBillingLink("infinitebrain://billing/upgraded")).toEqual({ orgId: null });
+    expect(parseBillingLink("infinitebrain:///billing/upgraded/")).toEqual({ orgId: null });
+    expect(parseBillingLink("infinitebrain://billing/upgraded?org=WmpuI6BO")).toEqual({
       orgId: "WmpuI6BO",
     });
-    expect(parseBillingLink("baalda:///billing/upgraded?org=abc%2Fdef")).toEqual({
+    expect(parseBillingLink("infinitebrain:///billing/upgraded?org=abc%2Fdef")).toEqual({
       orgId: "abc/def",
     });
   });
 
   it("accepts the Staging and dev builds' schemes too", () => {
-    expect(parseBillingLink("baalda-staging://billing/upgraded?org=x")).toEqual({ orgId: "x" });
-    expect(parseBillingLink("baalda-dev://billing/upgraded?org=x")).toEqual({ orgId: "x" });
+    expect(parseBillingLink("infinitebrain-staging://billing/upgraded?org=x")).toEqual({ orgId: "x" });
+    expect(parseBillingLink("infinitebrain-dev://billing/upgraded?org=x")).toEqual({ orgId: "x" });
   });
 
   it("treats an empty org as absent", () => {
-    expect(parseBillingLink("baalda://billing/upgraded?org=")).toEqual({ orgId: null });
-    expect(parseBillingLink("baalda://billing/upgraded?org=%20")).toEqual({ orgId: null });
+    expect(parseBillingLink("infinitebrain://billing/upgraded?org=")).toEqual({ orgId: null });
+    expect(parseBillingLink("infinitebrain://billing/upgraded?org=%20")).toEqual({ orgId: null });
   });
 
   it("refuses anything else", () => {
     for (const bad of [
-      "baalda://billing",
-      "baalda://billing/canceled",
-      "baalda://billing/upgraded/extra",
-      "baalda://upgraded",
-      "baalda://verified",
+      "infinitebrain://billing",
+      "infinitebrain://billing/canceled",
+      "infinitebrain://billing/upgraded/extra",
+      "infinitebrain://upgraded",
+      "infinitebrain://verified",
       "https://example.com/billing/upgraded",
       "not a url",
-      "baalda://",
+      "infinitebrain://",
     ]) {
       expect(parseBillingLink(bad)).toBeNull();
     }

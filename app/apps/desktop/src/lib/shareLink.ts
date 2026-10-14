@@ -1,4 +1,4 @@
-// Shareable note links — `baalda://note/<orgId>/<docId>`.
+// Shareable note links — `infinitebrain://note/<orgId>/<docId>`.
 //
 // The point of a link is that a teammate can paste it into chat and the person
 // who clicks it lands on the note. That means the link must carry **identity,
@@ -29,9 +29,9 @@ export interface NoteLinkTarget {
  * Build the link a user copies.
  *
  * With a server base URL this is an **https** link (`<server>/open/note/…`):
- * chat apps linkify https where a bare `baalda://` scheme just sits there as
+ * chat apps linkify https where a bare `infinitebrain://` scheme just sits there as
  * text, so the recipient can click instead of copy-pasting. The server's
- * `/open/note` page bounces straight into the `baalda://` deep link. Without a
+ * `/open/note` page bounces straight into the `infinitebrain://` deep link. Without a
  * base (unit tests, no server configured) it falls back to the raw scheme,
  * which still opens the app directly.
  */
@@ -69,7 +69,7 @@ export function parseNoteLink(url: string): NoteLinkTarget | null {
   const isScheme = isAppProtocol(parsed.protocol);
   const isWeb = parsed.protocol === "https:" || parsed.protocol === "http:";
   if (!isScheme && !isWeb) return null;
-  // `baalda://note/<org>/<doc>` parses with host "note" and pathname
+  // `infinitebrain://note/<org>/<doc>` parses with host "note" and pathname
   // "/<org>/<doc>". Some platforms hand the URL over with the host folded into
   // the path instead, so accept both rather than depending on which. The https
   // form is `https://<server>[/prefix]/open/note/<org>/<doc>` — host-agnostic,

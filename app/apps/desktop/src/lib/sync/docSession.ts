@@ -3391,7 +3391,7 @@ export class SyncManager implements InboundHost {
     this.note(
       "info",
       "closed-app-changes",
-      `Files changed while Baalda was closed: ${drift.missingMapped} known notes were missing and ${drift.unmappedLocal} new files appeared`,
+      `Files changed while Infinite Brain was closed: ${drift.missingMapped} known notes were missing and ${drift.unmappedLocal} new files appeared`,
     );
     this.emitStructureNotice();
   }
@@ -5674,7 +5674,7 @@ export class SyncManager implements InboundHost {
     this.note(
       "error",
       "server-too-old",
-      "Update your Baalda server — this app needs its bulk sync routes",
+      "Update your Infinite Brain server — this app needs its bulk sync routes",
     );
     this.progress?.phase("error");
     this.progress?.flush();
@@ -6552,7 +6552,7 @@ export class SyncManager implements InboundHost {
         const relPath = this.registry.pathForDocId(docId);
         if (relPath) {
           this.localChanges.set(docId, relPath);
-          this.note("info", "push-queued", "Merged an edit made outside Baalda — sending the result", {
+          this.note("info", "push-queued", "Merged an edit made outside Infinite Brain — sending the result", {
             docId,
             path: relPath,
           });

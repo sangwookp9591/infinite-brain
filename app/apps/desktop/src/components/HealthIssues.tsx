@@ -5,7 +5,7 @@
 
    Each row is ONE line: badge, title, the path with a few words of cause, the
    action most likely to fix it, and Ignore. The full reasoning (what it means,
-   what Baalda does next, where the content is, the raw facts) is not painted;
+   what Infinite Brain does next, where the content is, the raw facts) is not painted;
    Copy details puts it on the clipboard, and the full sentence is the row's
    tooltip. None of it is computed here: `lib/health/model.ts` reasoned about
    it, so the screen and the clipboard can never disagree. */

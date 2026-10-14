@@ -570,7 +570,7 @@ export function useVaultHealth(options: UseVaultHealthOptions = {}): VaultHealth
         const me = st.session?.user.email;
         const message =
           `Hi${owner ? ` ${owner.name}` : ""},\n\n` +
-          `Could you give me access to the Baalda vault "${vaultName}"? ` +
+          `Could you give me access to the Infinite Brain vault "${vaultName}"? ` +
           `Right now the Remote Vault refuses to sync it for me.` +
           (me ? ` My account email is ${me}.` : "") +
           `\n\nThanks!`;
@@ -800,7 +800,7 @@ export async function buildIssueReport(
   }
 
   const lines: string[] = [];
-  lines.push(`Baalda — ${issue.title}`);
+  lines.push(`Infinite Brain — ${issue.title}`);
   if (issue.path) lines.push(issue.path);
   lines.push("");
   lines.push(issue.why);
@@ -808,7 +808,7 @@ export async function buildIssueReport(
   lines.push("What this means");
   lines.push(issue.explanation.meaning);
   lines.push("");
-  lines.push("What Baalda does next");
+  lines.push("What Infinite Brain does next");
   lines.push(issue.explanation.next);
   lines.push("");
   lines.push("What you can do");
@@ -851,7 +851,7 @@ export async function buildDiagnostics(
     typeof navigator === "undefined" ? "unknown" : navigator.userAgent || "unknown";
 
   const lines: string[] = [];
-  lines.push("Baalda vault health");
+  lines.push("Infinite Brain vault health");
   lines.push(`app: ${version}`);
   lines.push(`platform: ${platform}`);
   lines.push(`Remote Vault: ${report.serverHost ?? "(local only)"}`);

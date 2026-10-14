@@ -1,7 +1,7 @@
 ---
 type: spec
 spec: 03-sync-engine
-product: Baalda
+product: Infinite Brain
 status: draft-v1
 date: 2026-07-13
 tags: [baalda, spec, sync, yjs, crdt, hocuspocus, bridge]
@@ -11,7 +11,7 @@ tags: [baalda, spec, sync, yjs, crdt, hocuspocus, bridge]
 
 The heart of the product. Real-time collaboration + local-first offline + the file↔CRDT bridge that
 reconciles plain markdown with the CRDT. This is where all the hard problems live — build it early,
-test it hard. Overview: [[00-architecture-overview]]. Storage: [[02-database-architecture]]. Index: [[Baalda]].
+test it hard. Overview: [[00-architecture-overview]]. Storage: [[02-database-architecture]]. Index: [[Infinite Brain]].
 
 ---
 
@@ -124,7 +124,7 @@ content diff — a rename must never fork a doc. See [[02-database-architecture]
 ## 5b. Editing the vault from outside the app (AI agents, scripts)
 
 The vault folder is a normal folder of `.md` files, and editing it from outside the app is a
-supported way to use Baalda — that is the whole point of the bridge. All four filesystem verbs
+supported way to use Infinite Brain — that is the whole point of the bridge. All four filesystem verbs
 are safe while the app is open on a synced vault, and each reaches the team live:
 
 | What you do on disk | What happens |

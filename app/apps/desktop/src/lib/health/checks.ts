@@ -206,7 +206,7 @@ export const CHECK_DEFINITIONS: CheckDefinition[] = [
     label: "Unreadable notes",
     looksFor: "Note files that are not valid text (not UTF-8, or binary).",
     whyItMatters:
-      "Baalda cannot open, index or sync a note it cannot read as text. These files are " +
+      "Infinite Brain cannot open, index or sync a note it cannot read as text. These files are " +
       "skipped silently everywhere else, so this is the only place you will see them.",
     howToFix: [
       "Open the file in a text editor and save it as UTF-8.",
@@ -224,12 +224,12 @@ export const CHECK_DEFINITIONS: CheckDefinition[] = [
     looksFor:
       "A note that starts with --- but the properties block never closes, or holds lines that are not key: value.",
     whyItMatters:
-      "Properties Baalda cannot read are shown as plain text and never touched, so nothing is " +
+      "Properties Infinite Brain cannot read are shown as plain text and never touched, so nothing is " +
       "lost — but tags and dates in that block will not be found by search or filters.",
     howToFix: [
       "Open the note and close the block with a line containing only ---.",
       "Keep one property per line as key: value.",
-      "Baalda will not repair this for you: properties it cannot read are never rewritten, " +
+      "Infinite Brain will not repair this for you: properties it cannot read are never rewritten, " +
         "because a guess at what you meant would silently change your data.",
     ],
     severity: "warn",
@@ -275,7 +275,7 @@ export const CHECK_DEFINITIONS: CheckDefinition[] = [
     looksFor: "Markdown files on disk that have no entry in the index.",
     whyItMatters:
       "A file the index never saw is invisible to search and is not synced — usually one " +
-      "that was copied in while Baalda was not running.",
+      "that was copied in while Infinite Brain was not running.",
     howToFix: [
       "Heal rebuilds the index so these files become notes.",
       "Sync now then registers them with the Remote Vault.",
@@ -297,7 +297,7 @@ export const CHECK_DEFINITIONS: CheckDefinition[] = [
       "That mismatch is the single most common cause of a note that keeps re-syncing forever.",
     howToFix: [
       "Rename one of the pair so the names differ by more than case.",
-      "Baalda will not pick for you: only you know which of the two names is the " +
+      "Infinite Brain will not pick for you: only you know which of the two names is the " +
         "right one, and renaming the wrong one moves the note your links point at.",
     ],
     severity: "error",
@@ -330,7 +330,7 @@ export const CHECK_DEFINITIONS: CheckDefinition[] = [
     whyItMatters: "Windows and some backup tools refuse paths past 260 characters in total.",
     howToFix: [
       "Shorten the folder or file name.",
-      "Baalda will not shorten it for you — a name truncated by a machine stops " +
+      "Infinite Brain will not shorten it for you — a name truncated by a machine stops " +
         "saying what the note is.",
     ],
     severity: "info",
@@ -345,7 +345,7 @@ export const CHECK_DEFINITIONS: CheckDefinition[] = [
       "A [[wikilink]] to that title is ambiguous, so it may open a different note than you meant.",
     howToFix: [
       "Give one of them a more specific title, or link by path.",
-      "Nothing here is broken, so Baalda changes no titles on its own: which of the " +
+      "Nothing here is broken, so Infinite Brain changes no titles on its own: which of the " +
         "two should be renamed is yours to say.",
     ],
     severity: "info",
@@ -376,7 +376,7 @@ export const CHECK_DEFINITIONS: CheckDefinition[] = [
       "from attachments while a note still used it.",
     howToFix: [
       "Drop the file back into the note, or remove the embed.",
-      "Baalda cannot heal this one: the bytes are not in the vault, so there is " +
+      "Infinite Brain cannot heal this one: the bytes are not in the vault, so there is " +
         "nothing to point the embed at.",
     ],
     severity: "warn",
@@ -418,7 +418,7 @@ export const CHECK_DEFINITIONS: CheckDefinition[] = [
     group: "storage",
     label: "Recovery copies",
     looksFor:
-      "Unsent local edits Baalda preserved, plus deleted-note copies kept by earlier versions.",
+      "Unsent local edits Infinite Brain preserved, plus deleted-note copies kept by earlier versions.",
     whyItMatters:
       "They may contain changes that could not be synced, and they take up space until emptied.",
     howToFix: ["Review the copies, then empty them when you are sure you no longer need them."],

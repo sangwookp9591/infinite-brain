@@ -342,7 +342,7 @@ function ProfileTab() {
         <span className="field-label">Email</span>
         <input value={session.user.email} disabled readOnly />
         {/* Verification state, live: the confirmation link bounces back into
-            the app (`baalda://verified`), which re-reads the session, so this
+            the app (`infinitebrain://verified`), which re-reads the session, so this
             flips without a reload. `emailVerified` is absent on very old
             servers — say nothing rather than "not confirmed" then. */}
         {session.user.emailVerified === true && (
@@ -649,7 +649,7 @@ function ConnectionTab() {
           autoCapitalize="off"
         />
         <span className="field-hint">
-          The Baalda server this device syncs against — currently{" "}
+          The Infinite Brain server this device syncs against — currently{" "}
           <strong>{serverHost(serverUrl)}</strong>. Use the managed service or
           point at your own. Your account is per-server, so switching signs you
           in to that server's session instead.

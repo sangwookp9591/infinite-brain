@@ -1,6 +1,6 @@
 ---
 name: relaunch
-description: Kill the running Baalda desktop (Tauri) dev instance AND the backend server, then launch fresh instances of both. Use when the user says "relaunch", "restart the app", "kill and relaunch", or wants a clean restart after code/config changes.
+description: Kill the running Infinite Brain desktop (Tauri) dev instance AND the backend server, then launch fresh instances of both. Use when the user says "relaunch", "restart the app", "kill and relaunch", or wants a clean restart after code/config changes.
 ---
 
 # Relaunch Skill Guide
@@ -9,8 +9,8 @@ Kills the current desktop (Tauri) dev process tree **and** the backend server, t
 starts fresh instances of both. Postgres (Docker) is **left running** — restarting
 the server process does not touch the DB, so no re-seed is needed.
 
-Project: `/Users/macbook/Documents/OpenSource/Baalda/app`
-- Desktop launch: `pnpm run dev:desktop` (= `pnpm --filter desktop tauri dev --config src-tauri/tauri.dev.conf.json`; Vite on :1420) from the app root. The dev config registers the `baalda-dev://` scheme; launch through the script, not a bare `tauri dev`, or the build registers production's `baalda://`.
+Project: `/Users/macbook/Documents/OpenSource/Infinite Brain/app`
+- Desktop launch: `pnpm run dev:desktop` (= `pnpm --filter desktop tauri dev --config src-tauri/tauri.dev.conf.json`; Vite on :1420) from the app root. The dev config registers the `infinitebrain-dev://` scheme; launch through the script, not a bare `tauri dev`, or the build registers production's `infinitebrain://`.
 - Server launch: `pnpm run dev` from `app/apps/server/` (tsx watch; HTTP :3010, Hocuspocus WS :3011, GET /health).
 
 ## Steps
@@ -53,7 +53,7 @@ Run in the **background** from the server dir. Use the Bash tool with
 `run_in_background: true`.
 
 ```bash
-cd /Users/macbook/Documents/OpenSource/Baalda/app/apps/server && pnpm run dev
+cd /Users/macbook/Documents/OpenSource/Infinite Brain/app/apps/server && pnpm run dev
 ```
 
 ### 4. Launch the desktop
@@ -61,7 +61,7 @@ Run in the **background** from the app root. Use the Bash tool with
 `run_in_background: true`.
 
 ```bash
-cd /Users/macbook/Documents/OpenSource/Baalda/app && pnpm run dev:desktop
+cd /Users/macbook/Documents/OpenSource/Infinite Brain/app && pnpm run dev:desktop
 ```
 
 ### 5. Confirm both came up

@@ -8,18 +8,18 @@ whole repository for a simple question.
 | Question is about | Read |
 |---|---|
 | File types, formats, DOCX/XLSX/images/code, attachments, size limits | `references/file-formats.md` |
-| What Baalda does, feature by feature, in plain words | `references/features.md` |
+| What Infinite Brain does, feature by feature, in plain words | `references/features.md` |
 | Common questions with ready-to-give answers | `references/faq.md` |
 
 ## 2. The product docs (assumed up to date)
 
-Locate them: if the current directory (or a parent) contains `docs/Baalda.md`, read local files.
+Locate them: if the current directory (or a parent) contains `docs/Infinite Brain.md`, read local files.
 Otherwise fetch the same paths from GitHub:
-`https://raw.githubusercontent.com/naveedharri/baalda/main/<path>`.
+`https://raw.githubusercontent.com/sangwookp9591/infinite-brain/main/<path>`.
 
 | Topic | File |
 |---|---|
-| Product pitch, the core idea, stack, principles | `README.md`, `docs/Baalda.md` |
+| Product pitch, the core idea, stack, principles | `README.md`, `docs/Infinite Brain.md` |
 | What is built, what is planned (phases, Phase 4 list) | `docs/STATUS.md` |
 | The 12 requirements the product is measured against | `docs/specs/REQUIREMENTS.md` |
 | Latest shipped changes | `docs/RELEASE_NOTES.md`, then GitHub Releases. (The root `CHANGELOG.md` is not maintained; its "Unreleased" section lists things that shipped long ago.) |
@@ -41,15 +41,15 @@ the in-app purchase is live.
 
 | Page | URL |
 |---|---|
-| Home | https://baalda.com |
-| Pricing | https://baalda.com/pricing |
-| Download (current version, per-platform installers) | https://baalda.com/download |
-| Compare with Obsidian, Notion, Tana, Reflect, Logseq, Anytype, Confluence | https://baalda.com/compare and `/compare/<product>` |
-| Security and privacy statements | https://baalda.com/security · https://baalda.com/privacy |
-| Open source and licensing | https://baalda.com/open-source |
-| Blog (team second brain, MCP, Obsidian for teams) | https://baalda.com/blog |
-| Docs landing (points back to GitHub) | https://baalda.com/docs |
-| Source, releases, issues | https://github.com/naveedharri/baalda |
+| Home | https://github.com/sangwookp9591/infinite-brain |
+| Pricing | https://github.com/sangwookp9591/infinite-brain/pricing |
+| Download (current version, per-platform installers) | https://github.com/sangwookp9591/infinite-brain/download |
+| Compare with Obsidian, Notion, Tana, Reflect, Logseq, Anytype, Confluence | https://github.com/sangwookp9591/infinite-brain/compare and `/compare/<product>` |
+| Security and privacy statements | https://github.com/sangwookp9591/infinite-brain/security · https://github.com/sangwookp9591/infinite-brain/privacy |
+| Open source and licensing | https://github.com/sangwookp9591/infinite-brain/open-source |
+| Blog (team second brain, MCP, Obsidian for teams) | https://github.com/sangwookp9591/infinite-brain/blog |
+| Docs landing (points back to GitHub) | https://github.com/sangwookp9591/infinite-brain/docs |
+| Source, releases, issues | https://github.com/sangwookp9591/infinite-brain |
 
 ## 4. Code (only for a precise behaviour the docs do not state)
 
@@ -78,7 +78,7 @@ Do a targeted read of one file, never a sweep. Good entry points:
 - `docs/specs/REQUIREMENTS.md` lists graph view, semantic search and version history as
   deferred. All three shipped.
 - `CHANGELOG.md` at the repo root is abandoned; use `docs/RELEASE_NOTES.md`.
-- baalda.com/pricing may lag behind the app. The managed Team plan is live and self-serve in the
+- infinitebrain.com/pricing may lag behind the app. The managed Team plan is live and self-serve in the
   app (Account Settings → Plan & Billing); see `features.md`. Code:
   `app/apps/server/src/billing/plan.ts` (limits), `http/routes/billing.ts` (routes) and
   `config.ts` (prices and ceilings).

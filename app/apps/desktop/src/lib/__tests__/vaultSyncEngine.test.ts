@@ -100,7 +100,7 @@ async function awaitHello(ws: FakeWs): Promise<void> {
 describe("deriveVaultWsUrl", () => {
   it("keeps the HTTP port and appends /vault-sync (never bumps to 3011)", () => {
     expect(deriveVaultWsUrl("http://localhost:3010")).toBe("ws://localhost:3010/vault-sync");
-    expect(deriveVaultWsUrl("https://api.baalda.com")).toBe("wss://api.baalda.com/vault-sync");
+    expect(deriveVaultWsUrl("https://example.com")).toBe("wss://example.com/vault-sync");
     expect(deriveVaultWsUrl("https://host/prefix/")).toBe("wss://host/prefix/vault-sync");
   });
 });

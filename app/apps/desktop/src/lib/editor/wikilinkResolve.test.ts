@@ -31,7 +31,7 @@ beforeAll(() => {
 });
 
 const TITLES: NoteTitle[] = [
-  { id: "a", path: "Projects/Baalda.md", title: "Baalda roadmap" },
+  { id: "a", path: "Projects/Infinite Brain.md", title: "Infinite Brain roadmap" },
   { id: "b", path: "Inbox.md", title: "Inbox" },
   { id: "c", path: "Journal/2026-09-25.md", title: "Friday" },
 ];
@@ -49,26 +49,26 @@ describe("isWikilinkResolved", () => {
   const ok = (inner: string) => isWikilinkResolved(inner, TITLES);
 
   it("resolves a note's full relative path", () => {
-    expect(ok("Projects/Baalda")).toBe(true);
+    expect(ok("Projects/Infinite Brain")).toBe(true);
     expect(ok("Journal/2026-09-25")).toBe(true);
   });
 
   it("resolves a note's basename anywhere in the tree", () => {
-    expect(ok("Baalda")).toBe(true);
+    expect(ok("Infinite Brain")).toBe(true);
     expect(ok("2026-09-25")).toBe(true);
     // Rust's basename rule ignores the folder part of the target.
-    expect(ok("Elsewhere/Baalda")).toBe(true);
+    expect(ok("Elsewhere/Infinite Brain")).toBe(true);
   });
 
   it("resolves a note's title", () => {
-    expect(ok("Baalda roadmap")).toBe(true);
+    expect(ok("Infinite Brain roadmap")).toBe(true);
     expect(ok("Friday")).toBe(true);
   });
 
   it("is case-insensitive", () => {
-    expect(ok("projects/BAALDA")).toBe(true);
+    expect(ok("projects/INFINITE BRAIN")).toBe(true);
     expect(ok("inbox")).toBe(true);
-    expect(ok("baalda ROADMAP")).toBe(true);
+    expect(ok("infinite brain ROADMAP")).toBe(true);
   });
 
   it("strips alias and heading before resolving", () => {
@@ -79,7 +79,7 @@ describe("isWikilinkResolved", () => {
 
   it("accepts a .md suffix", () => {
     expect(ok("Inbox.md")).toBe(true);
-    expect(ok("Projects/Baalda.md")).toBe(true);
+    expect(ok("Projects/Infinite Brain.md")).toBe(true);
   });
 
   it("does not resolve a target no note answers to", () => {

@@ -224,12 +224,12 @@ describe("account billing routes (team model)", () => {
     // The build that started the checkout is where the success page hands back.
     const dev = await req("POST", "/api/billing/account/checkout", {
       token: owner.token,
-      body: { seats: 3, interval: "month", client: { channel: "dev", scheme: "baalda-dev" } },
+      body: { seats: 3, interval: "month", client: { channel: "dev", scheme: "infinitebrain-dev" } },
     });
     expect(dev.status).toBe(200);
     expect(fakeProvider.lastCheckout).toMatchObject({
-      successUrl: expect.stringMatching(/\?checkout_id=\{CHECKOUT_ID\}&app=baalda-dev$/),
-      clientScheme: "baalda-dev",
+      successUrl: expect.stringMatching(/\?checkout_id=\{CHECKOUT_ID\}&app=infinitebrain-dev$/),
+      clientScheme: "infinitebrain-dev",
     });
 
     const accountId = (await ensureAccountForUser(pool, owner.userId))!;

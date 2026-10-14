@@ -1,8 +1,8 @@
 /**
  * Recognising the vaults-root errors Rust sends (`src-tauri/src/folder_safety.rs`).
  *
- * When macOS privacy refuses Baalda the Documents folder, the default vaults
- * root (Documents/Baalda Vaults) cannot be created. Rust then prefixes the
+ * When macOS privacy refuses Infinite Brain the Documents folder, the default vaults
+ * root (Documents/Infinite Brain Vaults) cannot be created. Rust then prefixes the
  * error with `documents_denied: ` so the UI can explain the block and offer
  * System Settings, instead of asking for "any folder" — which is how one user
  * ended up with their home folder bound as a vault.
@@ -17,7 +17,7 @@ export const FILES_AND_FOLDERS_SETTINGS_URL =
 
 /** What the Set-up prompt says when Documents is blocked. */
 export const DOCUMENTS_BLOCKED_TEXT =
-  "macOS blocked Baalda from using your Documents folder. Allow it in System Settings → Privacy & Security → Files and Folders → Baalda → Documents Folder, then try again.";
+  "macOS blocked Infinite Brain from using your Documents folder. Allow it in System Settings → Privacy & Security → Files and Folders → Infinite Brain → Documents Folder, then try again.";
 
 function rawMessage(e: unknown): string {
   if (e instanceof Error) return e.message;
@@ -25,7 +25,7 @@ function rawMessage(e: unknown): string {
   return String(e);
 }
 
-/** True when the error is macOS refusing Baalda the Documents folder. */
+/** True when the error is macOS refusing Infinite Brain the Documents folder. */
 export function isDocumentsDenied(e: unknown): boolean {
   return rawMessage(e).startsWith(DOCUMENTS_DENIED_PREFIX);
 }

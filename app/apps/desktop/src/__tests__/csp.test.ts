@@ -40,7 +40,7 @@ const directives = new Map<string, string[]>(
     }),
 );
 
-const VIEW_ORIGINS = ["baalda-view:", "http://baalda-view.localhost", "https://baalda-view.localhost"];
+const VIEW_ORIGINS = ["infinitebrain-view:", "http://infinitebrain-view.localhost", "https://infinitebrain-view.localhost"];
 
 const ASSET_ORIGINS = ["asset:", "http://asset.localhost", "https://asset.localhost"];
 

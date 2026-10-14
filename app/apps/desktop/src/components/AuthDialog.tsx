@@ -464,7 +464,7 @@ export function AuthDialog({
                   <CloudGlyph />
                 </span>
                 <span className="server-option-text">
-                  <span className="server-option-title">Baalda managed service</span>
+                  <span className="server-option-title">Infinite Brain managed service</span>
                   <span className="server-option-hint">
                     Hosted for you at {serverHost(DEFAULT_SERVER_URL)}
                   </span>

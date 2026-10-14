@@ -110,10 +110,10 @@ export function HousekeeperView({ vaultId, notes, onUpgrade, diagnostics, onGoTo
   }
   useEffect(() => { if (repairOpen) showRepair(); }, [repairOpen]);
   const availableNotes = notes.filter(n => /\.md$/i.test(n.path));
-  return <section className="housekeeper-panel" aria-label="Baalda Assistant">
-    <div className="housekeeper-heading"><h3>Baalda Assistant</h3>{(status?.requiresTeam ?? status?.requiresPro) !== false && <span className="housekeeper-badge">Team</span>}</div>
+  return <section className="housekeeper-panel" aria-label="Infinite Brain Assistant">
+    <div className="housekeeper-heading"><h3>Infinite Brain Assistant</h3>{(status?.requiresTeam ?? status?.requiresPro) !== false && <span className="housekeeper-badge">Team</span>}</div>
     <p className="housekeeper-intro">Keep your vault tidy. Review every change.</p>
-    <div className="housekeeper-announcement"><span className="housekeeper-badge">NEW</span><span>TypeSafe Jev is now available in Baalda.</span></div>
+    <div className="housekeeper-announcement"><span className="housekeeper-badge">NEW</span><span>TypeSafe Jev is now available in Infinite Brain.</span></div>
     {identity && <>
       <div className="assistant-tabs" role="tablist" aria-label="AI sections">
         <button role="tab" aria-selected={pane === "diagnostics"} onClick={() => setPane("diagnostics")}>Diagnostics</button>

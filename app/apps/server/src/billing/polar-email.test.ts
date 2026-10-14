@@ -21,7 +21,7 @@ afterEach(() => {
 describe("checkoutEmailFor", () => {
   it("keeps a valid address, trimmed", () => {
     expect(mod.checkoutEmailFor("  sara@example.com.au ")).toBe("sara@example.com.au");
-    expect(mod.checkoutEmailFor("a.b+c@mail.baalda.com")).toBe("a.b+c@mail.baalda.com");
+    expect(mod.checkoutEmailFor("a.b+c@mail.example.com")).toBe("a.b+c@mail.example.com");
   });
 
   it("drops reserved and special-use domains", () => {
@@ -56,11 +56,11 @@ function json(status: number, body: unknown): Response {
 const CHECKOUT_ARGS = {
   accountId: "acct_1",
   userId: "user_1",
-  email: "sara@baalda.com",
+  email: "sara@example.com",
   seats: 1,
   minSeats: 1,
   interval: "month" as const,
-  successUrl: "https://baalda.com/ok",
+  successUrl: "https://example.com/ok",
 };
 
 const EMAIL_422 = {
@@ -69,7 +69,7 @@ const EMAIL_422 = {
       type: "value_error",
       loc: ["body", "customer_email"],
       msg: "value is not a valid email address",
-      input: "sara@baalda.com",
+      input: "sara@example.com",
     },
   ],
 };
@@ -106,7 +106,7 @@ describe("PolarBillingProvider.createCheckout customer email", () => {
     vi.stubGlobal("fetch", fetchMock);
     await expect(new mod.PolarBillingProvider().createCheckout(CHECKOUT_ARGS)).rejects.toThrow();
     expect(bodies).toHaveLength(2);
-    expect(bodies[0].customer_email).toBe("sara@baalda.com");
+    expect(bodies[0].customer_email).toBe("sara@example.com");
     expect(bodies[1]).not.toHaveProperty("customer_email");
   });
 

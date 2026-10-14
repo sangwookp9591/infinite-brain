@@ -10,7 +10,7 @@ import { ApiError } from "./api";
 
 export interface ResetFailureContext {
   email: string;
-  /** Host of the server the request went to, e.g. "api.baalda.com". */
+  /** Host of the server the request went to, e.g. "localhost:3010". */
   serverHost: string;
 }
 

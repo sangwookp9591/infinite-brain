@@ -5,7 +5,7 @@ import { testAppDeps } from "./helpers/app.js";
 /**
  * The clickable share-link landing page (`GET /open/note/:orgId/:docId`).
  *
- * Chat apps linkify https where a bare `baalda://` scheme just sits there as
+ * Chat apps linkify https where a bare `infinitebrain://` scheme just sits there as
  * text, so share links are web URLs and this page bounces them into the app's
  * deep link. It is public by design — the URL carries identity, not access —
  * so these tests pin the two properties that make that safe: it touches no
@@ -20,7 +20,7 @@ describe("GET /open/note/:orgId/:docId", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toContain("text/html");
     const html = await res.text();
-    expect(html).toContain("baalda://note/org_123/7dfc7a21-310c-41bd-840f-d4c37f8d5db3");
+    expect(html).toContain("infinitebrain://note/org_123/7dfc7a21-310c-41bd-840f-d4c37f8d5db3");
   });
 
   it("is public — no session required", async () => {
@@ -62,7 +62,7 @@ describe("GET /open/connect", () => {
     expect(res.headers.get("content-type")).toContain("text/html");
     const html = await res.text();
     expect(html).toContain(
-      `baalda://connect?server=${encodeURIComponent("http://notes.example.com")}`,
+      `infinitebrain://connect?server=${encodeURIComponent("http://notes.example.com")}`,
     );
   });
 
@@ -76,7 +76,7 @@ describe("GET /open/connect", () => {
     });
     const html = await res.text();
     expect(html).toContain(
-      `baalda://connect?server=${encodeURIComponent("https://notes.example.com")}`,
+      `infinitebrain://connect?server=${encodeURIComponent("https://notes.example.com")}`,
     );
     expect(html).not.toContain("railway.internal");
   });
@@ -102,6 +102,6 @@ describe("GET /open/connect", () => {
     const html = await res.text();
     expect(html).not.toContain("<script>alert(1)</script>");
     // Falls back to the configured public URL rather than reflecting it.
-    expect(html).toContain("baalda://connect?server=");
+    expect(html).toContain("infinitebrain://connect?server=");
   });
 });

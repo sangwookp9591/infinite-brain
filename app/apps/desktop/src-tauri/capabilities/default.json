@@ -12,7 +12,7 @@
     "opener:default",
     {
       "identifier": "opener:allow-open-url",
-      "comment": "The Set-up prompt's Open System Settings button, shown when macOS blocked Baalda from the Documents folder. `opener:default` covers only http(s)/mailto/tel; this adds exactly the Files and Folders privacy pane.",
+      "comment": "The Set-up prompt's Open System Settings button, shown when macOS blocked Infinite Brain from the Documents folder. `opener:default` covers only http(s)/mailto/tel; this adds exactly the Files and Folders privacy pane.",
       "allow": [{ "url": "x-apple.systempreferences:com.apple.preference.security?Privacy_FilesAndFolders" }]
     },
     {
@@ -26,7 +26,7 @@
     "process:default",
     {
       "identifier": "core:window:allow-set-focus",
-      "comment": "A `baalda://` note link has to bring the window forward — a link that navigates a window the user can't see is the same as a link that did nothing. `core:default` grants only read-only window commands, so the three commands the deep-link handler needs are listed explicitly rather than by widening it."
+      "comment": "A `infinitebrain://` note link has to bring the window forward — a link that navigates a window the user can't see is the same as a link that did nothing. `core:default` grants only read-only window commands, so the three commands the deep-link handler needs are listed explicitly rather than by widening it."
     },
     "core:window:allow-show",
     "core:window:allow-unminimize",
@@ -36,7 +36,7 @@
     },
     {
       "identifier": "deep-link:default",
-      "comment": "Registers the `baalda://` URL scheme and lets the webview subscribe to opens on it. This is how a shared note link gets from a teammate's chat window into this app; the payload is only ever a vault + note id, and the handler resolves it against the signed-in user's own access."
+      "comment": "Registers the `infinitebrain://` URL scheme and lets the webview subscribe to opens on it. This is how a shared note link gets from a teammate's chat window into this app; the payload is only ever a vault + note id, and the handler resolves it against the signed-in user's own access."
     }
   ]
 }

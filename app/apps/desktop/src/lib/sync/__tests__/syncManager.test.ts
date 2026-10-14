@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { CLOSE_NOTE_TOO_LARGE, deriveWsUrl, isTerminalSyncStatus } from "../syncManager";
 
 describe("deriveWsUrl", () => {
-  it("appends /sync on the same origin/port for a no-port https host", () => {
-    expect(deriveWsUrl("https://api.baalda.com")).toBe("wss://api.baalda.com/sync");
+  it("appends /sync on the same origin/port for an https host", () => {
+    expect(deriveWsUrl("https://example.com")).toBe("wss://example.com/sync");
   });
 
   it("appends /sync on the same origin/port for a no-port http host", () => {
@@ -15,11 +15,11 @@ describe("deriveWsUrl", () => {
   });
 
   it("preserves a reverse-proxy path prefix ahead of /sync", () => {
-    expect(deriveWsUrl("https://host/baalda")).toBe("wss://host/baalda/sync");
+    expect(deriveWsUrl("https://host/infinitebrain")).toBe("wss://host/infinitebrain/sync");
   });
 
   it("collapses a trailing slash instead of double-slashing /sync", () => {
-    expect(deriveWsUrl("https://api.baalda.com/")).toBe("wss://api.baalda.com/sync");
+    expect(deriveWsUrl("https://example.com/")).toBe("wss://example.com/sync");
   });
 
   it("keeps an explicit :3010 on the SAME port and appends /sync (single-port self-host, #79)", () => {

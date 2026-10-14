@@ -18,8 +18,8 @@ use tauri::{
 /// Parent scripts remain restricted to 'self'; only the isolated document gets
 /// the script allowance. Fetch, nested frames, forms and remote image beacons
 /// cannot leave the document through this policy.
-pub const DASHBOARD_CSP: &str = "default-src 'none'; script-src 'self' baalda-view: http://baalda-view.localhost https://baalda-view.localhost 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://unpkg.com; style-src 'self' baalda-view: http://baalda-view.localhost https://baalda-view.localhost 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' baalda-view: http://baalda-view.localhost https://baalda-view.localhost data: blob:; media-src 'self' baalda-view: http://baalda-view.localhost https://baalda-view.localhost data: blob:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox";
-const ASSET_CSP: &str = "default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src 'self' baalda-view: http://baalda-view.localhost https://baalda-view.localhost data: blob:; font-src data:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; sandbox";
+pub const DASHBOARD_CSP: &str = "default-src 'none'; script-src 'self' infinitebrain-view: http://infinitebrain-view.localhost https://infinitebrain-view.localhost 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://unpkg.com; style-src 'self' infinitebrain-view: http://infinitebrain-view.localhost https://infinitebrain-view.localhost 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' infinitebrain-view: http://infinitebrain-view.localhost https://infinitebrain-view.localhost data: blob:; media-src 'self' infinitebrain-view: http://infinitebrain-view.localhost https://infinitebrain-view.localhost data: blob:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox";
+const ASSET_CSP: &str = "default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src 'self' infinitebrain-view: http://infinitebrain-view.localhost https://infinitebrain-view.localhost data: blob:; font-src data:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; sandbox";
 const MAX_RESOURCE_BYTES: u64 = 10 * 1024 * 1024;
 const SDK: &[u8] = include_bytes!("../../src/lib/dashboard/sdk.js");
 static IN_FLIGHT: AtomicUsize = AtomicUsize::new(0);
@@ -53,7 +53,7 @@ pub fn handle_request<R: tauri::Runtime>(
     tauri::async_runtime::spawn_blocking(move || {
         let _slot = RequestSlot;
         let state = app.state::<AppState>();
-        let result = if let Some(id) = request.uri().path().strip_prefix("/__baalda/template/") {
+        let result = if let Some(id) = request.uri().path().strip_prefix("/__infinitebrain/template/") {
             serve_template(&app, id, request.method().as_str())
         } else { serve(&state, &request) };
         responder.respond(result.unwrap_or_else(|_| {
@@ -118,7 +118,7 @@ fn serve(state: &AppState, request: &Request<Vec<u8>>) -> AppResult<Response<Vec
         return Err(AppError::new("view query too long"));
     }
     let path = decode_path(request.uri().path())?;
-    if path == "/__baalda/sdk.js" {
+    if path == "/__infinitebrain/sdk.js" {
         return Ok(response(
             StatusCode::OK,
             "application/javascript; charset=utf-8",
@@ -223,7 +223,7 @@ fn response(status: StatusCode, mime: &str, body: Vec<u8>) -> Response<Vec<u8>> 
 
 fn resource_path(path: &str) -> AppResult<(u64, &str)> {
     let tail = path
-        .strip_prefix("/__baalda/vault/")
+        .strip_prefix("/__infinitebrain/vault/")
         .ok_or_else(|| AppError::new("missing view epoch"))?;
     let (epoch, rel) = tail
         .split_once('/')
@@ -691,7 +691,7 @@ mod tests {
             inner.vault_epoch = 2;
         }
         let request = |path| Request::builder().uri(path).body(Vec::new()).unwrap();
-        assert!(serve(&state, &request("/__baalda/vault/1/Home.html")).is_err());
+        assert!(serve(&state, &request("/__infinitebrain/vault/1/Home.html")).is_err());
         assert!(serve(&state, &request("/Home.html")).is_err());
         state.dashboard_views.lock().unwrap().insert(
             "test-lease".into(),
@@ -700,17 +700,17 @@ mod tests {
                 path: "Home.html".into(),
             },
         );
-        assert!(serve(&state, &request("/__baalda/vault/2/Home.html")).is_err());
+        assert!(serve(&state, &request("/__infinitebrain/vault/2/Home.html")).is_err());
         let response = serve(
             &state,
-            &request("/__baalda/vault/2/Home.html?lease=test-lease"),
+            &request("/__infinitebrain/vault/2/Home.html?lease=test-lease"),
         )
         .unwrap();
         assert_eq!(response.body(), b"home");
         assert_eq!(response.headers()["content-security-policy"], DASHBOARD_CSP);
         assert_eq!(response.headers()["cache-control"], "no-store");
-        assert!(serve(&state, &request("/__baalda/vault/2/%2e%2e/Home.html")).is_err());
-        assert!(serve(&state, &request("/__baalda/sdk.js")).is_ok());
+        assert!(serve(&state, &request("/__infinitebrain/vault/2/%2e%2e/Home.html")).is_err());
+        assert!(serve(&state, &request("/__infinitebrain/sdk.js")).is_ok());
     }
 
     #[test]

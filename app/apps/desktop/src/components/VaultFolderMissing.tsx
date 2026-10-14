@@ -116,7 +116,7 @@ export function resetLocalCopyCopy(unsynced: readonly string[]): {
   return {
     title: "Reset this vault on this device?",
     body:
-      "Baalda permanently deletes this vault's folder on this device and downloads a fresh copy from the Remote Vault. Nothing changes for your team.",
+      "Infinite Brain permanently deletes this vault's folder on this device and downloads a fresh copy from the Remote Vault. Nothing changes for your team.",
     warning:
       n === 0
         ? null

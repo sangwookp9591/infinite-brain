@@ -1,12 +1,12 @@
 <!doctype html>
 <!-- SPDX-License-Identifier: Apache-2.0
 How to edit this dashboard
-Baalda renders; it never generates. Replace these clearly labeled examples using
+Infinite Brain renders; it never generates. Replace these clearly labeled examples using
 notes you can read. Keep Markdown as the source of truth. Do not add a JSON export.
 This file syncs and shares as an ordinary note. Use MCP read_note/search_notes and
 update_note/edit_note, or edit this file on disk. Preserve its doc_id through moves.
-Optional API: include <script src="/__baalda/sdk.js"></script>; await baalda.ready.
-baalda.vault.info(), vault.stats(); notes.search(q,limit), notes.list({folder,tag,
+Optional API: include <script src="/__infinitebrain/sdk.js"></script>; await infinitebrain.ready.
+infinitebrain.vault.info(), vault.stats(); notes.search(q,limit), notes.list({folder,tag,
 property:{key,value},modifiedSince,sort,limit}), notes.read({docId}|{path}),
 notes.meta({docId}|{path}), notes.backlinks({docId}|{path}); graph.edges(); tags.list();
 properties.keys(), values(key); state.get(key), state.set(key,value); app.open({path}|{docId}),
@@ -26,7 +26,7 @@ Starter prompt: Build a daily home from my notes with today’s priorities, acti
 *{box-sizing:border-box}body{margin:0;background:var(--bg,#faf8f3);color:var(--fg,#282b28);font:14px/1.6 system-ui,sans-serif}main{max-width:1120px;margin:auto;padding:clamp(24px,5vw,64px)}h1,h2,h3,p{margin-top:0}h1{font:clamp(40px,6vw,68px)/1.06 Georgia,serif;letter-spacing:-.04em}h2{font:26px/1.2 Georgia,serif}h3{font-size:15px}p,small{color:var(--muted,#787568)}button,input{font:inherit}button{cursor:pointer}button:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--tone);outline-offset:4px}button{border:1px solid var(--border,#deddd4);background:var(--surface,#fffdf8);color:inherit;padding:8px 13px;border-radius:6px}button:hover{border-color:var(--tone)}.label{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase}.sample{display:inline-block;color:var(--tone);border:1px solid currentColor;border-radius:4px;padding:4px 7px;font-size:10px;letter-spacing:.1em;font-weight:650}footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--border,#deddd4);font-size:11px;color:var(--muted,#787568)}[hidden]{display:none!important}@media(max-width:600px){main{padding:24px 20px}h1{font-size:42px}}
 body{--tone:#b5653d}header{display:flex;justify-content:space-between;gap:24px;align-items:flex-start;padding-bottom:30px;border-bottom:1px solid var(--border,#deddd4)}header h1{margin:18px 0 12px}header p{max-width:400px;margin:0}.sun{width:92px;height:92px;border:1px solid var(--tone);border-radius:50%;display:grid;place-content:center;color:var(--tone);flex-shrink:0;margin-top:35px;font:44px Georgia,serif}.layout{display:grid;grid-template-columns:1.3fr 1fr;gap:44px;margin-top:36px}.section-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:18px}.section-head h2{margin:0}.priority{display:flex;align-items:flex-start;gap:13px;padding:18px 0;border-top:1px solid var(--border,#deddd4)}.priority input{accent-color:var(--tone);width:18px;height:18px;margin:4px 0 0;flex-shrink:0}.priority span{display:block}.priority small{display:block;margin-top:4px;font-size:12px}.priority:has(input:checked) strong{text-decoration:line-through;opacity:.55}.focus{background:color-mix(in srgb,var(--tone) 9%,var(--surface,#fffdf8));border-left:3px solid var(--tone);padding:22px;margin-top:22px}.focus h3{font:23px Georgia,serif;margin:8px 0}.focus p{font-size:12px}.focus button{background:var(--tone);color:white;border:0}.schedule{list-style:none;margin:0;padding:0}.schedule li{display:grid;grid-template-columns:54px 1fr;gap:14px;padding:18px 0;border-top:1px solid var(--border,#deddd4)}time{color:var(--tone);font-size:12px;font-variant-numeric:tabular-nums}.schedule small{display:block;font-size:11px}.week{margin-top:26px}.days{display:flex;gap:7px;flex-wrap:wrap}.days button{min-width:32px;padding:7px}.days button[aria-pressed=true]{background:var(--tone);color:white;border-color:var(--tone)}@media(max-width:680px){.layout{grid-template-columns:1fr;gap:30px}.sun{width:56px;height:56px;font-size:28px}header{gap:12px}}
 html[data-theme="dark"] body{--tone:#e2a176}
-</style><script src="/__baalda/sdk.js"></script></head>
+</style><script src="/__infinitebrain/sdk.js"></script></head>
 <body><main>
 <header><div><span class="sample">SAMPLE DATA · PERSONAL PLANNER</span><h1>Make room<br>for a good day.</h1><p>A little intention, a few important things, and space to think.</p></div><div class="sun" aria-hidden="true">☼</div></header>
 <div class="layout"><section><div class="section-head"><h2>Three things that matter</h2><small id="progress" aria-live="polite">0 of 3 complete</small></div>

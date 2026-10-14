@@ -52,19 +52,19 @@ fn seed(vault: &PathBuf) {
     notefile::write_note(
         vault,
         "Index.md",
-        "---\ntitle: Home\ntags: [moc]\n---\n# Home\n\nStart at [[Projects/Baalda]] and [[Daily/2026-07-13]].\n",
+        "---\ntitle: Home\ntags: [moc]\n---\n# Home\n\nStart at [[Projects/Infinite Brain]] and [[Daily/2026-07-13]].\n",
     )
     .unwrap();
     notefile::write_note(
         vault,
-        "Projects/Baalda.md",
-        "# Baalda\n\nA local-first #project. Relates to [[Index]].\nSee also [[Daily/2026-07-13]].\n",
+        "Projects/Infinite Brain.md",
+        "# Infinite Brain\n\nA local-first #project. Relates to [[Index]].\nSee also [[Daily/2026-07-13]].\n",
     )
     .unwrap();
     notefile::write_note(
         vault,
         "Daily/2026-07-13.md",
-        "# 2026-07-13\n\nWorked on #project baalda. Quick brown fox jumps. Link [[Projects/Baalda]].\n",
+        "# 2026-07-13\n\nWorked on #project infinitebrain. Quick brown fox jumps. Link [[Projects/Infinite Brain]].\n",
     )
     .unwrap();
     notefile::write_note(
@@ -102,12 +102,12 @@ fn full_index_lifecycle_on_disk_vault() {
     assert!(hits[0].snippet.contains("<mark>"));
 
     // Wiki-link resolution (path-style target).
-    let resolved = idx.resolve_wikilink("Projects/Baalda").unwrap().unwrap();
-    assert_eq!(resolved.path, "Projects/Baalda.md");
+    let resolved = idx.resolve_wikilink("Projects/Infinite Brain").unwrap().unwrap();
+    assert_eq!(resolved.path, "Projects/Infinite Brain.md");
 
-    // Backlinks: Baalda is linked from Index + Daily → 2 backlinks.
-    let baalda = idx.get_note_meta("Projects/Baalda.md").unwrap().unwrap();
-    let backlinks = idx.get_backlinks(&baalda.id).unwrap();
+    // Backlinks: Infinite Brain is linked from Index + Daily → 2 backlinks.
+    let baalda = idx.get_note_meta("Projects/Infinite Brain.md").unwrap().unwrap();
+    let backlinks = idx.get_backlinks(&infinitebrain.id).unwrap();
     assert_eq!(backlinks.len(), 2, "baalda backlinks: {:?}", backlinks);
 
     // Tags surfaced on the daily note.
@@ -128,25 +128,25 @@ fn full_index_lifecycle_on_disk_vault() {
     assert!(dangling.is_none());
 
     // Identity is stable across a rebuild.
-    let id_before = baalda.id.clone();
+    let id_before = infinitebrain.id.clone();
     idx.rebuild(&vault).unwrap();
-    let id_after = idx.get_note_meta("Projects/Baalda.md").unwrap().unwrap().id;
+    let id_after = idx.get_note_meta("Projects/Infinite Brain.md").unwrap().unwrap().id;
     assert_eq!(id_before, id_after);
 
     // A move keeps inbound links pointing at the same doc_id.
     std::fs::create_dir_all(vault.join("Archive")).unwrap();
     std::fs::rename(
-        vault.join("Projects/Baalda.md"),
-        vault.join("Archive/Baalda.md"),
+        vault.join("Projects/Infinite Brain.md"),
+        vault.join("Archive/Infinite Brain.md"),
     )
     .unwrap();
     idx.rename_note(
         &vault,
-        &vault.join("Projects/Baalda.md"),
-        &vault.join("Archive/Baalda.md"),
+        &vault.join("Projects/Infinite Brain.md"),
+        &vault.join("Archive/Infinite Brain.md"),
     )
     .unwrap();
-    let moved = idx.get_note_meta("Archive/Baalda.md").unwrap().unwrap();
+    let moved = idx.get_note_meta("Archive/Infinite Brain.md").unwrap().unwrap();
     assert_eq!(moved.id, id_before);
     assert_eq!(idx.get_backlinks(&moved.id).unwrap().len(), 2);
 }

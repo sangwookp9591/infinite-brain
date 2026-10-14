@@ -13,9 +13,6 @@
 /** Features this desktop needs from its server. Extend as the wire grows. */
 export const REQUIRED_SERVER_FEATURES: readonly string[] = ["notes-with-state"];
 
-/** Host of the managed instance (`PRODUCTION_SERVER_URL`). */
-export const MANAGED_SERVER_HOST = "api.baalda.com";
-
 export interface ServerHealth {
   ok: boolean;
   /** Empty for a server that predates feature advertising. */
@@ -29,13 +26,13 @@ export interface BackendStatus {
   /** Required features the server did not advertise. Empty unless outdated. */
   missing: string[];
   serverVersion?: string;
-  /** True when the server URL is the managed `api.baalda.com`. */
+  /** True when the server URL belongs to the hosted service. */
   managed: boolean;
 }
 
 /**
  * Parse a `/health` body. Tolerates the old `{ ok: true }` shape (features
- * become `[]`) and drops non-string entries. Anything that is not a Baalda
+ * become `[]`) and drops non-string entries. Anything that is not an Infinite Brain
  * health answer (`ok !== true`, not an object) returns null: unknown.
  */
 export function parseHealth(body: unknown): ServerHealth | null {
@@ -53,19 +50,14 @@ export function parseHealth(body: unknown): ServerHealth | null {
   return out;
 }
 
-/** True when `serverUrl`'s host is the managed instance. Malformed ⇒ false. */
-export function isManagedServer(serverUrl: string | null | undefined): boolean {
-  if (!serverUrl) return false;
-  try {
-    return new URL(serverUrl.trim()).hostname.toLowerCase() === MANAGED_SERVER_HOST;
-  } catch {
-    return false;
-  }
+/** This fork has no managed server endpoint yet. */
+export function isManagedServer(_serverUrl: string | null | undefined): boolean {
+  return false;
 }
 
 /**
  * Judge a health answer. `health` null (fetch failed, unreachable, not
- * Baalda) ⇒ not outdated: we only warn when the server answered and
+ * Infinite Brain) ⇒ not outdated: we only warn when the server answered and
  * demonstrably lacks something.
  */
 export function backendStatus(

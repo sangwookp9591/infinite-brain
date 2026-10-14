@@ -63,12 +63,12 @@ interface ConfirmedCheckout {
 
 /**
  * The desktop URL schemes a checkout may hand back to: the released app,
- * the Baalda Staging app and a local `tauri dev` build. The desktop names its
+ * the Infinite Brain Staging app and a local `tauri dev` build. The desktop names its
  * own in the checkout request so the success page reopens the SAME build that
  * started the checkout; anything outside this list is ignored, so the page can
  * never be made to open an arbitrary scheme.
  */
-const APP_SCHEMES: readonly string[] = ["baalda", "baalda-staging", "baalda-dev"];
+const APP_SCHEMES: readonly string[] = ["baalda", "infinitebrain-staging", "infinitebrain-dev"];
 
 /** `v` when it is one of {@link APP_SCHEMES}, else null. */
 export function allowedAppScheme(v: unknown): string | null {
@@ -398,12 +398,12 @@ export function createBillingRoutes(deps: BillingDeps): Hono {
       }
     }
     // Back to the build that started the checkout (allow-listed), else this
-    // deployment's own scheme. A dev build (`baalda-dev`) gets no hand-back:
+    // deployment's own scheme. A dev build (`infinitebrain-dev`) gets no hand-back:
     // a macOS `tauri dev` process cannot receive deep links, so the page only
     // tells the person to switch back.
     const scheme = allowedAppScheme(c.req.query("app")) ?? config.deepLinkScheme;
     const deepLink =
-      scheme === "baalda-dev"
+      scheme === "infinitebrain-dev"
         ? null
         : `${scheme}://billing/upgraded` + (orgId ? `?org=${encodeURIComponent(orgId)}` : "");
     return c.html(
@@ -851,7 +851,7 @@ export function createBillingRoutes(deps: BillingDeps): Hono {
         {
           error: "upgrade_in_new_app",
           code: "upgrade_in_new_app",
-          message: "Upgrade from Account Settings → Plan & Billing. Update Baalda if you do not see it.",
+          message: "Upgrade from Account Settings → Plan & Billing. Update Infinite Brain if you do not see it.",
         },
         409,
       );

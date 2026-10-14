@@ -10,7 +10,7 @@ import type { HealthInventory, HealthIssue, HealthIssueKind, VaultStats } from "
  * refused for lack of write access, or a file left on disk because the Remote
  * Vault dropped it before this device confirmed its content. Everything else
  * (timeouts, push failures, registry retries) heals by itself and never counts,
- * so the badge cannot nag about work Baalda is already redoing.
+ * so the badge cannot nag about work Infinite Brain is already redoing.
  */
 export function actionNeededCount(failures: HealthFailures | null | undefined): number {
   if (!failures) return 0;

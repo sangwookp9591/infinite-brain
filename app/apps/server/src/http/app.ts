@@ -76,7 +76,7 @@ export interface AppDeps extends ShareDeps {
   billingProvider?: BillingProvider;
   /**
    * Structure changed (folder/note create/rename/move/delete) → broadcast.
-   * `originId` identifies the client that made the change (x-baalda-origin), so
+   * `originId` identifies the client that made the change (x-infinitebrain-origin), so
    * the broadcast can skip it — see `RegistryDeps.onRegistryChanged`.
    *
    * **Required**, unlike its counterparts on the inner `RegistryDeps`/`McpDeps`.
@@ -181,15 +181,15 @@ export function createApp(deps: AppDeps): Hono {
       //
       // The bootstrap page headers are here for exactly the same reason, and the
       // failure is sharper: a cross-origin reader that cannot see
-      // `X-Baalda-Cursor` cannot tell a drained session from a page boundary, so
+      // `X-InfiniteBrain-Cursor` cannot tell a drained session from a page boundary, so
       // it would stop after the first page of a whole-vault download and report
       // success. The webview IS cross-origin to the API in every configuration
       // we ship.
       exposeHeaders: [
         "set-auth-token",
-        "X-Baalda-Cursor",
-        "X-Baalda-Docs",
-        "X-Baalda-Bytes",
+        "X-InfiniteBrain-Cursor",
+        "X-InfiniteBrain-Docs",
+        "X-InfiniteBrain-Bytes",
         "ETag",
       ],
     }),
@@ -237,7 +237,7 @@ export function createApp(deps: AppDeps): Hono {
 
   // ── Site icon ─────────────────────────────────────────────────────────────
   // Connector directories and favicon services look up the icon of the MCP
-  // server's own origin (this host), not baalda.com. Without these they found
+  // server's own origin (this host), not a separate product website. Without these they found
   // nothing here and fell back to stale caches of other icons. The root page
   // exists only to carry the <link rel="icon"> for fetchers that read HTML.
   const siteIcon = new Uint8Array(Buffer.from(SITE_ICON_PNG_BASE64, "base64"));
@@ -254,13 +254,13 @@ export function createApp(deps: AppDeps): Hono {
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Baalda</title>
+<title>Infinite Brain</title>
 <link rel="icon" type="image/png" sizes="256x256" href="/icon.png" />
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 </head>
 <body style="font-family: system-ui, sans-serif; margin: 3rem;">
-<p><img src="/icon.png" alt="Baalda" width="64" height="64" /></p>
-<p>This is the Baalda sync and MCP server. The app lives at <a href="https://baalda.com">baalda.com</a>.</p>
+<p><img src="/icon.png" alt="Infinite Brain" width="64" height="64" /></p>
+<p>This is the Infinite Brain sync and MCP server. The desktop app is available from <a href="https://github.com/sangwookp9591/infinite-brain">the project repository</a>.</p>
 </body>
 </html>`),
   );
@@ -302,7 +302,7 @@ export function createApp(deps: AppDeps): Hono {
   app.route("/", accountPageRoutes);
 
   // Clickable share links: https://<server>/open/note/… bounces into the app's
-  // baalda:// deep link. Public — the URL carries identity, never access.
+  // infinitebrain:// deep link. Public — the URL carries identity, never access.
   app.route("/", openLinkRoutes);
 
   // Public note pages: /p/<token> renders a note read-only for anyone with the

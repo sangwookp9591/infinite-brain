@@ -1,4 +1,4 @@
-# Baalda — Design Overhaul Brief (Atomize PLUS inspiration)
+# Infinite Brain — Design Overhaul Brief (Atomize PLUS inspiration)
 
 Source of truth for the redesign. Inspiration: Atomize PLUS 3.3 design system
 (atomizedesign.com) — a light-first, modern SaaS visual language.

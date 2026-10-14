@@ -1,7 +1,7 @@
 name: staging-release
 
 # The staging channel: every push to `staging` produces an installable,
-# auto-updating "Baalda Staging" desktop app that talks to the STAGING server.
+# auto-updating "Infinite Brain Staging" desktop app that talks to the STAGING server.
 #
 # ── The branch model ─────────────────────────────────────────────────────────
 # `staging` is long-lived and equals `main` plus the PRs under test. PRs target
@@ -10,8 +10,8 @@ name: staging-release
 # docs/RELEASE.md → "Staging".
 #
 # ── How this stays out of production's way (four independent walls) ──────────
-# 1. **Different bundle identifier** — `com.baalda.context.staging`, so macOS
-#    treats it as a different application (installs side by side with Baalda,
+# 1. **Different bundle identifier** — `com.infinitebrain.app.staging`, so macOS
+#    treats it as a different application (installs side by side with Infinite Brain,
 #    its own Dock icon) and Tauri hands it its OWN app-config dir. The vault
 #    path and server URL the app remembers therefore never mix with production's.
 # 2. **Different updater endpoint** — a rolling GitHub *prerelease* tagged
@@ -26,11 +26,11 @@ name: staging-release
 #    consider it an upgrade.
 #
 # ── What still is NOT isolated (know this before testing) ────────────────────
-# * The **`baalda://` deep-link scheme** is registered by both apps and the OS
+# * The **`infinitebrain://` deep-link scheme** is registered by both apps and the OS
 #   picks exactly one handler for it. A shared note link may open in the wrong
 #   one. Nothing here can fix that without breaking staging deep links outright,
-#   since the server mints `baalda://` URLs.
-# * The **OS keychain service** is the frozen `com.baalda.context` in both apps.
+#   since the server mints `infinitebrain://` URLs.
+# * The **OS keychain service** is the frozen `com.infinitebrain.app` in both apps.
 #   Session items are keyed `session-v2:<serverUrl>`, so a staging app on the
 #   staging server and a production app on the production server never touch the
 #   same item. Point the staging app at the PRODUCTION server, though, and both
@@ -120,7 +120,7 @@ jobs:
           # Belt and braces on top of the empty check: an explicitly configured
           # production URL is the same mistake, just typed out.
           case "$STAGING_SERVER_URL" in
-            *api.baalda.com*)
+            *localhost:3010*)
               echo "::error title=STAGING_SERVER_URL points at production::The staging channel must not build against the managed production server. Point STAGING_SERVER_URL at a separate instance (see docs/DEPLOY.md)."
               exit 1
               ;;
@@ -164,7 +164,7 @@ jobs:
           echo "base=$base" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           {
-            echo "### Baalda Staging \`$version\`"
+            echo "### Infinite Brain Staging \`$version\`"
             echo "Base version \`$base\` · commit \`${{ github.sha }}\` · ref \`${{ github.ref_name }}\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -440,7 +440,7 @@ jobs:
           # expressions inside it are still substituted, because GitHub renders
           # them into the script text before bash ever sees it.
           cat > "$RUNNER_TEMP/staging-notes.md" <<'NOTES'
-          **This is a STAGING build. It is not the released Baalda app.**
+          **This is a STAGING build. It is not the released Infinite Brain app.**
 
           It talks to the **staging server** (`STAGING_SERVER_URL`), not to the
           production one, and it auto-updates from this rolling `staging`
@@ -460,7 +460,7 @@ jobs:
 
           It installs alongside the released app (separate bundle identifier,
           separate app-data directory), so you can keep both. One caveat: both apps
-          register the `baalda://` link scheme and the OS picks a single handler, so
+          register the `infinitebrain://` link scheme and the OS picks a single handler, so
           a shared note link may open in the other one.
 
           Windows here is the `-setup.exe` (NSIS) only; an MSI cannot carry a
@@ -500,7 +500,7 @@ jobs:
             else
               # No queued points is a silent release, exactly as in release.yml
               # (silent is the default): testers get the update without What's New.
-              printf '\n<!-- baalda:silent -->\n' >> "$RUNNER_TEMP/staging-notes.md"
+              printf '\n<!-- infinitebrain:silent -->\n' >> "$RUNNER_TEMP/staging-notes.md"
             fi
           fi
 
@@ -528,7 +528,7 @@ jobs:
           VITE_SERVER_URL: ${{ vars.STAGING_SERVER_URL }}
           # The scheme this build registers (tauri.staging.conf.json) — the JS
           # side builds its own links with it (src/lib/deepLinkScheme.ts).
-          VITE_DEEP_LINK_SCHEME: baalda-staging
+          VITE_DEEP_LINK_SCHEME: infinitebrain-staging
           # Same minisign updater key as production, on purpose: the pubkey is
           # compiled into tauri.conf.json and the overlay does not touch it, so
           # the staging app must be signed by the same key or it would reject its
@@ -537,7 +537,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           # macOS Developer ID signing + notarization. All six must be non-empty
           # (see release.yml); the certificate is per-team, not per-bundle-id, so
-          # it signs `com.baalda.context.staging` without any extra setup.
+          # it signs `com.infinitebrain.app.staging` without any extra setup.
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
@@ -550,7 +550,7 @@ jobs:
           # that gets deleted and recreated every run, which is what makes the
           # updater endpoint below a stable URL.
           tagName: staging
-          releaseName: 'Baalda Staging __VERSION__'
+          releaseName: 'Infinite Brain Staging __VERSION__'
           releaseBody: ${{ steps.relnotes.outputs.body }}
           releaseDraft: false
           # Load-bearing (wall #3): GitHub's `releases/latest` excludes
@@ -574,7 +574,7 @@ jobs:
           VITE_SERVER_URL: ${{ vars.STAGING_SERVER_URL }}
           # The scheme this build registers (tauri.staging.conf.json) — the JS
           # side builds its own links with it (src/lib/deepLinkScheme.ts).
-          VITE_DEEP_LINK_SCHEME: baalda-staging
+          VITE_DEEP_LINK_SCHEME: infinitebrain-staging
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
@@ -583,7 +583,7 @@ jobs:
         with:
           projectPath: app/apps/desktop
           tagName: staging
-          releaseName: 'Baalda Staging __VERSION__'
+          releaseName: 'Infinite Brain Staging __VERSION__'
           releaseBody: ${{ steps.relnotes.outputs.body }}
           releaseDraft: false
           prerelease: true

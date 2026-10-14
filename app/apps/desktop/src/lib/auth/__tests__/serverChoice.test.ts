@@ -26,7 +26,7 @@ describe("normalizeServerUrl", () => {
     expect(normalizeServerUrl("https://intranet.example.com/baalda/")).toBe(
       "https://intranet.example.com/baalda",
     );
-    expect(normalizeServerUrl("https://api.baalda.com///")).toBe("https://api.baalda.com");
+    expect(normalizeServerUrl("http://localhost:3010///")).toBe("http://localhost:3010");
   });
 
   it("keeps an explicit port and honours http for a local server", () => {
@@ -63,7 +63,7 @@ describe("normalizeServerUrl", () => {
 
 describe("serverHost", () => {
   it("names the host, with any path prefix that distinguishes two instances", () => {
-    expect(serverHost("https://api.baalda.com")).toBe("api.baalda.com");
+    expect(serverHost("http://localhost:3010")).toBe("localhost:3010");
     expect(serverHost("http://localhost:3010")).toBe("localhost:3010");
     expect(serverHost("https://intranet.example.com/baalda")).toBe(
       "intranet.example.com/baalda",
@@ -76,7 +76,7 @@ describe("serverHost", () => {
 });
 
 describe("impliedServerChoice", () => {
-  const def = "https://api.baalda.com";
+  const def = "http://localhost:3010";
 
   it("reads a non-default URL as a self-host answer already given", () => {
     expect(impliedServerChoice("https://notes.example.com", def)).toBe("custom");
@@ -84,12 +84,12 @@ describe("impliedServerChoice", () => {
 
   it("treats the default (however it was spelled) as no answer", () => {
     expect(impliedServerChoice(def, def)).toBeNull();
-    expect(impliedServerChoice("https://api.baalda.com/", def)).toBeNull();
+    expect(impliedServerChoice("http://localhost:3010/", def)).toBeNull();
   });
 });
 
 describe("decideAuthStep", () => {
-  const def = "https://api.baalda.com";
+  const def = "http://localhost:3010";
 
   it("opens a first run on the form, on the managed default (#305)", () => {
     expect(

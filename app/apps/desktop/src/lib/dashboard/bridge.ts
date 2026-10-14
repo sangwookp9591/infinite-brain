@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-export const DASHBOARD_PROTOCOL = "baalda.dashboard.v1";
+export const DASHBOARD_PROTOCOL = "infinitebrain.dashboard.v1";
 export type DashboardRequest = { channel: typeof DASHBOARD_PROTOCOL; id: string; method: string; params?: unknown };
 export type DashboardReply = { channel: typeof DASHBOARD_PROTOCOL; id: string; result?: unknown; error?: string };
 export type DashboardMethods = Record<string, (params: unknown) => unknown | Promise<unknown>>;
@@ -59,6 +59,6 @@ export function dashboardExternalUrl(value: unknown): string {
 
 export function dashboardUrl(path: string, epoch: number, platform: string): string {
   if (!Number.isSafeInteger(epoch) || epoch < 0) throw new Error("Invalid vault epoch");
-  const origin = platform === "windows" ? "http://baalda-view.localhost" : "baalda-view://localhost";
-  return `${origin}/__baalda/vault/${epoch}/${dashboardPath(path).split("/").map(encodeURIComponent).join("/")}`;
+  const origin = platform === "windows" ? "http://infinitebrain-view.localhost" : "infinitebrain-view://localhost";
+  return `${origin}/__infinitebrain/vault/${epoch}/${dashboardPath(path).split("/").map(encodeURIComponent).join("/")}`;
 }

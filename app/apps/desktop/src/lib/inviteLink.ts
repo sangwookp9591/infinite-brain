@@ -1,5 +1,5 @@
 // Team-invitation links — the https page an admin can paste anywhere, and the
-// `baalda://invite/<id>` deep link that page bounces into.
+// `infinitebrain://invite/<id>` deep link that page bounces into.
 //
 // The sibling of `connectLink.ts` (an address) and `shareLink.ts` (a note), and
 // the same shape of problem as both: a value that arrives from outside the app
@@ -36,7 +36,7 @@ export interface InviteDeepLink {
 /**
  * The https page to share: `<server>/invite/<id>`.
  *
- * Not the `baalda://` link, deliberately. Chat apps linkify https and leave a
+ * Not the `infinitebrain://` link, deliberately. Chat apps linkify https and leave a
  * bare custom scheme sitting there as unclickable text, and the page also
  * catches the case where the recipient has not installed the app yet. The page
  * itself bounces into the deep link this module parses.
@@ -55,8 +55,8 @@ export function buildInviteLink(serverUrl: string, invitationId: string): string
  * Read an invitation out of a deep link, or `null` if it isn't one.
  *
  * Both foldings are accepted, exactly as in `parseConnectLink`:
- * `baalda://invite/<id>` parses with host "invite" and path "/<id>", while some
- * platforms hand the same URL over as `baalda:///invite/<id>` with the host
+ * `infinitebrain://invite/<id>` parses with host "invite" and path "/<id>", while some
+ * platforms hand the same URL over as `infinitebrain:///invite/<id>` with the host
  * folded into the path. Handling only one is how a link works on macOS and
  * silently does nothing on Windows.
  */

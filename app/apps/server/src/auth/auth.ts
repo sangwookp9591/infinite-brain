@@ -418,13 +418,13 @@ export const auth = betterAuth({
     // OAuth 2.1 authorization server for MCP clients (spec: MCP integration).
     // Lets a Claude "custom connector" run the standard discovery → dynamic
     // client registration → PKCE authorize/consent → token flow against an
-    // EXISTING Baalda account. The issued access token carries the user id, so
+    // EXISTING Infinite Brain account. The issued access token carries the user id, so
     // POST /api/mcp resolves it to that user + the vault they picked on the
     // consent screen and enforces the very same per-file ACL an mcp_ token does.
     //
     // loginPage/consentPage are branded HTML we serve ourselves (see
     // routes/oauth-connect.ts) so the whole flow works on a headless server
-    // (api.baalda.com) and any self-hoster, with no separate web frontend.
+    // (localhost:3010) and any self-hoster, with no separate web frontend.
     mcp({
       // Canonical resource id advertised in the protected-resource metadata:
       // the MCP endpoint clients actually POST to.

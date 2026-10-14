@@ -6,7 +6,7 @@
 // `lib/editor/index.ts`.
 //
 // Vaults are portable: everything here is the syntax Obsidian already uses, so
-// a note written in Baalda opens in Obsidian looking the same, and vice versa.
+// a note written in Infinite Brain opens in Obsidian looking the same, and vice versa.
 
 import type { Extension } from "@codemirror/state";
 import type { MarkdownConfig } from "@lezer/markdown";

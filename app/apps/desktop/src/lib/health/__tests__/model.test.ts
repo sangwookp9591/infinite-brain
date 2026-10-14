@@ -29,7 +29,7 @@ function input(over: Partial<HealthInput> = {}): HealthInput {
     openFolderIsSynced: true,
     syncProgress: null,
     lastSyncedAt: NOW - 120_000,
-    serverUrl: "https://api.baalda.com",
+    serverUrl: "http://localhost:3010",
     now: NOW,
     docIdByPath: {},
     docSyncState: {},
@@ -205,7 +205,7 @@ describe("verdict precedence", () => {
     const r = buildHealthReport(input(healthyVault(1204)));
     expect(r.verdict).toBe("healthy");
     expect(r.headline).toBe("All 1,204 notes are on the Remote Vault");
-    expect(r.detail).toContain("api.baalda.com");
+    expect(r.detail).toContain("localhost:3010");
     expect(r.detail).toContain("2 min ago");
     expect(r.counts).toEqual({
       total: 1204,
@@ -215,7 +215,7 @@ describe("verdict precedence", () => {
       unsynced: 0,
       unreported: 0,
     });
-    expect(r.serverHost).toBe("api.baalda.com");
+    expect(r.serverHost).toBe("localhost:3010");
     for (const s of r.stages) expect(s.state).not.toBe("error");
   });
 
@@ -404,13 +404,13 @@ describe("registry failures", () => {
   it("says a linked path was refused in plain words", () => {
     const r = buildHealthReport(input({ failures: {
       registry: [{ kind: "inbound-blocked", path: "Old/n.md", docId: "old-id",
-        reason: "This path is a symbolic link. Baalda does not sync through links.", code: "symlink" }],
+        reason: "This path is a symbolic link. Infinite Brain does not sync through links.", code: "symlink" }],
       content: [], limitCode: null,
     } }));
     const issue = r.issues.find((i) => i.path === "Old/n.md")!;
     expect(issue.kind).toBe("inbound-blocked");
     expect(issue.title).toBe("Linked path not synced");
-    expect(issue.why).toBe("This path is a symbolic link. Baalda does not sync through links.");
+    expect(issue.why).toBe("This path is a symbolic link. Infinite Brain does not sync through links.");
     expect(issue.code).toBe("symlink");
   });
 
@@ -802,7 +802,7 @@ describe("formatting helpers", () => {
 //
 // The page's whole point: a note that did not sync has to say WHY, in words
 // someone who does not know what a CRDT is can act on. Every kind gets the same
-// four promises — what this means, what Baalda does next, what you can do, where
+// four promises — what this means, what Infinite Brain does next, what you can do, where
 // your content is — and the last one is a safety claim, so these tests are the
 // guard against the page ever saying "safe on the server" about a note nothing
 // confirmed.

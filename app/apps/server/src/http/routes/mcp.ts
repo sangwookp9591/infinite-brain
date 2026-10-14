@@ -158,7 +158,7 @@ export function createMcpRoutes(deps: McpDeps): Hono {
         {
           jsonrpc: "2.0",
           id: null,
-          error: { code: -32001, message: "Too many failed attempts with this token. Mint a new one in Baalda." },
+          error: { code: -32001, message: "Too many failed attempts with this token. Mint a new one in Infinite Brain." },
         },
         429,
       );

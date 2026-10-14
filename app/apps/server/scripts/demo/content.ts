@@ -19,7 +19,7 @@ const IGNORED_DIRS = new Set(["node_modules"]);
 
 /**
  * Recursively collect clean markdown files: skips dotfiles/dot-dirs (.git,
- * .obsidian, .trash, .claude, …) and node_modules — exactly what Baalda itself
+ * .obsidian, .trash, .claude, …) and node_modules — exactly what Infinite Brain itself
  * would never sync — and returns vault-relative posix paths, sorted for a
  * stable, reproducible layout.
  */

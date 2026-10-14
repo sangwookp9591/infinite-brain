@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { pool } from "../../db/pool.js";
-import { BRAND_NAME } from "../../brand.js";
+import { BRAND_NAME, BRAND_URL } from "../../brand.js";
 import { config } from "../../config.js";
 import { emailEnabled } from "../../email/mailer.js";
 import { esc, page } from "../pages.js";
@@ -10,15 +10,15 @@ import { invitationState, loadInvitation } from "../../registry/invitations.js";
 /**
  * Account pages served by this (headless) server (issue #99) — the human side
  * of the email flows, on the same branded chrome as the MCP OAuth screens so
- * they work on api.baalda.com and on any self-host with no web frontend:
+ * they work on localhost:3010 and on any self-host with no web frontend:
  *
  *   GET /forgot-password         ask for the reset email (linked from /oauth/login)
  *   GET /reset-password?token=…  choose a new password (the emailed link), then
- *                                bounces into `baalda://signin`
+ *                                bounces into `infinitebrain://signin`
  *   GET /email-verified          where the verification link lands; bounces into
- *                                `baalda://verified` so the app refreshes itself
+ *                                `infinitebrain://verified` so the app refreshes itself
  *   GET /invite/:id              where an invitation email lands: bounces into
- *                                the desktop app's `baalda://invite/…` deep link
+ *                                the desktop app's `infinitebrain://invite/…` deep link
  *
  * All four are public. The reset page's token is single-use and expires in an
  * hour (Better Auth's `reset-password:<token>` verification row); the invite
@@ -241,7 +241,7 @@ accountPageRoutes.get("/invite/:id", async (c) => {
     <p class="sub" style="margin-top:18px">Sign in with <b>${esc(
       inv.email,
     )}</b> — or create an account with that address — and you'll land in the vault.</p>
-    <p class="foot">Don't have ${esc(BRAND_NAME)} yet? <a href="https://baalda.com" rel="noopener">Get it</a>, then open this link again.</p>
+    <p class="foot">Don't have ${esc(BRAND_NAME)} yet? <a href="${BRAND_URL}" rel="noopener">Get it</a>, then open this link again.</p>
     <script>location.href = ${JSON.stringify(deepLink)};</script>`;
   return c.html(page({ title: `Join ${inv.organizationName}`, body }));
 });

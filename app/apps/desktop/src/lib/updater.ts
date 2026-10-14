@@ -445,7 +445,7 @@ let launchHoldExpired = false;
  *   before. A check that answers after the bound is not wasted — it carries on
  *   in the background exactly like the poll (quiet-moment restart and all).
  * - An update found inside the bound: `onUpdating` fires (the caller shows
- *   "Updating Baalda…") and the install runs WITHOUT the quiet-moment wait —
+ *   "Updating Infinite Brain…") and the install runs WITHOUT the quiet-moment wait —
  *   nobody is typing yet and nothing has synced — then the app restarts into
  *   the new build, so on success this promise never resolves. A failed install
  *   resolves it (the one silent retry is already scheduled, and an app that
@@ -508,9 +508,9 @@ export async function launchUpdateGate(
  * its own rolling prerelease, which `releases/latest` never points at.
  */
 export const RELEASES_PAGE_URL =
-  APP_SCHEME === "baalda-staging"
-    ? "https://github.com/naveedharri/baalda/releases/tag/staging"
-    : "https://github.com/naveedharri/baalda/releases/latest";
+  APP_SCHEME === "infinitebrain-staging"
+    ? "https://github.com/sangwookp9591/infinite-brain/releases/tag/staging"
+    : "https://github.com/sangwookp9591/infinite-brain/releases/latest";
 
 let serverRequired = false;
 

@@ -83,7 +83,7 @@ describe("activity storage: garbage in, nothing thrown", () => {
       setItem: (k: string, v: string) => kv.set(k, v),
       removeItem: (k: string) => kv.delete(k),
     });
-    for (const k of ["baalda.rightPanel.tab", "rightPanelTab"]) kv.set(k, "{garbage");
+    for (const k of ["infinitebrain.rightPanel.tab", "rightPanelTab"]) kv.set(k, "{garbage");
     expect(readLastTab()).toBe("activity");
   });
 });

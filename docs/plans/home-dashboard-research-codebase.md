@@ -1,4 +1,4 @@
-# Baalda exploration: pins, home dashboard, AI-updated HTML
+# Infinite Brain exploration: pins, home dashboard, AI-updated HTML
 
 (Read-only report. Plan mode blocked writing to the scratchpad path, so it lives here.)
 Paths relative to `app/apps/desktop` unless prefixed `server/`.

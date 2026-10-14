@@ -1,4 +1,4 @@
-//! Which folders Baalda refuses to use as a VAULT folder or as the vaults ROOT.
+//! Which folders Infinite Brain refuses to use as a VAULT folder or as the vaults ROOT.
 //!
 //! Two real failures motivated this: a vaults root that ended up as the
 //! Desktop's parent chain, and a vault bound to the home folder after macOS
@@ -14,15 +14,15 @@ use std::path::{Component, Path, PathBuf};
 use crate::error::AppError;
 
 /// Error-message prefix the UI recognises (`lib/vault/folderErrors.ts`) when
-/// macOS refused to let Baalda create its default root under Documents.
+/// macOS refused to let Infinite Brain create its default root under Documents.
 pub const DOCUMENTS_DENIED: &str = "documents_denied: ";
 
 /// The vaults root is always a dedicated folder with this name (owner rule,
-/// 2026-10-09): a picked Desktop becomes `Desktop/Baalda Vaults`, so new vault
+/// 2026-10-09): a picked Desktop becomes `Desktop/Infinite Brain Vaults`, so new vault
 /// folders and the `current` link never sit loose among the user's own files,
 /// and listing the root never peeks into unrelated folders (which trips macOS
 /// "access data from other apps" prompts).
-pub const ROOT_DIR_NAME: &str = "Baalda Vaults";
+pub const ROOT_DIR_NAME: &str = "Infinite Brain Vaults";
 
 /// The home sub-folders refused as a vault THEMSELVES (anything inside is fine).
 const PROTECTED_HOME_CHILDREN: [&str; 3] = ["Desktop", "Documents", "Downloads"];
@@ -47,20 +47,20 @@ fn norm(p: &Path) -> PathBuf {
 pub fn vault_folder_refusal(path: &Path, home: Option<&Path>) -> Option<String> {
     let p = norm(path);
     if p.parent().is_none() {
-        return Some("Baalda cannot use the top of your disk as a vault. Choose a folder inside your home folder.".into());
+        return Some("Infinite Brain cannot use the top of your disk as a vault. Choose a folder inside your home folder.".into());
     }
     let home = home?;
     let h = norm(home);
     if p == h {
-        return Some("Baalda cannot use your home folder as a vault. Choose a folder inside it, or let Baalda create one in Documents/Baalda Vaults.".into());
+        return Some("Infinite Brain cannot use your home folder as a vault. Choose a folder inside it, or let Infinite Brain create one in Documents/Infinite Brain Vaults.".into());
     }
     if h.starts_with(&p) {
-        return Some("Baalda cannot use a folder that contains your home folder as a vault. Choose a folder inside your home folder.".into());
+        return Some("Infinite Brain cannot use a folder that contains your home folder as a vault. Choose a folder inside your home folder.".into());
     }
     for child in PROTECTED_HOME_CHILDREN {
         if p == norm(&home.join(child)) {
             return Some(format!(
-                "Baalda cannot use your {child} folder itself as a vault. Choose or create a folder inside it."
+                "Infinite Brain cannot use your {child} folder itself as a vault. Choose or create a folder inside it."
             ));
         }
     }
@@ -69,23 +69,23 @@ pub fn vault_folder_refusal(path: &Path, home: Option<&Path>) -> Option<String> 
 
 /// Why `path` may not be PICKED as the place for the vaults root, or `None`.
 /// Only the top of the disk and the folders above home are refused: nothing
-/// can be created there. Home itself is fine, it becomes `~/Baalda Vaults`
+/// can be created there. Home itself is fine, it becomes `~/Infinite Brain Vaults`
 /// (see [`nest_vaults_root`]).
 pub fn vaults_root_refusal(path: &Path, home: Option<&Path>) -> Option<String> {
     let p = norm(path);
     if p.parent().is_none() {
-        return Some("Baalda cannot keep vaults at the top of your disk. Choose a folder inside your home folder.".into());
+        return Some("Infinite Brain cannot keep vaults at the top of your disk. Choose a folder inside your home folder.".into());
     }
     let h = norm(home?);
     if h != p && h.starts_with(&p) {
-        return Some("Baalda cannot keep vaults in a folder that contains your home folder. Choose a folder inside your home folder.".into());
+        return Some("Infinite Brain cannot keep vaults in a folder that contains your home folder. Choose a folder inside your home folder.".into());
     }
     None
 }
 
 /// The root to store for a picked folder: the folder itself when it is
-/// already named "Baalda Vaults" (any case) or is the current root, else
-/// `<picked>/Baalda Vaults`.
+/// already named "Infinite Brain Vaults" (any case) or is the current root, else
+/// `<picked>/Infinite Brain Vaults`.
 pub fn nest_vaults_root(picked: &Path, current: Option<&Path>) -> PathBuf {
     let named = picked
         .file_name()
@@ -124,7 +124,7 @@ pub fn root_create_error(err: &std::io::Error, root: &Path, home: Option<&Path>)
     let under_documents = home.is_some_and(|h| norm(root).starts_with(norm(&h.join("Documents"))));
     let msg = if denied && under_documents {
         format!(
-            "{DOCUMENTS_DENIED}macOS blocked Baalda from using your Documents folder, so it couldn't create {}.",
+            "{DOCUMENTS_DENIED}macOS blocked Infinite Brain from using your Documents folder, so it couldn't create {}.",
             root.display()
         )
     } else {
@@ -161,7 +161,7 @@ mod tests {
             assert!(vault_folder_refusal(&p, Some(&h)).is_some(), "{child}");
             assert!(vault_folder_refusal(&p.join("Notes"), Some(&h)).is_none(), "{child}/Notes");
         }
-        assert!(vault_folder_refusal(&h.join("Documents/Baalda Vaults/team"), Some(&h)).is_none());
+        assert!(vault_folder_refusal(&h.join("Documents/Infinite Brain Vaults/team"), Some(&h)).is_none());
         assert!(vault_folder_refusal(&h.join("Projects"), Some(&h)).is_none());
         assert!(vault_folder_refusal(&h.join("Desktop/../Desktop"), Some(&h)).is_some());
     }
@@ -176,14 +176,14 @@ mod tests {
     #[test]
     fn root_nests_a_baalda_vaults_folder_under_the_pick() {
         let h = home();
-        assert_eq!(nest_vaults_root(&h.join("Desktop"), None), h.join("Desktop/Baalda Vaults"));
-        assert_eq!(nest_vaults_root(&h, None), h.join("Baalda Vaults"));
-        assert_eq!(nest_vaults_root(&h.join("Documents/Baalda Vaults"), None), h.join("Documents/Baalda Vaults"));
+        assert_eq!(nest_vaults_root(&h.join("Desktop"), None), h.join("Desktop/Infinite Brain Vaults"));
+        assert_eq!(nest_vaults_root(&h, None), h.join("Infinite Brain Vaults"));
+        assert_eq!(nest_vaults_root(&h.join("Documents/Infinite Brain Vaults"), None), h.join("Documents/Infinite Brain Vaults"));
         assert_eq!(nest_vaults_root(&h.join("Sync/baalda vaults"), None), h.join("Sync/baalda vaults"));
-        // Re-picking the stored root (an older one not named "Baalda Vaults") keeps it.
-        let old = h.join("Baalda");
+        // Re-picking the stored root (an older one not named "Infinite Brain Vaults") keeps it.
+        let old = h.join("Infinite Brain");
         assert_eq!(nest_vaults_root(&old, Some(&old)), old);
-        assert_eq!(nest_vaults_root(&h.join("Desktop"), Some(&old)), h.join("Desktop/Baalda Vaults"));
+        assert_eq!(nest_vaults_root(&h.join("Desktop"), Some(&old)), h.join("Desktop/Infinite Brain Vaults"));
     }
 
     #[test]
@@ -194,7 +194,7 @@ mod tests {
         assert!(vaults_root_refusal(Path::new("/"), Some(&h)).is_some());
         assert!(vaults_root_refusal(Path::new("/"), None).is_some());
         assert!(vaults_root_refusal(&h.join("Desktop"), Some(&h)).is_none());
-        assert!(vaults_root_refusal(&h.join("Documents/Baalda Vaults"), Some(&h)).is_none());
+        assert!(vaults_root_refusal(&h.join("Documents/Infinite Brain Vaults"), Some(&h)).is_none());
         assert!(vaults_root_refusal(Path::new("/Volumes/Drive"), Some(&h)).is_none());
     }
 
@@ -215,7 +215,7 @@ mod tests {
     #[test]
     fn permission_denied_under_documents_is_documents_denied() {
         let h = home();
-        let root = h.join("Documents/Baalda Vaults");
+        let root = h.join("Documents/Infinite Brain Vaults");
         let eperm = std::io::Error::from_raw_os_error(1);
         let eacces = std::io::Error::from_raw_os_error(13);
         assert!(root_create_error(&eperm, &root, Some(&h)).to_string().starts_with(DOCUMENTS_DENIED));

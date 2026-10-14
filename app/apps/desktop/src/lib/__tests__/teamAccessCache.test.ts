@@ -17,14 +17,14 @@ function fakeStore(seed: Record<string, string> = {}): ModeStore & { data: Recor
   };
 }
 
-const SERVER = "https://api.baalda.com";
+const SERVER = "http://localhost:3010";
 const ORG = "org_abc";
 
 describe("teamAccessCacheKey", () => {
   it("namespaces by server AND vault", () => {
     expect(teamAccessCacheKey(SERVER, ORG)).toBe(`context.teamAccess:${SERVER}:${ORG}`);
     // The same vault id on another server is a different vault entirely.
-    expect(teamAccessCacheKey("http://localhost:3010", ORG)).not.toBe(
+    expect(teamAccessCacheKey("https://example.org", ORG)).not.toBe(
       teamAccessCacheKey(SERVER, ORG),
     );
   });
@@ -43,7 +43,7 @@ describe("writeTeamAccessCache / readTeamAccessCache", () => {
     const store = fakeStore();
     writeTeamAccessCache(SERVER, ORG, "open", store);
     expect(readTeamAccessCache(SERVER, "org_other", store)).toBeNull();
-    expect(readTeamAccessCache("http://localhost:3010", ORG, store)).toBeNull();
+    expect(readTeamAccessCache("https://example.org", ORG, store)).toBeNull();
   });
 
   it("reads null with nothing stored", () => {

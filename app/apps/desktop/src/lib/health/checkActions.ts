@@ -3,7 +3,7 @@
 //
 // Two kinds, and the difference is the point:
 //
-//   • a HEAL is Baalda fixing the finding itself — rebuild the index or reclaim
+//   • a HEAL is Infinite Brain fixing the finding itself — rebuild the index or reclaim
 //     orphan history. Mechanical, defined for every item, and safe to run
 //     without reading the list first.
 //   • a BULK action is the per-item button applied to everything listed —

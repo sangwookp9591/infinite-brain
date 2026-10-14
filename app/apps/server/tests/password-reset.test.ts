@@ -151,8 +151,8 @@ describe("password reset", () => {
     const verified = await app.request("/email-verified");
     expect(verified.status).toBe(200);
     // Bounces back into the app, like the invite page does.
-    expect(await verified.text()).toContain("baalda://verified");
-    expect(await (await app.request("/reset-password?token=abc")).text()).toContain("baalda://signin");
+    expect(await verified.text()).toContain("infinitebrain://verified");
+    expect(await (await app.request("/reset-password?token=abc")).text()).toContain("infinitebrain://signin");
     expect((await app.request("/email-verified?error=invalid_token")).status).toBe(400);
     // The MCP login page links to it when email is on.
     expect(await (await app.request("/oauth/login")).text()).toContain("/forgot-password");

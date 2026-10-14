@@ -1,4 +1,4 @@
-//! Data-volume stress benchmark for the Baalda local core.
+//! Data-volume stress benchmark for the Infinite Brain local core.
 //!
 //! Generates a large synthetic vault on disk (nested folders, frontmatter,
 //! tags, dense `[[wikilinks]]`, plus a sprinkling of very large notes) and
@@ -167,7 +167,7 @@ fn data_volume_bench() {
 
     let vault = std::env::temp_dir().join(format!("baalda-bench-{notes}"));
 
-    println!("\n=== Baalda data-volume benchmark ===");
+    println!("\n=== Infinite Brain data-volume benchmark ===");
     println!(
         "notes={notes} links/note={links_per} large-every={large_every} large-size={large_kb}KB"
     );

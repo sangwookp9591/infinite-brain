@@ -11,7 +11,7 @@
  * plain DOM CustomEvent, because it needs no state of its own and it is
  * naturally a no-op when nobody is listening (a test mounting a bare editor).
  */
-export const OPEN_FILE_EVENT = "baalda:open-file";
+export const OPEN_FILE_EVENT = "infinitebrain:open-file";
 
 /** Ask the app to open `relPath` (vault-relative, no leading slash). */
 export function requestOpenFile(relPath: string): void {

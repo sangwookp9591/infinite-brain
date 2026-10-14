@@ -1,5 +1,5 @@
 /* ============================================================
-   Baalda — App shell styles
+   Infinite Brain — App shell styles
    Atomize PLUS: light-first layered surfaces, pill actions,
    violet accent, soft diffuse shadows, 4pt grid.
    Every value consumes a token from styles/tokens.css.
@@ -323,7 +323,7 @@ button.primary.hero:hover:not(:disabled) {
   cursor: default;
   user-select: none;
 }
-/* Baalda wordmark — ink on light theme, silver on dark. One background image
+/* Infinite Brain wordmark — ink on light theme, silver on dark. One background image
    per theme, so the splash fetches only the PNG it actually shows. */
 .wordmark {
   display: inline-block;
@@ -1757,7 +1757,7 @@ body:has(.sidebar-resizer.dragging) {
 }
 /* Colored items are filled, not just outlined — folders read like Finder
    tags (near-solid), notes get a soft wash so their detail lines stay legible. */
-/* baalda.com's pairing: the pastel inside, the deeper tone as the outline. */
+/* Pair the pastel inside with a deeper outline tone. */
 .tree-glyph.colored svg {
   fill: var(--glyph-fill, currentColor);
 }

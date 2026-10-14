@@ -24,12 +24,12 @@ claude -p "<prompt>" \
 # structured output: --output-format json --json-schema '<schema>' -> .structured_output
 ```
 
-- Source: https://code.claude.com/docs/en/headless. It says `-p` exits 0 on success. Failures inside the run, such as missing auth, print as the result on stdout. `--output-format json` includes `session_id`, `total_cost_usd` and `result`. The `system/init` event lists `mcp_servers` with status plus `mcp_server_errors`, so the app can tell when the Baalda MCP failed to load.
+- Source: https://code.claude.com/docs/en/headless. It says `-p` exits 0 on success. Failures inside the run, such as missing auth, print as the result on stdout. `--output-format json` includes `session_id`, `total_cost_usd` and `result`. The `system/init` event lists `mcp_servers` with status plus `mcp_server_errors`, so the app can tell when the Infinite Brain MCP failed to load.
 - `--max-turns` does not appear in the current local `--help`. Use `--max-budget-usd` as the cap instead.
 - `--dangerously-skip-permissions` exists, but the docs say to use it only in sandboxes with no internet. Prefer `acceptEdits` or `dontAsk` plus `--allowedTools`.
 - SIGTERM exits with code 143 and kills child Bash trees. SIGINT ends the turn cleanly. Use SIGINT for a "Stop" button.
 - MCP config JSON for a remote HTTP server:
-  `{"mcpServers":{"baalda":{"type":"http","url":"https://api.baalda.com/api/mcp","headers":{"Authorization":"Bearer mcp_…"}}}}`.
+  `{"mcpServers":{"baalda":{"type":"http","url":"http://localhost:3010/api/mcp","headers":{"Authorization":"Bearer mcp_…"}}}}`.
   Write it to a 0600 temp file, not argv, because argv is visible in `ps`. `--strict-mcp-config` ignores the user's other servers.
 
 **Auth (the important part):**
@@ -68,10 +68,10 @@ codex exec "<prompt>" \
 - Detect login state with `codex login status`. `~/.codex/auth.json` exists once the user has logged in.
 - **MCP:**
   ```bash
-  codex mcp add baalda --url https://api.baalda.com/api/mcp --bearer-token-env-var BAALDA_MCP_TOKEN
+  codex mcp add baalda --url http://localhost:3010/api/mcp --bearer-token-env-var BAALDA_MCP_TOKEN
   ```
   This writes a `[mcp_servers.baalda]` entry in `~/.codex/config.toml` with `url` and `bearer_token_env_var`. For a per-run setup that leaves the user's config alone, pass it with `-c` instead:
-  `-c 'mcp_servers.baalda.url="…"' -c 'mcp_servers.baalda.bearer_token_env_var="BAALDA_MCP_TOKEN"'`
+  `-c 'mcp_servers.infinitebrain.url="…"' -c 'mcp_servers.infinitebrain.bearer_token_env_var="BAALDA_MCP_TOKEN"'`
   and put the token in the child's environment.
 - **Detection:** `codex --version`. On this Mac it lives at `~/.nvm/versions/node/v24.12.0/bin/codex`, which a GUI app will NOT find without the PATH fix. It can also come from Homebrew or the npm `@openai/codex` package.
 
@@ -92,48 +92,48 @@ codex exec "<prompt>" \
 - **Permission UX seen elsewhere:**
   - Zed, Raycast and Warp detect the binary and show "Install / Sign in" with the exact terminal command when it is missing or logged out.
   - Obsidian "Claude Code" plugins spawn the user's CLI with cwd = vault.
-  - Pattern for Baalda: a per-agent row in Settings showing "Detected: Claude Code 2.1.296, signed in", a Test button, an explicit toggle per vault, and every run logged in Activity.
+  - Pattern for Infinite Brain: a per-agent row in Settings showing "Detected: Claude Code 2.1.296, signed in", a Test button, an explicit toggle per vault, and every run logged in Activity.
 
 ---
 
-## 2. Scheduled "every morning at 8, regenerate my dashboard" with Baalda MCP
+## 2. Scheduled "every morning at 8, regenerate my dashboard" with Infinite Brain MCP
 
-**Key fact:** Baalda's server already implements MCP OAuth (`app/apps/server/src/mcp/oauth.ts`, table `mcp_oauth_vault`). Baalda is already usable as a claude.ai connector; this research session itself shows `mcp__claude_ai_Baalda__*` tools. claude.ai custom connectors support OAuth, no auth, or static credentials ("fixed credentials such as API keys… bearer token"), on Free, Pro, Max, Team and Enterprise plans (Free is limited to one connector) (https://support.claude.com/en/articles/11175166). So every cloud option below can reach `POST /api/mcp`.
+**Key fact:** Infinite Brain's server already implements MCP OAuth (`app/apps/server/src/mcp/oauth.ts`, table `mcp_oauth_vault`). Infinite Brain is already usable as a claude.ai connector; this research session itself shows `mcp__claude_ai_Infinite Brain__*` tools. claude.ai custom connectors support OAuth, no auth, or static credentials ("fixed credentials such as API keys… bearer token"), on Free, Pro, Max, Team and Enterprise plans (Free is limited to one connector) (https://support.claude.com/en/articles/11175166). So every cloud option below can reach `POST /api/mcp`.
 
-| Option | Runs where | Machine on? | Reaches Baalda remote MCP? | Notes |
+| Option | Runs where | Machine on? | Reaches Infinite Brain remote MCP? | Notes |
 |---|---|---|---|---|
-| **Claude Code cloud routines** (`/schedule`, claude.ai/code/routines, Desktop "New routine → Cloud") | Anthropic cloud | No | **Yes, as a claude.ai connector.** "all of your connected MCP connectors are included by default". Connector traffic goes through Anthropic, so no network allowlist is needed | Pro, Max, Team and Enterprise. Minimum interval 1 hour. Draws subscription usage. A routine needs a GitHub repo to clone, but the prompt can ignore it. Also has an API trigger: `POST …/routines/<id>/fire` with a bearer token, which Baalda could call. https://code.claude.com/docs/en/routines |
+| **Claude Code cloud routines** (`/schedule`, claude.ai/code/routines, Desktop "New routine → Cloud") | Anthropic cloud | No | **Yes, as a claude.ai connector.** "all of your connected MCP connectors are included by default". Connector traffic goes through Anthropic, so no network allowlist is needed | Pro, Max, Team and Enterprise. Minimum interval 1 hour. Draws subscription usage. A routine needs a GitHub repo to clone, but the prompt can ignore it. Also has an API trigger: `POST …/routines/<id>/fire` with a bearer token, which Infinite Brain could call. https://code.claude.com/docs/en/routines |
 | **Claude Desktop local scheduled tasks** (Code tab → Routines → Local) | User's machine | Yes, and the app must be open | Yes, through MCP config files and connectors | Minimum 1 minute. One catch-up run after sleep. Each task has its own permission mode, and a Manual-mode task stalls until approved. Stored in `~/.claude/scheduled-tasks/<name>/SKILL.md`. Works on the local `.html` file directly. https://code.claude.com/docs/en/desktop-scheduled-tasks |
 | `/loop` / CronCreate | Inside an open CLI session | Yes, and the session must be open | Inherits the session's servers | Recurring tasks expire after 7 days. Not durable. https://code.claude.com/docs/en/scheduled-tasks |
 | **Codex scheduled tasks ("automations")** | Desktop app: local. Web: cloud | Local tasks need the computer on and the app running | Not documented for scheduled tasks specifically. The Codex app supports MCP servers and plugins | Schedules from minutes up to RFC 5545 rules, plus Gmail, Slack and GitHub event triggers. Uses the default sandbox settings. https://learn.chatgpt.com/docs/automations?surface=app |
-| OS cron / launchd / Task Scheduler running `claude -p` or `codex exec` | User's machine | Yes | Yes, through `--mcp-config` or `[mcp_servers]` | The simplest thing Baalda could install itself. A launchd plist with `StartCalendarInterval` must set PATH explicitly, for the same GUI PATH problem. Uses the subscription login from the keychain. |
+| OS cron / launchd / Task Scheduler running `claude -p` or `codex exec` | User's machine | Yes | Yes, through `--mcp-config` or `[mcp_servers]` | The simplest thing Infinite Brain could install itself. A launchd plist with `StartCalendarInterval` must set PATH explicitly, for the same GUI PATH problem. Uses the subscription login from the keychain. |
 | GitHub Actions + Claude Code or Codex Action | GitHub | No | Yes: an `--mcp-config` with the token from secrets | Needs `ANTHROPIC_API_KEY` or an OAuth token secret. Overkill for consumers. |
 | n8n / Make | Their cloud | No | Yes, both have MCP client nodes that accept a bearer header | Not verified in this pass. |
 
-**Simplest for Baalda users:**
-- **Signed in to claude.ai:** a cloud routine whose prompt is "Using the Baalda connector, read notes X, Y, Z and update `Home.html` via `update_note`". It runs with the laptop closed, and the edit fans out live through `createDocWriter`.
-- **Local, offline-capable:** Baalda itself schedules a launchd job or an in-app timer that spawns `claude -p` / `codex exec` with the Baalda MCP config.
+**Simplest for Infinite Brain users:**
+- **Signed in to claude.ai:** a cloud routine whose prompt is "Using the Infinite Brain connector, read notes X, Y, Z and update `Home.html` via `update_note`". It runs with the laptop closed, and the edit fans out live through `createDocWriter`.
+- **Local, offline-capable:** Infinite Brain itself schedules a launchd job or an in-app timer that spawns `claude -p` / `codex exec` with the Infinite Brain MCP config.
 - Both converge on the same MCP write path, which keeps the CRDT invariants intact.
 
 ---
 
 ## 3. Rendering AI/user-authored interactive HTML safely in the Tauri webview
 
-### 3.1 Baalda-specific blocker for `srcdoc`
+### 3.1 Infinite Brain-specific blocker for `srcdoc`
 - **A `srcdoc` or `blob:` iframe inherits the embedding document's CSP**, per web-platform-tests `content-security-policy/inheritance/iframe-all-local-schemes*`.
 - The packaged app's CSP (`tauri.conf.json` line 28) has `script-src 'self'`, so **every inline `<script>` in a srcdoc dashboard would be blocked in production builds**, plus any CDN script. Adding `'unsafe-inline'` to the parent CSP would weaken the main app.
 - Tauri injects the CSP only in packaged builds, so srcdoc would *work in `tauri dev` and break in release*. CLAUDE.md already warns that dev never exercises the CSP.
 
 ### 3.2 Recommended design: custom URI scheme + opaque-origin sandbox
-1. **Register an asynchronous URI scheme protocol**, e.g. `baalda-view`, with `Builder::register_asynchronous_uri_scheme_protocol` (https://docs.rs/tauri/latest/tauri/struct.Builder.html).
-   - URLs are `baalda-view://localhost/<vaultId>/<path>` on macOS and Linux, and `http://baalda-view.localhost/<vaultId>/<path>` on Windows and Android (`use_https_scheme` switches the latter to https).
+1. **Register an asynchronous URI scheme protocol**, e.g. `infinitebrain-view`, with `Builder::register_asynchronous_uri_scheme_protocol` (https://docs.rs/tauri/latest/tauri/struct.Builder.html).
+   - URLs are `infinitebrain-view://localhost/<vaultId>/<path>` on macOS and Linux, and `http://infinitebrain-view.localhost/<vaultId>/<path>` on Windows and Android (`use_https_scheme` switches the latter to https).
    - The handler serves vault files through the same `resolve_in_vault` checks. It refuses `.context/`, dotfiles and anything outside the vault, and serves only `ALLOWED_EXTS` with the right `Content-Type`.
    - On HTML responses it sets **its own** `Content-Security-Policy` header. Because the frame is a network-style navigation, not a local scheme, it does not inherit the app CSP.
-2. **Embed it** as `<iframe sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms" src="baalda-view://localhost/…/Home.html">`, with **no `allow-same-origin`**.
+2. **Embed it** as `<iframe sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms" src="infinitebrain-view://localhost/…/Home.html">`, with **no `allow-same-origin`**.
    - The document gets an opaque origin, so it cannot reach `window.parent`, Tauri IPC (`__TAURI__`, `ipc:`), the app's localStorage or cookies.
    - Relative URLs like `./attachments/img.png` still resolve against the document URL and load through the same protocol. Image and CSS loads don't need CORS.
    - Any `fetch()` from the opaque origin to the scheme would need `Access-Control-Allow-Origin: null`. Either avoid that or set it deliberately for read-only assets.
-3. **Parent CSP change:** add the scheme to `frame-src` only: `baalda-view: http://baalda-view.localhost https://baalda-view.localhost`. Extend `src/__tests__/csp.test.ts`, which pins the CSP, to match.
+3. **Parent CSP change:** add the scheme to `frame-src` only: `infinitebrain-view: http://infinitebrain-view.localhost https://infinitebrain-view.localhost`. Extend `src/__tests__/csp.test.ts`, which pins the CSP, to match.
 4. **Frame CSP**, sent by the protocol handler and pinned by a test:
    ```
    default-src 'none'; script-src 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://unpkg.com;
@@ -157,7 +157,7 @@ codex exec "<prompt>" \
 
 ### 3.3 Platform notes
 - **WKWebView (macOS):** custom schemes are first-class through `WKURLSchemeHandler`, which Tauri uses. Opaque-origin sandboxed frames work. Watch that `localStorage` inside an opaque-origin frame throws (SecurityError), so dashboards must not rely on it. Offer a `postMessage` `getState`/`setState` stored by the host if needed.
-- **WebView2 (Windows):** the scheme becomes `http://baalda-view.localhost`. Make sure `frame-src` and the handler accept both forms. `srcdoc` sandboxing works the same as Chromium.
+- **WebView2 (Windows):** the scheme becomes `http://infinitebrain-view.localhost`. Make sure `frame-src` and the handler accept both forms. `srcdoc` sandboxing works the same as Chromium.
 - Neither engine changes the CSP inheritance rule in 3.1. That rule is spec behaviour.
 
 ### 3.4 Three gotchas to remember

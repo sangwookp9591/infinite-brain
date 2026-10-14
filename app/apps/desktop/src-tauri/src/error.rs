@@ -62,7 +62,7 @@ from_err!(tauri::Error);
 /// the Rust error). `io_ctx("create the folder", p)` renders:
 ///
 /// ```text
-/// Couldn't create the folder C:\Users\a\Documents\Baalda Vaults\Team: The system cannot find the file specified. (os error 2)
+/// Couldn't create the folder C:\Users\a\Documents\Infinite Brain Vaults\Team: The system cannot find the file specified. (os error 2)
 /// ```
 ///
 /// It also writes the same line to the log at `error` level, so the rotating

@@ -5,7 +5,7 @@ export const RIGHT_PANEL_TAB_LABEL: Record<RightPanelTab, string> = {
   activity: "Activity",
   versions: "Versions",
 };
-export const RIGHT_PANEL_TAB_KEY = "baalda.rightPanelTab";
+export const RIGHT_PANEL_TAB_KEY = "infinitebrain.rightPanelTab";
 
 export function readLastTab(): RightPanelTab {
   try {

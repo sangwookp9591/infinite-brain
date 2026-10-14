@@ -5,23 +5,23 @@ import { passwordResetFailureMessage } from "../resetFlow";
 
 describe("parseAccountLink", () => {
   it("accepts both foldings of the two links", () => {
-    expect(parseAccountLink("baalda://verified")).toBe("verified");
-    expect(parseAccountLink("baalda:///verified")).toBe("verified");
-    expect(parseAccountLink("baalda://signin")).toBe("signin");
-    expect(parseAccountLink("baalda:///signin/")).toBe("signin");
+    expect(parseAccountLink("infinitebrain://verified")).toBe("verified");
+    expect(parseAccountLink("infinitebrain:///verified")).toBe("verified");
+    expect(parseAccountLink("infinitebrain://signin")).toBe("signin");
+    expect(parseAccountLink("infinitebrain:///signin/")).toBe("signin");
   });
 
   it("accepts the Staging app's scheme too", () => {
-    expect(parseAccountLink("baalda-staging://verified")).toBe("verified");
+    expect(parseAccountLink("infinitebrain-staging://verified")).toBe("verified");
   });
 
   it("refuses anything else", () => {
     for (const bad of [
-      "baalda://verified/extra",
-      "baalda://invite/abc",
+      "infinitebrain://verified/extra",
+      "infinitebrain://invite/abc",
       "https://example.com/verified",
       "not a url",
-      "baalda://",
+      "infinitebrain://",
     ]) {
       expect(parseAccountLink(bad)).toBeNull();
     }

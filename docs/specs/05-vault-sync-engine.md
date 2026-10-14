@@ -1,7 +1,7 @@
 ---
 type: spec
 spec: 05-vault-sync-engine
-product: Baalda
+product: Infinite Brain
 status: draft-v1
 date: 2026-07-15
 tags: [baalda, spec, sync, yjs, crdt, hocuspocus, vault, scale, ha]
@@ -12,7 +12,7 @@ tags: [baalda, spec, sync, yjs, crdt, hocuspocus, vault, scale, ha]
 Sync is no longer a thing that happens *when you open a note*. Every note you're authorized to see
 stays continuously current on disk via a vault-wide feed, independent of the UI. Opening a note
 becomes instant because the doc is already live. Builds on the per-doc engine in [[03-sync-engine]];
-ACL model from [[04-team-collaboration]]; storage from [[02-database-architecture]]. Index: [[Baalda]].
+ACL model from [[04-team-collaboration]]; storage from [[02-database-architecture]]. Index: [[Infinite Brain]].
 
 > **What "vault" means in this spec.** Here "vault" = the **server note-collection scope** keyed by
 > `vaultId` — the `vaults` table row from [[02-database-architecture]], i.e. one always-on feed
@@ -270,8 +270,8 @@ The split is the important part:
 Only notes are in a session; a `files` row has no CRDT and its bytes travel
 through the blob store.
 
-The GET returns a gzip binary page (`application/vnd.baalda.bootstrap`), with
-`X-Baalda-Cursor` (**absent ⇒ drained**), `X-Baalda-Docs`, `X-Baalda-Bytes`
+The GET returns a gzip binary page (`application/vnd.infinitebrain.bootstrap`), with
+`X-Infinite Brain-Cursor` (**absent ⇒ drained**), `X-Infinite Brain-Docs`, `X-Infinite Brain-Bytes`
 (uncompressed) and an `ETag`. Layout, little-endian:
 
 ```

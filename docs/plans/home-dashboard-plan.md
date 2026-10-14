@@ -1,4 +1,4 @@
-# Baalda Home: pins, a home dashboard, and the visual layer agents can edit
+# Infinite Brain Home: pins, a home dashboard, and the visual layer agents can edit
 
 Research reports (full, cited):
 - Codebase: `docs/plans/home-dashboard-research-codebase.md`
@@ -7,7 +7,7 @@ Research reports (full, cited):
 
 ## Context
 
-Baalda is a second brain made of `.md` files. It has no visual layer: no way to land on a page that
+Infinite Brain is a second brain made of `.md` files. It has no visual layer: no way to land on a page that
 shows the state of the brain, no pins, no home. Naveed wants (1) pin note/folder to the top of the
 sidebar, (2) "set as home" so the app lands on a chosen page at launch, with a Home button in the
 sidebar, and (3) that page to be an interactive HTML dashboard that AI agents (Claude Code, Codex,
@@ -21,12 +21,12 @@ export), portable (a file in the vault), shareable through the normal access mod
 - `.html` is already in `NOTE_EXTS` (`formats.ts:159`, `vault.rs:47`): it syncs through the registry
   like a note, carries a `doc_id`, follows the vault's access model, and MCP `update_note` /
   `edit_note` / `append_note` already work on it (docId-based, no extension gate; `mcp/service.ts:637`).
-- **Baalda renders. It never generates.** What the dashboard shows, which stats, which layout,
+- **Infinite Brain renders. It never generates.** What the dashboard shows, which stats, which layout,
   which words, is decided by the user through their agent (Claude, Codex, MCP, a routine). The
   agent writes the whole page: it reads the brain with the tools it already has (MCP `search_notes`
-  / `read_note`, or the files on disk), decides what matters, and writes the HTML. Baalda's job is
+  / `read_note`, or the files on disk), decides what matters, and writes the HTML. Infinite Brain's job is
   to show that page interactively, keep it synced, and make it easy to ask the agent for changes.
-  Baalda does not compute a dashboard from the index.
+  Infinite Brain does not compute a dashboard from the index.
 - **No data duplication.** The page is the *view*. The `.md` files stay the only source of truth;
   there is no exported JSON that must be regenerated. Two ways a page stays current, both the
   user's choice:
@@ -35,7 +35,7 @@ export), portable (a file in the vault), shareable through the normal access mod
      a scheduled routine, or by the in-app "Update with Claude/Codex" shortcut. The open page reloads.
   2. **Optional live bits:** a page MAY call a small read-only bridge (search, list by folder/tag/
      property, read, backlinks, tags) so a number or a list stays current between agent runs. It is
-     a capability the agent can use when the user asks for it, not something Baalda injects. A page
+     a capability the agent can use when the user asks for it, not something Infinite Brain injects. A page
      that never calls it renders exactly as written.
 - This is the pattern the research found nobody shipping: Trilium's render notes (HTML note queries
   the live tree, but unsandboxed) + Claude Artifacts' sandbox + MCP Apps' postMessage bridge + Obsidian
@@ -73,14 +73,14 @@ built in parallel; PR 3's templates need PR 1's bridge; PR 4 needs PR 3's dashbo
 
 ### PR 1 — Interactive HTML runtime (the enabler)
 
-**Rust: `baalda-view` URI scheme.** `register_asynchronous_uri_scheme_protocol("baalda-view")` in
+**Rust: `infinitebrain-view` URI scheme.** `register_asynchronous_uri_scheme_protocol("infinitebrain-view")` in
 `lib.rs`, serving vault files (`resolve_in_vault`, refuse `.context/`, refuse non-`ALLOWED_EXTS`) with
 its OWN response headers: `Content-Security-Policy: default-src 'none'; script-src 'self'
 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://unpkg.com; style-src
 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src
 'self' data: blob:; connect-src 'none'; frame-src 'none'`. Relative `./attachments/x.png` just works.
-URL forms: `baalda-view://localhost/<rel>` (macOS/Linux), `http://baalda-view.localhost/<rel>`
-(Windows). Also serves `/__baalda/sdk.js` (the client library, bundled in the app).
+URL forms: `infinitebrain-view://localhost/<rel>` (macOS/Linux), `http://infinitebrain-view.localhost/<rel>`
+(Windows). Also serves `/__infinitebrain/sdk.js` (the client library, bundled in the app).
 
 **Parent CSP:** add the scheme (+ Windows variant) to `frame-src` only; `script-src` stays `'self'`.
 Update `csp.test.ts` to pin the new value.
@@ -101,9 +101,9 @@ tag, property:{key,value}, modifiedSince, sort, limit})` · `notes.read(docId|pa
 plugin) · `app.keydown` relay for the app's own shortcuts. Backed by existing `ipc.*` plus two new Rust
 commands (`list_notes_by_tag`, `list_notes_by_property`) and one generic `query_notes` filter command.
 
-**`sdk.js`:** tiny promise wrapper (`baalda.notes.search(...)`), auto-applies theme CSS variables
+**`sdk.js`:** tiny promise wrapper (`infinitebrain.notes.search(...)`), auto-applies theme CSS variables
 (`--bg`, `--fg`, accent tokens from `tokens.css`) and `data-theme`. Templates include it with
-`<script src="/__baalda/sdk.js">`. A hand-written dashboard that does not include it still renders;
+`<script src="/__infinitebrain/sdk.js">`. A hand-written dashboard that does not include it still renders;
 it just has no data.
 
 **AI-native touch:** every template starts with an HTML comment block "How to edit this dashboard"
@@ -141,7 +141,7 @@ two lists of `{kind: 'note', docId} | {kind: 'folder', path}`:
 
 ### PR 3 — Templates, "New dashboard", onboarding, agent paths
 
-- **Templates are starting points for the agent, not pages Baalda fills in.** Each bundled template
+- **Templates are starting points for the agent, not pages Infinite Brain fills in.** Each bundled template
   (`src/dashboards/templates/`) is an example page plus a prompt: *Daily home*, *Project tracker*,
   *Reading list*, *Team pulse*, *CRM-lite*. The user picks one and the real content is written by
   their agent from their notes ("Build me a project tracker from my #project notes, grouped by
@@ -165,7 +165,7 @@ two lists of `{kind: 'note', docId} | {kind: 'folder', path}`:
   1. MCP (works today): fix `create_note`/`move_note` descriptions that say ".md"; mention `.html`
      dashboards and the bridge API in tool descriptions so remote agents write valid pages.
   2. Scheduled: a Claude Code cloud routine (`/schedule`, min 1 h, runs with the laptop closed,
-     connectors included) with the Baalda connector (MCP OAuth is already live) = "every morning,
+     connectors included) with the Infinite Brain connector (MCP OAuth is already live) = "every morning,
      rewrite my Home". Claude Desktop local scheduled tasks and Codex automations also work but need
      the machine awake.
   3. On disk: Claude Code / Codex run in the vault folder edit `Home.html`; the watcher →
@@ -173,7 +173,7 @@ two lists of `{kind: 'note', docId} | {kind: 'folder', path}`:
   4. **"Ask AI to change this"** button in `HtmlView`: copies a ready prompt (API reference + current
      file path) to paste into any agent. Zero-risk MVP stand-in for the CLI runner.
 
-### PR 4 (in the MVP, decided) — Run the user's installed CLI from Baalda
+### PR 4 (in the MVP, decided) — Run the user's installed CLI from Infinite Brain
 
 - Detect: `fix_path_env::fix()` at startup (GUI apps don't inherit Homebrew/nvm/`~/.local/bin` PATH),
   then `claude --version` / `codex --version` with known-path fallbacks; login check `claude auth
@@ -234,7 +234,7 @@ two lists of `{kind: 'note', docId} | {kind: 'folder', path}`:
 - Implement all five stages directly on `staging`, with local commits and no PRs.
   Include these plan/research documents; leave unrelated `access-dryrun` work untouched.
 - Ship the installed Codex runner first. Claude uses Copy agent prompt; do not
-  invoke Claude subscription authentication from Baalda.
+  invoke Claude subscription authentication from Infinite Brain.
 - Use a strict named Codex permission profile rather than the historical command
   examples above. Deny private vault metadata and outside-vault reads/writes,
   disable agent-tool network access, and fail closed on incompatible CLI versions.

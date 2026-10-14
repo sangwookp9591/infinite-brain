@@ -39,7 +39,7 @@ export function RemoteDashboardView({ path }: { path: string }) {
   return <div className={`dashboard-link-view${blocked ? " has-native-viewer" : ""}`}>
     <div className="dashboard-link-actions">
       <div className="dashboard-toolbar-actions">
-        {!isHome && <button type="button" className="ghost-pill sm" onClick={() => window.dispatchEvent(new CustomEvent("baalda:set-home", { detail: { path, scope: "personal" } }))}>Set as my home</button>}
+        {!isHome && <button type="button" className="ghost-pill sm" onClick={() => window.dispatchEvent(new CustomEvent("infinitebrain:set-home", { detail: { path, scope: "personal" } }))}>Set as my home</button>}
         <button type="button" className="primary sm" disabled={!url} onClick={() => { if (url) void ipc.openExternal(url).catch((e) => setError(String(e))); }}>Open in browser</button>
       </div>
     </div>

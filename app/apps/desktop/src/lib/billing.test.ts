@@ -280,7 +280,7 @@ describe("Team plan copy", () => {
       "Unlimited people, one seat each",
       "Unlimited synced vaults",
       "Standalone file sync",
-      "Baalda Assistant",
+      "Infinite Brain Assistant",
       "Priority support",
     ]);
     expect(FREE_PLAN_INCLUDES).toEqual([
@@ -726,7 +726,7 @@ describe("legacy (per-vault) plan copy", () => {
     expect(LEGACY_PRO_BENEFITS).toEqual([
       "Unlimited team members",
       "Standalone file sync",
-      "Baalda Assistant",
+      "Infinite Brain Assistant",
       "Doesn't count toward your free vaults",
     ]);
     expect(LEGACY_PRO_BENEFITS).not.toEqual(TEAM_BENEFITS);
@@ -734,7 +734,7 @@ describe("legacy (per-vault) plan copy", () => {
   it("defaults to 3 members per vault and 2 free vaults", async () => {
     const { LEGACY_FREE_PLAN_EXPLANATION } = await import("./billing");
     expect(LEGACY_FREE_PLAN_EXPLANATION).toBe(
-      "Free includes 3 members per vault, 2 free vaults, note sync, embedded attachments and MCP. Pro adds unlimited members, standalone file sync and Baalda Assistant.",
+      "Free includes 3 members per vault, 2 free vaults, note sync, embedded attachments and MCP. Pro adds unlimited members, standalone file sync and Infinite Brain Assistant.",
     );
   });
   it("reads the numbers from the server's freeLimits", async () => {

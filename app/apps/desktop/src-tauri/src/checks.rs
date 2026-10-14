@@ -153,7 +153,7 @@ pub struct VaultChecks {
     pub results: Vec<VaultCheckResult>,
     /// Symbolic links under the vault (outside `.context` and the other ignored
     /// dirs). Sync never follows them (#216), so each is a path the user can see
-    /// in Finder that Baalda treats as absent. Id `linked-paths`; items are the
+    /// in Finder that Infinite Brain treats as absent. Id `linked-paths`; items are the
     /// link paths with their target as `detail`. Reported beside `results`, not
     /// in it, because it feeds the Health issue list rather than the checks list.
     pub linked_paths: VaultCheckResult,

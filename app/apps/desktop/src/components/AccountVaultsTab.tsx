@@ -546,7 +546,7 @@ export function AccountVaultsTab() {
         ? [{
             key: "locate",
             label: LOCATE_FOLDER,
-            title: "Point Baalda at this vault's folder where it is now",
+            title: "Point Infinite Brain at this vault's folder where it is now",
             onSelect: recover(() => useStore.getState().locateVaultFolder()),
           }]
         : [];
@@ -586,7 +586,7 @@ export function AccountVaultsTab() {
   ];
 
   // Owner rule 2026-10-07: this list shows only folders never synced to
-  // Baalda (`visibleFolders`). A folder stamped for a vault this account is a
+  // Infinite Brain (`visibleFolders`). A folder stamped for a vault this account is a
   // member of is that vault's synced row already; one stamped for any other
   // vault is hidden (signed out: every stamped folder). Nothing renders until
   // EVERY folder's stamp has settled, so other accounts' vaults never flash.

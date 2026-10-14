@@ -3,7 +3,7 @@
   "plugins": {
     "deep-link": {
       "desktop": {
-        "schemes": ["baalda-dev"]
+        "schemes": ["infinitebrain-dev"]
       }
     }
   }

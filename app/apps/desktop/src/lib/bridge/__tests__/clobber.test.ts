@@ -2,7 +2,7 @@
 // false onto a note whose CRDT is empty (a doc_id mismatch, or an empty server
 // doc pulled by the background feed) — must NEVER let its emptiness reach the
 // file that still has real content on disk. This is the exact failure that
-// zeroed imported notes (`How Baalda works.md` → 0 bytes) before the fix. A
+// zeroed imported notes (`How Infinite Brain works.md` → 0 bytes) before the fix. A
 // genuine clear-all (the doc held content, then it was emptied) must still
 // egest normally.
 

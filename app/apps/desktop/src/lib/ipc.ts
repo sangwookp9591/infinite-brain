@@ -352,15 +352,15 @@ export const isVault = (path: string) => invoke<boolean>("is_vault", { path });
 // The app manages one root dir under which each vault gets a subfolder, and the
 // active vault's folder is mirrored to `<root>/current` for external tools.
 
-/** Effective managed vaults root (auto-initialized to ~/Baalda on first call). */
+/** Effective managed vaults root (auto-initialized to ~/Infinite Brain on first call). */
 export const getVaultsRoot = () => invoke<string>("get_vaults_root");
-/** Sets the root to `<path>/Baalda Vaults` (or `path` when already so named); returns it. */
+/** Sets the root to `<path>/Infinite Brain Vaults` (or `path` when already so named); returns it. */
 export const setVaultsRoot = (path: string) =>
   invoke<string>("set_vaults_root", { path });
-/** Native folder picker for the managed vaults root. A "Baalda Vaults" folder
+/** Native folder picker for the managed vaults root. A "Infinite Brain Vaults" folder
  *  is nested under the pick unless it is one already; persists + returns that. */
 export const pickVaultsRoot = () => invoke<string | null>("pick_vaults_root");
-/** Put the vaults root back to Documents/Baalda Vaults (created first); returns it. */
+/** Put the vaults root back to Documents/Infinite Brain Vaults (created first); returns it. */
 export const resetVaultsRoot = () => invoke<string>("reset_vaults_root");
 /** Native folder picker that only returns the path (does not open it). */
 export const pickFolder = () => invoke<string | null>("pick_folder");

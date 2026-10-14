@@ -1,12 +1,12 @@
 <!doctype html>
 <!-- SPDX-License-Identifier: Apache-2.0
 How to edit this dashboard
-Baalda renders; it never generates. Replace these clearly labeled examples using
+Infinite Brain renders; it never generates. Replace these clearly labeled examples using
 notes you can read. Keep Markdown as the source of truth. Do not add a JSON export.
 This file syncs and shares as an ordinary note. Use MCP read_note/search_notes and
 update_note/edit_note, or edit this file on disk. Preserve its doc_id through moves.
-Optional API: include <script src="/__baalda/sdk.js"></script>; await baalda.ready.
-baalda.vault.info(), vault.stats(); notes.search(q,limit), notes.list({folder,tag,
+Optional API: include <script src="/__infinitebrain/sdk.js"></script>; await infinitebrain.ready.
+infinitebrain.vault.info(), vault.stats(); notes.search(q,limit), notes.list({folder,tag,
 property:{key,value},modifiedSince,sort,limit}), notes.read({docId}|{path}),
 notes.meta({docId}|{path}), notes.backlinks({docId}|{path}); graph.edges(); tags.list();
 properties.keys(), values(key); state.get(key), state.set(key,value); app.open({path}|{docId}),
@@ -25,9 +25,9 @@ Live queries are optional. Render exactly what the user asked for.
 *{box-sizing:border-box}body{margin:0;background:var(--bg,#faf8f3);color:var(--fg,#282b28);font:14px/1.6 system-ui,sans-serif}main{max-width:1120px;margin:auto;padding:clamp(24px,5vw,64px)}h1,h2,h3,p{margin-top:0}h1{font:clamp(40px,6vw,68px)/1.06 Georgia,serif;letter-spacing:-.04em}h2{font:26px/1.2 Georgia,serif}h3{font-size:15px}p,small{color:var(--muted,#787568)}button,input{font:inherit}button{cursor:pointer}button:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--tone);outline-offset:4px}button{border:1px solid var(--border,#deddd4);background:var(--surface,#fffdf8);color:inherit;padding:8px 13px;border-radius:6px}button:hover{border-color:var(--tone)}.label{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase}.sample{display:inline-block;color:var(--tone);border:1px solid currentColor;border-radius:4px;padding:4px 7px;font-size:10px;letter-spacing:.1em;font-weight:650}footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--border,#deddd4);font-size:11px;color:var(--muted,#787568)}[hidden]{display:none!important}@media(max-width:600px){main{padding:24px 20px}h1{font-size:42px}}
 body{--tone:#78869d}main{max-width:960px}.topline{display:flex;align-items:center;gap:10px;padding-bottom:28px;border-bottom:1px solid var(--border,#deddd4);color:var(--muted,#787568)}.mark{display:inline-block;width:17px;height:17px;border:1px solid var(--tone);border-radius:4px;transform:rotate(-9deg)}header{padding:clamp(40px,8vw,85px) 0 42px;max-width:620px}h1{font-family:system-ui,sans-serif;font-weight:450;font-size:clamp(40px,6vw,64px);margin:0 0 22px}header p{font-size:17px;max-width:480px}.canvas{padding:30px;border:1px dashed var(--tone);border-radius:10px;background:color-mix(in srgb,var(--tone) 3%,var(--surface,#fff));min-height:180px}.canvas h2{font:19px system-ui;margin-bottom:8px}.canvas p{max-width:560px;font-size:13px;margin-bottom:0}.brief{margin-top:34px;display:grid;grid-template-columns:150px 1fr;gap:24px}.brief h2{font:12px system-ui;color:var(--muted,#787568);margin:5px 0}.brief ol{padding:0;margin:0;list-style:none;counter-reset:steps}.brief li{counter-increment:steps;position:relative;padding:0 0 20px 30px;font-size:13px}.brief li:before{content:'0' counter(steps);position:absolute;left:0;color:var(--tone);font-size:10px;top:3px}.brief small{display:block;margin-top:4px}details{border-top:1px solid var(--border,#deddd4);padding-top:20px;margin-top:12px;font-size:13px}summary{cursor:pointer;color:var(--tone)}blockquote{margin:18px 0 0;padding:18px 22px;border-left:2px solid var(--tone);background:var(--surface,#fff);color:var(--muted,#787568)}@media(max-width:540px){.brief{grid-template-columns:1fr;gap:16px}.canvas{padding:22px}}
 html[data-theme="dark"] body{--tone:#a4b2c8}
-</style><script src="/__baalda/sdk.js"></script></head>
+</style><script src="/__infinitebrain/sdk.js"></script></head>
 <body><main>
-<div class="topline"><span class="mark" aria-hidden="true"></span><span class="label">Baalda · a clean canvas</span></div>
+<div class="topline"><span class="mark" aria-hidden="true"></span><span class="label">Infinite Brain · a clean canvas</span></div>
 <header><h1>A little space<br>for your own ideas.</h1><p>No sample metrics. No busy dashboard. Just a starting point for the view you need.</p></header>
 <section class="canvas"><h2>What would be useful here?</h2><p>A weekly reflection. A garden of connected ideas. A quiet overview of a personal project. Start with one question your notes can answer.</p></section>
 <section class="brief"><h2>MAKE IT YOURS</h2><ol><li>Choose a purpose<small>Tell your agent what you want to see, and what you want to leave out.</small></li><li>Point to the source<small>Name the notes or folders that hold the real information.</small></li><li>Give it a shape<small>Ask for a list, a timeline, a reading nook, or something entirely your own.</small></li></ol></section>

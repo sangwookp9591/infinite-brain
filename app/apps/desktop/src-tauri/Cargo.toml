@@ -1,8 +1,8 @@
 [package]
 name = "desktop"
 version = "0.1.83"
-description = "Baalda — local-first markdown app"
-authors = ["Baalda"]
+description = "Infinite Brain — local-first markdown app"
+authors = ["Infinite Brain"]
 license = "Apache-2.0"
 edition = "2021"
 

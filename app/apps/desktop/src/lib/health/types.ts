@@ -166,7 +166,7 @@ export interface VaultChecks {
   /** One entry per `VaultCheckId`, always all of them, in the union's order. */
   results: VaultCheckResult[];
   /** Symbolic links under the vault (#216). Sync never follows them, so each is
-   *  a path Baalda treats as absent. Items are link paths, `detail` the target.
+   *  a path Infinite Brain treats as absent. Items are link paths, `detail` the target.
    *  Reported beside `results` because it feeds the issue list, not the checks
    *  list. Optional so a fixture without it still types. */
   linkedPaths?: { id: "linked-paths"; count: number; bytes?: number | null; items: VaultCheckItem[] };
@@ -272,7 +272,7 @@ export type HealthRemedy =
 export interface HealthExplanation {
   /** What this means: one or two sentences, no jargon. */
   meaning: string;
-  /** What Baalda will do on its own, e.g. "Retries on the next connect" or
+  /** What Infinite Brain will do on its own, e.g. "Retries on the next connect" or
    *  "Nothing — it will not retry until the note is smaller". */
   next: string;
   /** What the user can do, ordered best-first. Prose, one item per line. */
@@ -328,7 +328,7 @@ export interface HealthReport {
   verdict: HealthVerdict;
   /** e.g. "All 1,204 notes are on the server". */
   headline: string;
-  /** e.g. "Last confirmed 2 minutes ago · api.baalda.com". */
+  /** e.g. "Last confirmed 2 minutes ago · localhost:3010". */
   detail: string;
   stages: HealthStage[];
   /** Null when sync is off for this vault. */

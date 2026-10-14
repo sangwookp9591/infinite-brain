@@ -310,7 +310,7 @@ jobs:
           # ships and installs everywhere, but the marker (an HTML comment, so
           # the GitHub page never shows it) keeps the in-app What's New closed.
           if [ -z "$body" ]; then
-            body=$'See the assets below to download and install this version.\n<!-- baalda:silent -->'
+            body=$'See the assets below to download and install this version.\n<!-- infinitebrain:silent -->'
           fi
           echo "Release notes for v$VERSION:"
           echo "$body"
@@ -348,7 +348,7 @@ jobs:
         with:
           projectPath: app/apps/desktop
           tagName: v__VERSION__
-          releaseName: 'Baalda v__VERSION__'
+          releaseName: 'Infinite Brain v__VERSION__'
           releaseBody: ${{ steps.relnotes.outputs.body }}
           releaseDraft: false
           prerelease: false
@@ -373,7 +373,7 @@ jobs:
         with:
           projectPath: app/apps/desktop
           tagName: v__VERSION__
-          releaseName: 'Baalda v__VERSION__'
+          releaseName: 'Infinite Brain v__VERSION__'
           releaseBody: ${{ steps.relnotes.outputs.body }}
           releaseDraft: false
           prerelease: false

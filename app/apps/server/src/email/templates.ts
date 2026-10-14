@@ -1,4 +1,4 @@
-import { BRAND_NAME } from "../brand.js";
+import { BRAND_NAME, BRAND_URL } from "../brand.js";
 import type { MailMessage } from "./mailer.js";
 
 /**
@@ -119,14 +119,14 @@ export function invitationEmail(input: {
     `Sign in with ${input.to} — or create an account with that address — and you'll land in the vault.`,
     `This invitation expires ${expires}.`,
     ``,
-    `Don't have ${BRAND_NAME} yet? Get it at https://baalda.com and then open the link again.`,
+    `Don't have ${BRAND_NAME} yet? Get it at ${BRAND_URL} and then open the link again.`,
   ].join("\n");
   const html = layout({
     title: `Join ${esc(input.organizationName)}`,
     intro: `<b>${esc(who)}</b> invited you to join the vault <b>${esc(input.organizationName)}</b> on ${esc(BRAND_NAME)}${esc(roleNote)}. Sign in with <b>${esc(input.to)}</b> — or create an account with that address — and you'll land in the vault.`,
     cta: "Accept invitation",
     url: input.url,
-    outro: `This invitation expires ${esc(expires)}. Don't have ${esc(BRAND_NAME)} yet? <a href="https://baalda.com" style="color:#6b6b66;">Get it</a>, then open the link again.`,
+    outro: `This invitation expires ${esc(expires)}. Don't have ${esc(BRAND_NAME)} yet? <a href="${BRAND_URL}" style="color:#6b6b66;">Get it</a>, then open the link again.`,
   });
   return { to: input.to, subject, text, html };
 }

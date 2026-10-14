@@ -1,17 +1,17 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
-import { BRAND_NAME } from "../../brand.js";
+import { BRAND_NAME, BRAND_URL } from "../../brand.js";
 import { config } from "../../config.js";
 
 /**
  * Clickable share links — `GET /open/note/:orgId/:docId` and
  * `GET /open/connect`.
  *
- * A `baalda://` link is dead weight in most chat apps: schemes nobody has
+ * A `infinitebrain://` link is dead weight in most chat apps: schemes nobody has
  * allow-listed don't linkify, so the recipient had to copy-paste it into a
  * browser. Share links are therefore `https://<server>/open/note/…` — every
  * chat app makes those clickable — and this page is the landing spot: it
- * immediately bounces to the `baalda://` deep link (which the OS hands to the
+ * immediately bounces to the `infinitebrain://` deep link (which the OS hands to the
  * installed app) and shows a button + install pointer as the fallback.
  *
  * Public and unauthenticated ON PURPOSE. The URL carries identity, not access:
@@ -63,7 +63,7 @@ openLinkRoutes.get("/open/note/:orgId/:docId", (c) => {
   <h1>Opening this note in ${esc(BRAND_NAME)}…</h1>
   <p>If nothing happens, ${esc(BRAND_NAME)} may not be installed on this device.</p>
   <a class="button" href="${esc(deepLink)}">Open in ${esc(BRAND_NAME)}</a>
-  <p><a class="plain" href="https://baalda.com" rel="noopener">Get ${esc(BRAND_NAME)}</a></p>
+  <p><a class="plain" href="${BRAND_URL}" rel="noopener">Get ${esc(BRAND_NAME)}</a></p>
   <script>location.href = ${JSON.stringify(deepLink)};</script>
 </main>
 </body>
@@ -79,7 +79,7 @@ openLinkRoutes.get("/open/note/:orgId/:docId", (c) => {
  * correctly; the ones who didn't signed up on the managed instance instead and
  * nobody found out until the admin couldn't see them. Now the admin sends
  * `https://<their server>/open/connect` and this page bounces into
- * `baalda://connect?server=<this server>`, which opens the app on a confirm
+ * `infinitebrain://connect?server=<this server>`, which opens the app on a confirm
  * step.
  *
  * Carries no identity and no access — just this server's own address, which is
@@ -117,7 +117,7 @@ openLinkRoutes.get("/open/connect", (c) => {
   <p>Your ${esc(BRAND_NAME)} app will ask you to confirm before it connects.
      If nothing happens, ${esc(BRAND_NAME)} may not be installed on this device.</p>
   <a class="button" href="${esc(deepLink)}">Connect ${esc(BRAND_NAME)}</a>
-  <p><a class="plain" href="https://baalda.com" rel="noopener">Get ${esc(BRAND_NAME)}</a></p>
+  <p><a class="plain" href="${BRAND_URL}" rel="noopener">Get ${esc(BRAND_NAME)}</a></p>
   <script>location.href = ${JSON.stringify(deepLink)};</script>
 </main>
 </body>
@@ -141,7 +141,7 @@ const PREFIX_RE = /^(?:\/[A-Za-z0-9._~-]{1,64})*$/;
  *
  * The Host header is client-supplied, and that is fine here: nobody can set it
  * on someone else's browser, and a link to an attacker's own `/open/connect` is
- * no different from mailing a `baalda://connect` link directly — which the app
+ * no different from mailing a `infinitebrain://connect` link directly — which the app
  * confirms before honouring either way. The shape checks exist so a hostile
  * value can't smuggle a path or markup into the link, not as an authz boundary.
  */

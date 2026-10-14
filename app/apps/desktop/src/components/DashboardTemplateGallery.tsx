@@ -37,8 +37,8 @@ export function DashboardTemplatePreview({ template, expanded = false }: { templ
     }).catch(() => { if (alive) setError(true); });
     return () => { alive = false; };
   }, [visible, template]);
-  const origin = document.documentElement.dataset.platform === "windows" ? "http://baalda-view.localhost" : "baalda-view://localhost";
-  const url = template.previewUrl && (import.meta.env.MODE === "simulator" ? template.previewUrl : `${origin}/__baalda/template/${template.id}`);
+  const origin = document.documentElement.dataset.platform === "windows" ? "http://infinitebrain-view.localhost" : "infinitebrain-view://localhost";
+  const url = template.previewUrl && (import.meta.env.MODE === "simulator" ? template.previewUrl : `${origin}/__infinitebrain/template/${template.id}`);
   const frameWidth = expanded ? Math.max(720, width) : 1200;
   const scale = width / frameWidth;
   return <div ref={host} className={`dashboard-template-preview${expanded ? " expanded" : ""}`}>

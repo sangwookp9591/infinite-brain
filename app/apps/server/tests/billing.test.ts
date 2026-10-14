@@ -338,12 +338,12 @@ describe("billing", () => {
       const org = await createOrg(owner, "CoScheme", "co-scheme-org");
       const res = await req(app, "POST", `/api/billing/orgs/${org.id}/checkout`, {
         token: owner.token,
-        body: { interval: "month", client: { channel: "staging", scheme: "baalda-staging" } },
+        body: { interval: "month", client: { channel: "staging", scheme: "infinitebrain-staging" } },
       });
       expect(res.status).toBe(200);
       expect(fakeProvider.lastCheckout).toMatchObject({
-        successUrl: `${config.betterAuthUrl}/api/billing/success?checkout_id={CHECKOUT_ID}&app=baalda-staging`,
-        clientScheme: "baalda-staging",
+        successUrl: `${config.betterAuthUrl}/api/billing/success?checkout_id={CHECKOUT_ID}&app=infinitebrain-staging`,
+        clientScheme: "infinitebrain-staging",
       });
     });
 
@@ -442,7 +442,7 @@ describe("billing", () => {
       expect(res.status).toBe(200);
       const html = await res.text();
       // The hand-off names the vault so the app can refresh the right one.
-      expect(html).toContain(`baalda://billing/upgraded?org=${encodeURIComponent(org.id)}`);
+      expect(html).toContain(`infinitebrain://billing/upgraded?org=${encodeURIComponent(org.id)}`);
       // Vault mode keeps the per-vault Pro copy.
       expect(html).toContain("You&rsquo;re on Pro");
       expect(html).toContain("Your vault is now unlimited.");
@@ -527,7 +527,7 @@ describe("billing", () => {
       const res = await req(app, "GET", "/api/billing/success?checkout_id=co_open");
       expect(res.status).toBe(200);
       // Still hands back to the app, still names the vault it was for.
-      expect(await res.text()).toContain(`baalda://billing/upgraded?org=${encodeURIComponent(org.id)}`);
+      expect(await res.text()).toContain(`infinitebrain://billing/upgraded?org=${encodeURIComponent(org.id)}`);
       expect(fakeProvider.fetched).toEqual([]);
       const { rowCount } = await pool.query(
         "SELECT 1 FROM subscriptions WHERE organization_id = $1",
@@ -545,7 +545,7 @@ describe("billing", () => {
         const res = await req(app, "GET", path);
         expect(res.status).toBe(200);
         const html = await res.text();
-        expect(html).toContain('href="baalda://billing/upgraded"');
+        expect(html).toContain('href="infinitebrain://billing/upgraded"');
         expect(html).not.toContain("<script>alert");
       }
       // The malformed id was never sent to the provider.
@@ -553,7 +553,7 @@ describe("billing", () => {
     });
 
     it("hands back to the allow-listed app scheme, and to this deployment's otherwise", async () => {
-      for (const scheme of ["baalda", "baalda-staging"]) {
+      for (const scheme of ["baalda", "infinitebrain-staging"]) {
         const html = await (await req(app, "GET", `/api/billing/success?app=${scheme}`)).text();
         expect(html).toContain(`href="${scheme}://billing/upgraded"`);
         expect(html).toContain(`location.href = "${scheme}://billing/upgraded"`);
@@ -567,11 +567,11 @@ describe("billing", () => {
     });
 
     it("a dev build gets no redirect and no button, only a switch-back line", async () => {
-      const html = await (await req(app, "GET", "/api/billing/success?app=baalda-dev")).text();
+      const html = await (await req(app, "GET", "/api/billing/success?app=infinitebrain-dev")).text();
       expect(html).toContain("You&rsquo;re on");
-      expect(html).toContain("Switch back to Baalda &mdash; your plan is already active. You can close this tab.");
+      expect(html).toContain("Switch back to Infinite Brain &mdash; your plan is already active. You can close this tab.");
       expect(html).not.toContain("://billing/upgraded");
-      expect(html).not.toContain("Open Baalda");
+      expect(html).not.toContain("Open Infinite Brain");
       expect(html).not.toContain("location.href");
       expect(html).not.toContain("Taking you back");
     });
@@ -580,7 +580,7 @@ describe("billing", () => {
       fakeProvider.failGet = new Error("polar is down");
       const res = await req(app, "GET", "/api/billing/success?checkout_id=co_whatever");
       expect(res.status).toBe(200);
-      expect(await res.text()).toContain("baalda://billing/upgraded");
+      expect(await res.text()).toContain("infinitebrain://billing/upgraded");
     });
 
     it("a checkout for a vault deleted in the meantime lands as a tombstone", async () => {

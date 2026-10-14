@@ -820,7 +820,7 @@ export class NoteBridge {
     // same all-or-nothing case in the shapes agents and scripts actually leave
     // behind. That half only bites past `BLANK_INGEST_MIN_CHARS` of body (the
     // server's shrink floor), so clearing a short note elsewhere still works;
-    // an edit typed in Baalda's own editor never comes through here at all.
+    // an edit typed in Infinite Brain's own editor never comes through here at all.
     // Both halves only REFUSE: the doc keeps its text and the file is left as
     // it is, never rewritten by this branch.
     const blankFile =

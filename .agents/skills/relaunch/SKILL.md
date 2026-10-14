@@ -1,6 +1,6 @@
 ---
 name: relaunch
-description: Kill the running Baalda desktop (Tauri) dev instance AND the backend server, then launch fresh instances of both. Use when the user says "relaunch", "restart the app", "kill and relaunch", or wants a clean restart after code/config changes.
+description: Kill the running Infinite Brain desktop (Tauri) dev instance AND the backend server, then launch fresh instances of both. Use when the user says "relaunch", "restart the app", "kill and relaunch", or wants a clean restart after code/config changes.
 ---
 
 # Relaunch Skill Guide
@@ -9,7 +9,7 @@ Kills the current desktop (Tauri) dev process tree **and** the backend server, t
 starts fresh instances of both. Postgres (Docker) is **left running** — restarting
 the server process does not touch the DB, so no re-seed is needed.
 
-Project: the `app/` directory in this Baalda checkout. Resolve paths from the
+Project: the `app/` directory in this Infinite Brain checkout. Resolve paths from the
 repository root; do not assume a particular clone location.
 - Desktop launch: `pnpm run dev:desktop` (= `pnpm --filter desktop tauri dev`; Vite on :1420) from the app root.
 - Server launch: `pnpm run dev` from `app/apps/server/` (tsx watch; HTTP :3010, Hocuspocus WS :3011, GET /health).
@@ -20,7 +20,7 @@ repository root; do not assume a particular clone location.
 Inspect the desktop dev chain (`dev:desktop` → `tauri dev` → `vite` →
 `target/debug/desktop`) and backend (`tsx watch src/index.ts`). Use process
 arguments, parent relationships, and working directories to identify only this
-Baalda checkout's processes. Stop identified PIDs with SIGTERM, wait for shutdown,
+Infinite Brain checkout's processes. Stop identified PIDs with SIGTERM, wait for shutdown,
 and use SIGKILL only for confirmed survivors. Avoid broad `pkill` patterns that
 could stop another project's Vite or tsx processes. Skip shutdown if none run.
 

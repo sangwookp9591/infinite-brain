@@ -155,13 +155,13 @@ export const config = {
   /**
    * URL scheme of the desktop app this server's pages bounce into (`/open/*`,
    * `/invite/:id`, `/email-verified`, `/reset-password`). The released app
-   * registers `baalda`; the Staging app registers `baalda-staging`, so a staging
-   * server must say so or its links open whichever app grabbed `baalda://` last
+   * registers `baalda`; the Staging app registers `infinitebrain-staging`, so a staging
+   * server must say so or its links open whichever app grabbed `infinitebrain://` last
    * on a machine that has both installed.
    */
   deepLinkScheme: deepLinkScheme(),
   // ---- Outbound email (issue #99) ----
-  /** Sender address, e.g. `Baalda <no-reply@example.com>`. Required to send
+  /** Sender address, e.g. `Infinite Brain <no-reply@example.com>`. Required to send
    *  anything; with it and ONE transport below, password reset + sign-up
    *  verification + invitation emails switch on. Unset ⇒ email off, and every
    *  feature that needs it is simply not offered. Resolution + validation live

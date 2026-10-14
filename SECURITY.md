@@ -1,6 +1,6 @@
 # Security Policy
 
-Baalda handles authentication, per-file access control, and real-time
+Infinite Brain handles authentication, per-file access control, and real-time
 sync, so we take security reports seriously. Thank you for helping keep
 users safe.
 
@@ -11,10 +11,8 @@ issues, discussions, or pull requests.**
 
 Instead, use one of these private channels:
 
-1. **GitHub Private Vulnerability Reporting** (preferred): go to the
-   repository's **Security** tab → **Report a vulnerability**.
-2. **Email**: `naveedharri@gmail.com` with the subject line
-   `SECURITY: Baalda`.
+1. **GitHub Private Vulnerability Reporting**: use the repository's
+   **Security** tab → **Report a vulnerability**.
 
 Please include, as far as you can:
 
@@ -44,5 +42,5 @@ Areas of particular interest:
 
 ## Supported versions
 
-Baalda is pre-1.0. Security fixes target the latest `main`. Pin to a
+Infinite Brain is pre-1.0. Security fixes target the latest `main`. Pin to a
 released tag for production and update promptly when fixes are published.

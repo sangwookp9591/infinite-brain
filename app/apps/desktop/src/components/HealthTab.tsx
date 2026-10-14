@@ -294,7 +294,7 @@ export function HealthView({
             <DiagnosticHeading
               eyebrow="Vault files"
               title="Integrity checks"
-              description="Review what Baalda verified on this computer and fix individual findings."
+              description="Review what Infinite Brain verified on this computer and fix individual findings."
             />
             <HealthChecks
               checks={checks}
@@ -332,7 +332,7 @@ export function HealthView({
             <DiagnosticHeading
               eyebrow="This app session"
               title="Recent sync activity"
-              description="Review connection, upload, and retry events since Baalda launched. Select a note path to inspect it."
+              description="Review connection, upload, and retry events since Infinite Brain launched. Select a note path to inspect it."
             />
             <HealthTimeline
               log={log}

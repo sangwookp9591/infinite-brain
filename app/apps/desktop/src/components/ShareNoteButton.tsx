@@ -121,7 +121,7 @@ function ShareNoteDialog({
 
   const copyTeam = () =>
     // Built on the server URL so it's an https link — chat apps make those
-    // clickable, where a bare baalda:// scheme had to be copy-pasted. The
+    // clickable, where a bare infinitebrain:// scheme had to be copy-pasted. The
     // server's /open/note page bounces the click into the app.
     void copy("team", buildNoteLink({ orgId, docId }, useStore.getState().serverUrl));
 

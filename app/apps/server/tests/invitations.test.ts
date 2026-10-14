@@ -84,7 +84,7 @@ describe("invitation emails + landing page", () => {
     expect(html).toContain("Acme Notes");
     expect(html).toContain("teammate@inv.io");
     expect(html).toContain(
-      `baalda://invite/${inv.id}?server=${encodeURIComponent("http://notes.example.com")}`,
+      `infinitebrain://invite/${inv.id}?server=${encodeURIComponent("http://notes.example.com")}`,
     );
   });
 
@@ -104,7 +104,7 @@ describe("invitation emails + landing page", () => {
     expect(r2.status).toBe(410);
     const expiredHtml = await r2.text();
     expect(expiredHtml).toContain("expired");
-    expect(expiredHtml).not.toContain("baalda://");
+    expect(expiredHtml).not.toContain("infinitebrain://");
 
     expect((await app.request("/invite/does-not-exist")).status).toBe(404);
     expect((await app.request("/invite/%3Cscript%3E")).status).toBe(400);

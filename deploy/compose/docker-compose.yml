@@ -1,4 +1,4 @@
-# Baalda server — production Compose bundle (server + Postgres).
+# Infinite Brain server — production Compose bundle (server + Postgres).
 #
 #   cp .env.example .env    # then edit it: JWT_SECRET and POSTGRES_PASSWORD are required
 #   docker compose up -d
@@ -25,7 +25,7 @@ x-server-env: &server-env
   BAALDA_DEPLOYMENT: self-hosted
   # Compose resolves this against the postgres service below, on the internal
   # network — Postgres is never published to the host.
-  DATABASE_URL: postgres://baalda:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/baalda
+  DATABASE_URL: postgres://infinitebrain:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/baalda
   JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env — openssl rand -base64 32}
   BETTER_AUTH_URL: ${BETTER_AUTH_URL:?set BETTER_AUTH_URL in .env — the public https URL clients reach}
   PORT: "3010"
