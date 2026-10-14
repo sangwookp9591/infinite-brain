@@ -3,12 +3,19 @@ export const MCP_SCOPES = ["notes:read", "notes:write", "notes:delete", "access:
 export type McpScope = (typeof MCP_SCOPES)[number];
 export const DEFAULT_MCP_SCOPES: McpScope[] = ["notes:read", "notes:write"];
 
-/** Older OAuth grants contain only OIDC scopes; keep their existing tool access. */
+/** Token rows and resolved auth are strict: unknown values grant nothing. */
 export function effectiveScopes(value?: string | readonly string[] | null): McpScope[] {
-  if (Array.isArray(value)) return MCP_SCOPES.filter((s) => value.includes(s));
   const scopes = typeof value === "string" ? value.split(/\s+/) : value ?? [];
-  if (!scopes.some((s) => s.startsWith("notes:") || s.startsWith("access:"))) return [...MCP_SCOPES];
   return MCP_SCOPES.filter((s) => scopes.includes(s));
+}
+
+/** Only NULL or nonempty OIDC-only OAuth grants predate MCP scopes. */
+export function effectiveOAuthScopes(value?: string | null): McpScope[] {
+  const scopes = value?.trim().split(/\s+/) ?? [];
+  if (value == null || (scopes.length > 0 && scopes.every((s) => ["openid", "profile", "email", "offline_access"].includes(s)))) {
+    return ["notes:read", "notes:write", "notes:delete"];
+  }
+  return effectiveScopes(value);
 }
 
 export function validScopes(value: unknown): value is McpScope[] {

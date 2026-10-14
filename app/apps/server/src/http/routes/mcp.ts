@@ -15,7 +15,7 @@ import {
   revokeMcpToken,
   verifyMcpToken,
 } from "../../mcp/tokens.js";
-import { MCP_SCOPES, toolScope, validScopes } from "../../mcp/scopes.js";
+import { DEFAULT_MCP_SCOPES, MCP_SCOPES, toolScope, validScopes } from "../../mcp/scopes.js";
 import { TOOLS } from "../../mcp/tools.js";
 
 /** Tool annotations classify note reads/writes/deletes; file ACLs still apply. */
@@ -285,8 +285,8 @@ export function createMcpRoutes(deps: McpDeps): Hono {
     }
     const body = (await c.req.json().catch(() => ({}))) as { name?: unknown; scopes?: unknown };
     if (body.scopes !== undefined && !validScopes(body.scopes)) return c.json({ error: "Invalid scopes" }, 400);
-    const scopes = body.scopes ?? [...MCP_SCOPES];
-    if (body.scopes !== undefined && scopes.includes("access:manage") && role !== "owner" && role !== "admin") {
+    const scopes = body.scopes ?? [...DEFAULT_MCP_SCOPES];
+    if (scopes.includes("access:manage") && role !== "owner" && role !== "admin") {
       return c.json({ error: "Only owners/admins can approve access:manage" }, 403);
     }
     const name =

@@ -5,6 +5,7 @@ import { resetDb } from "./helpers/db.js";
 import { authHeaders, createOrg, signUp, type TestUser } from "./helpers/auth.js";
 import { seedFolder, seedNote, seedVault, seedVaultGrant } from "./helpers/seed.js";
 import { recordingAppDeps } from "./helpers/app.js";
+import { MCP_SCOPES } from "../src/mcp/scopes.js";
 import { createMcpToken } from "../src/mcp/tokens.js";
 
 /**
@@ -201,7 +202,7 @@ describe("case-insensitive path identity", () => {
 
     beforeEach(async () => {
       token = (
-        await createMcpToken({ userId: owner.userId, organizationId: org }, "test")
+        await createMcpToken({ userId: owner.userId, organizationId: org, scopes: [...MCP_SCOPES] }, "test")
       ).token;
     });
 

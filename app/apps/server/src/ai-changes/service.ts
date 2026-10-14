@@ -8,7 +8,7 @@ import { softDeleteSet } from "../trash/retention.js";
 import { trashChanged } from "../trash/activity.js";
 import { purgeNoteIndex, scheduleIndex } from "../index/indexer.js";
 import { moveNote, planNoteMove } from "../registry/tree-ops.js";
-import { canEditFolder, vaultRootWritable } from "../permissions/http-gates.js";
+import { canDeleteItem, canEditFolder, vaultRootWritable } from "../permissions/http-gates.js";
 import { withDocLock } from "../sync/doc-batch.js";
 import { replacementOp, type DocWriter } from "../mcp/doc-writer.js";
 import { textHash, type AiChangeOp } from "./store.js";
@@ -70,13 +70,13 @@ export async function listAiChanges(userId: string, vaultId: string,
               to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_at,
               reverted_at, reverted_by
          FROM ai_change_ledger WHERE vault_id = $1
-          AND ($2::text IS NULL OR connection_id = $2) AND ($3::text IS NULL OR doc_id = $3)
+          AND ($2::text IS NULL OR (connection_id = $2 AND actor_user_id = $8)) AND ($3::text IS NULL OR doc_id = $3)
           AND ($4::timestamptz IS NULL OR created_at >= $4)
           AND ($5::timestamptz IS NULL OR (created_at, id) < ($5, $6))
           AND (NOT $7::boolean OR reverted_at IS NULL)
         ORDER BY ai_change_ledger.created_at DESC, id DESC LIMIT 200`,
       [vaultId, opts.connection ?? null, opts.doc ?? null, opts.since ?? null,
-        cursor?.created_at ?? null, cursor?.id ?? null, opts.unreverted === true],
+        cursor?.created_at ?? null, cursor?.id ?? null, opts.unreverted === true, userId],
     );
     for (const row of rows) {
       let access = permissions.get(row.doc_id);
@@ -147,6 +147,8 @@ export async function revertAiChange(userId: string, id: string, deps: AiChangeD
           await restoreNote(userId, row.doc_id);
           scheduleIndex(row.doc_id, 0);
         } else if (row.op === "create") {
+          const gate = await canDeleteItem(client, { orgId: row.org_id, userId, kind: "note", id: row.doc_id });
+          if (!gate.ok) throw new AiChangeError(403, gate.code, "Only the creator, owner or admin can undo a note creation");
           await client.query(`UPDATE notes SET ${softDeleteSet("$2")} WHERE id = $1`, [row.doc_id, userId]);
           await purgeNoteIndex([row.doc_id], client);
         } else {

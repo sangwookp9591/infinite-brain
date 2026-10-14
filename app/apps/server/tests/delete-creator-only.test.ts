@@ -6,6 +6,7 @@ import { resetDb } from "./helpers/db.js";
 import { authHeaders, createOrg, signUp, type TestUser } from "./helpers/auth.js";
 import { recordingAppDeps } from "./helpers/app.js";
 import { seedFolder, seedMember, seedNote, seedVault, seedVaultGrant } from "./helpers/seed.js";
+import { MCP_SCOPES } from "../src/mcp/scopes.js";
 import { createMcpToken } from "../src/mcp/tokens.js";
 import type { NoteDeleteResult } from "../src/http/routes/bulk-types.js";
 
@@ -243,8 +244,8 @@ describe("members delete only what they created", () => {
     let memberToken: string;
     let adminToken: string;
     beforeEach(async () => {
-      memberToken = (await createMcpToken({ userId: member.userId, organizationId: org }, "t")).token;
-      adminToken = (await createMcpToken({ userId: admin.userId, organizationId: org }, "t")).token;
+      memberToken = (await createMcpToken({ userId: member.userId, organizationId: org, scopes: [...MCP_SCOPES] }, "t")).token;
+      adminToken = (await createMcpToken({ userId: admin.userId, organizationId: org, scopes: [...MCP_SCOPES] }, "t")).token;
     });
 
     it("delete_note: own OK, teammate's and creator-less refused, admin OK", async () => {

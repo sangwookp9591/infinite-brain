@@ -1,7 +1,7 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import type pg from "pg";
 import { pool as defaultPool } from "../db/pool.js";
-import { effectiveScopes, MCP_SCOPES, type McpScope } from "./scopes.js";
+import { effectiveScopes, DEFAULT_MCP_SCOPES, type McpScope } from "./scopes.js";
 import { orgRole } from "../permissions/lookup.js";
 
 /**
@@ -63,7 +63,7 @@ export async function createMcpToken(
   name: string,
   db: Queryable = defaultPool,
 ): Promise<{ token: string; row: McpTokenRow }> {
-  const scopes = auth.scopes ?? [...MCP_SCOPES];
+  const scopes = auth.scopes ?? [...DEFAULT_MCP_SCOPES];
   const token = generateToken();
   const id = randomUUID();
   const tokenPrefix = token.slice(0, DISPLAY_LEN) + "…";
@@ -177,7 +177,7 @@ export async function verifyMcpToken(
     [row.id, client],
   ).catch(() => {});
 
-  return { userId: row.user_id, organizationId: row.organization_id, tokenId: row.id, scopes: effectiveScopes(row.scopes),
+  return { userId: row.user_id, organizationId: row.organization_id, tokenId: row.id, scopes: effectiveScopes(row.scopes).filter((s) => s !== "access:manage" || role === "owner" || role === "admin"),
     connection: { kind: "token", id: row.id, label: row.name } };
 }
 

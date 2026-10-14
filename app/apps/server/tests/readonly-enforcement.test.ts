@@ -13,6 +13,7 @@ import { mintVaultToken } from "../src/tokens/vault-token.js";
 import { VaultChannel } from "../src/sync/vault-channel.js";
 import { InMemoryPubSub } from "../src/sync/pubsub.js";
 import { loadDocState } from "../src/yjs/persistence.js";
+import { MCP_SCOPES } from "../src/mcp/scopes.js";
 import { createMcpToken } from "../src/mcp/tokens.js";
 import { pool } from "../src/db/pool.js";
 import { resetDb } from "./helpers/db.js";
@@ -330,7 +331,7 @@ async function mcpCall(token: string, name: string, args: Record<string, unknown
 }
 
 const mcpTokenFor = async (userId: string, orgId: string) =>
-  (await createMcpToken({ userId, organizationId: orgId }, "readonly-test")).token;
+  (await createMcpToken({ userId, organizationId: orgId, scopes: [...MCP_SCOPES] }, "readonly-test")).token;
 
 /** Every MCP write tool, aimed at one note / folder / vault. */
 async function mcpWriteAttempts(

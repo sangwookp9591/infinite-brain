@@ -5,6 +5,7 @@ import { serve } from "@hono/node-server";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../src/http/app.js";
 import { pool } from "../src/db/pool.js";
+import { MCP_SCOPES } from "../src/mcp/scopes.js";
 import { createMcpToken } from "../src/mcp/tokens.js";
 import { effectivePermission } from "../src/permissions/resolver.js";
 import { listReadableDocsInVault } from "../src/permissions/vault-docs.js";
@@ -74,7 +75,7 @@ async function call(
 }
 
 async function tokenFor(userId: string, organizationId: string): Promise<string> {
-  return (await createMcpToken({ userId, organizationId }, "access-surface-test")).token;
+  return (await createMcpToken({ userId, organizationId, scopes: [...MCP_SCOPES] }, "access-surface-test")).token;
 }
 
 function resources(...items: Array<["folder" | "file" | "vault", string]>) {
@@ -259,7 +260,7 @@ describe("MCP access-management HTTP surface", () => {
       mode: "open",
     });
     expect(memberCannotManage.isError).toBe(true);
-    expect(memberCannotManage.text).toMatch(/owner or an admin/i);
+    expect(memberCannotManage.data).toMatchObject({ code: "insufficient_scope" });
     expect(await effectivePermission(member, nestedDoc)).toBe("view");
 
     expect(

@@ -2,7 +2,7 @@ import type pg from "pg";
 import { pool as defaultPool } from "../db/pool.js";
 import { orgRole } from "../permissions/lookup.js";
 import { auth } from "../auth/auth.js";
-import { effectiveScopes, type McpScope } from "./scopes.js";
+import { effectiveOAuthScopes, type McpScope } from "./scopes.js";
 import type { McpAuth } from "./tokens.js";
 
 /**
@@ -97,9 +97,11 @@ export async function resolveOAuthMcpAuth(
     return null;
   }
 
-  if (!(await orgRole(organizationId, session.userId, db))) return null;
+  const role = await orgRole(organizationId, session.userId, db);
+  if (!role) return null;
 
-  const scopes = effectiveScopes(session.scopes).filter((scope) => effectiveScopes(binding?.scopes).includes(scope));
+  const scopes = effectiveOAuthScopes(session.scopes).filter((scope) =>
+    effectiveOAuthScopes(binding?.scopes).includes(scope) && (scope !== "access:manage" || role === "owner" || role === "admin"));
   if (!binding) await setVaultBinding(session.clientId, session.userId, organizationId, db);
   await db.query(
     `UPDATE mcp_oauth_vault SET last_used_at = now(), last_client = COALESCE($3, last_client)
@@ -167,7 +169,7 @@ export async function listOAuthConnections(auth: McpAuth, db: Queryable = defaul
       ORDER BY "createdAt" DESC`,
     [auth.userId, auth.organizationId],
   );
-  return rows.map((r) => ({ ...r, kind: "oauth" as const, scopes: effectiveScopes(r.scopes) }));
+  return rows.map((r) => ({ ...r, kind: "oauth" as const, scopes: effectiveOAuthScopes(r.scopes) }));
 }
 
 /** Remove access and refresh tokens, consent, and the vault binding together. */

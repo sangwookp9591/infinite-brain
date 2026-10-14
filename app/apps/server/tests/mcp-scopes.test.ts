@@ -6,7 +6,7 @@ import { authPool } from "../src/auth/auth.js";
 import { config } from "../src/config.js";
 import { pool } from "../src/db/pool.js";
 import { createMcpToken } from "../src/mcp/tokens.js";
-import { MCP_SCOPES, effectiveScopes } from "../src/mcp/scopes.js";
+import { MCP_SCOPES, DEFAULT_MCP_SCOPES, effectiveScopes, effectiveOAuthScopes } from "../src/mcp/scopes.js";
 import { testAppDeps } from "./helpers/app.js";
 import { resetDb } from "./helpers/db.js";
 import { createOrg, signUp, type TestUser } from "./helpers/auth.js";
@@ -93,12 +93,34 @@ describe("MCP connection scopes", () => {
     expect(await (await rpc(token, "tools/call", { name: "move_note" })).json()).toMatchObject({ result: { isError: true, structuredContent: { code: "insufficient_scope" } } });
   });
 
-  it("legacy default tokens retain full access and query-token compatibility", async () => {
+  it("default tokens grant read+write and retain query-token compatibility", async () => {
     const { token } = await createMcpToken({ userId: user.userId, organizationId: org }, "legacy");
-    expect(await names(token)).toEqual(expect.arrayContaining(["update_note", "delete_note", "move_note", "manage_access"]));
+    expect(await names(token)).toContain("update_note");
+    for (const name of ["delete_note", "move_note", "manage_access"]) expect(await names(token)).not.toContain(name);
     expect((await rpc(token, "tools/list", undefined, true)).status).toBe(200);
-    expect(effectiveScopes("openid profile offline_access")).toEqual([...MCP_SCOPES]);
+    expect(effectiveScopes("openid profile offline_access")).toEqual([]);
+    for (const value of [null, "openid profile offline_access"]) expect(effectiveOAuthScopes(value)).toEqual(["notes:read", "notes:write", "notes:delete"]);
+    for (const value of ["", "typo", "vault:read"]) {
+      expect(effectiveScopes(value)).toEqual([]);
+      expect(effectiveOAuthScopes(value)).toEqual([]);
+    }
     expect(effectiveScopes(["notes:unknown"])).toEqual([]);
+  });
+
+  it("checks roles for omitted and explicit token scopes and rejects unknown stored scopes", async () => {
+    for (const role of ["owner", "admin", "member", "viewer"]) {
+      await pool.query('UPDATE member SET role = $1 WHERE "userId" = $2', [role, user.userId]);
+      const minted = await request("/api/mcp/tokens", { method: "POST", headers: sessionHeaders(), body: JSON.stringify({ name: role }) });
+      expect(minted.status).toBe(201);
+      const row = await minted.json() as { id: string; token: string; scopes: string[] };
+      expect(row.scopes).toEqual(DEFAULT_MCP_SCOPES);
+      const managed = await request("/api/mcp/tokens", { method: "POST", headers: sessionHeaders(), body: JSON.stringify({ scopes: ["access:manage"] }) });
+      expect(managed.status).toBe(role === "owner" || role === "admin" ? 201 : 403);
+      await pool.query("UPDATE mcp_tokens SET scopes = 'vault:read' WHERE id = $1", [row.id]);
+      expect(await names(row.token)).toEqual([]);
+    }
+    await pool.query('DELETE FROM member WHERE "userId" = $1', [user.userId]);
+    expect((await request("/api/mcp/tokens", { method: "POST", headers: sessionHeaders(), body: "{}" })).status).toBe(403);
   });
 
   it("saves approved OAuth scopes in consent and token, filters calls and stamps activity", async () => {
@@ -170,8 +192,9 @@ describe("MCP connection scopes", () => {
       VALUES ($1, $2, $3, $4, $5, now() + interval '1 hour', now() + interval '1 day', 'openid offline_access')`,
       [randomUUID(), started.clientId, user.userId, token, randomUUID()]);
     const listed = await request("/api/mcp/connections", { headers: sessionHeaders() });
-    expect(await listed.json()).toMatchObject({ connections: [{ kind: "oauth", scopes: [...MCP_SCOPES] }] });
-    expect(await names(token)).toEqual(expect.arrayContaining(["update_note", "delete_note", "manage_access"]));
+    expect(await listed.json()).toMatchObject({ connections: [{ kind: "oauth", scopes: ["notes:read", "notes:write", "notes:delete"] }] });
+    expect(await names(token)).toEqual(expect.arrayContaining(["update_note", "delete_note"]));
+    expect(await names(token)).not.toContain("manage_access");
     expect((await request(`/api/mcp/connections/oauth/${started.clientId}`, { method: "DELETE", headers: sessionHeaders() })).status).toBe(200);
     expect((await rpc(token)).status).toBe(401);
   });

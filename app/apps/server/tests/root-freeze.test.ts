@@ -12,6 +12,7 @@ import {
   seedVaultGrant,
 } from "./helpers/seed.js";
 import { recordingAppDeps } from "./helpers/app.js";
+import { MCP_SCOPES } from "../src/mcp/scopes.js";
 import { createMcpToken } from "../src/mcp/tokens.js";
 
 /**
@@ -380,7 +381,7 @@ describe("root freeze — MCP parity", () => {
     // Private, and in a Private vault it is authorship — not the role — that
     // lets the owner write inside this folder.
     docsFolder = await seedFolder(vault, null, "Docs", "Docs", owner.userId);
-    token = (await createMcpToken({ userId: owner.userId, organizationId: org }, "test")).token;
+    token = (await createMcpToken({ userId: owner.userId, organizationId: org, scopes: [...MCP_SCOPES] }, "test")).token;
   });
 
   it("refuses create_note and create_folder at a frozen root", async () => {

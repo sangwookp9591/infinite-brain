@@ -63,7 +63,7 @@ async function call(token: string, name: string, args: Record<string, unknown> =
 }
 
 async function tokenFor(userId: string, orgId: string): Promise<string> {
-  const { token } = await createMcpToken({ userId, organizationId: orgId }, "test");
+  const { token } = await createMcpToken({ userId, organizationId: orgId, scopes: [...MCP_SCOPES] }, "test");
   return token;
 }
 
@@ -612,7 +612,7 @@ describe("MCP server", () => {
     const org = await seedOrg("Acme", "acme-mcp6");
     await seedMember(org, owner, "owner");
     const vault = await seedVault(org);
-    const { token, row } = await createMcpToken({ userId: owner, organizationId: org }, "conn");
+    const { token, row } = await createMcpToken({ userId: owner, organizationId: org, scopes: [...MCP_SCOPES] }, "conn");
     expect(row.useCount).toBe(0);
     expect(row.lastClient).toBeNull();
 

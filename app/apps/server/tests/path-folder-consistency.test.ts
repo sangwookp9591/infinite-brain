@@ -12,6 +12,7 @@ import {
   seedVaultGrant,
 } from "./helpers/seed.js";
 import { recordingAppDeps } from "./helpers/app.js";
+import { MCP_SCOPES } from "../src/mcp/scopes.js";
 import { createMcpToken } from "../src/mcp/tokens.js";
 
 /**
@@ -191,7 +192,7 @@ describe("rel_path ↔ folder_id consistency", () => {
   describe("MCP tools", () => {
     let token: string;
     beforeEach(async () => {
-      token = (await createMcpToken({ userId: owner.userId, organizationId: org }, "t")).token;
+      token = (await createMcpToken({ userId: owner.userId, organizationId: org, scopes: [...MCP_SCOPES] }, "t")).token;
     });
 
     it("create_note refuses the incident's mismatched folderId/relPath pair", async () => {

@@ -16,6 +16,7 @@ import {
   seedVault,
   seedVaultGrant,
 } from "./helpers/seed.js";
+import { MCP_SCOPES } from "../src/mcp/scopes.js";
 import { createMcpToken } from "../src/mcp/tokens.js";
 
 /**
@@ -84,8 +85,8 @@ describe("MCP file tools", () => {
     });
     await seedBlobText(fileBlob, vault, fileDoc, "quarterly pipeline forecast by region");
 
-    memberToken = (await createMcpToken({ userId: member, organizationId: org }, "t")).token;
-    ownerToken = (await createMcpToken({ userId: owner, organizationId: org }, "t")).token;
+    memberToken = (await createMcpToken({ userId: member, organizationId: org, scopes: [...MCP_SCOPES] }, "t")).token;
+    ownerToken = (await createMcpToken({ userId: owner, organizationId: org, scopes: [...MCP_SCOPES] }, "t")).token;
   });
   afterAll(async () => {
     await pool.end();

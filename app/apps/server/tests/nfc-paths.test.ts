@@ -7,6 +7,7 @@ import { resetDb } from "./helpers/db.js";
 import { authHeaders, createOrg, signUp, type TestUser } from "./helpers/auth.js";
 import { seedFolder, seedNote, seedVault, seedVaultGrant } from "./helpers/seed.js";
 import { recordingAppDeps } from "./helpers/app.js";
+import { MCP_SCOPES } from "../src/mcp/scopes.js";
 import { createMcpToken } from "../src/mcp/tokens.js";
 
 /**
@@ -193,7 +194,7 @@ describe("Unicode-normalized path identity", () => {
   });
 
   it("MCP create_note adopts across normalizations", async () => {
-    const token = (await createMcpToken({ userId: owner.userId, organizationId: org }, "test")).token;
+    const token = (await createMcpToken({ userId: owner.userId, organizationId: org, scopes: [...MCP_SCOPES] }, "test")).token;
     const first = await call(token, "create_note", {
       vaultId: vault,
       relPath: `${NFD_DIR}/${NFD_NOTE}`,

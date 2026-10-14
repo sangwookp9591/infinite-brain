@@ -8,6 +8,7 @@ import { createApp } from "../src/http/app.js";
 import { pool } from "../src/db/pool.js";
 import { createDocWriter } from "../src/mcp/doc-writer.js";
 import type { SyncContext } from "../src/sync/hocuspocus.js";
+import { MCP_SCOPES } from "../src/mcp/scopes.js";
 import { createMcpToken } from "../src/mcp/tokens.js";
 import { recordAiChange } from "../src/ai-changes/store.js";
 import { resetDb } from "./helpers/db.js";
@@ -45,7 +46,7 @@ beforeEach(async () => {
   await seedVaultGrant(org, "edit");
   doc = await seedNote(vault, null, "note.md", owner.userId);
   await writer.setContent(vault, doc, "before 😀");
-  const minted = await createMcpToken({ userId: owner.userId, organizationId: org }, "Claude synthetic");
+  const minted = await createMcpToken({ userId: owner.userId, organizationId: org, scopes: [...MCP_SCOPES] }, "Claude synthetic");
   token = minted.token; connectionId = minted.row.id;
 });
 afterAll(async () => { await pool.end(); });
@@ -135,6 +136,29 @@ describe("AI change ledger", () => {
     await writer.setContent(vault, doc, "human");
     const conflict = await req(`/vaults/${vault}/ai-changes/revert-batch`, { connectionId, since: new Date(Date.now()-3600000).toISOString() });
     expect((await conflict.json() as any).results[0]).toMatchObject({ status: "failed", httpStatus: 409, diff: { current: "human" } });
+  });
+  it("requires the deletion creator gate when undoing AI creates", async () => {
+    await call("create_note", { vaultId: vault, relPath: "created.md", content: "AI" });
+    const row = await latest();
+    const denied = await req(`/ai-changes/${row.id}/revert`, {}, outsider);
+    expect(denied.status).toBe(403);
+    expect(await denied.json()).toMatchObject({ code: "delete_not_creator" });
+    expect((await pool.query("SELECT deleted_at FROM notes WHERE id=$1", [row.doc_id])).rows[0].deleted_at).toBeNull();
+    expect((await undo(row.id)).status).toBe(200);
+  });
+  it("isolates connection history and batch undo by actor even for a shared OAuth client", async () => {
+    const otherDoc = await seedNote(vault, null, "other.md", outsider.userId);
+    await writer.setContent(vault, otherDoc, "other after");
+    for (const [actor, note, before, after] of [[owner, doc, "before 😀", "after"], [outsider, otherDoc, "other before", "other after"]] as const) {
+      await recordAiChange(vault, note, { auth: { userId: actor.userId, organizationId: org,
+        connection: { kind: "oauth", id: "shared-client", label: "Shared" } }, op: "update", beforePath: note === doc ? "note.md" : "other.md", afterPath: note === doc ? "note.md" : "other.md" }, before, after);
+    }
+    await writer.setContent(vault, doc, "after");
+    const listing = await req(`/vaults/${vault}/ai-changes?connection=shared-client`);
+    expect((await listing.json() as any).items.map((r: any) => r.actor_user_id)).toEqual([owner.userId]);
+    const result = await req(`/vaults/${vault}/ai-changes/revert-batch`, { connectionId: "shared-client", since: new Date(Date.now()-3600000).toISOString() });
+    expect((await result.json() as any).results).toHaveLength(1);
+    expect(await writer.readContent(vault, otherDoc)).toBe("other after");
   });
   it("bounds UTF-8 snapshots and refuses undo when a body was omitted", async () => {
     await recordAiChange(vault, doc, { auth: { userId: owner.userId, organizationId: org,
