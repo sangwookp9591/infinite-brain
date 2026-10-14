@@ -10,6 +10,7 @@ import type { LegendEntry } from "../lib/graph/graphColor";
 
 export interface GraphControlsProps {
   settings: GraphSettings;
+  fixedLayout?: boolean;
   onChange: (patch: Partial<GraphSettings>) => void;
   onReset: () => void;
   legend: LegendEntry[];
@@ -59,6 +60,7 @@ export function GraphControls(props: GraphControlsProps): React.JSX.Element {
           id={`graph-${key}`}
           className="range-input"
           type="range"
+          disabled={props.fixedLayout && ["charge", "linkDistance", "linkStrength", "gravity"].includes(key)}
           min={range.min}
           max={range.max}
           step={range.step}
@@ -77,6 +79,7 @@ export function GraphControls(props: GraphControlsProps): React.JSX.Element {
           under one name, and the whole-vault view is the one that was wanted. */}
       <div className="graph-control-group">
         <div className="graph-control-group-title">Forces</div>
+        {props.fixedLayout && <small>Stable spiral layout for large vaults.</small>}
         {slider("charge")}
         {slider("linkDistance")}
         {slider("linkStrength")}
@@ -115,6 +118,7 @@ export function GraphControls(props: GraphControlsProps): React.JSX.Element {
             type="text"
             className="graph-control-search"
             placeholder="Filter by title…"
+            aria-label="Filter notes by title"
             value={settings.search}
             onChange={(e) => onChange({ search: e.target.value })}
           />

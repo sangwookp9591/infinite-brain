@@ -70,7 +70,7 @@ export const DEFAULT_SETTINGS: GraphSettings = {
   nodeSize: 0.4,
   edgeThickness: 1.3,
   labelScale: 0.25,
-  colorMode: "degree",
+  colorMode: "folder",
   search: "",
   minDegree: 1,
   hideOrphans: true,

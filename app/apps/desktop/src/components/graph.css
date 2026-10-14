@@ -242,7 +242,9 @@ html[data-platform="windows"] .graph-header {
   left: var(--sp-4);
   bottom: var(--sp-4);
   z-index: 2;
-  width: 300px;
+  width: min(300px, calc(100% - 32px));
+  max-height: calc(100% - 130px);
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: var(--sp-4);
@@ -481,13 +483,6 @@ html[data-platform="windows"] .graph-header {
   }
 }
 
-/* Worker path only (8k+ nodes): the layout is being arranged off-thread and we
-   deliberately do not paint it mid-flight, so hide the canvases until it cools.
-   `visibility` rather than `display: none` — the canvases must keep their real
-   size, or the renderer re-measures to 0×0 and has to rebuild on reveal. */
-.graph-canvas-wrap.is-settling .graph-canvas {
-  visibility: hidden;
-}
 /* Scoped to the settling card only. The base `.graph-state-card` is a COLUMN
    (the error card stacks a heading over its message), so overriding it globally
    would lay that out sideways. */
@@ -495,4 +490,65 @@ html[data-platform="windows"] .graph-header {
   flex-direction: row;
   gap: var(--sp-2);
   padding: var(--sp-4) var(--sp-6);
+}
+
+/* Galaxy chrome stays legible over deep space in either application theme. */
+.graph-galaxy-host, .graph-galaxy-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.graph-galaxy-caption {
+  position: absolute;
+  top: calc(var(--titlebar-inset, 24px) + 125px);
+  left: 5%;
+  color: #e2e7ff;
+  z-index: 1;
+  pointer-events: none;
+}
+.graph-galaxy-caption > span { font-size: 10px; letter-spacing: 0.28em; color: #9badd2; }
+.graph-galaxy-caption h1 { font-size: clamp(24px, 3vw, 42px); font-weight: 400; letter-spacing: -0.035em; margin: 12px 0; }
+.graph-galaxy-caption p { font-size: 12px; color: #98a6c1; margin: 0; }
+.graph-galaxy-help { position: absolute; bottom: 24px; right: 32px; left: 32px; text-align: right; color: #aab6d0; font-size: 11px; pointer-events: none; z-index: 2; }
+.graph-canvas:focus-visible, .graph-canvas:focus-visible + .graph-galaxy-host { outline: 2px solid #aabaff; outline-offset: -4px; }
+@media (max-width: 720px) {
+  .graph-galaxy-caption { top: 120px; }
+  .graph-galaxy-caption p { max-width: 240px; line-height: 1.6; }
+  .graph-galaxy-help { font-size: 10px; bottom: 20px; left: 16px; right: 16px; text-align: center; }
+  .graph-header { gap: 6px; }
+  .graph-counts { font-size: 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .graph-view, .graph-intro { animation: none !important; }
+}
+
+.graph-settling-status {
+  position: absolute;
+  bottom: 64px;
+  left: 24px;
+  max-width: calc(100% - 48px);
+  z-index: 3;
+  pointer-events: none;
+}
+
+.graph-galaxy-labels { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.graph-galaxy-labels span { position: absolute; top: 0; left: 0; color: #d2ddf4; font: 11px/1.4 var(--font-body, sans-serif); max-width: 150px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; text-shadow: 0 1px 5px #000; }
+
+/* The universe has its own glass chrome, including in the light application theme. */
+.graph-view .graph-header {
+  background: rgba(15, 20, 36, 0.72);
+  border-color: rgba(178, 194, 230, 0.15);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+.graph-view .graph-title { color: #e3e9f8; }
+.graph-view .graph-counts, .graph-view .graph-icon-btn { color: #a8b5ce; }
+.graph-view .graph-icon-btn:hover, .graph-view .graph-icon-btn.is-active { background: rgba(165, 177, 225, 0.12); color: #e3e9f8; }
+.graph-galaxy-caption { transition: opacity 700ms ease; }
+.graph-view.is-exploring .graph-galaxy-caption { opacity: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .graph-galaxy-caption { transition: none; }
 }

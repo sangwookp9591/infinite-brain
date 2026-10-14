@@ -22,7 +22,8 @@ import {
   type GraphSettings,
 } from "../lib/graph/graphSettings";
 import { useGraphData } from "../lib/graph/useGraphData";
-import { WebGLGraphRenderer, type RenderNode } from "../lib/graph/webglRenderer";
+import { GalaxyRenderer, type GalaxyNode } from "../lib/graph/galaxyRenderer";
+import { buildGalaxyLayout, FAST_GALAXY_THRESHOLD, type GalaxyPosition } from "../lib/graph/galaxyLayout";
 import { SimClient } from "../lib/graph/simClient";
 import { useStore } from "../store";
 import { GraphControls } from "./GraphControls";
@@ -30,12 +31,9 @@ import { Spinner } from "./Spinner";
 import "./graph.css";
 
 // ---------------------------------------------------------------------------
-// Immersive, physics-driven note graph. Physics is d3-force (see simulation.ts),
-// but we own the clock: the sim's internal timer is stopped and we call
-// sim.tick() ourselves inside a requestAnimationFrame loop so painting and
-// physics share one frame. React owns only React-y things — data loading, the
-// settings panel, header counts. Camera / hover / drag / positions all live in
-// refs so interaction never triggers a reconciliation pass.
+// Spiral coordinates define the galaxy. Small force layouts add bounded local
+// displacement; large vaults use the deterministic layout without force ticks.
+// React owns loading, settings and counts; the renderer owns camera and picking.
 // ---------------------------------------------------------------------------
 
 const MIN_SCALE = 0.08;
@@ -111,14 +109,6 @@ const FIT_LOCK_ALPHA = 0.02;
 // entire layout back to maximum energy and it visibly flew apart and re-settled.
 const REHEAT_FIRST = 1;
 const REHEAT_REFRESH = 0.1;
-
-// Smallest a node may be drawn on screen, in CSS px of radius. Applied in
-// quadrature by the shader (see webglRenderer's VERT), so it is a lift for the
-// leaves rather than a ceiling everything piles up against.
-const MIN_NODE_PX = 2.1;
-// Baseline strength of the additive halo around each node, before the
-// node-count falloff applied at draw time.
-const GLOW_BASE = 1.3;
 
 // Fallback cap for the global scope on the 2D canvas, which only stays smooth
 // up to a few hundred nodes. The GPU (WebGL) renderer draws the whole vault, so
@@ -461,12 +451,12 @@ function neighborhoodIds(graph: Graph, startId: string, depth: number): Set<stri
 export function GraphView({ onClose }: { onClose: () => void }) {
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  // Separate GPU canvas for the global scope (a canvas can hold only one context
-  // type, so WebGL gets its own; the 2D canvas keeps the local view).
-  const webglCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  // The renderer owns a fresh GPU canvas per mount; Canvas2D remains the fallback/input surface.
+  const webglCanvasRef = useRef<HTMLDivElement | null>(null);
   // Whether the GPU renderer initialized. Read imperatively by `rebuild` to
   // decide the global fallback; mirrored to state (`webglError`) for the UI.
   const webglOkRef = useRef(false);
+  const gpuPendingRef = useRef(true);
   const [webglError, setWebglError] = useState<string | null>(null);
   // On-screen WebGL diagnostic (updated imperatively, sampled to state below).
   const diagRef = useRef("");
@@ -477,14 +467,11 @@ export function GraphView({ onClose }: { onClose: () => void }) {
   // Bounded self-heal: the graph can mount before the vault is fully open and
   // come back empty; retry a few times so it fills in instead of getting stuck.
   const emptyRetriesRef = useRef(0);
-  // One-shot: fit the WebGL camera to the graph on (re)entry, then the user's
-  // pan/zoom (shared `S.camera`) takes over.
+  // Fit the galaxy while its force layout settles, until the user takes control.
   const webglNeedsFitRef = useRef(true);
 
   const { graph, loading, error, refresh } = useGraphData();
-  // Only the Web Worker path (8k+ nodes) can set this. Inline layouts are
-  // pre-settled synchronously before their first frame, so there is no window
-  // in which they'd need to hide; the worker has one, and this covers it.
+  // The worker can continue arranging large vaults while their galaxy is explored.
   const [settling, setSettling] = useState(false);
 
   // Settings live in BOTH a ref (read from inside the imperative canvas/sim
@@ -503,9 +490,7 @@ export function GraphView({ onClose }: { onClose: () => void }) {
   openNotePathRef.current = openNotePath;
 
   // One d3 simulation for the component's whole life (survives re-renders and
-  // StrictMode remounts because refs persist). It is deliberately never allowed
-  // to go cold: the alpha target floors at IDLE_ALPHA so the restoring forces
-  // stay awake under the perpetual drift (see simulation.ts).
+  // StrictMode remounts because refs persist). The frame loop pauses it once settled.
   const simRef = useRef<Simulation<SimNode, SimLink> | null>(null);
   if (!simRef.current) {
     simRef.current = createSimulation(settingsRef.current).alphaTarget(IDLE_ALPHA);
@@ -538,6 +523,9 @@ export function GraphView({ onClose }: { onClose: () => void }) {
     // position buffers after a rebuild; `indexById` maps a node id to its slot
     // in the position buffer for drag fix/release.
     useWorker: false,
+    fixedLayout: false,
+    galaxyById: new Map<string, GalaxyPosition>(),
+    layoutMs: 0,
     workerActive: false,
     workerGen: 0,
     indexById: new Map<string, number>(),
@@ -570,7 +558,8 @@ export function GraphView({ onClose }: { onClose: () => void }) {
   // off-thread. Created lazily and defensively: if Worker isn't available the
   // ref stays null and rebuild() caps the global sim so the main thread is safe.
   const workerRef = useRef<SimClient | null>(null);
-  if (workerRef.current === null && typeof Worker !== "undefined") {
+  useEffect(() => {
+    if (typeof Worker === "undefined") return;
     try {
       workerRef.current = new SimClient(
         (buf, alpha, gen) => {
@@ -599,18 +588,27 @@ export function GraphView({ onClose }: { onClose: () => void }) {
     } catch {
       workerRef.current = null;
     }
-  }
-  // Tear the worker down for good on final unmount.
-  useEffect(() => () => workerRef.current?.dispose(), []);
+    return () => { workerRef.current?.dispose(); workerRef.current = null; };
+  }, [S]);
 
   // Recompute visible nodes/edges from the latest graph + filter settings, feed
   // them to the simulation, refresh colors, and reheat. Called on data change
   // and whenever a filter setting changes.
   const rebuild = useCallback(() => {
+    if (gpuPendingRef.current) return;
     const sim = simRef.current;
     const g = graphRef.current;
     if (!sim || !g) return;
     const s = settingsRef.current;
+    const layoutStart = performance.now();
+    const modified = new Map<string, number>();
+    const visit = (node: NonNullable<ReturnType<typeof useStore.getState>["tree"]>) => {
+      if (node.modified) modified.set(node.path, node.modified);
+      node.children?.forEach(visit);
+    };
+    const tree = useStore.getState().tree;
+    if (tree) visit(tree);
+    S.galaxyById = buildGalaxyLayout(g.nodes.map((node) => ({ ...node, modified: modified.get(node.path) })), g.edges);
 
     const all = buildSimNodes(g, S.nodesById);
     S.nodesById = new Map(all.map((n) => [n.id, n]));
@@ -639,96 +637,100 @@ export function GraphView({ onClose }: { onClose: () => void }) {
         visNodes = [...visNodes]
           .sort((a, b) => b.linkCount - a.linkCount)
           .slice(0, GLOBAL_2D_CAP);
-      } else if (
-        workerRef.current === null &&
-        visNodes.length > WORKER_THRESHOLD
-      ) {
-        // No Web Worker available to offload the layout — cap the live sim so a
-        // huge vault can't lock up the main thread. (When the worker exists, the
-        // full set goes to it below instead of being capped.)
-        visNodes = [...visNodes]
-          .sort((a, b) => b.linkCount - a.linkCount)
-          .slice(0, WORKER_THRESHOLD);
       }
     }
+
     const visible = new Set(visNodes.map((n) => n.id));
+    if (S.hoveredId && !visible.has(S.hoveredId)) {
+      S.hoveredId = null;
+      setHoverTip(null);
+    }
     const links: SimLink[] = g.edges
       .filter((e) => visible.has(e.source) && visible.has(e.target))
       .map((e) => ({ source: e.source, target: e.target }));
 
-    // d3 init order: nodes() BEFORE link.links() so the link force resolves
-    // {source,target} ids against the current node array.
-    sim.nodes(visNodes);
-    (sim.force("link") as ForceLink<SimNode, SimLink>).links(links);
-    // Re-apply forces now that the node count is known — repulsion scales with
-    // it, so a 5k global graph spreads while a small local one stays compact.
-    configureForces(sim, s);
-
-    // Only the first build gets a full reheat. After that, warm the layout just
-    // enough to absorb the change (and never *cool* one that's already hotter).
-    const first = !S.introKicked;
-    sim.alpha(first ? REHEAT_FIRST : Math.max(sim.alpha(), REHEAT_REFRESH));
-
-    // First time real data lands: settle the layout NOW, off-screen, so the
-    // first painted frame is the finished shape. The intro clock then drives a
-    // fade + hairline scale only — the graph does not move.
-    //
-    // Not done for the worker path: that exists precisely because ticking a
-    // 8k+ node layout on this thread would freeze the window, and blocking here
-    // would be the same freeze by another name. The worker settles it off-thread
-    // instead (see `worker.init(..., first)` below).
-    if (first && visNodes.length > 0) {
-      const willUseWorker =
-        !openNode && workerRef.current !== null && visNodes.length > WORKER_THRESHOLD;
-      if (!willUseWorker) presettle(sim);
-      S.introKicked = true;
-      S.introStart = performance.now();
-    }
-
-    S.visNodes = visNodes;
-    S.visEdges = links; // now resolved in place by forceLink
-    S.drawOrder = [...visNodes].sort((a, b) => a.radius - b.radius);
-
-    // Size the flow to the layout we just built (its own radius sets both the
-    // drift speed and the wavelength) so the motion looks the same whether this
-    // vault is 40 notes or 5000. Measured after the pre-settle, when positions
-    // mean something.
-    (sim.force("flow") as FlowForce).scale(layoutScale(visNodes));
-
-    // Large global graphs: run the force layout in a Web Worker so the UI thread
-    // never blocks. The worker owns its own copy and streams positions back into
-    // these same node objects (loop() skips the main-thread tick while active).
-    const worker = workerRef.current;
-    const useWorker =
-      !openNode && worker !== null && visNodes.length > WORKER_THRESHOLD;
-    S.useWorker = useWorker;
-    if (useWorker && worker) {
-      S.indexById = new Map(visNodes.map((n, i) => [n.id, i]));
-      const nodeSpec = visNodes.map((n) => ({
-        id: n.id,
-        radius: n.radius,
-        weight: n.weight,
-      }));
-      const linkSpec = links
-        .map((l) => {
-          const sid = typeof l.source === "string" ? l.source : l.source.id;
-          const tid = typeof l.target === "string" ? l.target : l.target.id;
-          return { source: S.indexById.get(sid)!, target: S.indexById.get(tid)! };
-        })
-        .filter((l) => l.source !== undefined && l.target !== undefined);
-      S.workerGen = worker.init(nodeSpec, linkSpec, s, 1200, 800, first);
-      S.workerActive = true;
-      // A pre-settle is impossible here — blocking the thread for an 8k+ node
-      // layout is exactly the freeze the worker exists to avoid. So the reveal
-      // waits instead: hold the graph hidden through the FIRST settle and fade
-      // it in cool, rather than showing a huge field rearranging itself. Only
-      // the first build; later refreshes are small warm nudges (REHEAT_REFRESH)
-      // that must not blank a graph the user is already looking at.
-      if (first) setSettling(true);
-    } else if (worker) {
-      // Switched to local or a small enough set: park the worker.
-      worker.stop();
+    S.fixedLayout = webglOkRef.current && !openNode && visNodes.length >= FAST_GALAXY_THRESHOLD;
+    if (S.fixedLayout) {
+      workerRef.current?.stop();
+      S.useWorker = false;
       S.workerActive = false;
+      sim.stop().alpha(0);
+      S.visNodes = visNodes;
+      S.visEdges = links.map((link) => ({ source: S.nodesById.get(link.source as string)!, target: S.nodesById.get(link.target as string)! }));
+      S.drawOrder = visNodes;
+      S.introKicked = true;
+      setSettling(false);
+    } else {
+      // d3 init order: nodes() BEFORE link.links() so the link force resolves
+      // {source,target} ids against the current node array.
+      sim.nodes(visNodes);
+      (sim.force("link") as ForceLink<SimNode, SimLink>).links(links);
+      // Re-apply forces now that the node count is known — repulsion scales with
+      // it, so a 5k global graph spreads while a small local one stays compact.
+      configureForces(sim, s);
+
+      // Only the first build gets a full reheat. After that, warm the layout just
+      // enough to absorb the change (and never *cool* one that's already hotter).
+      const first = !S.introKicked;
+      sim.alpha(first ? REHEAT_FIRST : Math.max(sim.alpha(), REHEAT_REFRESH));
+
+      // First time real data lands: settle the layout NOW, off-screen, so the
+      // first painted frame is the finished shape. The intro clock then drives a
+      // fade + hairline scale only — the graph does not move.
+      //
+      // Not done for the worker path: that exists precisely because ticking a
+      // 8k+ node layout on this thread would freeze the window, and blocking here
+      // would be the same freeze by another name. The worker settles it off-thread
+      // instead (see `worker.init(..., first)` below).
+      if (first && visNodes.length > 0) {
+        const willUseWorker =
+          !openNode && workerRef.current !== null && visNodes.length > WORKER_THRESHOLD;
+        if (!willUseWorker) presettle(sim);
+        S.introKicked = true;
+        S.introStart = performance.now();
+      }
+
+      S.visNodes = visNodes;
+      S.visEdges = links; // now resolved in place by forceLink
+      S.drawOrder = [...visNodes].sort((a, b) => a.radius - b.radius);
+
+      // Size the flow to the layout we just built (its own radius sets both the
+      // drift speed and the wavelength) so the motion looks the same whether this
+      // vault is 40 notes or 5000. Measured after the pre-settle, when positions
+      // mean something.
+      (sim.force("flow") as FlowForce).scale(layoutScale(visNodes));
+
+      // Large global graphs: run the force layout in a Web Worker so the UI thread
+      // never blocks. The worker owns its own copy and streams positions back into
+      // these same node objects (loop() skips the main-thread tick while active).
+      const worker = workerRef.current;
+      const useWorker =
+        !openNode && worker !== null && visNodes.length > WORKER_THRESHOLD;
+      S.useWorker = useWorker;
+      if (useWorker && worker) {
+        S.indexById = new Map(visNodes.map((n, i) => [n.id, i]));
+        const nodeSpec = visNodes.map((n) => ({
+          id: n.id,
+          radius: n.radius,
+          weight: n.weight,
+        }));
+        const linkSpec = links
+          .map((l) => {
+            const sid = typeof l.source === "string" ? l.source : l.source.id;
+            const tid = typeof l.target === "string" ? l.target : l.target.id;
+            return { source: S.indexById.get(sid)!, target: S.indexById.get(tid)! };
+          })
+          .filter((l) => l.source !== undefined && l.target !== undefined);
+        S.workerGen = worker.init(nodeSpec, linkSpec, s, 1200, 800, first);
+        S.workerActive = true;
+        // Report background layout progress without blocking camera input.
+        if (first) setSettling(true);
+      } else if (worker) {
+        // Switched to local or a small enough set: park the worker.
+        worker.stop();
+        S.workerActive = false;
+      }
+
     }
 
     const accent = S.colors.accent || FALLBACK_ACCENT;
@@ -736,6 +738,7 @@ export function GraphView({ onClose }: { onClose: () => void }) {
     S.colorById = colorById;
     setLegend(lg);
     setCounts({ nodes: visNodes.length, edges: links.length, total: g.nodes.length });
+    S.layoutMs = performance.now() - layoutStart;
 
     requestDrawRef.current();
   }, [S]);
@@ -830,7 +833,7 @@ export function GraphView({ onClose }: { onClose: () => void }) {
   // Sample the imperative WebGL diagnostic into state a couple times a second
   // (diagnostic HUD only; avoids a per-frame setState).
   useEffect(() => {
-    if (!WEBGL_ENABLED) return;
+    if (!import.meta.env.DEV || !WEBGL_ENABLED) return;
     const id = setInterval(() => setDiag(diagRef.current), 500);
     return () => clearInterval(id);
   }, []);
@@ -856,26 +859,49 @@ export function GraphView({ onClose }: { onClose: () => void }) {
     const wrap = wrapRef.current;
     const canvas = canvasRef.current;
     if (!wrap || !canvas) return;
+    const dismissHero = () => wrap.classList.add("is-exploring");
+    wrap.addEventListener("pointerdown", dismissHero, true);
+    wrap.addEventListener("wheel", dismissHero, { passive: true, capture: true });
+    wrap.addEventListener("keydown", dismissHero, true);
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     const sim = simRef.current!;
     const flow = sim.force("flow") as FlowForce;
 
-    // GPU renderer for the global scope (best-effort; if WebGL2 is unavailable
-    // we simply never switch to it). Its own canvas — a canvas can hold only one
-    // context type.
-    let webgl: WebGLGraphRenderer | null = null;
+    let webgl: GalaxyRenderer | null = null;
+    let disposed = false;
     const webglCanvas = webglCanvasRef.current;
+    const failGalaxy = (error: unknown) => {
+      if (disposed) return;
+      webgl?.dispose(); webgl = null;
+      webglOkRef.current = false;
+      gpuPendingRef.current = false;
+      if (disposed) return;
+      setWebglError(error instanceof Error ? error.message : String(error));
+      S.cleared2d = false;
+      rebuild();
+    };
     if (webglCanvas && WEBGL_ENABLED) {
-      try {
-        webgl = new WebGLGraphRenderer(webglCanvas);
-      } catch (e) {
-        webgl = null;
-        setWebglError(e instanceof Error ? e.message : String(e));
-        console.error("[graph] WebGL init failed:", e);
-      }
+      GalaxyRenderer.create(webglCanvas, canvas, {
+        hover: (node, x, y) => {
+          S.hoveredId = node?.id ?? null;
+          setHoverTip(node ? { title: node.title, x, y } : null);
+          requestDraw();
+        },
+        open: (node) => { useStore.getState().openNoteByPath(node.path).then(onClose); },
+        fail: failGalaxy,
+      }, import.meta.env.DEV && new URLSearchParams(location.search).get("renderer") === "webgl").then((renderer) => {
+        if (disposed) { renderer.dispose(); return; }
+        webgl = renderer;
+        webglOkRef.current = true;
+        gpuPendingRef.current = false;
+        setWebglError(null);
+        renderer.resize(width, height);
+        renderer.controls.addEventListener("start", () => { webglNeedsFitRef.current = false; });
+        rebuild();
+        requestDraw();
+      }).catch(failGalaxy);
     }
-    webglOkRef.current = webgl !== null;
 
     // Baked lighting sprites (color-independent) + a tiny color-parse cache so
     // the per-frame draw stays allocation-free even with continuous animation.
@@ -924,7 +950,7 @@ export function GraphView({ onClose }: { onClose: () => void }) {
       dpr = window.devicePixelRatio || 1;
       canvas!.width = Math.max(1, Math.floor(width * dpr));
       canvas!.height = Math.max(1, Math.floor(height * dpr));
-      if (webgl) webgl.resize(width, height, dpr);
+      if (webgl) webgl.resize(width, height);
       requestDraw();
     }
 
@@ -1190,187 +1216,88 @@ export function GraphView({ onClose }: { onClose: () => void }) {
       // (`.graph-intro`) plus `glowBoost` above, and that is deliberately all.
     }
 
-    // Global scope: draw every node on the GPU. The instance buffer is rebuilt
-    // every frame (the layout is always drifting), so the RenderNode wrappers
-    // are POOLED and mutated in place — allocating a few thousand objects plus
-    // their color arrays 60 times a second would hand the GC a steady diet for
-    // as long as the graph is open.
-    const webglNodes: RenderNode[] = [];
-    let edgePositions = new Float32Array(0);
+    const webglNodes: GalaxyNode[] = [];
+    let lastTree = useStore.getState().tree;
+    const modified = new Map<string, number>();
+    function readModified() {
+      modified.clear();
+      const visit = (node: NonNullable<typeof lastTree>) => {
+        if (node.modified) modified.set(node.path, node.modified);
+        node.children?.forEach(visit);
+      };
+      if (lastTree) visit(lastTree);
+    }
+    readModified();
     function drawWebGL() {
-      if (!webgl || !webglCanvas) return;
-      // Wipe the 2D canvas the first time the GPU renderer paints. Both canvases
-      // are stacked in the same box and the 2D one is never cleared once WebGL
-      // owns the frame, so whatever it last drew just sits there underneath — and
-      // any gap in the GPU layer (the entrance pulse briefly scaling under 1, a
-      // dpr change, a lost context) reveals a stale graph behind the live one.
-      // A canvas resize clears itself, so once is genuinely enough.
-      if (!S.cleared2d && ctx) {
-        ctx.clearRect(0, 0, canvas!.width, canvas!.height);
+      if (!webgl) return;
+      if (!S.cleared2d) {
+        ctx!.clearRect(0, 0, canvas!.width, canvas!.height);
         S.cleared2d = true;
       }
-      const fallback = S.colors.nodeFallback;
-      const nodeScale = settingsRef.current.nodeSize;
-      // Shrink nodes as the graph grows so a bigger vault reads as "smaller
-      // dots, more space" rather than a compacted pile. The layout also spreads
-      // (repulsion scales with n), so together the graph expands and keeps
-      // breathing room. The constant is generous — it used to kick in at a few
-      // hundred notes and stack on top of the on-screen minimum, which between
-      // them squashed every node in a mid-size vault to the same floor size and
-      // erased the hub-vs-leaf hierarchy entirely.
-      const countScale = Math.min(1, 60 / Math.sqrt(Math.max(1, S.visNodes.length)));
-      // Hover: light up the hovered node + its direct neighbors, dim the rest,
-      // so you can see a note's connections at a glance.
+      const tree = useStore.getState().tree;
+      if (tree !== lastTree) { lastTree = tree; readModified(); }
+      const s = settingsRef.current;
+      const search = s.search.trim().toLowerCase();
       const hoveredId = S.hoveredId;
-      const hlSet =
-        hoveredId && graphRef.current
-          ? neighborhoodIds(graphRef.current, hoveredId, 1)
-          : null;
+      const neighbors = hoveredId && graphRef.current ? neighborhoodIds(graphRef.current, hoveredId, 1) : null;
       webglNodes.length = S.visNodes.length;
-      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       for (let i = 0; i < S.visNodes.length; i++) {
         const n = S.visNodes[i];
-        const c = getRgb(S.colorById.get(n.id) ?? fallback);
-        const dim = hlSet && !hlSet.has(n.id) ? 0.16 : 1;
-        const big =
-          n.id === hoveredId ? 2.4 : hlSet && hlSet.has(n.id) ? 1.8 : 1;
-        let rn = webglNodes[i];
-        if (!rn) {
-          rn = { x: 0, y: 0, r: 0, color: [0, 0, 0] };
-          webglNodes[i] = rn;
-        }
-        rn.x = n.x;
-        rn.y = n.y;
-        rn.r = n.radius * nodeScale * countScale * big;
-        rn.color[0] = (c[0] / 255) * dim;
-        rn.color[1] = (c[1] / 255) * dim;
-        rn.color[2] = (c[2] / 255) * dim;
-        if (n.x < minX) minX = n.x;
-        if (n.y < minY) minY = n.y;
-        if (n.x > maxX) maxX = n.x;
-        if (n.y > maxY) maxY = n.y;
+        const color = getRgb(S.colorById.get(n.id) ?? S.colors.nodeFallback);
+        const matches = !search || n.title.toLowerCase().includes(search);
+        const dim = !matches ? 0.04 : neighbors && !neighbors.has(n.id) ? 0.22 : 1;
+        const rn = webglNodes[i] ?? (webglNodes[i] = { id: n.id, title: n.title, path: n.path, x: 0, y: 0, r: 0, color: [0, 0, 0] });
+        rn.id = n.id; rn.title = n.title; rn.path = n.path;
+        const position = S.galaxyById.get(n.id)!;
+        rn.x = position.x + (S.fixedLayout ? 0 : Math.tanh(n.x / 600) * 20);
+        rn.y = position.y + (S.fixedLayout ? 0 : Math.tanh(n.y / 600) * 20);
+        rn.z = position.z; rn.core = position.core; rn.arm = position.arm; rn.arms = position.arms;
+        rn.dim = dim;
+        rn.r = n.radius * s.nodeSize * (n.id === hoveredId ? 1.8 : 1);
+        rn.modified = modified.get(n.path);
+        for (let channel = 0; channel < 3; channel++) rn.color[channel] = color[channel] / 255;
       }
-      webgl.setNodes(webglNodes);
-      // Edges: two world-space vertices per link (source → target), read from
-      // the sim nodes forceLink resolved in place.
-      const edges = S.visEdges;
-      if (edgePositions.length < edges.length * 4) {
-        edgePositions = new Float32Array(edges.length * 4);
-      }
-      for (let i = 0; i < edges.length; i++) {
-        const src = edges[i].source as SimNode;
-        const tgt = edges[i].target as SimNode;
-        const o = i * 4;
-        edgePositions[o] = src.x;
-        edgePositions[o + 1] = src.y;
-        edgePositions[o + 2] = tgt.x;
-        edgePositions[o + 3] = tgt.y;
-      }
-      webgl.setEdges(edgePositions.subarray(0, edges.length * 4));
-      // Hover: bright rays from the hovered node to each of its neighbors, so
-      // connections are traceable even in a huge cloud.
-      if (hoveredId) {
-        const hl: number[] = [];
-        for (let i = 0; i < edges.length; i++) {
-          const s = edges[i].source as SimNode;
-          const t = edges[i].target as SimNode;
-          if (s.id === hoveredId || t.id === hoveredId) {
-            hl.push(s.x, s.y, t.x, t.y);
-          }
-        }
-        webgl.setHighlightEdges(new Float32Array(hl));
-      } else {
-        webgl.setHighlightEdges(new Float32Array(0));
-      }
-      // One-shot: fit the shared camera to the graph. After that the user's
-      // pan/zoom (which mutates S.camera via the 2D handlers) drives the view.
-      if (webglNeedsFitRef.current && webglNodes.length > 0) {
-        // Keep the graph framed as the layout expands during settle; the flag is
-        // cleared the moment the user pans/zooms (in the interaction handlers).
-        const bw = Math.max(1, maxX - minX);
-        const bh = Math.max(1, maxY - minY);
-        S.camera.k = Math.min((width - 80) / bw, (height - 80) / bh);
-        S.camera.x = -((minX + maxX) / 2) * S.camera.k;
-        S.camera.y = -((minY + maxY) / 2) * S.camera.k;
-      }
-      // Same transform as the 2D path: screen_css = width/2 + cam.x + world·cam.k,
-      // then scaled by dpr into the device-pixel drawing buffer.
-      const cam = S.camera;
-      webgl.draw(
-        cam.k * dpr,
-        (width / 2 + cam.x) * dpr,
-        (height / 2 + cam.y) * dpr,
-        // Floor on a node's on-screen radius. The shader applies it in
-        // quadrature, not as a hard clamp, so this lifts the leaves to a
-        // legible dot without flattening the hubs down onto them.
-        MIN_NODE_PX * dpr,
-        performance.now() / 1000,
-        // Halos are additive, so they SUM: a glow that looks right on 200 nodes
-        // turns a 50k-node cluster into one white blob. Dial it back as the
-        // field fills up. Tuned against rendered frames at 800 / 3.4k nodes —
-        // the ceiling is where a sparse graph reads as luminous without the
-        // halos merging, the floor is where a huge one still shows some light.
-        //
-        // The entrance rides on top: the whole field brightens on each beat and
-        // the swell fades out with the extra motion, so the light and the
-        // movement are one heartbeat rather than two effects.
-        clamp(
-          GLOW_BASE *
-            (60 / Math.sqrt(Math.max(1, S.visNodes.length))) *
-            (1 + 0.5 * introStrength(introSeconds()) * heartbeatEnvelope(beatPhase(introSeconds()))),
-          0.3,
-          2.2,
-        ),
-        dpr,
-      );
-      diagRef.current =
-        `webgl ✓ · nodes ${webglNodes.length} · buf ${webglCanvas.width}×${webglCanvas.height} · ` +
-        `k ${cam.k.toFixed(3)} · cam ${Math.round(cam.x)},${Math.round(cam.y)} · ` +
-        `bounds ${Math.round(minX)},${Math.round(minY)}..${Math.round(maxX)},${Math.round(maxY)} · ` +
-        `gl ${webgl.glError()}`;
+      const edges = S.visEdges.map((edge) => ({ source: (edge.source as SimNode).id, target: (edge.target as SimNode).id }));
+      webgl.setData(webglNodes, edges, webglNeedsFitRef.current, s.edgeThickness, s.labelScale);
+      if (S.useWorker ? !S.workerActive : sim.alpha() <= FIT_LOCK_ALPHA) webglNeedsFitRef.current = false;
+      webgl.render();
+      diagRef.current = `${webgl?.backend ?? "2D"} · ${webglNodes.length.toLocaleString()} stars`;
     }
 
     // Single frame clock. The loop stays alive the whole time the graph is
     // mounted so the lighting keeps breathing and the scene feels alive at rest.
     function loop() {
       S.rafId = null;
-      const introActive =
-        S.introStart > 0 && performance.now() - S.introStart < INTRO_MS;
       // When the Web Worker owns the layout (big global graph) we NEVER tick the
       // main-thread sim — that's the whole point, it would freeze the UI. The
       // worker streams positions in and flips S.workerActive; we just repaint.
       let active: boolean;
-      if (S.useWorker) {
-        active = S.workerActive || introActive;
+      if (S.useWorker || S.fixedLayout) {
+        active = false; // Position messages mark needsDraw; do not upload unchanged buffers.
       } else {
-        // The inline sim is never idle. The flow force means there is always
-        // new motion to integrate, so we tick (and therefore repaint) every
-        // frame the view is open — that is what makes the graph live from the
-        // moment it appears instead of a still image you have to poke first.
-        // Only the worker path (8k+ nodes) still settles and stops: perpetually
-        // re-uploading an instance buffer that large every frame is exactly the
-        // cost the worker exists to avoid.
-        active = true;
+        // Keep the force coordinates; once settled, only user input needs a frame.
+        active = sim.alpha() > FIT_LOCK_ALPHA;
         flow.energy(introEnergy(introSeconds()));
-        sim.tick();
-        // Once the layout stops visibly moving into place, stop chasing it with
-        // the camera — otherwise the drift breathes the bounding box and the
-        // auto-fit turns that into a wobble of the whole view.
-        if (webglNeedsFitRef.current && sim.alpha() <= FIT_LOCK_ALPHA) {
-          webglNeedsFitRef.current = false;
-        }
+        if (active) sim.tick();
       }
+      const needsDraw = S.needsDraw;
+      S.needsDraw = false;
       if (settingsRef.current.scope === "global" && webgl) {
         // Only rebuild + re-upload + redraw while the layout is moving (or on an
         // explicit request). Once settled the last frame stands, so idle cost is
         // ~zero — this is what keeps the app responsive instead of re-uploading
         // every node every frame forever.
-        if (active || S.needsDraw) drawWebGL();
+        if (active || needsDraw) drawWebGL();
+        else webgl.render();
       } else {
         draw();
       }
-      S.needsDraw = false;
-      S.rafId = requestAnimationFrame(loop);
+      if (import.meta.env.DEV && webglCanvas) {
+        webglCanvas.dataset.layout = (S.useWorker ? S.workerActive : sim.alpha() > FIT_LOCK_ALPHA) ? "settling" : "settled";
+        webglCanvas.dataset.layoutMs = String(S.layoutMs);
+        webglCanvas.dataset.fixedLayout = String(S.fixedLayout);
+      }
+      if (S.rafId == null) S.rafId = requestAnimationFrame(loop);
     }
 
     function requestDraw() {
@@ -1386,6 +1313,7 @@ export function GraphView({ onClose }: { onClose: () => void }) {
     }
 
     function handleWheel(e: WheelEvent) {
+      if (webgl && settingsRef.current.scope === "global") return;
       e.preventDefault();
       webglNeedsFitRef.current = false; // user is driving the camera now
       const rect = canvas!.getBoundingClientRect();
@@ -1401,6 +1329,7 @@ export function GraphView({ onClose }: { onClose: () => void }) {
     }
 
     function handlePointerDown(e: PointerEvent) {
+      if (webgl && settingsRef.current.scope === "global") return;
       webglNeedsFitRef.current = false; // user is driving the camera now
       const { x: sx, y: sy } = clientToLocal(e);
       const hit = nodeAt(sx, sy);
@@ -1430,6 +1359,7 @@ export function GraphView({ onClose }: { onClose: () => void }) {
     }
 
     function handlePointerMove(e: PointerEvent) {
+      if (webgl && settingsRef.current.scope === "global") return;
       const { x: sx, y: sy } = clientToLocal(e);
       const drag = S.drag;
       if (drag) {
@@ -1482,6 +1412,7 @@ export function GraphView({ onClose }: { onClose: () => void }) {
     }
 
     function endDrag(e: PointerEvent) {
+      if (webgl && settingsRef.current.scope === "global") return;
       const drag = S.drag;
       canvas!.classList.remove("is-dragging");
       S.drag = null;
@@ -1500,7 +1431,7 @@ export function GraphView({ onClose }: { onClose: () => void }) {
           // that stops moving.
           sim.alphaTarget(IDLE_ALPHA);
         }
-        if (!drag.moved) {
+        if (!drag.moved && e.type !== "pointercancel") {
           // A click, not a drag: open the note.
           const path = drag.node.path;
           useStore.getState().openNoteByPath(path).then(onClose);
@@ -1521,6 +1452,23 @@ export function GraphView({ onClose }: { onClose: () => void }) {
       }
     }
 
+    function fallbackKeyDown(event: KeyboardEvent) {
+      if (webgl || !S.visNodes.length) return;
+      if (event.key.startsWith("Arrow")) {
+        event.preventDefault();
+        const previous = S.visNodes.findIndex((n) => n.id === S.hoveredId);
+        const direction = event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : 1;
+        const index = previous < 0 ? (direction > 0 ? 0 : S.visNodes.length - 1) : (previous + direction + S.visNodes.length) % S.visNodes.length;
+        const node = S.visNodes[index];
+        S.hoveredId = node.id;
+        setHoverTip({ title: node.title, x: width / 2 + S.camera.x + node.x * S.camera.k, y: height / 2 + S.camera.y + node.y * S.camera.k });
+        requestDraw();
+      } else if (event.key === "Enter" && S.hoveredId) {
+        const node = S.nodesById.get(S.hoveredId);
+        if (node) useStore.getState().openNoteByPath(node.path).then(onClose);
+      }
+    }
+    canvas.addEventListener("keydown", fallbackKeyDown);
     canvas.addEventListener("wheel", handleWheel, { passive: false });
     canvas.addEventListener("pointerdown", handlePointerDown);
     canvas.addEventListener("pointermove", handlePointerMove);
@@ -1530,6 +1478,10 @@ export function GraphView({ onClose }: { onClose: () => void }) {
     requestDraw();
 
     return () => {
+      disposed = true;
+      wrap.removeEventListener("pointerdown", dismissHero, true);
+      wrap.removeEventListener("wheel", dismissHero, true);
+      wrap.removeEventListener("keydown", dismissHero, true);
       ro.disconnect();
       themeObserver.disconnect();
       if (S.rafId != null) {
@@ -1542,6 +1494,7 @@ export function GraphView({ onClose }: { onClose: () => void }) {
       webgl?.dispose();
       requestDrawRef.current = () => {};
       recolorRef.current = () => {};
+      canvas.removeEventListener("keydown", fallbackKeyDown);
       canvas.removeEventListener("wheel", handleWheel);
       canvas.removeEventListener("pointerdown", handlePointerDown);
       canvas.removeEventListener("pointermove", handlePointerMove);
@@ -1567,12 +1520,12 @@ export function GraphView({ onClose }: { onClose: () => void }) {
   };
 
   const showEmpty =
-    !loading && !error && graph != null && counts.nodes === 0;
+    !gpuPendingRef.current && !loading && !error && graph != null && counts.nodes === 0;
 
   return (
     <div className="graph-view" ref={wrapRef}>
       <div className="graph-header">
-        <span className="graph-title">Graph</span>
+        <span className="graph-title">Your universe</span>
         <span className="graph-counts">
           {counts.total > counts.nodes
             ? `${counts.nodes.toLocaleString()} of ${counts.total.toLocaleString()} notes`
@@ -1614,24 +1567,17 @@ export function GraphView({ onClose }: { onClose: () => void }) {
       <div
         className={`graph-canvas-wrap graph-intro${settling ? " is-settling" : ""}`}
       >
-        <canvas className="graph-canvas" ref={canvasRef} />
-        <canvas
-          className="graph-canvas"
-          ref={webglCanvasRef}
-          style={{
-            position: "absolute",
-            inset: 0,
-            width: "100%",
-            height: "100%",
-            // Events pass through to the 2D canvas below, which owns the shared
-            // pan/zoom + hit-test handlers.
-            pointerEvents: "none",
-            display:
-              WEBGL_ENABLED && settings.scope === "global" && !webglError
-                ? "block"
-                : "none",
-          }}
-        />
+        <canvas className="graph-canvas" ref={canvasRef} tabIndex={0}
+          aria-label="Note universe. Drag to orbit, right drag to pan, scroll to zoom. Arrow keys select notes, Enter opens a note."
+          aria-describedby="galaxy-help" />
+        <div ref={webglCanvasRef} className="graph-galaxy-host"
+          style={{ display: settings.scope === "global" && !webglError ? "block" : "none" }} />
+        <div className="graph-galaxy-caption" aria-hidden="true">
+          <span>INFINITE BRAIN</span>
+          <h1>A universe of ideas.</h1>
+          <p>Every note a star. Every connection a new constellation.</p>
+        </div>
+        <p className="graph-galaxy-help" id="galaxy-help">Drag to orbit · Right drag to pan · Scroll to explore · Click a star to open</p>
         {settings.scope === "global" && webglError && (
           <div
             style={{
@@ -1648,10 +1594,10 @@ export function GraphView({ onClose }: { onClose: () => void }) {
               zIndex: 5,
             }}
           >
-            WebGL unavailable — showing capped 2D fallback. {webglError}
+            3D unavailable — showing the 2D graph.
           </div>
         )}
-        {WEBGL_ENABLED && settings.scope === "global" && diag && (
+        {import.meta.env.DEV && WEBGL_ENABLED && settings.scope === "global" && diag && (
           <div
             style={{
               position: "absolute",
@@ -1673,8 +1619,8 @@ export function GraphView({ onClose }: { onClose: () => void }) {
           <div
             style={{
               position: "absolute",
-              left: hoverTip.x + 12,
-              top: hoverTip.y + 12,
+              left: Math.max(8, Math.min(hoverTip.x + 12, (wrapRef.current?.clientWidth ?? 400) - 280)),
+              top: Math.max(8, Math.min(hoverTip.y + 12, (wrapRef.current?.clientHeight ?? 400) - 48)),
               maxWidth: 260,
               padding: "3px 8px",
               borderRadius: 6,
@@ -1689,13 +1635,14 @@ export function GraphView({ onClose }: { onClose: () => void }) {
               zIndex: 6,
             }}
           >
-            {hoverTip.title}
+            <span role="status" aria-live="polite">{hoverTip.title}</span>
           </div>
         )}
 
         {showControls && (
           <GraphControls
             settings={settings}
+            fixedLayout={counts.nodes >= FAST_GALAXY_THRESHOLD && webglOkRef.current}
             onChange={applyPatch}
             onReset={onReset}
             legend={legend}
@@ -1708,13 +1655,10 @@ export function GraphView({ onClose }: { onClose: () => void }) {
           </div>
         )}
         {settling && !loading && (
-          <div className="graph-state">
-            {/* Big-vault path only. The worker is arranging the layout
-                off-thread; saying so beats revealing thousands of nodes in
-                motion, which is the thing this change exists to remove. */}
+          <div className="graph-settling-status" role="status">
             <div className="graph-state-card graph-settling">
               <Spinner size="sm" tone="accent" />
-              Arranging {counts.nodes.toLocaleString()} notes…
+              Arranging {counts.nodes.toLocaleString()} stars — you can explore now…
             </div>
           </div>
         )}

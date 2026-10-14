@@ -1,0 +1,63 @@
+{
+  "browser": "155.0.8059.40",
+  "viewport": "1440x1000, DPR 1",
+  "results": [
+    {
+      "count": 200,
+      "backend": "WebGPU",
+      "frames": 360,
+      "seconds": 6.0113000000119206,
+      "fps": 59.88721241649661,
+      "p95ms": 17.5,
+      "platform": "macos",
+      "theme": "light",
+      "layoutMs": 284.09999999403954,
+      "firstFrameMs": 1052,
+      "firstInteractionMs": 208,
+      "readyMs": 4810
+    },
+    {
+      "count": 2000,
+      "backend": "WebGPU",
+      "frames": 360,
+      "seconds": 6.006599999994039,
+      "fps": 59.93407252028722,
+      "p95ms": 17.099999994039536,
+      "platform": "windows",
+      "theme": "dark",
+      "layoutMs": 538.8999999761581,
+      "firstFrameMs": 1623,
+      "firstInteractionMs": 376,
+      "readyMs": 10786
+    },
+    {
+      "count": 20000,
+      "backend": "WebGPU",
+      "frames": 358,
+      "seconds": 6.00890000000596,
+      "fps": 59.57829219984438,
+      "p95ms": 17.599999994039536,
+      "platform": "macos",
+      "theme": "dark",
+      "layoutMs": 105.60000002384186,
+      "firstFrameMs": 761,
+      "firstInteractionMs": 199,
+      "readyMs": 3093
+    },
+    {
+      "count": 2000,
+      "backend": "WebGL2",
+      "frames": 360,
+      "seconds": 6.0095,
+      "fps": 59.90515017888343,
+      "p95ms": 17.099999994039536,
+      "platform": "windows",
+      "theme": "light",
+      "layoutMs": 540.9000000059605,
+      "firstFrameMs": 1381,
+      "firstInteractionMs": 252,
+      "readyMs": 10570
+    }
+  ],
+  "errors": []
+}
