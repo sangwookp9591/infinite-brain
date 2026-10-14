@@ -391,7 +391,9 @@ export function createSyncServer(
       // named on `ready.behind` and re-pushed. A crash loses that signal for
       // every other doc too.
       try {
-        await appendUpdate(parsed.docId, data.update);
+        const ledgerWrite = (data.context as { aiChangePersisted?: Promise<void> } | undefined)?.aiChangePersisted;
+        if (ledgerWrite) await ledgerWrite;
+        else await appendUpdate(parsed.docId, data.update);
       } catch (err) {
         console.error(
           `[sync] failed to persist an update for ${data.documentName}; the client stays ahead and will re-push:`,

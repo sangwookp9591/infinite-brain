@@ -38,6 +38,7 @@ export interface McpAuth {
    * OAuth-authenticated requests (no token row exists for those).
    */
   tokenId?: string;
+  connection?: { kind: "oauth" | "token"; id: string; label: string };
 }
 
 function hashToken(token: string): string {
@@ -146,8 +147,9 @@ export async function verifyMcpToken(
     id: string;
     user_id: string;
     organization_id: string;
+    name: string;
   }>(
-    "SELECT id, user_id, organization_id FROM mcp_tokens WHERE token_hash = $1",
+    "SELECT id, user_id, organization_id, name FROM mcp_tokens WHERE token_hash = $1",
     [hashToken(token)],
   );
   const row = rows[0];
@@ -166,7 +168,8 @@ export async function verifyMcpToken(
     [row.id, client],
   ).catch(() => {});
 
-  return { userId: row.user_id, organizationId: row.organization_id, tokenId: row.id };
+  return { userId: row.user_id, organizationId: row.organization_id, tokenId: row.id,
+    connection: { kind: "token", id: row.id, label: row.name } };
 }
 
 /**

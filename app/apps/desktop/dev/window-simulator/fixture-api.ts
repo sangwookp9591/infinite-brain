@@ -257,6 +257,16 @@ const letter = (mode: string) =>
 const ref = (u = users[0]) => ({ userId: u.id, name: u.name, email: u.email });
 const content = (path = "Q3 plan.md") =>
   `${path.replace(/\.md$/, "")}\n\nSample version content for this visual preview.\n\n- Confirm the launch owner\n- Review access with the team\n- Share the next milestone\n`;
+const aiChanges = [
+  { id: "preview-ai-update", doc_id: "preview-note", connection_id: "preview-claude", connection_label: "Claude (미리보기)",
+    connection_kind: "oauth", op: "update", before_path: "Q3 plan.md", after_path: "Q3 plan.md",
+    before_text: "# 분기 계획\n기존 초안\n", after_text: "# 분기 계획\nAI가 정리한 초안\n", created_at: ago(0.2), reverted_at: null as string | null,
+    diff_summary: { beforeBytes: 32, afterBytes: 48, oversized: false } },
+  { id: "preview-ai-conflict", doc_id: "preview-note-1", connection_id: "preview-chatgpt", connection_label: "ChatGPT (미리보기)",
+    connection_kind: "token", op: "edit", before_path: "Hiring loop.md", after_path: "Hiring loop.md",
+    before_text: "원래 인터뷰 순서", after_text: "AI가 정한 인터뷰 순서", created_at: ago(0.4), reverted_at: null as string | null,
+    diff_summary: { beforeBytes: 26, afterBytes: 34, oversized: false } },
+];
 export const unknownRequests: string[] = [];
 const response = (body: any, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -568,6 +578,25 @@ export async function previewFetch(
     const i = checkpoints.findIndex((c) => c.id === p.split("/").at(-1));
     if (i >= 0) checkpoints.splice(i, 1);
     return ok({});
+  }
+  if (p.endsWith("/ai-changes")) return ok({ items: aiChanges.filter(c => !url.searchParams.get("connection") || c.connection_id === url.searchParams.get("connection")), truncated: false });
+  if (p.endsWith("/ai-changes/revert-batch")) {
+    return ok({ results: aiChanges.filter(c => c.connection_id === body.connectionId).map(c => {
+      if (c.id === "preview-ai-conflict") return { id: c.id, status: "failed", httpStatus: 409, error: "사람이 이후에 편집했습니다.", diff: { expected: c.after_text, current: "사람이 수정한 인터뷰 순서", before: c.before_text } };
+      c.reverted_at = ago(0);
+      return { id: c.id, status: "reverted" };
+    }), truncated: false });
+  }
+  if (p.includes("/ai-changes/")) {
+    const id = p.split("/ai-changes/")[1].split("/")[0];
+    const change = aiChanges.find(c => c.id === id);
+    if (!change) return response({ error: "Unknown change" }, 404);
+    if (p.endsWith("/revert")) {
+      if (id === "preview-ai-conflict") return response({ error: "AI 변경 이후 사람이 편집했습니다.", code: "conflict", diff: { expected: change.after_text, current: "사람이 수정한 인터뷰 순서", before: change.before_text } }, 409);
+      change.reverted_at = ago(0);
+      return ok({ id, status: "reverted" });
+    }
+    return ok(change);
   }
   if (p.endsWith("/trash")) return ok({ items: trash, truncated: false });
   if (p.endsWith("/trash-content"))

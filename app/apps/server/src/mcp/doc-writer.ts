@@ -1,3 +1,4 @@
+import { persistAiChange, recordAiChange } from "../ai-changes/store.js";
 import { createHash } from "node:crypto";
 import * as Y from "yjs";
 import type { LocalTransactionOrigin, Server } from "@hocuspocus/server";
@@ -171,7 +172,16 @@ export function createDocWriter(
     fn: (text: Y.Text) => void,
     actor?: DocActor,
   ): Promise<void> {
-    return withDocLock(docId, () => mutateLocked(vaultId, docId, fn, actor));
+    return withDocLock(docId, async () => {
+      let before = "";
+      let after = "";
+      const recorded = await mutateLocked(vaultId, docId, (text) => {
+        before = text.toString();
+        fn(text);
+        after = text.toString();
+      }, actor);
+      if (actor?.aiChange && !recorded && (before !== after || actor.aiChange.op === "create")) await recordAiChange(vaultId, docId, actor.aiChange, before, after);
+    });
   }
 
   async function mutateLocked(
@@ -179,11 +189,11 @@ export function createDocWriter(
     docId: string,
     fn: (text: Y.Text) => void,
     actor?: DocActor,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const userId = actor?.userId ?? null;
     const live = server.hocuspocus.documents.get(formatDocName(vaultId, docId));
     if (live) {
-      // Live path: the sync server's onChange persists + broadcasts for us.
+      // Live path: onChange broadcasts; attributed MCP writes commit their ledger with the binary update.
       //
       // The origin is a Hocuspocus `LocalTransactionOrigin` object rather than
       // the old bare `MCP_ORIGIN` string, because that is the ONLY channel that
@@ -191,11 +201,40 @@ export function createDocWriter(
       // `origin.source === "local" ? origin.context : {}`, so a string origin is
       // permanently anonymous. `skipStoreHooks` stays unset — this write must
       // persist exactly like a human's.
+      if (actor?.aiChange?.auth.connection) {
+        let resolvePersisted!: () => void;
+        let rejectPersisted!: (error: unknown) => void;
+        const persisted = new Promise<void>((resolve, reject) => { resolvePersisted = resolve; rejectPersisted = reject; });
+        // Hocuspocus's onChange awaits this instead of appending the same update twice.
+        const updates: Uint8Array[] = [];
+        const capture = (update: Uint8Array) => updates.push(update);
+        const before = live.getText(CONTENT_FIELD).toString();
+        live.on("update", capture);
+        try {
+          live.transact(() => fn(live.getText(CONTENT_FIELD)), {
+            source: "local", context: { source: MCP_ORIGIN, userId, aiChangePersisted: persisted },
+          } satisfies LocalTransactionOrigin);
+        } catch (error) {
+          resolvePersisted();
+          throw error;
+        } finally { live.off("update", capture); }
+        if (updates.length === 0) { resolvePersisted(); return false; }
+        try {
+          await persistAiChange(vaultId, docId, Y.mergeUpdates(updates), actor.aiChange,
+            before, live.getText(CONTENT_FIELD).toString());
+          resolvePersisted();
+        } catch (error) {
+          // A fake live document may have no onChange observer to consume rejection.
+          void persisted.catch(() => {});
+          rejectPersisted(error);
+          throw error;
+        }
+        return true;
+      }
       live.transact(() => fn(live.getText(CONTENT_FIELD)), {
-        source: "local",
-        context: { source: MCP_ORIGIN, userId },
+        source: "local", context: { source: actor?.source ?? MCP_ORIGIN, userId },
       } satisfies LocalTransactionOrigin);
-      return;
+      return false;
     }
 
     // Detached path: hydrate, mutate, persist the incremental update. Shared
@@ -204,9 +243,13 @@ export function createDocWriter(
     // the live path's origin above, so the shrink burst brake treats a detached
     // tool write the same as a live one (never counted).
     const detachedActor: DocActor = { ...actor, source: actor?.source ?? MCP_ORIGIN };
-    await applyDetached(vaultId, docId, (doc) => doc.transact(() => fn(doc.getText(CONTENT_FIELD)), MCP_ORIGIN), detachedActor, {
+    const outcome = await applyDetached(vaultId, docId, (doc) => doc.transact(() => fn(doc.getText(CONTENT_FIELD)), MCP_ORIGIN), detachedActor, {
       hooks: { publishUpdate, onDocWritten },
+      persistUpdate: actor?.aiChange?.auth.connection
+        ? (update, before, after) => persistAiChange(vaultId, docId, update, actor.aiChange!, before, after)
+        : undefined,
     });
+    return outcome === "applied" && !!actor?.aiChange?.auth.connection;
   }
 
   // A plain closure, NOT a method using `this`: call sites hand these functions

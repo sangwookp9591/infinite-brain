@@ -327,6 +327,7 @@ export async function purgeExpiredTrash(
   await db.query("DELETE FROM doc_snapshots WHERE doc_id = ANY($1::text[])", [ids]);
   await db.query("DELETE FROM doc_state_vectors WHERE doc_id = ANY($1::text[])", [ids]);
   await db.query("DELETE FROM note_versions WHERE doc_id = ANY($1::text[])", [ids]);
+  await db.query("DELETE FROM ai_change_ledger WHERE doc_id = ANY($1::text[])", [ids]);
   // Per-note share rows use resource_type 'file' (a note id IS a doc id). Only
   // when no live `files` row shares the id.
   await db.query(

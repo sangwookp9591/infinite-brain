@@ -4,5 +4,6 @@
 
 Baalda(Apache-2.0, `ee/`와 브랜드 제외)를 하드 포크하는 방향으로 설계 중이다.
 
+- AI 변경 원장·되돌리기: [docs/AI-CHANGES.md](docs/AI-CHANGES.md)
 - 최종 설계 보고서: [docs/FINAL-report.md](docs/FINAL-report.md)
 - 원자료(분석·리서치·검증): [docs/research/](docs/research/)
