@@ -1,3 +1,4 @@
+import { SpringCheck } from "./kit/SpringCheck";
 import { useEffect, useMemo, useRef, useState, type ClipboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { ApiError, type BugReportDetails } from "../lib/api";
@@ -326,14 +327,9 @@ export function BugReportDialog({ onClose }: { onClose: () => void }) {
               />
             </div>
 
-            <label className="bug-report-include">
-              <input
-                type="checkbox"
-                checked={includeDetails}
-                onChange={(e) => setIncludeDetails(e.target.checked)}
-              />
-              Include app details
-            </label>
+            <div className="bug-report-include">
+              <SpringCheck label="Include app details" checked={includeDetails} onChange={setIncludeDetails} />
+            </div>
             {includeDetails && (
               <dl className="bug-report-details">
                 {detailRows.map(([k, v]) => (

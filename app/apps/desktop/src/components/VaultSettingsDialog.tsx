@@ -1,3 +1,4 @@
+import { SpringCheck } from "./kit/SpringCheck";
 /* The vault-settings dialog and its nine tabs — the whole settings surface of
    the app, split out of `AccountMenu.tsx` so it can load on demand. Nothing
    here is on the first screen: the sidebar footer (identity bar + popovers)
@@ -2019,7 +2020,7 @@ function McpTab({ canManage }: { canManage: boolean }) {
           <option value="write">Read + write</option>
           <option value="delete">Read + write + delete/move</option>
         </select>
-        {canManage && <label className="row"><input type="checkbox" checked={manageAccess} onChange={(e) => setManageAccess(e.target.checked)} />Manage team access (off by default)</label>}
+        {canManage && <SpringCheck label="Manage team access (off by default)" checked={manageAccess} onChange={setManageAccess} />}
         <div className="row invite-bar">
           <input
             aria-label="Token name"
