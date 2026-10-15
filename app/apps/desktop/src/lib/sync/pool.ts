@@ -227,6 +227,6 @@ export const BATCH_MAX_DECODED_BYTES = 4 * 1024 * 1024;
  * content run) so the threshold cannot drift between them — and so a test can
  * pin 24 ⇒ per-doc, 25 ⇒ batch without touching the network.
  */
-export function useBulkPath(count: number): boolean {
+export function isBulkPath(count: number): boolean {
   return count >= BULK_THRESHOLD_DOCS;
 }

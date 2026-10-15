@@ -25,7 +25,7 @@ const appCss = readFileSync(fileURLToPath(new URL("../../App.css", import.meta.u
 
 const explicitDark = tokensCss.match(/\[data-theme="dark"\] \{([\s\S]*?)\n\}/)?.[1] ?? "";
 const fallbackDark =
-  tokensCss.match(/:root:not\(\[data-theme="light"\]\):not\(\[data-theme="dark"\]\) \{([\s\S]*?)\n  \}/)?.[1] ?? "";
+  tokensCss.match(/:root:not\(\[data-theme="light"\]\):not\(\[data-theme="dark"\]\) \{([\s\S]*?)\n {2}\}/)?.[1] ?? "";
 
 const tokenValue = (block: string, name: string) =>
   block.match(new RegExp(`${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}:\\s*([^;]+);`))?.[1].trim();

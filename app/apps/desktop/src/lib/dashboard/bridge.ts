@@ -43,6 +43,7 @@ export function createDashboardBridge(options: {
 }
 
 export function dashboardPath(value: unknown): string {
+  // eslint-disable-next-line no-control-regex -- deliberate control-character guard
   if (typeof value !== "string" || !value || value.length > 4096 || value.includes("\\") || value.includes(":") || /[\u0000-\u001f\u007f]/.test(value)) throw new Error("Invalid note path");
   const denied = ["node_modules", "dist", "build", "target", "vendor", "__pycache__", "venv"];
   if (value.startsWith("/") || value.split("/").some((part) => !part || part.startsWith(".") || denied.includes(part))) throw new Error("Invalid note path");

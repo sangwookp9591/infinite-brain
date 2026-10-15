@@ -48,7 +48,7 @@ export function VaultDashboardsTab({ onClose, onNew, resetToken = 0 }: { onClose
   }, [signature, home?.path, st.vault?.epoch, contentRevision]);
   const canUnset = !!st.personalHomeDocId || st.members.some((m) => m.userId === st.session?.user.id && ["owner", "admin"].includes(m.role));
   const currentId = Object.keys(saved).find((id) => saved[id] === home?.path);
-  const useTemplate = async (id: string) => {
+  const chooseTemplate = async (id: string) => {
     if (!saved[id]) {
       if (onNew) onNew(id);
       else { onClose(); requestNewDashboard(undefined, { templateId:id, setAsHome:true }); }
@@ -62,7 +62,7 @@ export function VaultDashboardsTab({ onClose, onNew, resetToken = 0 }: { onClose
   return <div className="vault-dashboards">
     {st.homeSectionHidden && <button className="secondary vault-dashboards-restore-home" type="button" onClick={() => st.setHomeSectionHidden(false)}>Show Home in sidebar</button>}
     <p className="vault-dashboards-description">Choose a dashboard for your Home. Preview a design, then make it yours with Claude or Codex.</p>
-    <DashboardTemplateGallery key={resetToken} saved={saved} currentId={currentId} disabled={busy} onUse={(t) => void useTemplate(t.id)}
+    <DashboardTemplateGallery key={resetToken} saved={saved} currentId={currentId} disabled={busy} onUse={(t) => void chooseTemplate(t.id)}
       onOpen={(path) => { void st.openNoteByPath(path).then(onClose).catch((e) => toast(String(e), "error")); }}
       onUnset={canUnset ? () => {
         setBusy(true);

@@ -42,7 +42,7 @@ vi.mock("../../vault/seed", () => ({ seedWelcomeContent: vi.fn(async () => {}) }
 import type { ApiClient, RegisteredNote } from "../../api";
 import * as ipc from "../../ipc";
 import type { TreeNode } from "../../ipc";
-import { BULK_THRESHOLD_DOCS, useBulkPath } from "../pool";
+import { BULK_THRESHOLD_DOCS, isBulkPath } from "../pool";
 import { VaultRegistry } from "../registry";
 import { reconcileWithTree } from "./helpers/reconcile";
 
@@ -135,13 +135,13 @@ beforeEach(() => {
   );
 });
 
-describe("useBulkPath", () => {
+describe("isBulkPath", () => {
   it("is the threshold and nothing else", () => {
     expect(BULK_THRESHOLD_DOCS).toBe(25);
-    expect(useBulkPath(0)).toBe(false);
-    expect(useBulkPath(BULK_THRESHOLD_DOCS - 1)).toBe(false);
-    expect(useBulkPath(BULK_THRESHOLD_DOCS)).toBe(true);
-    expect(useBulkPath(5000)).toBe(true);
+    expect(isBulkPath(0)).toBe(false);
+    expect(isBulkPath(BULK_THRESHOLD_DOCS - 1)).toBe(false);
+    expect(isBulkPath(BULK_THRESHOLD_DOCS)).toBe(true);
+    expect(isBulkPath(5000)).toBe(true);
   });
 });
 
@@ -211,7 +211,7 @@ describe("site 4 — pushing note CONTENT", () => {
   //
   // A source assertion, deliberately: the two live sites are ordinary private
   // methods with no seam of their own, and a site that quietly stopped
-  // consulting `useBulkPath` would take the slow path forever while every
+  // consulting `isBulkPath` would take the slow path forever while every
   // behavioural test that mocks its way past it still passed. This is the same
   // shape as `formatsLockstep.test.ts` — cheap, and it cannot rot in silence.
   const source = readFileSync(new URL("../docSession.ts", import.meta.url), "utf8");
@@ -225,15 +225,15 @@ describe("site 4 — pushing note CONTENT", () => {
   }
 
   it("the steady-state content run gates on the same threshold", () => {
-    expect(methodBody("runBulkSync")).toContain("useBulkPath(");
+    expect(methodBody("runBulkSync")).toContain("isBulkPath(");
   });
 
   it("…and so does the local-change drain", () => {
-    expect(methodBody("runLocalChangePush")).toContain("useBulkPath(");
+    expect(methodBody("runLocalChangePush")).toContain("isBulkPath(");
   });
 
   it("…and `enable`'s own bulk engine, which had it first", () => {
-    expect(source).toContain("useBulkPath(this.registry.mappedNotes().length)");
+    expect(source).toContain("isBulkPath(this.registry.mappedNotes().length)");
   });
 });
 

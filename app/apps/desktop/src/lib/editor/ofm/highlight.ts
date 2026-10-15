@@ -18,7 +18,7 @@ import { highlightTag } from "./tags";
 const EQUALS = 61; /* '=' */
 
 /** CommonMark's punctuation class, copied from @lezer/markdown's own. */
-const Punctuation = /[!"#$%&'()*+,\-.\/:;<=>?@\[\\\]^_`{|}~\xA1\u2010-\u2027]/;
+const Punctuation = /[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~\xA1\u2010-\u2027]/;
 
 const HighlightDelim = { resolve: "Highlight", mark: "HighlightMark" };
 

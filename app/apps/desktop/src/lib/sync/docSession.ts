@@ -58,7 +58,7 @@ import {
   IPC_CONCURRENCY,
   REGISTRY_CONCURRENCY,
   runPool,
-  useBulkPath,
+  isBulkPath,
 } from "./pool";
 import { SyncProgressReporter } from "./progress";
 import { decideSeed } from "./startup";
@@ -2611,7 +2611,7 @@ export class SyncManager implements InboundHost {
    * disk, and answer with the ones that actually went.
    *
    * One request per {@link BATCH_MAX_NOTES} chunk once the batch is worth it
-   * ({@link useBulkPath}, 25) — a 500-note `git clean` was 500 serial DELETEs,
+   * ({@link isBulkPath}, 25) — a 500-note `git clean` was 500 serial DELETEs,
    * each re-resolving the permission algebra and each broadcasting a
    * `registry-changed` every peer re-pulled on. Below the threshold the per-note
    * call stays: the saving is sub-second there and a rarely-exercised safety
@@ -2637,7 +2637,7 @@ export class SyncManager implements InboundHost {
         code,
       });
 
-    if (useBulkPath(deleted.length)) {
+    if (isBulkPath(deleted.length)) {
       let outcomes;
       try {
         outcomes = await this.registry.deletePaths(deleted.map((d) => d.relPath));
@@ -3267,7 +3267,7 @@ export class SyncManager implements InboundHost {
   bootstrapWillDeliver(count: number): ((docId: string) => boolean) | null {
     if (this.serverTooOld) return null;
     const held = new Set(this.docStore?.knownDocs() ?? []);
-    if (useBulkPath(count)) {
+    if (isBulkPath(count)) {
       const follows =
         this.bulkPhase ||
         this.enableReconciling ||
@@ -3498,7 +3498,7 @@ export class SyncManager implements InboundHost {
     // that already has content (`docBatchPush.ts`). Everything else is the same
     // batch: no token mint, no handshake, one request per 200 notes.
     let pending: Array<{ docId: string; relPath: string }> = notes;
-    if (!this.serverTooOld && useBulkPath(notes.length)) {
+    if (!this.serverTooOld && isBulkPath(notes.length)) {
       const result = await this.runDocBatchPush(
         scope,
         vaultId,
@@ -5010,7 +5010,7 @@ export class SyncManager implements InboundHost {
       // Background, like the content run it replaces — `enable` must return as
       // soon as the vault is usable or "Turn on sync" blocks the UI for the
       // whole backfill.
-      if (useBulkPath(this.registry.mappedNotes().length)) {
+      if (isBulkPath(this.registry.mappedNotes().length)) {
         this.bulkRun = this.runBulkEngine(scope).catch((e) => {
           console.warn("[sync] bulk sync failed", e);
         });
@@ -5019,7 +5019,7 @@ export class SyncManager implements InboundHost {
         // the pull's), but never leave deferred notes without a file.
         void this.materializeDeferred();
       }
-      if (!useBulkPath(this.registry.mappedNotes().length) && this.vaultEngineLiveOnly) {
+      if (!isBulkPath(this.registry.mappedNotes().length) && this.vaultEngineLiveOnly) {
         // The prime window sized the channel from the LOCAL doc map and put it
         // in live-only mode; the reconcile then found a vault below the
         // threshold. Nothing is going to page it down over HTTP, so give the
@@ -5722,7 +5722,7 @@ export class SyncManager implements InboundHost {
     // doc with no local state and no server statement — go to the per-doc
     // pull-then-merge path below, exactly as the bulk engine's follow-up does.
     const batchWork = this.contentWorkList();
-    if (!this.serverTooOld && useBulkPath(batchWork.length)) {
+    if (!this.serverTooOld && isBulkPath(batchWork.length)) {
       // Everything already confirmed reads as synced straight away, the way the
       // uploader's own first pass does it — the batch pusher only speaks about
       // the docs in its work list.
@@ -6612,7 +6612,7 @@ export class SyncManager implements InboundHost {
     // knows the local map, and a cold join — which does not prime at all — knows
     // the server's full listing by the time this runs. Below the threshold the
     // flag is off and the channel behaves exactly as it always has.
-    const liveOnly = useBulkPath(this.registry.allDocIds().length);
+    const liveOnly = isBulkPath(this.registry.allDocIds().length);
     this.vaultEngineLiveOnly = liveOnly;
     // A note opened during the PRIME window already owns a provider for its doc.
     // `openDoc` suppressed it on the store that existed then — which was null —

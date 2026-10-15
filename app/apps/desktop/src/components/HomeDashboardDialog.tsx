@@ -344,6 +344,7 @@ export function HomeDashboardDialog() {
     setNameError(null);
     if (
       !name.trim() ||
+      // eslint-disable-next-line no-control-regex -- deliberate control-character guard
       /[\\/:*?"<>|\x00-\x1f]/.test(name) ||
       name.trim().startsWith(".")
     ) {

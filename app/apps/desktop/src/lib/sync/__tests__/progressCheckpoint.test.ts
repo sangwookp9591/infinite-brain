@@ -504,7 +504,7 @@ describe("bulk cadence", () => {
       clearTimeoutImpl: clock.clearTimeoutImpl,
     });
 
-    // 500 notes ⇒ a bulk phase (the engine's own `useBulkPath` threshold).
+    // 500 notes ⇒ a bulk phase (the engine's own `isBulkPath` threshold).
     r.phase("uploading", 500);
     expect(progress).toHaveLength(1); // the phase change is never throttled
     r.item("ok");

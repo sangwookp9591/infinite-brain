@@ -53,7 +53,7 @@ describe("one avatar rule on every surface", () => {
     expect(new Set(ids).size).toBe(ids.length);
     for (const svg of host.querySelectorAll("svg")) {
       const localIds = new Set([...svg.querySelectorAll("[id]")].map((element) => element.id));
-      for (const match of svg.outerHTML.matchAll(/url\(#([^\)]+)\)/g)) {
+      for (const match of svg.outerHTML.matchAll(/url\(#([^)]+)\)/g)) {
         expect(localIds.has(match[1])).toBe(true);
       }
     }

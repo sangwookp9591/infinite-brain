@@ -11,7 +11,7 @@ export function scopeSvgIds(svg: string, instance: string): string {
   }
   return svg
     .replace(/\bid="([^"]+)"/g, (_, id: string) => `id="${ids.get(id)}"`)
-    .replace(/url\(#([^\)]+)\)/g, (match, id: string) =>
+    .replace(/url\(#([^)]+)\)/g, (match, id: string) =>
       ids.has(id) ? `url(#${ids.get(id)})` : match)
     .replace(/\b((?:xlink:)?href)="#([^"]+)"/g, (match, attribute: string, id: string) =>
       ids.has(id) ? `${attribute}="#${ids.get(id)}"` : match);

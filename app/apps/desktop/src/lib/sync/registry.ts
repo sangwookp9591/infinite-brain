@@ -110,7 +110,7 @@ import {
   IPC_CONCURRENCY,
   REGISTRY_CONCURRENCY,
   runPool,
-  useBulkPath,
+  isBulkPath,
   withRetry,
 } from "./pool";
 import { nullProgressSink, type SyncProgressSink } from "./progress";
@@ -2656,7 +2656,7 @@ export class VaultRegistry {
     // Authorization and the unconfirmed-content guard still precede every delete.
     const removalTotal = plan.trash.length + plan.removeFolders.length;
     if (removalTotal > 0) this.sink.phase("removing", removalTotal);
-    const bulkRemoval = useBulkPath(plan.trash.length);
+    const bulkRemoval = isBulkPath(plan.trash.length);
     /** path → `.context/trash` copy made for unseen work before removal. */
     const recovered = new Map<string, string>();
     for (const group of chunked(plan.trash, bulkRemoval ? 64 : INBOUND_REMOVE_CONCURRENCY)) {
@@ -4224,7 +4224,7 @@ export class VaultRegistry {
     // A bulk pass stretches the checkpoint's TIME window (the batch trigger is
     // what flushes during a run; see `Checkpointer.setBulk`). Same threshold the
     // batch paths below take, so the two can never disagree about what "bulk" is.
-    checkpoint.setBulk(useBulkPath(toCreate));
+    checkpoint.setBulk(isBulkPath(toCreate));
 
     // Titles + local doc_ids for the notes we are about to CREATE server-side —
     // so the index read happens only when there is something to create (on a
@@ -4253,7 +4253,7 @@ export class VaultRegistry {
     // sorts by depth and resolves parents IN-REQUEST, which is what removes the
     // level-by-level serialization (a deep tree paid one round trip per level).
     this.noWriteFolderRefusals.clear();
-    if (useBulkPath(missingFolders.length)) {
+    if (isBulkPath(missingFolders.length)) {
       if (await this.registerFoldersBatched(vaultId, missingFolders, checkpoint)) {
         mutated = true;
       }
@@ -4322,7 +4322,7 @@ export class VaultRegistry {
       missingNotes.length > 0 &&
       !!this.host?.buildNoteState &&
       (await this.oneStepCreates());
-    if (oneStep || useBulkPath(missingNotes.length)) {
+    if (oneStep || isBulkPath(missingNotes.length)) {
       const bulk = await this.registerNotesBatched(vaultId, missingNotes, {
         titleByPath,
         idByPath,
@@ -4555,10 +4555,10 @@ export class VaultRegistry {
     this.sink.addTotal(materializeNow.length);
     // Materializing is the other half a pull can be bulk for — a fresh device
     // writes the whole vault here without registering a single row above.
-    if (useBulkPath(toMaterialize.length)) checkpoint.setBulk(true);
+    if (isBulkPath(toMaterialize.length)) checkpoint.setBulk(true);
     if (materializeNow.length === 0) {
       // Everything is deferred to the bootstrap download (or nothing to do).
-    } else if (useBulkPath(toMaterialize.length)) {
+    } else if (isBulkPath(toMaterialize.length)) {
       if (await this.materializeBatched(materializeNow)) mutated = true;
     } else
     await runPool(

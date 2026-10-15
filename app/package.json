@@ -12,6 +12,7 @@
     "dev:server": "turbo run dev --filter=server",
     "build": "turbo run build",
     "build:desktop": "pnpm --filter desktop tauri build",
+    "lint": "turbo run lint",
     "test": "turbo run test"
   },
   "devDependencies": {

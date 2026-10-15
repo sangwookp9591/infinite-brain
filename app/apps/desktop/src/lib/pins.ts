@@ -7,6 +7,7 @@ export function validPin(value: unknown): value is PinnedItem {
   const v = value as Record<string, unknown>;
   if (v.kind === "note") return typeof v.docId === "string" && ID.test(v.docId) && Object.keys(v).length === 2;
   return v.kind === "folder" && typeof v.path === "string" && v.path.length > 0 && v.path.length <= 4096 &&
+    // eslint-disable-next-line no-control-regex -- deliberate control-character guard
     !/[\\\x00]/.test(v.path) && !v.path.startsWith("/") &&
     v.path.split("/").every((part) => part !== "" && part !== "." && part !== ".." && !part.startsWith(".")) && Object.keys(v).length === 2;
 }

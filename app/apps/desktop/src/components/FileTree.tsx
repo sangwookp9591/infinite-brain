@@ -1555,7 +1555,7 @@ export function FileTree() {
 
   async function createUniqueFolder(dir: string) {
     if (rootBlocked(dir)) return;
-    let name = "New Folder";
+    const name = "New Folder";
     for (let i = 0; i < 50; i++) {
       const candidate = i === 0 ? name : `${name} ${i}`;
       try {

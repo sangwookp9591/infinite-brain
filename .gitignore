@@ -35,3 +35,6 @@ app/apps/desktop/src-tauri/tauri.staging.build.conf.json
 
 # Claude session runtime lock
 .claude/scheduled_tasks.lock
+
+# ESLint
+.eslintcache

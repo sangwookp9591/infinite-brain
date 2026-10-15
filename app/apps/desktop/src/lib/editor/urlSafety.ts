@@ -15,6 +15,7 @@
  * carry `data:text/html`). A tab/newline no longer defeats the check.
  */
 export function isDangerousUrl(raw: string): boolean {
+  // eslint-disable-next-line no-control-regex -- deliberate control-character guard
   const v = raw.replace(/[\u0000-\u0020]+/g, "").toLowerCase();
   if (v.startsWith("data:")) return !v.startsWith("data:image/");
   return v.startsWith("javascript:") || v.startsWith("vbscript:");

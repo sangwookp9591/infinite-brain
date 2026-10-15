@@ -7,6 +7,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "lint": "eslint . --cache",
+    "lint:fix": "eslint . --cache --fix",
     "preview": "vite preview",
     "test": "vitest run",
     "tauri": "tauri",
@@ -68,6 +70,7 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@eslint/js": "9.39.5",
     "@tauri-apps/cli": "^2",
     "@types/diff-match-patch": "^1.0.36",
     "@types/jsdom": "^30.0.0",
@@ -76,8 +79,12 @@
     "@types/three": "0.186.0",
     "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "^4.6.0",
+    "eslint": "9.39.5",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "globals": "17.13.0",
     "jsdom": "^29.1.1",
     "typescript": "catalog:",
+    "typescript-eslint": "8.71.2",
     "vite": "^7.0.4",
     "vitest": "catalog:",
     "ws": "^8.21.0"

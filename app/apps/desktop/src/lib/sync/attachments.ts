@@ -68,7 +68,7 @@
 import { announceAttachmentArrived } from "../attachmentArrivals";
 import { formatFor, isNoteExt, mimeForPath as mimeForFormat } from "../formats";
 import { isTransientPath, pathKey } from "../pathIdentity";
-import { BATCH_MAX_FILES, runPool, useBulkPath } from "./pool";
+import { BATCH_MAX_FILES, runPool, isBulkPath } from "./pool";
 import {
   bytesRefusalKey,
   defaultRefusalStore,
@@ -2472,7 +2472,7 @@ export class AttachmentSync {
         mime: mimeForPath(a.relPath),
       });
     }
-    if (!useBulkPath(candidates.length)) return;
+    if (!isBulkPath(candidates.length)) return;
 
     for (let i = 0; i < candidates.length; i += BATCH_MAX_FILES) {
       if (!this.current()) return;

@@ -22,7 +22,7 @@ export const BLANK_INGEST_MIN_CHARS = 200;
  * BOM), then anything, then a closing `---` or `...` line. An unclosed block is
  * NOT frontmatter — it is body text that happens to start with a rule.
  */
-const FRONTMATTER_RE = /^﻿?---[ \t]*\r?\n(?:[\s\S]*?\r?\n)?(?:---|\.\.\.)[ \t]*(?:\r?\n|$)/;
+const FRONTMATTER_RE = /^\uFEFF?---[ \t]*\r?\n(?:[\s\S]*?\r?\n)?(?:---|\.\.\.)[ \t]*(?:\r?\n|$)/;
 
 /** The note's body: everything after a leading frontmatter block, if any. */
 export function noteBody(text: string): string {

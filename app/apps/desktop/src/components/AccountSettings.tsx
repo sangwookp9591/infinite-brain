@@ -275,14 +275,15 @@ function ProfileTab() {
     void persist({ image: next.trim() || null });
   };
 
-  if (!session) return null;
-  const trimmedName = name.trim();
-  const trimmedImage = image.trim();
-
   // Re-sending the confirmation email: its own tiny state so a failure (this
   // server has no email; the provider refused) is said next to the button.
   const [resendBusy, setResendBusy] = useState(false);
   const [resendState, setResendState] = useState<string | null>(null);
+
+  if (!session) return null;
+  const trimmedName = name.trim();
+  const trimmedImage = image.trim();
+
   const resendConfirmation = async () => {
     setResendBusy(true);
     setResendState(null);

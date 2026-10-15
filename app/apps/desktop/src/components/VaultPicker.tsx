@@ -618,7 +618,6 @@ export function VaultPicker() {
                 }}
               >
                 <label className="new-vault-label">Enter your team's join code</label>
-                {/* eslint-disable-next-line jsx-a11y/no-autofocus */}
                 <input
                   className="new-vault-input join-code-input"
                   autoFocus
@@ -680,7 +679,6 @@ export function VaultPicker() {
                 }}
               >
                 <label className="new-vault-label">Name your vault</label>
-                {/* eslint-disable-next-line jsx-a11y/no-autofocus */}
                 <input
                   className="new-vault-input"
                   autoFocus
@@ -906,7 +904,6 @@ export function VaultPicker() {
                 also works for a drive root or mounted volume the folder picker
                 can't select, like <code>D:\</code> or <code>/Volumes/Notes</code>.
               </p>
-              {/* eslint-disable-next-line jsx-a11y/no-autofocus */}
               <input
                 autoFocus
                 value={manualPath}

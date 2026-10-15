@@ -1,4 +1,4 @@
-// The content push of a RUNNING vault — the fourth `useBulkPath` site.
+// The content push of a RUNNING vault — the fourth `isBulkPath` site.
 //
 // `enable()` has batched its content push since the bulk engine shipped, but the
 // two sites that run for the rest of the session did not: the steady-state

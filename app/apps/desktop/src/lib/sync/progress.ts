@@ -15,7 +15,7 @@
 //
 // Pure: all timers are injectable, so the unit tests drive it deterministically.
 
-import { useBulkPath } from "./pool";
+import { isBulkPath } from "./pool";
 import type { DocSyncState, SyncProgress, SyncProgressPhase } from "./vaultScope";
 
 /** The write surface a bulk phase uses to report itself. */
@@ -65,7 +65,7 @@ export interface SyncProgressReporterOptions {
    * (≈4 store writes/second).
    *
    * A bulk phase is one whose total is at or above the engine's own bulk
-   * threshold (`useBulkPath`) — the same 25 that decides whether the work takes
+   * threshold (`isBulkPath`) — the same 25 that decides whether the work takes
    * the batch path — so this needs no wiring: the phase that declared the
    * denominator has already said how big it is.
    *
@@ -209,7 +209,7 @@ export class SyncProgressReporter implements SyncProgressSink {
 
   /** The window this phase reports at — see {@link SyncProgressReporterOptions.bulkThrottleMs}. */
   private window(): number {
-    return useBulkPath(this.current.total) ? this.bulkThrottleMs : this.throttleMs;
+    return isBulkPath(this.current.total) ? this.bulkThrottleMs : this.throttleMs;
   }
 
   private schedule(immediate: boolean): void {
