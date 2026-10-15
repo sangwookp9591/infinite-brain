@@ -4,7 +4,7 @@
 
 # Infinite Brain
 
-**A universe of ideas** — a local-first, collaborative Markdown knowledge app.
+**A universe of ideas** — a local-first, collaborative Markdown knowledge app<br>with a calm, ink-on-paper interface you can tint to your own colour.
 
 [![CI](https://github.com/sangwookp9591/infinite-brain/actions/workflows/ci.yml/badge.svg)](https://github.com/sangwookp9591/infinite-brain/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
@@ -15,13 +15,16 @@
 ![Node >=22](https://img.shields.io/badge/node-%3E%3D22-339933?logo=node.js&logoColor=white)
 ![Local-first](https://img.shields.io/badge/local--first-yes-success)
 
-[Features](#-features) · [How it works](#-how-it-works) · [Quick start](#-quick-start) · [Architecture](#-architecture) · [Docs](#-docs)
+[Features](#-features) · [Design](#-design) · [How it works](#-how-it-works) · [Quick start](#-quick-start) · [Architecture](#-architecture) · [Docs](#-docs)
 
 <br>
 
-<img src="docs/galaxy/macos-20000-dark-v2.png" alt="The galaxy graph view rendering 20,000 notes and 37,996 links as a spiral galaxy" width="860">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/ui/main-dark.png">
+  <img src="docs/assets/ui/main-light.png" alt="The Infinite Brain main window: a file tree sidebar and a Markdown note, in the zinc and ink interface" width="900">
+</picture>
 
-<sub>The galaxy graph view with 20,000 generated notes and 37,996 links, rendered with WebGPU.</sub>
+<sub>The main window follows your system theme: zinc surfaces, ink accents, nothing louder than your notes.</sub>
 
 </div>
 
@@ -30,6 +33,10 @@
 Notes remain plain Markdown files on disk, while a Yjs bridge lets people and connected AI tools edit together in real time.
 
 This independent fork of Baalda 0.1.83 is licensed under Apache-2.0 (the upstream `ee/` directory is not included). See [`NOTICE`](NOTICE) for attribution.
+
+<img src="docs/galaxy/macos-20000-dark-v2.png" alt="The galaxy graph view rendering 20,000 notes and 37,996 links as a spiral galaxy" width="100%">
+
+<p align="center"><sub>The galaxy graph view with 20,000 generated notes and 37,996 links, rendered with WebGPU. Only notes glow; opening one dives into it.</sub></p>
 
 <table>
   <tr>
@@ -53,9 +60,40 @@ What this fork adds on top of Baalda 0.1.83:
 | **AI change ledger** | Every AI edit is recorded and can be undone. An undo is refused (409) if a person has edited the note since. | [`docs/AI-CHANGES.md`](docs/AI-CHANGES.md) |
 | **Invite links** | Teammates join with a link, no email server needed. | [`docs/onboarding-audit.md`](docs/onboarding-audit.md) |
 | **Galaxy graph** | The graph view renders notes as a spiral galaxy (three.js WebGPU, with WebGL2 and 2D fallbacks). | [`docs/galaxy/`](docs/galaxy/) |
+| **New visual language** | Zinc surfaces and an ink accent in light and dark, with spring micro-interactions from a ten-component design kit across the shell, editor, settings, dialogs and dashboards. | [`docs/superpowers/specs/2026-10-15-ui-redesign-color-design.md`](docs/superpowers/specs/2026-10-15-ui-redesign-color-design.md) |
+| **Custom accent** | Pick ink, one of eight presets or any `#rrggbb`, per person or as a vault default. A contrast guard keeps button text at 4.5:1 or better in both themes, and the choice paints from the very first frame. | [`docs/superpowers/plans/2026-10-15-ui-redesign-rollout.md`](docs/superpowers/plans/2026-10-15-ui-redesign-rollout.md) |
 | **Rebrand** | App ID `com.infinitebrain.desktop`, URL scheme `infinitebrain://`, new icon and updater key. Rerun `node scripts/rebrand.mjs --dry-run` to check for leftovers. | [`docs/BRAND-ASSETS.md`](docs/BRAND-ASSETS.md) |
 
 Design and research: [`docs/FINAL-report.md`](docs/FINAL-report.md) (Korean) and [`docs/research/`](docs/research/). Build status: [`docs/STATUS.md`](docs/STATUS.md). Docs index: [`docs/Infinite Brain.md`](<docs/Infinite Brain.md>).
+
+## 🎨 Design
+
+The interface is ink on paper: neutral zinc layers carry the structure, and colour is kept for state (synced, failed, needs attention) and for the accent you choose. Motion uses two springs and switches off under reduced motion.
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/assets/ui/appearance-accent.png" alt="Account Settings, Appearance: theme chips, accent swatches with a custom colour, and bar sliders for content width"></td>
+    <td width="50%"><img src="docs/assets/ui/design-kit-dark.png" alt="The design lab in dark mode showing the ten kit components"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Appearance settings with a blue accent: theme chips, swatches, bar sliders.</sub></td>
+    <td align="center"><sub>The design kit in the design lab, dark theme.</sub></td>
+  </tr>
+</table>
+
+| Kit component | Where you meet it |
+|---|---|
+| `SegmentedChips` | Theme, note properties and graph colour mode |
+| `BarSlider` | Content width, text size and graph forces |
+| `SpringCheck` | Settings checkboxes and the Markdown task look |
+| `CodeSlots` | Joining a team with a code |
+| `FuseButton` | Undoing an AI change, with a burning-fuse cancel window |
+| `ActivityLattice` | Sync status and dashboard agent runs |
+| `ProgressDial` | Sync progress when a percentage is known |
+| `GlowCard` · `FolderCard` | Dashboard templates and recent vaults on the welcome screen |
+| `SwipeRow` | In the kit and the design lab; not wired into app lists yet |
+
+Try every component in both themes and with any accent in the design lab: from `app/apps/desktop`, run `pnpm exec vite --mode simulator` and open `/dev/design-lab/`. The kit lives in [`app/apps/desktop/src/components/kit/`](app/apps/desktop/src/components/kit/) and the rules in [`app/apps/desktop/src/styles/DESIGN-BRIEF.md`](app/apps/desktop/src/styles/DESIGN-BRIEF.md).
 
 ## 🧠 How it works
 
@@ -182,7 +220,8 @@ Self-hosting guide: [`docs/DEPLOY.md`](docs/DEPLOY.md).
 │   │   ├── desktop/            Tauri desktop app (React UI)
 │   │   │   ├── src/            UI, editor, Yjs bridge, sync client
 │   │   │   ├── src-tauri/      Rust: filesystem, watcher, SQLite index, keychain
-│   │   │   └── dev/            Galaxy graph preview harness and window simulator
+│   │   │   ├── src/components/kit/  Design kit (spring micro-interactions)
+│   │   │   └── dev/            Design lab, galaxy lab and window simulator (WebMCP-enabled)
 │   │   └── server/             Hono API, Hocuspocus sync, Better Auth, MCP, migrations
 │   ├── package.json            pnpm workspace and Turbo tasks
 │   └── turbo.json
@@ -203,6 +242,8 @@ Self-hosting guide: [`docs/DEPLOY.md`](docs/DEPLOY.md).
 | [`docs/RELEASE.md`](docs/RELEASE.md) | How a desktop release is cut |
 | [`docs/AI-CHANGES.md`](docs/AI-CHANGES.md) | AI change ledger contract |
 | [`docs/BRAND-ASSETS.md`](docs/BRAND-ASSETS.md) | Rebrand assets and checks |
+| [`docs/superpowers/specs/`](docs/superpowers/specs/) | UI redesign and colour customization spec |
+| [`docs/superpowers/plans/`](docs/superpowers/plans/) | Rollout plan for the new visual language |
 | [`docs/FINAL-report.md`](docs/FINAL-report.md) | Design and research summary (Korean) |
 | [`docs/research/`](docs/research/) | Research reports |
 | [`docs/UPSTREAM-CLAUDE.md`](docs/UPSTREAM-CLAUDE.md) | Inherited architecture reference |
@@ -219,3 +260,5 @@ The `.context/` vault metadata directory and the internal `context` database/cod
 ## 📄 License
 
 Licensed under the [Apache License 2.0](LICENSE). Infinite Brain is an independent fork of Baalda 0.1.83; the upstream `ee/` directory is not included. See [`NOTICE`](NOTICE) for attribution.
+
+The design kit's interactions are adapted from [React Bits](https://reactbits.dev) by David Haz under the MIT + Commons Clause license, used as part of this application; see [`app/apps/desktop/src/components/kit/LICENSE-react-bits.md`](app/apps/desktop/src/components/kit/LICENSE-react-bits.md).
