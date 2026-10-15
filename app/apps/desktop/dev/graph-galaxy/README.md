@@ -8,4 +8,6 @@ Run `node dev/graph-galaxy/verify.mjs` with Playwright installed in your test en
 
 `node dev/graph-galaxy/verify-ui.mjs` checks narrow Windows/macOS layouts, search input, keyboard note opening, reduced motion, automatic WebGL2 fallback without navigator.gpu, and Canvas2D fallback when every GPU context is denied. It uses the same Playwright environment variables.
 
+WebMCP is available only in development harnesses when the browser exposes `document.modelContext` (or the early `navigator.modelContext`). The graph preview registers `galaxy_state`, `filter_graph`, `open_note`, and `measure_fps`; the window simulator registers `app_state`, `list_notes`, `open_note`, and `set_theme`. These tools are dev-only and do not ship with the desktop app.
+
 Use `GALAXY_SUFFIX=-v2` with either verifier to preserve v1 screenshots and write v2 artifacts. The performance verifier records the measured GraphView layout time, asserts the 3,000+ note path skips force and completes layout under one second, and checks the hero becomes transparent after exploration.

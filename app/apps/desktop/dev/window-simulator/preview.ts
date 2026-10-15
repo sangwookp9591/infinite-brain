@@ -9,9 +9,11 @@ import {
   VAULT,
 } from "./fixture-api";
 import { fixtureIpc } from "./fixture-ipc";
+import { registerDevTools } from "../webmcp";
 import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import dailyDashboard from "../../src/dashboards/templates/daily-home.html?raw";
 const params = new URLSearchParams(location.search);
+document.documentElement.dataset.platform = params.get("platform") === "macos" ? "macos" : "windows";
 notes.push({ ...notes[0], id: "preview-home", docId: "preview-home", relPath: "Home.html", title: "Home", folderId: null });
 notes.push({ ...notes[0], id: "preview-link", docId: "preview-link", relPath: "Artifact.url", title: "Artifact", folderId: null });
 Object.defineProperty(navigator, "userAgent", {
@@ -300,3 +302,54 @@ useStore.setState({
 (window as any).previewStore = useStore;
 (window as any).previewUnknownRequests = unknownRequests;
 await import("/src/main.tsx");
+requestAnimationFrame(() => registerDevTools([
+  {
+    name: "app_state",
+    description: "Read the window simulator state.",
+    execute: () => {
+      const state = useStore.getState();
+      return {
+        theme: document.documentElement.dataset.theme ?? null,
+        platform: document.documentElement.dataset.platform ?? (navigator.userAgent.includes("Macintosh") ? "macos" : "windows"),
+        vault: state.vault?.name ?? null,
+        openNote: state.openNote?.path ?? null,
+        noteCount: state.titles.length,
+      };
+    },
+  },
+  {
+    name: "list_notes",
+    description: "List fixture note paths and titles.",
+    inputSchema: { type: "object", properties: { limit: { type: "number" } }, additionalProperties: false },
+    execute: (input) => {
+      if (input != null && (typeof input !== "object" || Array.isArray(input))) return { error: "input must be an object" };
+      const limit = (input as { limit?: unknown } | null)?.limit ?? 50;
+      if (typeof limit !== "number" || !Number.isSafeInteger(limit) || limit < 0) return { error: "limit must be a non-negative integer" };
+      return { notes: useStore.getState().titles.slice(0, limit).map(({ path, title }) => ({ path, title })) };
+    },
+  },
+  {
+    name: "open_note",
+    description: "Open a fixture note by path.",
+    inputSchema: { type: "object", properties: { path: { type: "string" } }, required: ["path"], additionalProperties: false },
+    execute: async (input) => {
+      const path = (input as { path?: unknown } | null)?.path;
+      if (typeof path !== "string") return { error: "path must be a string" };
+      if (!useStore.getState().titles.some((note) => note.path === path)) return { error: "path is not a known fixture note" };
+      await useStore.getState().openNoteByPath(path);
+      return { openNote: useStore.getState().openNote?.path ?? null };
+    },
+  },
+  {
+    name: "set_theme",
+    description: "Set the simulator theme mode.",
+    inputSchema: { type: "object", properties: { theme: { type: "string", enum: ["light", "dark", "system"] } }, required: ["theme"], additionalProperties: false },
+    execute: async (input) => {
+      const theme = (input as { theme?: unknown } | null)?.theme;
+      if (theme !== "light" && theme !== "dark" && theme !== "system") return { error: "theme must be light, dark, or system" };
+      const { setThemeMode } = await import("/src/lib/theme.ts");
+      setThemeMode(theme);
+      return { theme: document.documentElement.dataset.theme ?? null };
+    },
+  },
+]));
