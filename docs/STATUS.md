@@ -24,6 +24,7 @@ to upstream and not to this fork. This fork has no hosted server or published re
 | M4 Invite links without email, onboarding timer | ✅ merged | [[reports/IMPL-REPORT-M4]], [[onboarding-audit]] |
 | M5 Galaxy graph (three.js WebGPU → WebGL2 → 2D) | ✅ merged | [[reports/IMPL-REPORT-M5]] |
 | Independent review fixes (1 high, 10 medium, some low) | ✅ merged | [[reports/IMPL-REPORT-FIX-V2]] |
+| M6 New visual language: zinc/ink tokens, custom accent (`"ink"` or `#rrggbb`, desktop + server), design kit (10 React Bits–adapted components) applied app-wide, ESLint 9, dev WebMCP tools | 🔶 branch `feat/ui-redesign`, not merged | [[superpowers/specs/2026-10-15-ui-redesign-color-design]], [[superpowers/plans/2026-10-15-ui-redesign-rollout]] |
 
 **Verified (2026-10-14/15):**
 - Tests: server 1,503, desktop 3,522, Rust 346, `tsc` in both workspaces.
