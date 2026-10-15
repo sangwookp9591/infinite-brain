@@ -3,7 +3,7 @@
 // while keeping the buffer as raw markdown — no serialization, files round-trip
 // losslessly (spec 01 §1).
 //
-// Rebuilt on the Atomize design tokens (src/styles/tokens.css). Every value is a
+// Built on the shared design tokens (src/styles/tokens.css). Every value is a
 // `var(--…)` so the single theme adapts to light AND dark automatically when the
 // theme toggle stamps `data-theme` on the root — no `dark: true` flavor needed.
 
@@ -368,7 +368,37 @@ export const editorThemeSpec: Record<string, Record<string, string>> = {
     height: "1em",
     margin: "0 0.4em 0 0",
     verticalAlign: "-0.1em",
-    accentColor: "var(--accent)",
+    appearance: "none",
+    display: "inline-grid",
+    placeContent: "center",
+    border: "1px solid var(--border-strong)",
+    borderRadius: "var(--radius-sm)",
+    backgroundColor: "var(--bg-surface)",
+    color: "var(--text-on-accent)",
+  },
+  ".cm-task-checkbox:checked": {
+    backgroundColor: "var(--accent)",
+    borderColor: "var(--accent)",
+  },
+  ".cm-task-checkbox::after": {
+    content: '""',
+    width: "0.45em",
+    height: "0.25em",
+    borderLeft: "2px solid currentColor",
+    borderBottom: "2px solid currentColor",
+    transform: "rotate(-45deg) scale(0)",
+    transition: "transform var(--t-fast) var(--ease)",
+  },
+  ".cm-task-checkbox:checked::after": {
+    transform: "rotate(-45deg) scale(1)",
+  },
+  ".cm-task-checkbox:focus-visible": {
+    outline: "none",
+    boxShadow: "var(--focus-ring)",
+  },
+  ".cm-line:has(.cm-task-checkbox:checked)": {
+    textDecoration: "line-through",
+    textDecorationColor: "var(--text-tertiary)",
   },
 
   // GFM tables rendered off the active line (added by ./livePreview).
@@ -588,6 +618,14 @@ export const editorThemeSpec: Record<string, Record<string, string>> = {
     backgroundColor: "var(--bg-subtle)",
     backgroundClip: "content-box",
   },
+  ".cm-codeblock-open": {
+    borderStartStartRadius: "calc(var(--editor-pad-x) + var(--radius-input)) var(--radius-input)",
+    borderStartEndRadius: "calc(var(--editor-pad-x) + var(--radius-input)) var(--radius-input)",
+  },
+  ".cm-codeblock-close": {
+    borderEndStartRadius: "calc(var(--editor-pad-x) + var(--radius-input)) var(--radius-input)",
+    borderEndEndRadius: "calc(var(--editor-pad-x) + var(--radius-input)) var(--radius-input)",
+  },
   ".cm-hr": { position: "relative" },
   // The hairline, inset to the prose column (an `inset` box-shadow would follow
   // the full-width line box).
@@ -801,6 +839,7 @@ export const editorThemeSpec: Record<string, Record<string, string>> = {
     padding: "0",
     background: "transparent",
     fontFamily: "var(--inline-title-family)",
+    letterSpacing: "var(--display-tracking)",
     fontSize: "var(--inline-title-size)",
     fontWeight: "var(--inline-title-weight)",
     lineHeight: "var(--lh-tight)",
@@ -1018,6 +1057,7 @@ export const markdownHighlightSpec = [
     {
       tag: t.heading1,
       fontFamily: "var(--font-display)",
+      letterSpacing: "var(--display-tracking)",
       fontSize: "1.75em",
       fontWeight: "700",
       lineHeight: "var(--lh-tight)",
@@ -1026,6 +1066,7 @@ export const markdownHighlightSpec = [
     {
       tag: t.heading2,
       fontFamily: "var(--font-display)",
+      letterSpacing: "var(--display-tracking)",
       fontSize: "1.35em",
       fontWeight: "700",
       lineHeight: "var(--lh-tight)",
@@ -1034,6 +1075,7 @@ export const markdownHighlightSpec = [
     {
       tag: t.heading3,
       fontFamily: "var(--font-display)",
+      letterSpacing: "var(--display-tracking)",
       fontSize: "1.12em",
       fontWeight: "650",
       color: "var(--text-primary)",
@@ -1041,6 +1083,7 @@ export const markdownHighlightSpec = [
     {
       tag: [t.heading4, t.heading5, t.heading6],
       fontFamily: "var(--font-display)",
+      letterSpacing: "var(--display-tracking)",
       fontWeight: "650",
       color: "var(--text-primary)",
     },

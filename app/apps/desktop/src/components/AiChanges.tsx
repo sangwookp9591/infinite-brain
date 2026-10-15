@@ -7,6 +7,7 @@ import { aiConflictFrom, aiConnections, aiTextDiff, type AiChange, type AiChange
 import { syncManager } from "../lib/sync/docSession";
 import { AsyncButton } from "./AsyncButton";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { FuseButton } from "./kit/FuseButton";
 import "./aiChanges.css";
 
 function TextDiff({ before, after }: { before: string; after: string }) {
@@ -33,6 +34,7 @@ function AiChangesBody({ vaultId, online }: { vaultId: string; online: boolean }
   const [truncated, setTruncated] = useState(false);
   const [batchTruncated, setBatchTruncated] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [fuseAttempt, setFuseAttempt] = useState(0);
   const [confirm, setConfirm] = useState<AiChange | "batch" | null>(null);
   const [results, setResults] = useState<AiRevertResult[]>([]);
   const alive = useRef(true);
@@ -53,8 +55,8 @@ function AiChangesBody({ vaultId, online }: { vaultId: string; online: boolean }
       if (alive.current && request === previewRequest.current) setDetail(next);
     } catch (e) { if (alive.current && request === previewRequest.current) setError(e instanceof Error ? e.message : String(e)); }
   };
-  const revert = async () => {
-    const target = confirm;
+  // A completed revert has no redo API, so the fuse delays this request until commit.
+  const revert = async (target = confirm) => {
     setConfirm(null); setBusy(true); setError(null); setConflict(null); setResults([]); setBatchTruncated(false);
     try {
       if (target === "batch") {
@@ -74,7 +76,7 @@ function AiChangesBody({ vaultId, online }: { vaultId: string; online: boolean }
         setConflict(e instanceof ApiError && e.status === 409 ? aiConflictFrom(e.body) : null);
         setError(e instanceof Error ? e.message : String(e));
       }
-    } finally { if (alive.current) setBusy(false); }
+    } finally { if (alive.current) { setBusy(false); setFuseAttempt(n => n + 1); } }
   };
   const shown = connection ? items.filter(i => i.connection_id === connection) : items;
   return <section className="ai-changes" aria-label="AI 변경">
@@ -105,8 +107,9 @@ function AiChangesBody({ vaultId, online }: { vaultId: string; online: boolean }
           <strong>{item.after_path}</strong><span>{item.connection_label} · {item.op}</span>
           <time dateTime={item.created_at}>{new Date(item.created_at).toLocaleString()}</time>
         </button>
-        <button type="button" className="ghost-pill sm" disabled={busy || !online || !!item.reverted_at || item.diff_summary.oversized}
-          onClick={() => setConfirm(item)}>{item.reverted_at ? "되돌림" : "되돌리기"}</button>
+        <FuseButton key={`${item.id}:${fuseAttempt}`} label={item.reverted_at ? "되돌림" : "되돌리기"}
+          doneLabel="되돌리기 대기" disabled={busy || !online || !!item.reverted_at || item.diff_summary.oversized}
+          onAction={() => setBusy(true)} onUndo={() => setBusy(false)} onCommit={() => void revert(item)} />
         {detail?.id === item.id && <div className="ai-change-detail">
           {item.before_path !== item.after_path && <p>{item.before_path} → {item.after_path}</p>}
           <p>삭제선: 변경 전 · 밑줄: 변경 후</p>

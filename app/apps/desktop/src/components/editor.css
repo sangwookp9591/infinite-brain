@@ -304,7 +304,7 @@
 /* Availability tones mirror the account avatar's presence light and the
    Settings status dots: away → amber, busy → red, offline/invisible → gray. */
 .peer-dot.tone-away {
-  background: #f59e0b;
+  background: var(--warning);
 }
 .peer-dot.tone-busy {
   background: var(--danger);
@@ -482,7 +482,7 @@
   padding: 1px var(--sp-2);
   border-radius: var(--radius-sm) var(--radius-sm) var(--radius-sm) 0;
   box-shadow: var(--shadow-sm);
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+  text-shadow: none;
 }
 /* Caret near the very top: hang the flag below so it isn't clipped. */
 .cm-remoteCaret.flip .cm-remoteCaret-label {
@@ -588,8 +588,8 @@
   gap: var(--sp-6);
   max-height: 60%;
   overflow: hidden;
-  -webkit-mask-image: linear-gradient(to bottom, #000 82%, transparent);
-  mask-image: linear-gradient(to bottom, #000 82%, transparent);
+  -webkit-mask-image: linear-gradient(to bottom, var(--text-primary) 82%, transparent);
+  mask-image: linear-gradient(to bottom, var(--text-primary) 82%, transparent);
 }
 .skel-page > .skel-title {
   margin-bottom: 0;
@@ -677,4 +677,8 @@
   .version-preview {
     animation: none;
   }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cm-editor .cm-task-checkbox::after { transition: none; }
 }

@@ -116,11 +116,11 @@
 .vtab-view .vtab-body .cm-editor .cm-deletedChunk .cm-deletedText,
 .vtab-view .vtab-body .cm-editor.cm-merge-b .cm-deletedText {
   background: var(--diff-removed-text);
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
 }
 .vtab-view .vtab-body .cm-editor.cm-merge-b .cm-changedText {
   background: var(--diff-added-text);
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
 }
 .vtab-view .vtab-body .cm-editor .cm-insertedLine,
 .vtab-view .vtab-body .cm-editor .cm-deletedLine,
@@ -214,7 +214,7 @@
   width: 100%;
   padding: 6px 8px;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-row);
   background: transparent;
   color: var(--text-primary);
   text-align: left;
