@@ -1,3 +1,29 @@
+/* Fixed graph palette: the immersive space stays dark in both app themes. */
+.graph-view {
+  --graph-space-core: #0f111b;
+  --graph-space-mid: #080910;
+  --graph-space-rim: #030409;
+  --graph-vignette: rgba(0, 0, 0, 0.6);
+  --graph-state-text: rgba(233, 236, 245, 0.72);
+  --graph-state-surface: rgba(22, 25, 37, 0.55);
+  --graph-state-border: rgba(255, 255, 255, 0.07);
+  --graph-state-heading: #f4f6fb;
+  --graph-code-text: #bcb2ff;
+  --graph-empty-node: #8f84ff;
+  --graph-empty-hub: #a49bff;
+  --graph-caption: #e2e7ff;
+  --graph-caption-eyebrow: #9badd2;
+  --graph-caption-description: #98a6c1;
+  --graph-help: #aab6d0;
+  --graph-focus: #aabaff;
+  --graph-label: #d2ddf4;
+  --graph-chrome-surface: rgba(15, 20, 36, 0.72);
+  --graph-chrome-border: rgba(178, 194, 230, 0.15);
+  --graph-chrome-text: #e3e9f8;
+  --graph-chrome-muted: #a8b5ce;
+  --graph-chrome-hover: rgba(165, 177, 225, 0.12);
+}
+
 /* ============================================================
    Graph View — full-pane link graph
    ============================================================ */
@@ -23,9 +49,9 @@
      it — space is dark. */
   background: radial-gradient(
     ellipse 130% 130% at 50% 44%,
-    #0f111b 0%,
-    #080910 52%,
-    #030409 100%
+    var(--graph-space-core) 0%,
+    var(--graph-space-mid) 52%,
+    var(--graph-space-rim) 100%
   );
 }
 
@@ -39,7 +65,7 @@
   background: radial-gradient(
     ellipse 100% 100% at 50% 46%,
     transparent 45%,
-    rgba(0, 0, 0, 0.6) 100%
+    var(--graph-vignette) 100%
   );
 }
 
@@ -76,7 +102,7 @@
   padding: var(--sp-2) var(--sp-3);
   background: var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-card);
   box-shadow: var(--shadow-md);
   pointer-events: auto;
 }
@@ -170,20 +196,20 @@ html[data-platform="windows"] .graph-header {
      light-on-dark colors instead of theme text vars (which would be dark, and
      thus invisible, in light mode). A faint glass panel lifts the copy off the
      void so it reads at any zoom. */
-  color: rgba(233, 236, 245, 0.72);
+  color: var(--graph-state-text);
   font-size: var(--fs-md);
   line-height: var(--lh-body);
-  background: rgba(22, 25, 37, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: var(--radius-xl);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  background: var(--graph-state-surface);
+  border: 1px solid var(--graph-state-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-lg);
   backdrop-filter: blur(14px);
 }
 
 .graph-state-card strong {
   display: block;
   margin-bottom: var(--sp-1);
-  color: #f4f6fb;
+  color: var(--graph-state-heading);
   font-family: var(--font-display);
   font-size: var(--fs-2xl);
   font-weight: 600;
@@ -198,9 +224,9 @@ html[data-platform="windows"] .graph-header {
 .graph-state-card code {
   font-family: var(--font-mono);
   font-size: 0.85em;
-  color: #bcb2ff;
-  background: rgba(127, 115, 255, 0.18);
-  border: 1px solid rgba(127, 115, 255, 0.32);
+  color: var(--graph-code-text);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, transparent);
   padding: 2px 7px;
   border-radius: var(--radius-sm);
   white-space: nowrap;
@@ -213,23 +239,23 @@ html[data-platform="windows"] .graph-header {
 }
 .graph-empty-glyph {
   margin-bottom: var(--sp-3);
-  color: #8f84ff;
+  color: var(--graph-empty-node);
 }
 .graph-empty-glyph .ge-node {
-  fill: #8f84ff;
+  fill: var(--graph-empty-node);
 }
 .graph-empty-glyph .ge-node-hub {
-  fill: #a49bff;
-  filter: drop-shadow(0 0 10px rgba(143, 132, 255, 0.7));
+  fill: var(--graph-empty-hub);
+  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--accent) 70%, transparent));
 }
 .graph-empty-glyph .ge-node-dim {
   fill: none;
-  stroke: rgba(143, 132, 255, 0.55);
+  stroke: color-mix(in srgb, var(--accent) 55%, transparent);
   stroke-width: 1.5;
   stroke-dasharray: 3 3;
 }
 .graph-empty-glyph .ge-link {
-  stroke: rgba(143, 132, 255, 0.35);
+  stroke: color-mix(in srgb, var(--accent) 35%, transparent);
   stroke-width: 1.5;
   stroke-linecap: round;
 }
@@ -251,7 +277,7 @@ html[data-platform="windows"] .graph-header {
   padding: var(--sp-4);
   background: var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-card);
   box-shadow: var(--shadow-md);
   animation: fade-in var(--t-fast) var(--ease) both;
 }
@@ -273,12 +299,13 @@ html[data-platform="windows"] .graph-header {
 
 .graph-control-row {
   display: grid;
-  grid-template-columns: 96px 1fr auto;
+  grid-template-columns: 96px minmax(0, 1fr);
   align-items: center;
   gap: var(--sp-2);
 }
 
-.graph-control-row label {
+.graph-control-row label,
+.graph-control-label {
   font-size: var(--fs-sm);
   color: var(--text-secondary);
   white-space: nowrap;
@@ -286,8 +313,28 @@ html[data-platform="windows"] .graph-header {
   text-overflow: ellipsis;
 }
 
-/* The slider and its readout are `.range-input` / `.range-value` in App.css —
-   shared with Settings → Appearance rather than restyled twice. */
+/* Keep the kit controls compact inside the floating graph panel. */
+.graph-controls .kit-slider {
+  min-width: 0;
+  gap: var(--sp-2);
+}
+.graph-controls .kit-slider-track {
+  height: 32px;
+  gap: 1px;
+}
+.graph-controls .kit-slider output {
+  min-width: 5ch;
+  font-size: var(--fs-sm);
+}
+.graph-controls .kit-chips {
+  grid-column: 1 / -1;
+  padding: var(--sp-2);
+  gap: var(--sp-2);
+}
+.graph-controls .kit-chips button {
+  flex: 1;
+  min-width: 0;
+}
 
 .graph-control-row input[type="checkbox"] {
   accent-color: var(--accent);
@@ -301,9 +348,9 @@ html[data-platform="windows"] .graph-header {
   font-family: var(--font-body);
   font-size: var(--fs-sm);
   color: var(--text-primary);
-  background: var(--bg-app);
+  background: var(--bg-subtle);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-input);
 }
 .graph-control-search::placeholder {
   color: var(--text-tertiary);
@@ -311,40 +358,7 @@ html[data-platform="windows"] .graph-header {
 .graph-control-search:focus {
   outline: none;
   border-color: var(--accent);
-}
-
-/* Segmented control (color mode). Spans the value + trailing columns and fills
-   the row so all three options fit without clipping. */
-.graph-seg {
-  grid-column: 2 / -1;
-  display: flex;
-  width: 100%;
-  min-width: 0;
-  gap: 2px;
-  padding: 2px;
-  background: var(--bg-app);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-}
-.graph-seg-btn {
-  flex: 1;
-  min-width: 0;
-  padding: 3px 4px;
-  border: none;
-  border-radius: calc(var(--radius-sm) - 1px);
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: var(--fs-sm);
-  white-space: nowrap;
-  cursor: pointer;
-  transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
-}
-.graph-seg-btn:hover {
-  color: var(--text-primary);
-}
-.graph-seg-btn.is-active {
-  background: var(--accent);
-  color: #fff;
+  box-shadow: var(--focus-ring);
 }
 
 /* Legend. */
@@ -364,7 +378,7 @@ html[data-platform="windows"] .graph-header {
   flex: none;
   width: 10px;
   height: 10px;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
 }
 .graph-legend-count {
   margin-left: auto;
@@ -382,7 +396,7 @@ html[data-platform="windows"] .graph-header {
 .graph-control-reset {
   padding: var(--sp-1) var(--sp-3);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-pill);
   background: transparent;
   color: var(--text-secondary);
   font-size: var(--fs-sm);
@@ -504,21 +518,30 @@ html[data-platform="windows"] .graph-header {
   position: absolute;
   top: calc(var(--titlebar-inset, 24px) + 125px);
   left: 5%;
-  color: #e2e7ff;
+  color: var(--graph-caption);
   z-index: 1;
   pointer-events: none;
 }
-.graph-galaxy-caption > span { font-size: 10px; letter-spacing: 0.28em; color: #9badd2; }
+.graph-galaxy-caption > span { font-size: 10px; letter-spacing: 0.28em; color: var(--graph-caption-eyebrow); }
 .graph-galaxy-caption h1 { font-size: clamp(24px, 3vw, 42px); font-weight: 400; letter-spacing: -0.035em; margin: 12px 0; }
-.graph-galaxy-caption p { font-size: 12px; color: #98a6c1; margin: 0; }
-.graph-galaxy-help { position: absolute; bottom: 24px; right: 32px; left: 32px; text-align: right; color: #aab6d0; font-size: 11px; pointer-events: none; z-index: 2; }
-.graph-canvas:focus-visible, .graph-canvas:focus-visible + .graph-galaxy-host { outline: 2px solid #aabaff; outline-offset: -4px; }
+.graph-galaxy-caption p { font-size: 12px; color: var(--graph-caption-description); margin: 0; }
+.graph-galaxy-help { position: absolute; bottom: 24px; right: 32px; left: 32px; text-align: right; color: var(--graph-help); font-size: 11px; pointer-events: none; z-index: 2; }
+.graph-canvas:focus-visible, .graph-canvas:focus-visible + .graph-galaxy-host { outline: 2px solid var(--graph-focus); outline-offset: -4px; }
 @media (max-width: 720px) {
   .graph-galaxy-caption { top: 120px; }
   .graph-galaxy-caption p { max-width: 240px; line-height: 1.6; }
   .graph-galaxy-help { font-size: 10px; bottom: 20px; left: 16px; right: 16px; text-align: center; }
   .graph-header { gap: 6px; }
   .graph-counts { font-size: 10px; }
+}
+/* Opening a note: dive into the star while the note behind fades through.
+   GraphView closes the overlay on this animation's end. */
+.graph-view.is-leaving {
+  pointer-events: none;
+  animation: graph-leave 280ms var(--ease) forwards;
+}
+@keyframes graph-leave {
+  to { opacity: 0; transform: scale(1.06); }
 }
 @media (prefers-reduced-motion: reduce) {
   .graph-view, .graph-intro { animation: none !important; }
@@ -534,19 +557,19 @@ html[data-platform="windows"] .graph-header {
 }
 
 .graph-galaxy-labels { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
-.graph-galaxy-labels span { position: absolute; top: 0; left: 0; color: #d2ddf4; font: 11px/1.4 var(--font-body, sans-serif); max-width: 150px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; text-shadow: 0 1px 5px #000; }
+.graph-galaxy-labels span { position: absolute; top: 0; left: 0; color: var(--graph-label); font: 11px/1.4 var(--font-body, sans-serif); max-width: 150px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; text-shadow: var(--shadow-sm); }
 
 /* The universe has its own glass chrome, including in the light application theme. */
 .graph-view .graph-header {
-  background: rgba(15, 20, 36, 0.72);
-  border-color: rgba(178, 194, 230, 0.15);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  background: var(--graph-chrome-surface);
+  border-color: var(--graph-chrome-border);
+  box-shadow: var(--shadow-lg);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
 }
-.graph-view .graph-title { color: #e3e9f8; }
-.graph-view .graph-counts, .graph-view .graph-icon-btn { color: #a8b5ce; }
-.graph-view .graph-icon-btn:hover, .graph-view .graph-icon-btn.is-active { background: rgba(165, 177, 225, 0.12); color: #e3e9f8; }
+.graph-view .graph-title { color: var(--graph-chrome-text); }
+.graph-view .graph-counts, .graph-view .graph-icon-btn { color: var(--graph-chrome-muted); }
+.graph-view .graph-icon-btn:hover, .graph-view .graph-icon-btn.is-active { background: var(--graph-chrome-hover); color: var(--graph-chrome-text); }
 .graph-galaxy-caption { transition: opacity 700ms ease; }
 .graph-view.is-exploring .graph-galaxy-caption { opacity: 0; }
 @media (prefers-reduced-motion: reduce) {

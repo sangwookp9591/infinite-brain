@@ -516,6 +516,8 @@ export function GraphView({ onClose }: { onClose: () => void }) {
     hoveredId: null as string | null,
     drag: null as Drag | null,
     rafId: null as number | null,
+    /** Fading out into an opened note: the loop stops drawing. */
+    leaving: false,
     needsDraw: true,
     // Large global graphs offload the force sim to a Web Worker so the UI thread
     // never blocks. `useWorker` is set per-rebuild; `workerActive` mirrors the
@@ -870,6 +872,16 @@ export function GraphView({ onClose }: { onClose: () => void }) {
 
     let webgl: GalaxyRenderer | null = null;
     let disposed = false;
+    // Open a note, then fade the overlay into it (graph.css `.is-leaving`).
+    const openNote = (path: string) => useStore.getState().openNoteByPath(path).then(() => {
+      const view = wrapRef.current;
+      if (!view || matchMedia("(prefers-reduced-motion: reduce)").matches) return onClose();
+      if (view.classList.contains("is-leaving")) return;
+      // The fade only needs the last drawn frame; free the GPU for the note's first paint.
+      S.leaving = true;
+      view.classList.add("is-leaving");
+      view.addEventListener("animationend", (e) => { if (e.target === view) onClose(); });
+    });
     const webglCanvas = webglCanvasRef.current;
     const failGalaxy = (error: unknown) => {
       if (disposed) return;
@@ -888,7 +900,7 @@ export function GraphView({ onClose }: { onClose: () => void }) {
           setHoverTip(node ? { title: node.title, x, y } : null);
           requestDraw();
         },
-        open: (node) => { useStore.getState().openNoteByPath(node.path).then(onClose); },
+        open: (node) => { openNote(node.path); },
         fail: failGalaxy,
       }, import.meta.env.DEV && new URLSearchParams(location.search).get("renderer") === "webgl").then((renderer) => {
         if (disposed) { renderer.dispose(); return; }
@@ -982,7 +994,7 @@ export function GraphView({ onClose }: { onClose: () => void }) {
     });
     themeObserver.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ["data-theme"],
+      attributeFilter: ["data-theme", "data-accent", "style"],
     });
 
     // Seconds since this graph's data landed — the entrance clock, shared by the
@@ -1268,6 +1280,7 @@ export function GraphView({ onClose }: { onClose: () => void }) {
     // mounted so the lighting keeps breathing and the scene feels alive at rest.
     function loop() {
       S.rafId = null;
+      if (S.leaving) return;
       // When the Web Worker owns the layout (big global graph) we NEVER tick the
       // main-thread sim — that's the whole point, it would freeze the UI. The
       // worker streams positions in and flips S.workerActive; we just repaint.
@@ -1434,7 +1447,7 @@ export function GraphView({ onClose }: { onClose: () => void }) {
         if (!drag.moved && e.type !== "pointercancel") {
           // A click, not a drag: open the note.
           const path = drag.node.path;
-          useStore.getState().openNoteByPath(path).then(onClose);
+          openNote(path);
         } else {
           // A real drag: NO reheat. Dropping a node used to kick the layout back
           // up to alpha 0.25, and that reheat was the visible "boing" — the
@@ -1465,7 +1478,7 @@ export function GraphView({ onClose }: { onClose: () => void }) {
         requestDraw();
       } else if (event.key === "Enter" && S.hoveredId) {
         const node = S.nodesById.get(S.hoveredId);
-        if (node) useStore.getState().openNoteByPath(node.path).then(onClose);
+        if (node) openNote(node.path);
       }
     }
     canvas.addEventListener("keydown", fallbackKeyDown);

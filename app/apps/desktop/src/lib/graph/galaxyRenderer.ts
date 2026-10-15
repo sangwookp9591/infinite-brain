@@ -30,7 +30,19 @@ interface Callbacks {
   fail: (error: unknown) => void;
 }
 
-function particles(count: number, soft = false) {
+// Opacity falloffs over `d`, the distance from the sprite centre (0 centre, 1 edge).
+type Distance = ReturnType<typeof unitDistance>;
+const unitDistance = () => uv().sub(0.5).length().mul(2);
+/** Note stars: a bright spike core over a soft halo. */
+const spike = (d: Distance) => d.mul(-6).exp().add(d.mul(-32).exp().mul(3)).mul(d.oneMinus().max(0));
+/** Nebula dust: wide and faint. */
+const haze = (d: Distance) => d.pow(2).mul(-5).exp().mul(d.oneMinus().max(0)).mul(0.045);
+/** Dark dust lanes. */
+const lane = (d: Distance) => d.pow(2).mul(-7).exp().mul(0.2);
+/** Backdrop stars: plain soft dots with no spike, so only notes glow. */
+const dot = (d: Distance) => d.mul(-5).exp().mul(d.oneMinus().max(0));
+
+function particles(count: number, shape: (d: Distance) => ReturnType<typeof spike> = spike) {
   const positions = new THREE.InstancedBufferAttribute(new Float32Array(count * 3), 3);
   const colors = new THREE.InstancedBufferAttribute(new Float32Array(count * 3), 3);
   const sizes = new THREE.InstancedBufferAttribute(new Float32Array(count), 1);
@@ -40,13 +52,10 @@ function particles(count: number, soft = false) {
   const material = new THREE.SpriteNodeMaterial({
     transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending,
   });
-  const distance = uv().sub(0.5).length().mul(2);
   material.positionNode = instancedBufferAttribute(positions, 'vec3');
   material.colorNode = instancedBufferAttribute<'vec3'>(colors, 'vec3').mul(float(3000).div(positionView.z.negate().max(500)).pow(0.7).clamp(0.2, 1.5));
   material.scaleNode = instancedBufferAttribute<'float'>(sizes, 'float');
-  material.opacityNode = soft
-    ? distance.pow(2).mul(-5).exp().mul(distance.oneMinus().max(0)).mul(0.045)
-    : distance.mul(-6).exp().add(distance.mul(-32).exp().mul(3)).mul(distance.oneMinus().max(0));
+  material.opacityNode = shape(unitDistance());
   const sprite = new THREE.Sprite(material);
   // Sprite shares a quad globally; filter rebuilds must only dispose their own geometry.
   sprite.geometry = sprite.geometry.clone();
@@ -67,9 +76,9 @@ export class GalaxyRenderer {
   private scenePass: ReturnType<typeof pass>;
   private bloomPass: ReturnType<typeof bloom>;
   private stars: Particles | null = null;
-  private dust = particles(1100, true);
-  private lanes = particles(500, true);
-  private background = particles(1600);
+  private dust = particles(1100, haze);
+  private lanes = particles(500, lane);
+  private background = particles(1600, dot);
   private dustGroup = new THREE.Group();
   private lines = new LineSegments2(new LineSegmentsGeometry(), new THREE.Line2NodeMaterial({
     color: '#779acb', transparent: true, opacity: 0.085, depthWrite: false, blending: THREE.AdditiveBlending,
@@ -131,7 +140,6 @@ export class GalaxyRenderer {
     this.scene.add(this.lines, this.rays, this.background.sprite, this.dustGroup);
     this.dustGroup.add(this.dust.sprite, this.lanes.sprite);
     this.lanes.sprite.material.blending = THREE.NormalBlending;
-    this.lanes.sprite.material.opacityNode = uv().sub(0.5).length().mul(2).pow(2).mul(-7).exp().mul(0.2);
     this.lanes.sprite.renderOrder = 2;
     this.makeSpace();
     this.labelLayer.className = 'graph-galaxy-labels';
@@ -161,8 +169,10 @@ export class GalaxyRenderer {
       const z = random() * 2 - 1;
       const radius = 8500;
       this.background.positions.setXYZ(i, Math.cos(angle) * Math.sqrt(1 - z * z) * radius, Math.sin(angle) * Math.sqrt(1 - z * z) * radius, z * radius);
-      this.background.colors.setXYZ(i, 0.8 + random() * 0.6, 0.9 + random() * 0.5, 1 + random() * 0.3);
-      this.background.sizes.setX(i, 10 + random() * 23);
+      // Faint enough to stay under the 0.8 bloom threshold in the constructor: only notes glow.
+      const light = 0.2 + random() * 0.15;
+      this.background.colors.setXYZ(i, light * 0.85, light * 0.92, light);
+      this.background.sizes.setX(i, 3 + random() * 5);
     }
     for (let i = 0; i < this.dust.sprite.count; i++) this.dust.sizes.setX(i, 0.12 + random() * 0.22);
   }

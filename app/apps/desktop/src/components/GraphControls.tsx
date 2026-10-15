@@ -1,12 +1,13 @@
 // Minimalistic settings panel for the Graph View. Pure controlled component:
 // it holds no physics or canvas state — it only renders inputs bound to the
 // shared GraphSettings shape and emits partial patches upward. All visual
-// styling lives in graph.css (plus the app-wide `.range-input` / `.range-value`
-// in App.css); this file just emits the agreed class names.
+// styling lives in graph.css and the shared kit components.
 
 import type { GraphSettings, ColorMode } from "../lib/graph/graphSettings";
 import { SETTING_RANGES } from "../lib/graph/graphSettings";
 import type { LegendEntry } from "../lib/graph/graphColor";
+import { BarSlider } from "./kit/BarSlider";
+import { SegmentedChips } from "./kit/SegmentedChips";
 
 export interface GraphControlsProps {
   settings: GraphSettings;
@@ -30,10 +31,10 @@ const SLIDER_LABELS: Record<SliderKey, string> = {
   minDegree: "Min links",
 };
 
-const COLOR_MODES: { mode: ColorMode; label: string }[] = [
-  { mode: "folder", label: "Folder" },
-  { mode: "degree", label: "Degree" },
-  { mode: "uniform", label: "Uniform" },
+const COLOR_MODES: { value: ColorMode; label: string }[] = [
+  { value: "folder", label: "Folder" },
+  { value: "degree", label: "Degree" },
+  { value: "uniform", label: "Uniform" },
 ];
 
 /** Round a slider value for display: integers stay whole, fractional steps
@@ -49,25 +50,23 @@ function formatValue(key: SliderKey, value: number): string {
 export function GraphControls(props: GraphControlsProps): React.JSX.Element {
   const { settings, onChange, onReset, legend } = props;
 
-  // One slider row: friendly label, native range input, live numeric readout.
+  // One slider row: friendly label and the shared keyboard-accessible slider.
   const slider = (key: SliderKey) => {
     const range = SETTING_RANGES[key];
     const value = settings[key] as number;
     return (
       <div className="graph-control-row" key={key}>
-        <label htmlFor={`graph-${key}`}>{SLIDER_LABELS[key]}</label>
-        <input
-          id={`graph-${key}`}
-          className="range-input"
-          type="range"
+        <span className="graph-control-label">{SLIDER_LABELS[key]}</span>
+        <BarSlider
+          label={SLIDER_LABELS[key]}
           disabled={props.fixedLayout && ["charge", "linkDistance", "linkStrength", "gravity"].includes(key)}
           min={range.min}
           max={range.max}
           step={range.step}
           value={value}
-          onChange={(e) => onChange({ [key]: Number(e.target.value) })}
+          onChange={(next) => onChange({ [key]: next })}
+          formatValue={(next) => formatValue(key, next)}
         />
-        <span className="range-value">{formatValue(key, value)}</span>
       </div>
     );
   };
@@ -92,22 +91,14 @@ export function GraphControls(props: GraphControlsProps): React.JSX.Element {
         {slider("edgeThickness")}
         {slider("labelScale")}
         <div className="graph-control-row">
-          <label>Color by</label>
-          <div className="graph-seg" role="group" aria-label="Color mode">
-            {COLOR_MODES.map(({ mode, label }) => (
-              <button
-                key={mode}
-                type="button"
-                className={
-                  "graph-seg-btn" + (settings.colorMode === mode ? " is-active" : "")
-                }
-                aria-pressed={settings.colorMode === mode}
-                onClick={() => onChange({ colorMode: mode as ColorMode })}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          <span className="graph-control-label">Color by</span>
+          <SegmentedChips
+            label="Color mode"
+            size="sm"
+            items={COLOR_MODES}
+            value={settings.colorMode}
+            onChange={(value) => onChange({ colorMode: value as ColorMode })}
+          />
         </div>
       </div>
 
