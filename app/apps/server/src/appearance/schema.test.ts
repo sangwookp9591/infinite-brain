@@ -11,6 +11,7 @@ describe("parseAppearance", () => {
       textSize: 16,
       lineNumbers: true,
       properties: "hidden",
+      accent: "ink",
     };
     expect(parseAppearance(full)).toEqual({ ok: true, settings: full });
     expect(parseAppearance({ contentWidth: "full" })).toEqual({ ok: true, settings: { contentWidth: "full" } });
@@ -51,8 +52,20 @@ describe("parseAppearance", () => {
       { lineNumbers: 1 },
       { properties: "shown" },
       { theme: null },
+      { accent: "#FFF" },
+      { accent: "red" },
+      { accent: "#ffffff " },
+      { accent: "#gggggg" },
+      { accent: null },
+      { accent: 3 },
     ];
     for (const s of bad) expect(parseAppearance(s)).toMatchObject({ ok: false, error: "invalid_appearance" });
+  });
+
+  it("accepts ink and six digit hex accents", () => {
+    for (const accent of ["ink", "#3B74D1"]) {
+      expect(parseAppearance({ accent })).toEqual({ ok: true, settings: { accent } });
+    }
   });
   it("accepts shared pins and an optional stable home identity", () => {
     const navigation = { homeDocId: "home-id", pinnedItems: [{ kind: "note", docId: "note-id" }, { kind: "folder", path: "Projects/Active" }] };

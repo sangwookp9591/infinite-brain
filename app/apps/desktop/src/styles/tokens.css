@@ -1,7 +1,7 @@
 /* ============================================================
-   Infinite Brain — Design Tokens ("Atomize PLUS")
-   Light-first layered surfaces, 4pt grid, pill radii, soft diffuse
-   shadows, violet primary. The same scale is mirrored for dark.
+   Infinite Brain — Design Tokens (zinc / ink)
+   Light-first zinc surfaces, 4pt grid, rounded controls, restrained
+   shadows, ink primary. The same scale is mirrored for dark.
    All UI styling MUST consume these variables — no hardcoded colors.
 
    Theming: light lives on :root. Dark is applied by [data-theme="dark"]
@@ -17,36 +17,34 @@
   --z-toast: 1100;
 
   /* Surfaces (light) */
-  --bg-app: #faf9f8;            /* app background / canvas — warm beige (#fcf9f7), cooled a touch */
-  --bg-surface: #ffffff;        /* cards, editor sheet, dialogs — Notion's page white */
-  /* The neutral fills share --bg-app's slight warmth (red a hair above blue);
-     the old lavender-cool greys read blue against the beige. */
-  --bg-subtle: #f5f4f2;         /* subtle wells, input fills */
-  --bg-card: #faf9f8;           /* panel cards in settings/health — the brand beige, same as --bg-app */
-  --bg-hover: color-mix(in srgb, var(--accent-soft) 60%, transparent); /* hover fills: the one app-wide hover, a light accent tint */
-  --bg-active: var(--accent-soft-hover); /* pressed / selected fills: a deeper step of the hover tint */
-  --members-row-hover: color-mix(in srgb, var(--accent-soft) 18%, transparent); /* member table rows: lighter than --bg-hover */
+  --bg-app: #fafafa;
+  --bg-surface: #ffffff;
+  --bg-subtle: #f4f4f5;
+  --bg-card: #ffffff;
+  --bg-hover: #f4f4f5;
+  --bg-active: #e4e4e7;
+  --members-row-hover: color-mix(in srgb, var(--accent-soft) 18%, transparent);
 
   /* Text */
-  --text-primary: #1a1a1e;
-  --text-secondary: #6b6b76;
-  --text-tertiary: #9a9aa5;
+  --text-primary: #18181b;
+  --text-secondary: #52525b;
+  --text-tertiary: #a1a1aa;
   /* The faint tier: markdown syntax markers (#, **, `, >, -), the fold
      chevrons and the line-number gutter. One step quieter than tertiary —
      present enough to find, quiet enough that prose reads as prose. Every
      theme block below must define it too: miss one and every marker in the
      editor turns black for a frame (or forever, in that theme). */
-  --text-faint: #bfbfc8;
-  --text-on-accent: #ffffff;
+  --text-faint: #d4d4d8;
+  --text-on-accent: #fafafa;
 
-  /* Accent (Atomize violet — from the Figma kit) */
-  --accent: #7f73ff;
-  --accent-hover: #6a5cf5;
-  --accent-soft: #efedff;       /* soft fills, selection tints */
-  --accent-soft-hover: #e4e0ff;
-  --accent-gradient: linear-gradient(135deg, #9a8fff 0%, #7f73ff 100%);
+  /* Accent (ink by default; custom accents override this tier) */
+  --accent: #18181b;
+  --accent-hover: #27272a;
+  --accent-soft: #f4f4f5;
+  --accent-soft-hover: #e4e4e7;
+  --accent-gradient: linear-gradient(135deg, #3f3f46 0%, #18181b 100%);
   /* Rare decorative-only partner (hero art), never for controls */
-  --decor-gradient: linear-gradient(135deg, #7f73ff 0%, #ff6a3d 120%);
+  --decor-gradient: var(--accent-gradient);
 
   /* Links (secondary accent) */
   --link: #3b82f6;
@@ -71,15 +69,12 @@
   --brand-violet-tint: #f0ebfd;
 
   /* Semantic */
-  /* Pair each tone with a deep, slightly earthy text colour
-     (green-4 #3f8850, yellow-4 #987e1b) and a ~12% tint; this is the red in
-     that family — a muted brick, not a bright cool alarm red. */
-  --danger: #b8473a;
-  --danger-soft: #f6e9e7;
-  --success: #30a46c;
-  --success-soft: #e9f6ef;
-  --warning: #d98a00;
-  --warning-soft: #fff4e0;
+  --danger: #dc2626;
+  --danger-soft: #fef2f2;
+  --success: #16a34a;
+  --success-soft: #f0fdf4;
+  --warning: #d97706;
+  --warning-soft: #fffbeb;
 
   /* Access board columns (Can edit / Can view / No access):
      green / yellow tints with a deeper text colour of the same hue, plus a
@@ -92,9 +87,9 @@
   --access-none-fg: #55555f;
 
   /* Borders */
-  --border: rgba(30, 27, 24, 0.09);
-  --border-strong: rgba(30, 27, 24, 0.15);
-  --focus-ring: 0 0 0 3px rgba(127, 115, 255, 0.30);
+  --border: #e4e4e7;
+  --border-strong: #d4d4d8;
+  --focus-ring: 0 0 0 2px var(--bg-surface), 0 0 0 4px color-mix(in srgb, var(--accent) 45%, transparent);
 
   /* Radii (generously rounded, pills for actions/chips) */
   --radius-sm: 8px;
@@ -103,10 +98,10 @@
   --radius-xl: 18px;
   --radius-pill: 999px;
 
-  /* Shadows (soft, diffuse, never harsh) */
-  --shadow-sm: 0 1px 2px rgba(20, 20, 40, 0.05), 0 1px 6px rgba(20, 20, 40, 0.04);
-  --shadow-md: 0 8px 24px rgba(20, 20, 40, 0.08);
-  --shadow-lg: 0 16px 40px rgba(20, 20, 40, 0.16);
+  /* Shadows (restrained in light; surface contrast in dark) */
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.04);
+  --shadow-md: 0 1px 2px rgb(0 0 0 / 0.04), 0 8px 24px -12px rgb(0 0 0 / 0.08);
+  --shadow-lg: 0 2px 4px rgb(0 0 0 / 0.04), 0 24px 48px -24px rgb(0 0 0 / 0.16);
 
   /* Spacing — 4pt grid */
   --sp-1: 4px;
@@ -189,6 +184,19 @@
      rather than introducing a third grey. */
   --indent-guide: var(--border);
   --indent-guide-active: var(--border-strong);
+
+  --bg-raised: #e4e4e7;
+  --radius-input: 12px;
+  --radius-row: 16px;
+  --radius-card: 20px;
+  --radius-slot: 14px;
+  --display-tracking: -0.03em;
+  --folder-color: var(--accent);
+  --folder-highlight: color-mix(in srgb, var(--text-on-accent) 10%, transparent);
+  --glow-hue-one: color-mix(in srgb, var(--accent) 30%, var(--success));
+  --glow-hue-two: color-mix(in srgb, var(--accent) 30%, var(--warning));
+  --glow-angle: 130deg;
+  --glow-strength: 0;
 }
 
 /* The editor's horizontal inset. It lives on `.cm-line` (not `.cm-content`)
@@ -234,33 +242,47 @@
   --chrome-row-h: 52px;
 }
 
+/* Order matters: light-custom → dark → dark-custom → fallback-custom.
+   The custom selectors have equal specificity, so dark-custom must come last. */
+:root[data-accent="custom"] {
+  --accent: var(--accent-custom-light);
+  --accent-hover: var(--accent-custom-light-hover);
+  --text-on-accent: var(--on-accent-custom-light);
+  --accent-soft: color-mix(in oklab, var(--accent) 12%, var(--bg-surface));
+  --accent-soft-hover: color-mix(in oklab, var(--accent) 18%, var(--bg-surface));
+  --accent-gradient: linear-gradient(135deg, color-mix(in oklab, var(--accent) 78%, white) 0%, var(--accent) 100%);
+  --selection-bg: color-mix(in oklab, var(--accent) 30%, var(--bg-surface));
+  --editor-selection-bg: color-mix(in srgb, var(--accent) 28%, transparent);
+  --editor-selection-bg-inactive: color-mix(in srgb, var(--accent) 28%, transparent);
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
 /* ---- Dark theme tokens (shared by explicit toggle + system fallback) ---- */
 [data-theme="dark"] {
   color-scheme: dark;
 
   /* Neutral charcoal layers: elevation gets lighter in small, predictable
      steps, so cards and controls separate without purple-grey colour noise. */
-  --bg-app: #121214;
-  --bg-surface: #1c1c20;
-  --bg-subtle: #242429;
-  --bg-card: #242429;
-  --bg-hover: #29273d;          /* hover: the accent at 13% over --bg-surface (solid, so contrast is checkable) */
-  --bg-active: #343156;         /* pressed / selected: the accent at 24% over --bg-surface; text-tertiary stays ≥ 4.5:1 */
-  --members-row-hover: #201f29; /* member table rows: the accent at ~4% over --bg-surface */
+  --bg-app: #111113;
+  --bg-surface: #18181b;
+  --bg-subtle: #1f1f23;
+  --bg-card: #18181b;
+  --bg-hover: #1f1f23;
+  --bg-active: #27272a;
+  --members-row-hover: color-mix(in srgb, var(--accent-soft) 18%, transparent);
 
-  /* Off-white body copy is comfortable over long sessions. Secondary and
-     tertiary copy remain above 4.5:1 even on the lighter interaction layers. */
-  --text-primary: #ececf1;
-  --text-secondary: #b8b8c0;
-  --text-tertiary: #9d9da7;
-  --text-faint: #85858f;
+  /* Off-white body copy with zinc secondary and tertiary tiers. */
+  --text-primary: #f5f5f5;
+  --text-secondary: #a1a1aa;
+  --text-tertiary: #71717a;
+  --text-faint: #3f3f46;
 
-  --accent: #a69cff;
-  --accent-hover: #bbb4ff;
-  --accent-soft: rgba(127, 115, 255, 0.18);
-  --accent-soft-hover: rgba(127, 115, 255, 0.26);
-  --accent-gradient: linear-gradient(135deg, #9a8fff 0%, #7f73ff 100%);
-  --decor-gradient: linear-gradient(135deg, #7f73ff 0%, #ff6a3d 120%);
+  --accent: #f5f5f5;
+  --accent-hover: #e4e4e7;
+  --accent-soft: #27272a;
+  --accent-soft-hover: #3f3f46;
+  --accent-gradient: linear-gradient(135deg, #ffffff 0%, #d4d4d8 100%);
+  --decor-gradient: var(--accent-gradient);
 
   --link: #82b7ff;
 
@@ -271,12 +293,12 @@
   --editor-selection-bg: rgba(53, 90, 159, 0.32);
   --editor-selection-bg-inactive: rgba(53, 90, 159, 0.20);
 
-  --danger-soft: rgba(229, 72, 77, 0.18);
+  --danger-soft: rgb(229 72 77 / 0.14);
   --brand-violet-tint: rgba(124, 92, 255, 0.16);
-  --success: #3cb883;
-  --success-soft: rgba(48, 164, 108, 0.18);
-  --warning: #f0b429;
-  --warning-soft: rgba(240, 180, 41, 0.16);
+  --success: #22c55e;
+  --success-soft: rgb(34 197 94 / 0.14);
+  --warning: #f5a524;
+  --warning-soft: rgb(245 165 36 / 0.14);
 
   --access-edit-bg: rgba(48, 164, 108, 0.18);
   --access-edit-fg: #74d39c;
@@ -285,15 +307,46 @@
   --access-none-bg: rgba(255, 255, 255, 0.06);
   --access-none-fg: #b6b6bf;
 
-  --border: rgba(255, 255, 255, 0.09);
-  --border-strong: rgba(255, 255, 255, 0.18);
-  --focus-ring: 0 0 0 3px rgba(143, 132, 255, 0.40);
+  --border: #27272a;
+  --border-strong: #3f3f46;
+  --focus-ring: 0 0 0 2px var(--bg-surface), 0 0 0 4px color-mix(in srgb, var(--accent) 45%, transparent);
 
   --highlight-bg: rgba(255, 208, 0, 0.22);
 
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
-  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.55);
+  --shadow-sm: none;
+  --shadow-md: 0 0 0 1px var(--border);
+  --shadow-lg: 0 0 0 1px var(--border), 0 24px 48px -24px rgb(0 0 0 / 0.6);
+
+  --bg-raised: #27272a;
+  --text-on-accent: #18181b;
+  --danger: #e5484d;
+  --radius-input: 12px;
+  --radius-row: 16px;
+  --radius-card: 20px;
+  --radius-slot: 14px;
+  --display-tracking: -0.03em;
+  --folder-color: var(--accent);
+  --folder-highlight: color-mix(in srgb, var(--text-on-accent) 10%, transparent);
+  --glow-hue-one: color-mix(in srgb, var(--accent) 30%, var(--success));
+  --glow-hue-two: color-mix(in srgb, var(--accent) 30%, var(--warning));
+  --glow-angle: 130deg;
+  --glow-strength: 0;
+}
+
+[data-theme="dark"][data-accent="custom"] {
+  --accent: var(--accent-custom-dark);
+  --accent-hover: var(--accent-custom-dark-hover);
+  --text-on-accent: var(--on-accent-custom-dark);
+  --accent-soft: color-mix(in srgb, var(--accent) 18%, transparent);
+  --accent-soft-hover: color-mix(in srgb, var(--accent) 26%, transparent);
+  --bg-hover: color-mix(in srgb, var(--accent) 13%, var(--bg-surface));
+  --bg-active: color-mix(in srgb, var(--accent) 24%, var(--bg-surface));
+  --members-row-hover: color-mix(in srgb, var(--accent) 4%, var(--bg-surface));
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 40%, transparent);
+  /* Restore the dark selection overlays: light-custom has higher specificity. */
+  --selection-bg: #384f83;
+  --editor-selection-bg: rgba(53, 90, 159, 0.32);
+  --editor-selection-bg-inactive: rgba(53, 90, 159, 0.20);
 }
 
 /* Pre-hydration fallback: honour the OS until the toggle script paints
@@ -302,36 +355,44 @@
   :root:not([data-theme="light"]):not([data-theme="dark"]) {
     color-scheme: dark;
 
-    --bg-app: #121214;
-    --bg-surface: #1c1c20;
-    --bg-subtle: #242429;
-    --bg-card: #242429;
-    --bg-hover: #29273d;          /* hover: the accent at 13% over --bg-surface (solid, so contrast is checkable) */
-    --bg-active: #343156;         /* pressed / selected: the accent at 24% over --bg-surface; text-tertiary stays ≥ 4.5:1 */
-  --members-row-hover: #201f29; /* member table rows: the accent at ~4% over --bg-surface */
+    /* Neutral charcoal layers: elevation gets lighter in small, predictable
+       steps, so cards and controls separate without purple-grey colour noise. */
+    --bg-app: #111113;
+    --bg-surface: #18181b;
+    --bg-subtle: #1f1f23;
+    --bg-card: #18181b;
+    --bg-hover: #1f1f23;
+    --bg-active: #27272a;
+    --members-row-hover: color-mix(in srgb, var(--accent-soft) 18%, transparent);
 
-    --text-primary: #ececf1;
-    --text-secondary: #b8b8c0;
-    --text-tertiary: #9d9da7;
-    --text-faint: #85858f;
+    /* Off-white body copy with zinc secondary and tertiary tiers. */
+    --text-primary: #f5f5f5;
+    --text-secondary: #a1a1aa;
+    --text-tertiary: #71717a;
+    --text-faint: #3f3f46;
 
-    --accent: #a69cff;
-    --accent-hover: #bbb4ff;
-    --accent-soft: rgba(127, 115, 255, 0.18);
-    --accent-soft-hover: rgba(127, 115, 255, 0.26);
+    --accent: #f5f5f5;
+    --accent-hover: #e4e4e7;
+    --accent-soft: #27272a;
+    --accent-soft-hover: #3f3f46;
+    --accent-gradient: linear-gradient(135deg, #ffffff 0%, #d4d4d8 100%);
+    --decor-gradient: var(--accent-gradient);
+
     --link: #82b7ff;
 
     --selection-bg: #384f83;
     --selection-text: #f4f4f6;
+    /* drawSelection sits above editor text and opaque widgets. A restrained
+       navy overlay keeps selected body text at 7:1 and links at 4.5:1. */
     --editor-selection-bg: rgba(53, 90, 159, 0.32);
     --editor-selection-bg-inactive: rgba(53, 90, 159, 0.20);
 
-    --danger-soft: rgba(229, 72, 77, 0.18);
+    --danger-soft: rgb(229 72 77 / 0.14);
     --brand-violet-tint: rgba(124, 92, 255, 0.16);
-    --success: #3cb883;
-    --success-soft: rgba(48, 164, 108, 0.18);
-    --warning: #f0b429;
-    --warning-soft: rgba(240, 180, 41, 0.16);
+    --success: #22c55e;
+    --success-soft: rgb(34 197 94 / 0.14);
+    --warning: #f5a524;
+    --warning-soft: rgb(245 165 36 / 0.14);
 
     --access-edit-bg: rgba(48, 164, 108, 0.18);
     --access-edit-fg: #74d39c;
@@ -340,14 +401,43 @@
     --access-none-bg: rgba(255, 255, 255, 0.06);
     --access-none-fg: #b6b6bf;
 
-    --border: rgba(255, 255, 255, 0.09);
-    --border-strong: rgba(255, 255, 255, 0.18);
-    --focus-ring: 0 0 0 3px rgba(143, 132, 255, 0.40);
+    --border: #27272a;
+    --border-strong: #3f3f46;
+    --focus-ring: 0 0 0 2px var(--bg-surface), 0 0 0 4px color-mix(in srgb, var(--accent) 45%, transparent);
 
     --highlight-bg: rgba(255, 208, 0, 0.22);
 
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
-    --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
-    --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.55);
+    --shadow-sm: none;
+    --shadow-md: 0 0 0 1px var(--border);
+    --shadow-lg: 0 0 0 1px var(--border), 0 24px 48px -24px rgb(0 0 0 / 0.6);
+
+    --bg-raised: #27272a;
+    --text-on-accent: #18181b;
+    --danger: #e5484d;
+    --radius-input: 12px;
+    --radius-row: 16px;
+    --radius-card: 20px;
+    --radius-slot: 14px;
+    --display-tracking: -0.03em;
+    --folder-color: var(--accent);
+    --folder-highlight: color-mix(in srgb, var(--text-on-accent) 10%, transparent);
+    --glow-hue-one: color-mix(in srgb, var(--accent) 30%, var(--success));
+    --glow-hue-two: color-mix(in srgb, var(--accent) 30%, var(--warning));
+    --glow-angle: 130deg;
+    --glow-strength: 0;
+  }
+  :root[data-accent="custom"]:not([data-theme="light"]):not([data-theme="dark"]) {
+    --accent: var(--accent-custom-dark);
+    --accent-hover: var(--accent-custom-dark-hover);
+    --text-on-accent: var(--on-accent-custom-dark);
+    --accent-soft: color-mix(in srgb, var(--accent) 18%, transparent);
+    --accent-soft-hover: color-mix(in srgb, var(--accent) 26%, transparent);
+    --bg-hover: color-mix(in srgb, var(--accent) 13%, var(--bg-surface));
+    --bg-active: color-mix(in srgb, var(--accent) 24%, var(--bg-surface));
+    --members-row-hover: color-mix(in srgb, var(--accent) 4%, var(--bg-surface));
+    --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 40%, transparent);
+    --selection-bg: #384f83;
+    --editor-selection-bg: rgba(53, 90, 159, 0.32);
+    --editor-selection-bg-inactive: rgba(53, 90, 159, 0.20);
   }
 }

@@ -5,6 +5,7 @@ import {
   effectiveAppearance,
   migrateStoredAppearance,
   parseAppearanceSettings,
+  validAppearanceValue,
   vaultAppearanceValues,
   withAppearance,
 } from "../appearanceSettings";
@@ -93,6 +94,27 @@ describe("parseAppearanceSettings", () => {
   it("withAppearance sets and clears one key", () => {
     expect(withAppearance({ theme: "dark" }, "theme", undefined)).toEqual({});
     expect(withAppearance({}, "lineNumbers", true)).toEqual({ lineNumbers: true });
+  });
+
+  it("validates and normalizes accent settings", () => {
+    for (const [value, expected] of [
+      ["ink", "ink"],
+      ["#3B74D1", "#3b74d1"],
+      ["#fff", undefined],
+      ["red", undefined],
+      ["#ffffff ", undefined],
+      ["#gggggg", undefined],
+      [null, undefined],
+      [3, undefined],
+    ] as const) {
+      expect(validAppearanceValue("accent", value)).toBe(expected);
+    }
+    expect(parseAppearanceSettings({ accent: "#ABCDEF" }).accent).toBe("#abcdef");
+  });
+
+  it("resolves an accent from vault defaults unless personally overridden", () => {
+    expect(effectiveAppearance({}, { accent: "#123456" }).accent).toBe("#123456");
+    expect(effectiveAppearance({ accent: "ink" }, { accent: "#123456" }).accent).toBe("ink");
   });
 });
 

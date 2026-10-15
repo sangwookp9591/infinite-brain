@@ -6,10 +6,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Infinite Brain</title>
     <script>
-      // Paint the persisted theme before first render to avoid a flash.
+      // Paint the last effective appearance before modules load.
       (function () {
         try {
-          var m = localStorage.getItem("cbk-theme");
+          var cached = null;
+          try { cached = JSON.parse(localStorage.getItem("context.appearancePaint.v1")); } catch (e) {}
+          var validTheme = cached && ["light", "dark", "system"].indexOf(cached.theme) !== -1;
+          var m = validTheme ? cached.theme : localStorage.getItem("cbk-theme");
           var dark =
             m === "dark" ||
             (m !== "light" &&
@@ -18,6 +21,18 @@
             "data-theme",
             dark ? "dark" : "light",
           );
+          var vars = validTheme && cached.accentVars;
+          var required = ["--accent-custom-light", "--accent-custom-light-hover", "--on-accent-custom-light",
+            "--accent-custom-dark", "--accent-custom-dark-hover", "--on-accent-custom-dark"];
+          if (vars && typeof vars === "object" && !Array.isArray(vars) && Object.keys(vars).length === 6 &&
+            required.every(function (key) { return Object.prototype.hasOwnProperty.call(vars, key); }) &&
+            Object.keys(vars).every(function (key) {
+              return /^--(on-)?accent-custom-(light|dark)(-hover)?$/.test(key) &&
+                typeof vars[key] === "string" && /^#[0-9a-f]{6}$/.test(vars[key]);
+            })) {
+            Object.keys(vars).forEach(function (key) { document.documentElement.style.setProperty(key, vars[key]); });
+            document.documentElement.setAttribute("data-accent", "custom");
+          }
         } catch (e) {}
       })();
     </script>

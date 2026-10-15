@@ -15,6 +15,7 @@ import type { PropertiesMode } from "./editor/frontmatter";
 import type { ThemeMode } from "./theme";
 
 export type ContentWidth = number | "full";
+export type AccentSetting = "ink" | `#${string}`;
 
 /** The six settings a vault can default. A key may be absent on a vault row
  *  saved before every row became concrete; it then means the app default. */
@@ -26,6 +27,7 @@ export interface AppearanceSettings {
   textSize?: number;
   lineNumbers?: boolean;
   properties?: PropertiesMode;
+  accent?: AccentSetting;
 }
 
 export interface VaultAppearanceSettings extends AppearanceSettings {
@@ -43,6 +45,7 @@ export const APPEARANCE_KEYS: readonly AppearanceKey[] = [
   "textSize",
   "lineNumbers",
   "properties",
+  "accent",
 ];
 
 /** What a device that never chose anything, in a vault that set nothing, sees.
@@ -54,6 +57,7 @@ export const APPEARANCE_DEFAULTS: ResolvedAppearance = {
   textSize: 16,
   lineNumbers: false,
   properties: "visible",
+  accent: "ink",
 };
 
 const CONTENT_WIDTH_MIN = 60;
@@ -83,6 +87,8 @@ export function validAppearanceValue<K extends AppearanceKey>(
         : undefined) as AppearanceSettings[K];
     case "properties":
       return (v === "visible" || v === "hidden" || v === "source" ? v : undefined) as AppearanceSettings[K];
+    case "accent":
+      return (v === "ink" ? v : typeof v === "string" && /^#[0-9a-f]{6}$/i.test(v) ? v.toLowerCase() : undefined) as AppearanceSettings[K];
     default:
       return undefined;
   }

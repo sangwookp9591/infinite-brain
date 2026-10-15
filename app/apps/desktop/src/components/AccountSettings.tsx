@@ -35,6 +35,7 @@ import { AppearanceRows } from "./AppearanceRows";
 import { useShallow } from "zustand/react/shallow";
 import {
   appearanceSource,
+  effectiveAppearance,
   type AppearanceKey,
   type AppearanceSettings,
 } from "../lib/appearanceSettings";
@@ -532,6 +533,7 @@ function AppearanceTab() {
       textSize: s.editorFontSize,
       lineNumbers: s.lineNumbers,
       properties: s.propertiesMode,
+      accent: effectiveAppearance(overrides, orgId ? vaultAppearance[orgId] : null).accent,
     })),
   );
   // A synced vault always has a value for every row (a key it never saved is

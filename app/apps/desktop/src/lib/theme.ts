@@ -3,7 +3,28 @@
 // live. We resolve the mode to a concrete theme and stamp `data-theme` on the
 // root element so tokens.css only needs :root (light) + [data-theme="dark"].
 
+import { accentPalette } from "./accent";
+import type { AccentSetting } from "./appearanceSettings";
+import { ACCENT_CUSTOM_PROPERTIES } from "./paintCache";
+
 export type ThemeMode = "light" | "dark" | "system";
+
+export function applyAccent(setting: AccentSetting): void {
+  if (typeof document === "undefined") return;
+  const root = document.documentElement;
+  if (setting === "ink") {
+    root.removeAttribute("data-accent");
+    for (const key of ACCENT_CUSTOM_PROPERTIES) root.style.removeProperty(key);
+    return;
+  }
+  const palette = accentPalette(setting);
+  for (const theme of ["light", "dark"] as const) {
+    root.style.setProperty(`--accent-custom-${theme}`, palette[theme].accent);
+    root.style.setProperty(`--accent-custom-${theme}-hover`, palette[theme].hover);
+    root.style.setProperty(`--on-accent-custom-${theme}`, palette[theme].onAccent);
+  }
+  root.setAttribute("data-accent", "custom");
+}
 
 const STORAGE_KEY = "cbk-theme";
 const MODES: ThemeMode[] = ["light", "dark", "system"];

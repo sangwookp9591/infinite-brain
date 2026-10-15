@@ -48,7 +48,8 @@ import {
   type VaultAppearanceSettings,
 } from "./lib/appearanceSettings";
 import { readPersonalPins, readPersonalHome, writePersonalPins, writePersonalHome, renamePinnedFolders, togglePinned, effectiveHomeNote, shouldFollowSharedHome, type PinnedItem } from "./lib/pins";
-import { applyEffectiveTheme, type ThemeMode } from "./lib/theme";
+import { applyAccent, applyEffectiveTheme, type ThemeMode } from "./lib/theme";
+import { ACCENT_CUSTOM_PROPERTIES, PAINT_CACHE_KEY } from "./lib/paintCache";
 import { syncManager } from "./lib/sync/docSession";
 import { vaultScopes } from "./lib/sync/vaultScope";
 import { reconcileReport } from "./lib/sync/reconcileReport";
@@ -3563,6 +3564,13 @@ export const useStore = create<AppStore>((set, get) => ({
     const eff = effectiveAppearance(st.appearanceOverrides, orgId ? st.vaultAppearance[orgId] : null);
     applyEditorFontSize(eff.textSize);
     applyEffectiveTheme(eff.theme);
+    applyAccent(eff.accent);
+    try {
+      const accentVars = eff.accent === "ink" || typeof document === "undefined" ? null
+        : Object.fromEntries(ACCENT_CUSTOM_PROPERTIES.map((key) =>
+          [key, document.documentElement.style.getPropertyValue(key)]));
+      localStorage.setItem(PAINT_CACHE_KEY, JSON.stringify({ theme: eff.theme, accentVars }));
+    } catch { /* Appearance still applies when storage is unavailable. */ }
     const patch = {
       themeMode: eff.theme,
       automaticItemColors: eff.autoColors,

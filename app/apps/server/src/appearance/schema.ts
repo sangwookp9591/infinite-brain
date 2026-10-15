@@ -16,6 +16,7 @@ export type VaultAppearance = {
   textSize?: number;
   lineNumbers?: boolean;
   properties?: "visible" | "hidden" | "source";
+  accent?: "ink" | `#${string}`;
 };
 
 export const CONTENT_WIDTH_MIN = 60;
@@ -47,6 +48,7 @@ const CHECKS: Record<keyof VaultAppearance, Check> = {
   textSize: (v) => inRange(v, TEXT_SIZE_MIN, TEXT_SIZE_MAX),
   lineNumbers: (v) => typeof v === "boolean",
   properties: (v) => typeof v === "string" && PROPERTIES.has(v),
+  accent: (v) => v === "ink" || (typeof v === "string" && /^#[0-9a-fA-F]{6}$/.test(v)),
 };
 
 export type AppearanceParse =
