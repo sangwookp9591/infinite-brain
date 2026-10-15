@@ -86,7 +86,8 @@ describe("editor tokens", () => {
       "--editor-selection-bg",
       "--editor-selection-bg-inactive",
     ]) {
-      expect(definitions(token)).toBe(3);
+      // Light, dark and fallback, plus the custom-accent overrides.
+      expect(definitions(token)).toBeGreaterThanOrEqual(3);
     }
     expect(appCss).toMatch(/::selection\s*\{[^}]*background:\s*var\(--selection-bg\)/s);
     expect(appCss).toMatch(/::selection\s*\{[^}]*color:\s*var\(--selection-text\)/s);

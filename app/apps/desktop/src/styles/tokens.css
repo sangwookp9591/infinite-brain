@@ -11,6 +11,8 @@
    ============================================================ */
 
 :root {
+  /* Modal scrim behind dialogs. */
+  --modal-backdrop: rgb(0 0 0 / 0.32);
   color-scheme: light;
 
   /* Toasts sit above every modal/overlay layer (highest is the lightbox, 1000). */
@@ -52,10 +54,10 @@
   /* Text selection is its own interaction colour. Our editor lifts
      drawSelection's wash above rich content, while native selection paints
      behind text, so they need separate values for the two rendering paths. */
-  --selection-bg: #d8d3ff;
+  --selection-bg: #d4d4d8;
   --selection-text: var(--text-primary);
-  --editor-selection-bg: rgba(127, 115, 255, 0.28);
-  --editor-selection-bg-inactive: rgba(127, 115, 255, 0.28);
+  --editor-selection-bg: rgba(24, 24, 27, 0.12);
+  --editor-selection-bg-inactive: rgba(24, 24, 27, 0.08);
 
   /* Brand — Infinite Brain logo. Fixed identity colors (not themed): the
      bracket mark's dot + wordmark brackets are green; the mark tile is a
@@ -259,6 +261,7 @@
 
 /* ---- Dark theme tokens (shared by explicit toggle + system fallback) ---- */
 [data-theme="dark"] {
+  --modal-backdrop: rgb(0 0 0 / 0.6);
   color-scheme: dark;
 
   /* Neutral charcoal layers: elevation gets lighter in small, predictable
@@ -267,15 +270,15 @@
   --bg-surface: #18181b;
   --bg-subtle: #1f1f23;
   --bg-card: #18181b;
-  --bg-hover: #1f1f23;
+  --bg-hover: #232327;
   --bg-active: #27272a;
   --members-row-hover: color-mix(in srgb, var(--accent-soft) 18%, transparent);
 
   /* Off-white body copy with zinc secondary and tertiary tiers. */
   --text-primary: #f5f5f5;
-  --text-secondary: #a1a1aa;
-  --text-tertiary: #71717a;
-  --text-faint: #3f3f46;
+  --text-secondary: #b4b4bc;
+  --text-tertiary: #929299;
+  --text-faint: #86868f;
 
   --accent: #f5f5f5;
   --accent-hover: #e4e4e7;
@@ -353,6 +356,7 @@
    data-theme. Once data-theme is set (light or dark), this no longer matches. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]):not([data-theme="dark"]) {
+    --modal-backdrop: rgb(0 0 0 / 0.6);
     color-scheme: dark;
 
     /* Neutral charcoal layers: elevation gets lighter in small, predictable
@@ -361,15 +365,15 @@
     --bg-surface: #18181b;
     --bg-subtle: #1f1f23;
     --bg-card: #18181b;
-    --bg-hover: #1f1f23;
+    --bg-hover: #232327;
     --bg-active: #27272a;
     --members-row-hover: color-mix(in srgb, var(--accent-soft) 18%, transparent);
 
     /* Off-white body copy with zinc secondary and tertiary tiers. */
     --text-primary: #f5f5f5;
-    --text-secondary: #a1a1aa;
-    --text-tertiary: #71717a;
-    --text-faint: #3f3f46;
+    --text-secondary: #b4b4bc;
+    --text-tertiary: #929299;
+    --text-faint: #86868f;
 
     --accent: #f5f5f5;
     --accent-hover: #e4e4e7;
