@@ -341,6 +341,12 @@ button.secondary:focus-visible,
   background: radial-gradient(circle, var(--accent) 0%, transparent 70%);
   opacity: 0.18;
 }
+/* Ink is near-black/near-white, so at the colour opacities above the blobs
+   read as grey smudges. Keep only a faint breath of it until a custom
+   accent gives the aurora a hue. */
+:root:not([data-accent="custom"]) .aurora-blob.a1 { opacity: 0.1; }
+:root:not([data-accent="custom"]) .aurora-blob.a2 { opacity: 0.06; }
+:root:not([data-accent="custom"]) .aurora-blob.a3 { opacity: 0.04; }
 /* ---- Welcome-screen sign-in line ----
    Sits with the hint text under the primary actions, in the same quiet register
    — an account is optional in a local-first app, so this informs rather than
@@ -1666,6 +1672,8 @@ body:has(.sidebar-resizer.dragging) {
 }
 .tree-row {
   border-radius: var(--radius-row);
+  /* Inset from the sidebar edge so the rounded fill reads as a pill. */
+  margin-inline: var(--sp-2);
   display: flex;
   align-items: center;
   gap: var(--sp-2);
