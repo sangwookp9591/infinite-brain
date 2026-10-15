@@ -1,0 +1,10 @@
+/*SPDX-License-Identifier: Apache-2.0 AND LicenseRef-ReactBits-MIT-CommonsClause
+Adapted from React Bits Wake Slider (https://reactbits.dev), Copyright (c) 2026 David Haz.
+See ./LICENSE-react-bits.md. */
+.kit-slider { display: flex; align-items: center; gap: 18px; width: 100%; }
+.kit-slider-track { display: flex; align-items: center; justify-content: space-between; gap: 3px; height: 64px; flex: 1; min-width: 0; touch-action: pan-y; cursor: ew-resize; border-radius: var(--radius-input); }
+.kit-slider-track i { display: block; flex: 1; max-width: 4px; height: 12px; border-radius: var(--radius-pill); background: var(--bg-raised); pointer-events: none; }
+.kit-slider-track i[data-filled="true"] { background: var(--accent); }
+.kit-slider-track:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.kit-slider-track[aria-disabled="true"] { opacity: .45; cursor: default; }
+.kit-slider output { min-width: 5ch; font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 13px; color: var(--text-secondary); }

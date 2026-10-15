@@ -1,0 +1,15 @@
+/* SPDX-License-Identifier: Apache-2.0 AND LicenseRef-ReactBits-MIT-CommonsClause */
+/* Adapted from React Bits Comet Dial (https://reactbits.dev), Copyright (c) 2026 David Haz.
+   See ./LICENSE-react-bits.md. */
+.kit-dial { position: relative; width: 180px; height: 180px; color: var(--text-primary); border-radius: var(--radius-pill); touch-action: none; outline: none; }
+.kit-dial[role="slider"] { cursor: grab; }
+.kit-dial:focus-visible { box-shadow: var(--focus-ring); }
+.kit-dial svg { width: 100%; height: 100%; overflow: visible; }
+.kit-dial .kit-dial-orbit { position: absolute; inset: 0; transform-origin: center; pointer-events: none; }
+.kit-dial line { stroke-width: 2; stroke-linecap: round; }
+.kit-dial-tick { stroke: var(--border-strong); }
+.kit-dial-lit { stroke: var(--accent); }
+.kit-dial-head, .kit-dial-comet { fill: var(--accent); }
+.kit-dial-value { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font: 36px var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: -.06em; }
+.kit-dial-value small { font-size: 14px; margin-left: 3px; color: var(--text-secondary); }
+.kit-dial-label { position: absolute; top: 63%; left: 0; width: 100%; text-align: center; font-size: 11px; color: var(--text-secondary); }

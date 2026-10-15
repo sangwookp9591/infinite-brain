@@ -1,0 +1,10 @@
+/*SPDX-License-Identifier: Apache-2.0 AND LicenseRef-ReactBits-MIT-CommonsClause
+Adapted from React Bits Jelly Radio (https://reactbits.dev), Copyright (c) 2026 David Haz.
+See ./LICENSE-react-bits.md. */
+.kit-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; padding: 12px 18px; }
+.kit-chips button { border: 0; border-radius: var(--radius-pill); background: var(--bg-subtle); color: var(--text-secondary); height: 36px; padding: 0 16px; font: inherit; font-size: 13px; cursor: pointer; }
+.kit-chips button[aria-checked="true"] { background: var(--accent); color: var(--text-on-accent); }
+.kit-chips button:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.kit-chips button:disabled { opacity: .45; cursor: default; }
+.kit-chips[data-size="sm"] button { height: 28px; padding: 0 12px; font-size: 12px; }
+.kit-chips[data-size="lg"] button { height: 44px; padding: 0 20px; font-size: 14px; }

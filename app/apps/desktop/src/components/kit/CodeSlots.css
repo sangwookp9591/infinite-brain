@@ -1,0 +1,17 @@
+/*SPDX-License-Identifier: Apache-2.0 AND LicenseRef-ReactBits-MIT-CommonsClause
+Adapted from React Bits Code Slots (https://reactbits.dev), Copyright (c) 2026 David Haz.
+See ./LICENSE-react-bits.md. */
+.kit-code { width: 100%; max-width: 408px; }
+.kit-code-row { display: block; position: relative; border-radius: var(--radius-slot); }
+.kit-code-row input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; z-index: 2; cursor: text; font-size: 16px; }
+.kit-code-slots { display: flex; gap: 6px; }
+.kit-code-slot { position: relative; overflow: hidden; flex: 1; min-width: 0; height: 50px; display: grid; place-items: center; border-radius: var(--radius-slot); background: var(--bg-subtle); color: var(--text-primary); font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 21px; }
+.kit-code-slot[data-filled="true"] { background: var(--accent); color: var(--text-on-accent); }
+.kit-code-row:has(input:focus-visible) { box-shadow: var(--focus-ring); }
+.kit-code-row:focus-within .kit-code-slot[data-active="true"] { outline: 1px solid var(--border-strong); outline-offset: 2px; }
+.kit-code[data-error="true"] .kit-code-slot { outline: 1px solid var(--danger); }
+.kit-code[data-error="true"] .kit-code-slot[data-filled="true"] { background: var(--danger); color: var(--text-on-accent); }
+.kit-code-error { display: block; color: var(--danger); font-size: 12px; margin-top: 12px; }
+.kit-code-row:has(input:disabled) { opacity: .45; }
+@media (max-width: 420px) { .kit-code-slots { gap: 4px; } .kit-code-slot { height: 40px; font-size: 17px; } }
+.kit-code-slot > span { position: absolute; inset: 0; display: grid; place-items: center; }

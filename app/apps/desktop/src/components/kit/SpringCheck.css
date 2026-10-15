@@ -1,0 +1,11 @@
+/*SPDX-License-Identifier: Apache-2.0 AND LicenseRef-ReactBits-MIT-CommonsClause
+Adapted from React Bits Spring Check (https://reactbits.dev), Copyright (c) 2026 David Haz.
+See ./LICENSE-react-bits.md. */
+.kit-check { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 5px 4px; background: none; border: 0; border-radius: var(--radius-row); color: var(--text-primary); font: inherit; text-align: start; cursor: pointer; }
+.kit-check-box { position: relative; flex: 0 0 26px; height: 26px; border: 1.5px solid var(--border-strong); border-radius: calc(var(--radius-input) * .65); overflow: hidden; }
+.kit-check-fill { position: absolute; inset: -1px; background: var(--accent); border-radius: inherit; }
+.kit-check svg { position: absolute; inset: 3px; width: 18px; height: 18px; stroke: var(--text-on-accent); stroke-width: 2.4; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.kit-check-label { position: relative; font-size: 15px; }
+.kit-check-label i { position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: var(--text-secondary); transform-origin: left center; }
+.kit-check:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.kit-check:disabled { opacity: .45; cursor: default; }

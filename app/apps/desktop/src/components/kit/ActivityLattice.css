@@ -1,0 +1,12 @@
+/* SPDX-License-Identifier: Apache-2.0 AND LicenseRef-ReactBits-MIT-CommonsClause */
+/* Adapted from React Bits Lattice Loader (https://reactbits.dev), Copyright (c) 2026 David Haz.
+   See ./LICENSE-react-bits.md. */
+.kit-lattice { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--text-primary); }
+.kit-lattice-grid { width: 22px; display: grid; grid-template-columns: repeat(3, 6px); gap: 2px; color: var(--accent); flex-shrink: 0; }
+.kit-lattice-grid span { width: 6px; height: 6px; border-radius: var(--radius-pill); background: currentColor; }
+.kit-lattice[data-status="working"] .kit-lattice-grid span { animation: kit-lattice-wave 1.3s infinite; }
+.kit-lattice[data-status="done"] .kit-lattice-grid { color: var(--success); }
+.kit-lattice[data-status="error"] .kit-lattice-grid { color: var(--danger); }
+.kit-lattice-time { margin-left: auto; font: 12px var(--font-mono); font-variant-numeric: tabular-nums; color: var(--text-tertiary); }
+@keyframes kit-lattice-wave { 0%, 75%, 100% { opacity: .15; transform: scale(.8); } 35% { opacity: 1; transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .kit-lattice[data-status="working"] .kit-lattice-grid span { animation: none; } }

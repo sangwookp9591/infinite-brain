@@ -1,0 +1,10 @@
+/* SPDX-License-Identifier: Apache-2.0 AND LicenseRef-ReactBits-MIT-CommonsClause */
+/* Adapted from React Bits Border Glow (https://reactbits.dev), Copyright (c) 2026 David Haz.
+   See ./LICENSE-react-bits.md. */
+.kit-glow { --glow-hue-one: color-mix(in srgb, var(--accent) 30%, var(--success)); --glow-hue-two: color-mix(in srgb, var(--accent) 30%, var(--warning)); --glow-angle: 130deg; --glow-strength: 0; border-radius: var(--radius-card); position: relative; padding: 1px; width: 100%; background: var(--border);  isolation: isolate; }
+.kit-glow::before { content: ""; position: absolute; inset: 0; border-radius: inherit; background: radial-gradient(at 15% 20%, var(--glow-hue-one), transparent 65%), radial-gradient(at 85% 75%, var(--glow-hue-two), transparent 65%), conic-gradient(from var(--glow-angle), var(--accent), var(--glow-hue-one), var(--glow-hue-two), var(--accent)); opacity: var(--glow-strength); mask-image: conic-gradient(from calc(var(--glow-angle) - 60deg), var(--accent), transparent 120deg); z-index: -1; }
+.kit-glow:focus-within { box-shadow: var(--focus-ring); --glow-strength: 1 !important; }
+.kit-glow-content { border-radius: inherit; background: var(--bg-surface); padding: 22px; height: 100%; }
+.kit-glow-content button { border: 0; border-radius: var(--radius-pill); padding: 7px 12px; background: var(--bg-subtle); color: var(--text-primary); font: inherit; font-size: 11px; margin-top: 16px; cursor: pointer; }
+.kit-glow-content button:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+@media (prefers-reduced-motion: reduce) { .kit-glow { --glow-strength: 0 !important; } }
