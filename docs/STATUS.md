@@ -9,6 +9,41 @@ tags: [baalda, status, roadmap]
 
 > Live checklist. Update as phases land. Back to index: [[Infinite Brain]].
 
+## Infinite Brain fork (2026-10-15)
+
+Hard fork of Baalda 0.1.83 (`ee/` excluded). The sections below this one are inherited upstream
+history. Where they mention a managed instance, billing or a production release, those apply
+to upstream and not to this fork. This fork has no hosted server or published release yet.
+
+| Milestone | State | Report |
+|---|---|---|
+| M0 Fork cleanup: rebrand, new updater key, icon, `com.infinitebrain.desktop` | ✅ merged | [[reports/IMPL-REPORT-M0]] |
+| M1 AI connection wizard + MCP scopes (`notes:read` / `notes:write` / `notes:delete` / `access:manage`), connection list and revoke | ✅ merged | [[reports/IMPL-REPORT-M1]] |
+| M2 Multilingual search: Unicode/bigram embedder, zero-score cutoff, `embed_version`, local trigram + filename | ✅ merged | [[reports/IMPL-REPORT-M2]] |
+| M3 AI change ledger + undo (revision guard, 409), Activity → AI changes, 90-day retention | ✅ merged | [[reports/IMPL-REPORT-M3]], [[AI-CHANGES]] |
+| M4 Invite links without email, onboarding timer | ✅ merged | [[reports/IMPL-REPORT-M4]], [[onboarding-audit]] |
+| M5 Galaxy graph (three.js WebGPU → WebGL2 → 2D) | ✅ merged | [[reports/IMPL-REPORT-M5]] |
+| Independent review fixes (1 high, 10 medium, some low) | ✅ merged | [[reports/IMPL-REPORT-FIX-V2]] |
+
+**Verified (2026-10-14/15):**
+- Tests: server 1,503, desktop 3,522, Rust 346, `tsc` in both workspaces.
+- Local E2E: Korean top-3 search hits went from 2/10 to 10/10. Also checked: read-only connector
+  refuses writes, 401 after revoke, AI undo and its 409 conflict, invite acceptance.
+- Release macOS build (`pnpm tauri build --bundles app`) launches against a local server.
+  Only the welcome screen was observed.
+
+**Not yet verified:** in-app UI flows of the packaged app, real claude.ai / ChatGPT connector
+connections (needs a public HTTPS server), usability tests with non-developers, Windows/Linux builds.
+
+**Open items:**
+- Put a password on the updater private key before any release.
+- CIMD and full OAuth audience binding.
+- Sparse-looking galaxy on small vaults.
+- Deferred low-severity review items.
+
+**Decisions pending (owner):** business model, primary target users, whether to rename `.context/` /
+the internal `context` DB, whether to keep tracking upstream Baalda.
+
 ## Where we are
 
 - **Specs:** ✅ Complete (2026-07-13); see `specs/` (requirements yardstick: [[REQUIREMENTS]]).

@@ -9,6 +9,11 @@ tags: [baalda, second-brain, spec, build-from-scratch]
 
 # Infinite Brain
 
+> [!note] Fork
+> Infinite Brain is a hard fork of Baalda 0.1.83. Fork status: [[STATUS]] (top section).
+> Design: [[FINAL-report]] · implementation reports: `reports/` · AI change ledger: [[AI-CHANGES]].
+> The rest of this page is the inherited spec index.
+
 **Context** is the product an owner buys: the shared, always-current context your team *and* your
 AI both work from. **Infinite Brain** is the brand. This folder is the build spec: what we are building,
 why, the chosen stack, and the live status.

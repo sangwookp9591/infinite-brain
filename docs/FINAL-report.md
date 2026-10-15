@@ -1,6 +1,6 @@
 # infinite-brain: Baalda 분석과 협업형 세컨드 브레인 설계 (최종 보고서)
 
-- 작성일: 2026-10-14
+- 작성일: 2026-10-14 (2026-10-15: §9 구현 결과 추가)
 - 분석 대상: Baalda 0.1.83. 설치본 `/Applications/Baalda.app`과 같은 버전의 오픈소스를 함께 봤다.
 - 진행 방식: Orca Run `run_362804bd876d`으로 워커를 띄웠다. 모델 배치는 model-routing 규칙을 따랐다.
 
@@ -269,9 +269,9 @@ MCP(Claude/ChatGPT) → OAuth → ACL → DocWriter → 같은 CRDT로 합류 �
 ---
 
 ## 7. 다음 판단 전에 해야 할 실측 3건
-1. claude.ai와 ChatGPT에서 커넥터를 **실제로 연결**해 본다. 비개발자 계정으로 클릭 수와 막히는 지점을 기록한다.
-2. 한글 질의 10개로 MCP `search_notes` 결과의 관련도를 측정한다.
-3. 노트 5,000~20,000개 규모의 합성 볼트로 동기화와 인덱스 크기를 측정한다.
+1. claude.ai와 ChatGPT에서 커넥터를 **실제로 연결**해 본다. 비개발자 계정으로 클릭 수와 막히는 지점을 기록한다. → **미실시**: 로컬 서버를 인터넷에 노출하지 않았다.
+2. 한글 질의 10개로 MCP `search_notes` 결과의 관련도를 측정한다. → **완료**: 원본은 상위 3위 정답 2/10(전부 0점)이었고, 수정 후 10/10이다.
+3. 노트 5,000~20,000개 규모의 합성 볼트로 동기화와 인덱스 크기를 측정한다. → **완료(원본 기준)**: 5천 개와 2만 개 모두 등록 실패 0건이었다. 걸린 시간은 504초와 903초였다. 검색 p95는 약 3.3~3.8초(고부하 머신에서 잰 값), SQLite 크기는 59.5MiB였다.
 
 ## 8. 이용자가 결정해야 할 것 (W6 §6에서 추림)
 1. **사업 모델**: OSS + 유료 관리형 호스팅(권고), 셀프호스트 전용, 비공개 중 하나. SIWC 자격과 Commercial Terms 문제가 이 선택에 달려 있다.
@@ -282,6 +282,25 @@ MCP(Claude/ChatGPT) → OAuth → ACL → DocWriter → 같은 CRDT로 합류 �
 6. **검증 리소스**: 인터뷰 10팀과 사용성 테스트 5명을 누가 섭외할지.
 
 ---
+
+## 9. 구현 결과 (2026-10-15) [확인]
+
+§6의 MVP를 하드 포크 `infinite-brain`의 `main`에 머지했다. 단계별 보고서는 `reports/IMPL-REPORT-*.md`에 있다.
+
+| 단계 | 내용 | 구현 모델 | 확인한 것 |
+|---|---|---|---|
+| M0 | 리브랜드(`com.infinitebrain.desktop`, `infinitebrain://`), 새 업데이터 키, 아이콘 | Codex Luna | 원본 서버·저장소 문자열 0건 |
+| M1 | AI 연결 마법사, MCP scope(`notes:read`/`notes:write`/`notes:delete`/`access:manage`), 연결 목록과 해제 | Codex Sol | 읽기 전용 연결은 쓰기 거부, 해제하면 다음 호출에서 401 |
+| M2 | Unicode·bigram 임베더, 0점 결과 제외, `embed_version`, 로컬 trigram·파일명 검색 | Codex Luna | 한글 상위 3위 정답 2/10 → 10/10 |
+| M3 | AI 변경 원장과 되돌리기(리비전 가드), 보존 90일 | Codex Sol | 되돌리기 성공, 충돌 시 409, 권한 없는 사용자에게 비노출 |
+| M4 | 이메일 없는 초대 링크, 온보딩 시간 측정 | Codex Luna | 링크 수락 흐름 |
+| M5 | 은하(나선팔) 그래프. WebGPU → WebGL2 → 2D 순으로 대체 | Codex Astra | 2만 노트 배치 106ms, 약 60 FPS |
+| 리뷰 | Opus 독립 리뷰. 높음 1, 중간 10, 낮음 16 | 리뷰 Opus, 수정 Codex Sol | 높음·중간 전부와 낮음 일부 수정 |
+
+- **테스트**: 서버 1,503개, 데스크톱 3,522개, Rust 346개, 양쪽 `tsc` 통과. 서버 전체 실행에서 고부하로 TRUNCATE 타임아웃이 6건 났지만, 해당 파일을 단독으로 다시 돌리면 통과했다.
+- **패키지 앱**: 릴리스 모드 macOS 앱을 로컬 서버에 연결해 실행했다. 시작 화면까지 확인했다.
+- **아직 확인하지 못한 것**: 패키지 앱 안에서의 실제 조작, 실제 claude.ai·ChatGPT 커넥터 연결, 비개발자 사용성 테스트, Windows·Linux 빌드.
+- **남은 일**: 업데이터 개인키에 비밀번호 걸기, CIMD와 OAuth audience 바인딩, 작은 볼트에서 은하가 성기게 보이는 문제, 보류한 낮음 항목.
 
 ## 부록: 원자료
 | 파일 | 내용 |
@@ -295,3 +314,4 @@ MCP(Claude/ChatGPT) → OAuth → ACL → DocWriter → 같은 CRDT로 합류 �
 | `research/G1-verify.md` | 사실 검증 |
 | `research/W6-design.md` | 종합 설계 |
 | `research/W7-independent.md` | 독립 교차 검증 |
+| `reports/IMPL-REPORT-*.md` | 구현 단계별 보고서 (M0~M5, FIX-V2) |
