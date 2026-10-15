@@ -109,6 +109,7 @@ it("reserves output before running and keeps repeated statuses out of the respon
     emit({ type: "finished", cancelled: false, success: true, exitCode: 0 }); finish();
   });
   expect(document.querySelector(".phase-success")).not.toBeNull();
+  expect(document.querySelector(".kit-lattice")?.getAttribute("data-status")).toBe("done");
 });
 it("keeps stopping visible despite late progress, then clearly marks the stopped run", async () => {
   let emit!: (event: unknown) => void;
@@ -119,6 +120,7 @@ it("keeps stopping visible despite late progress, then clearly marks the stopped
   await click("Update with Codex"); await prompt(); await click("Run Codex"); await click("Stop");
   await act(async () => emit({ type: "status", text: "Editing dashboard…" }));
   expect(document.querySelector('[role="status"]')?.textContent).toContain("Stopping Codex");
+  expect(document.querySelector(".kit-lattice")?.getAttribute("data-status")).toBe("working");
   expect(mocks.cancel).toHaveBeenCalledWith(mocks.run.mock.calls[0][0].runId);
   await act(async () => { emit({ type: "finished", cancelled: true, success: false, exitCode: null }); finish(); });
   expect(document.querySelector(".phase-stopped")).not.toBeNull();
@@ -226,4 +228,11 @@ it("closes on browser window blur even when the composer retains focus", async (
   await click("Update with Codex");
   await act(async () => window.dispatchEvent(new Event("blur")));
   expect(document.querySelector(".dashboard-agent-dialog")).toBeNull();
+});
+
+it("marks a refused runner request as a lattice error without hiding its message", async () => {
+  mocks.run.mockRejectedValueOnce(new Error("Runner unavailable"));
+  await click("Update with Codex"); await prompt(); await click("Run Codex");
+  expect(document.querySelector(".kit-lattice")?.getAttribute("data-status")).toBe("error");
+  expect(document.querySelector('[role="status"]')?.textContent).toContain("Runner unavailable");
 });

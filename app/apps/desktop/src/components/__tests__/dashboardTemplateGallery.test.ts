@@ -24,6 +24,7 @@ it("lists all templates as lazy images without starting dashboard scripts, then 
   const fetch = vi.fn(); vi.stubGlobal("fetch", fetch);
   await act(async () => root.render(createElement(DashboardTemplateGallery, { onUse:vi.fn() })));
   expect(host.querySelectorAll("img[loading='lazy']")).toHaveLength(DASHBOARD_TEMPLATES.length);
+  expect(host.querySelectorAll(".dashboard-gallery-card.kit-glow")).toHaveLength(DASHBOARD_TEMPLATES.length);
   expect(host.querySelectorAll("iframe")).toHaveLength(0);
   expect(fetch).not.toHaveBeenCalled();
   await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="Show preview of Tabler"]')!.click());

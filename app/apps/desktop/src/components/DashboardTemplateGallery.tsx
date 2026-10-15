@@ -2,12 +2,14 @@
 import { useEffect, useRef, useState } from "react";
 import { DASHBOARD_TEMPLATES, type DashboardTemplate } from "../lib/dashboard/templates";
 import "./DashboardTemplateGallery.css";
+import { GlowCard } from "./kit/GlowCard";
 import { VaultDashboardPreview } from "./VaultDashboardPreview";
 
 export async function templateHtml(template: DashboardTemplate): Promise<string> {
   return template.html ?? await template.loadHtml!();
 }
 
+// Template palettes are user-content colours, isolated from the app theme.
 // Previews are opaque, network-free frames. They never receive the vault bridge.
 const PREVIEW_CSP = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; connect-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'";
 export function DashboardTemplatePreview({ template, expanded = false }: { template: DashboardTemplate; expanded?: boolean }) {
@@ -73,7 +75,7 @@ export function DashboardTemplateGallery({ selectedId, onUse, disabled = false, 
   return <div className="dashboard-gallery">
     <div className="dashboard-gallery-toolbar"><div className="dashboard-gallery-filters" aria-label="Template styles">{categories.map((c) => <button key={c} type="button" aria-pressed={category === c} onClick={() => setCategory(c)}>{c}</button>)}</div><input aria-label="Search dashboard templates" placeholder="Search templates or designers…" value={query} onChange={(e) => setQuery(e.target.value)} /></div>
     <div className="dashboard-gallery-grid" role="group" aria-label="Dashboard template">
-      {templates.map((template) => <article key={template.id} className={`dashboard-gallery-card${selectedId === template.id || currentId === template.id ? " selected" : ""}`}>
+      {templates.map((template) => <GlowCard key={template.id} className={`dashboard-gallery-card${selectedId === template.id || currentId === template.id ? " selected" : ""}`}>
         <div className="dashboard-gallery-picture">
           {template.thumbnailUrl ? <img className="dashboard-template-thumbnail" src={template.thumbnailUrl} alt="" width={900} height={900} loading="lazy" decoding="async" draggable={false} /> : <div className="dashboard-preview-placeholder" style={{ background: template.palette?.[2] }}>Preview available on click</div>}
         </div>
@@ -82,7 +84,7 @@ export function DashboardTemplateGallery({ selectedId, onUse, disabled = false, 
           <button type="button" className="secondary" aria-label={`Show preview of ${template.name}`} onClick={() => setPreview(template)}>Show preview</button>
           {currentId !== template.id && <button type="button" className="primary" disabled={disabled} aria-pressed={selectedId === template.id} aria-label={`Use ${template.name}`} onClick={() => onUse(template)}>{selectedId === template.id ? "Selected ✓" : "Use template"}</button>}
         </div>
-      </article>)}
+      </GlowCard>)}
       {templates.length === 0 && <p className="dashboard-gallery-empty">No templates match. Try another style or search.</p>}
     </div>
   </div>;

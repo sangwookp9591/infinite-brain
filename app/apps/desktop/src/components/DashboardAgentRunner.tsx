@@ -7,6 +7,7 @@ import {
   type InstalledAgent,
 } from "../lib/dashboard/agent";
 import { DASHBOARD_AGENT_LAUNCH, type DashboardAgentLaunch } from "../lib/dashboard/agentLaunch";
+import { ActivityLattice } from "./kit/ActivityLattice";
 import { toast } from "../lib/toast";
 import "./DashboardAgentRunner.css";
 import claudeLogo from "../assets/agents/claude-color.svg";
@@ -208,9 +209,9 @@ export function DashboardAgentRunner({ path, expectedEpoch, launchTarget, showLa
             <button type="button" className="icon-btn" onClick={close} aria-label="Close agent dialog" title={running ? "Hide chat — update continues" : "Close"}>×</button>
           </div>
           <section className={`dashboard-agent-progress phase-${phase}`} aria-label="Update progress">
-            <div className="dashboard-agent-status" role="status">
-              <span className="dashboard-agent-status-pill"><span className="dashboard-agent-status-icon" aria-hidden="true" />{phase === "running" ? "Working" : phase === "stopping" ? "Stopping" : phase === "success" ? "Complete" : phase === "stopped" ? "Stopped" : phase === "error" ? "Needs attention" : installed?.runnable ? "Ready" : agents === null && !detectionError ? "Checking" : "Setup required"}</span>
-              <span key={status} className="dashboard-agent-status-text">{status || (installed?.runnable ? "Changes appear live in your dashboard." : "Connect your installed agent to get started.")}</span>
+            <div className="dashboard-agent-status">
+              <ActivityLattice status={running || (phase === "idle" && agents === null && !detectionError) ? "working" : phase === "error" || detectionError || (phase === "idle" && !installed?.runnable && agents !== null) ? "error" : "done"} label={(status ? `${status} · ` : "") + (phase === "running" ? "Working" : phase === "stopping" ? "Stopping" : phase === "success" ? "Complete" : phase === "stopped" ? "Stopped" : phase === "error" ? "Needs attention" : installed?.runnable ? "Ready" : agents === null && !detectionError ? "Checking" : "Setup required")} />
+              {!status && <span className="dashboard-agent-status-text">{installed?.runnable ? "Changes appear live in your dashboard." : "Connect your installed agent to get started."}</span>}
             </div>
             <div ref={output} className="dashboard-agent-output" aria-label="Recent agent output"
               onScroll={() => { const el = output.current; if (el) followOutput.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40; }}>
@@ -221,7 +222,6 @@ export function DashboardAgentRunner({ path, expectedEpoch, launchTarget, showLa
                   <span className="dashboard-agent-empty-glyph"><AgentGlyph agent={selectedAgent} /></span>
                   <strong>{phase === "idle" ? installed?.runnable ? "Make this dashboard yours" : `Set up ${agentName}` : running ? `${agentName} is on it` : phase === "success" ? "Your update is complete" : phase === "stopped" ? "Update stopped" : "The update couldn't finish"}</strong>
                   <p>{phase === "idle" ? installed?.runnable ? "Describe a change below. Your agent uses your vault’s context to update this dashboard." : detectionError ? "Could not check installed agents. Restart Infinite Brain and try again." : agents === null ? "Checking your installed agents…" : installed?.detail ?? `Install ${agentName} and sign in from your terminal, then restart Infinite Brain.` : running ? "Its response will appear here as it works." : "No written response was returned."}</p>
-                  {running && <span className="dashboard-agent-thinking" aria-hidden="true"><i /><i /><i /></span>}
                 </div>}
             </div>
           </section>
