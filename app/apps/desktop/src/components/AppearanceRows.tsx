@@ -1,5 +1,6 @@
-import type { ReactNode } from "react";
-import type { AppearanceKey, ResolvedAppearance } from "../lib/appearanceSettings";
+import { useEffect, useState, type ReactNode } from "react";
+import { validAppearanceValue, type AppearanceKey, type ResolvedAppearance } from "../lib/appearanceSettings";
+import { accentPalette } from "../lib/accent";
 import type { PropertiesMode } from "../lib/editor/frontmatter";
 import {
   EDITOR_MEASURE_SLIDER_MAX,
@@ -17,9 +18,9 @@ import {
 } from "../lib/prefs";
 import type { ThemeMode } from "../lib/theme";
 import { ContentWidthPreview } from "./ContentWidthPreview";
-import { MenuSelect } from "./MenuSelect";
+import { BarSlider } from "./kit/BarSlider";
+import { SegmentedChips } from "./kit/SegmentedChips";
 import { Switch } from "./Switch";
-import { ThemeToggle } from "./ThemeToggle";
 
 const THEME_OPTIONS: ReadonlyArray<{ value: ThemeMode; label: string }> = [
   { value: "system", label: "System" },
@@ -27,15 +28,22 @@ const THEME_OPTIONS: ReadonlyArray<{ value: ThemeMode; label: string }> = [
   { value: "dark", label: "Dark" },
 ];
 
+// Accent seed palette data; the rendered accent is adjusted for readability.
+const ACCENTS = [
+  ["Ink", "ink"], ["Blue", "#3b74d1"], ["Teal", "#23877e"],
+  ["Green", "#3f8850"], ["Amber", "#c98a12"], ["Coral", "#dc6e52"],
+  ["Rose", "#d4567a"], ["Violet", "#7f73ff"],
+] as const;
+
 /**
- * The six appearance rows, shared by Account Settings → Appearance (personal)
+ * The appearance rows, shared by Account Settings → Appearance (personal)
  * and Vault Settings → Appearance (defaults for everyone). Both pages render
  * the same controls with a concrete value on every row.
  *
  * personal: the EFFECTIVE values, plus `trailing(key)` (the "Vault default"
  *   tag or the "Reset to vault default" link).
  * vault: the vault's values (saved value, else the app default). The theme is
- *   a select here because it edits the vault, not this device's ThemeToggle.
+ *   saved through the same callback as the other vault defaults.
  *   `readOnly` disables every control.
  */
 export function AppearanceRows(props: {
@@ -47,26 +55,52 @@ export function AppearanceRows(props: {
   trailing?: (key: AppearanceKey) => ReactNode;
 }) {
   const { mode, values, onChange, readOnly = false, trailing } = props;
-  const vault = mode === "vault";
   const tail = (k: AppearanceKey) => trailing?.(k) ?? null;
+  const [custom, setCustom] = useState(values.accent === "ink" ? "" : values.accent);
+  useEffect(() => { setCustom(values.accent === "ink" ? "" : values.accent); }, [values.accent]);
+  const invalidCustom = custom !== "" && (custom === "ink" || validAppearanceValue("accent", custom) === undefined);
 
   return (
     <>
       <div className="menu-row">
         <span className="menu-row-label">Theme</span>
         {tail("theme")}
-        {vault ? (
-          <MenuSelect<ThemeMode>
-            value={values.theme}
-            options={THEME_OPTIONS}
-            onSelect={(v) => onChange("theme", v)}
-            disabled={readOnly}
-            ariaLabel="Theme"
-            triggerClassName="role-field-trigger"
-          />
-        ) : (
-          <ThemeToggle />
-        )}
+        <SegmentedChips label="Theme" items={THEME_OPTIONS} value={values.theme}
+          onChange={(value) => onChange("theme", value as ThemeMode)} disabled={readOnly} />
+      </div>
+      <div className="menu-row appearance-accent-row">
+        <span className="menu-row-label">
+          Accent
+          {values.accent !== "ink" && accentPalette(values.accent).light.accent !== values.accent && (
+            <span className="field-hint">Adjusted for readability</span>
+          )}
+        </span>
+        {tail("accent")}
+        <div role="group" aria-label="Accent presets" className="appearance-accent-presets">
+          {ACCENTS.map(([name, value]) => (
+            <button key={name} type="button" className="appearance-accent-swatch"
+              title={name} aria-label={`Accent ${name}`} aria-pressed={values.accent === value}
+              disabled={readOnly} style={{ width: 24, height: 24, background: value === "ink" ? "var(--text-primary)" : value }}
+              onClick={() => onChange("accent", value)} />
+          ))}
+        </div>
+        <div className="appearance-accent-custom">
+          <label htmlFor={`accent-picker-${mode}`}>Custom</label>
+          <input id={`accent-picker-${mode}`} type="color" aria-label="Custom accent color"
+            style={{ width: 36, height: 32, padding: 4, flexShrink: 0 }}
+            value={values.accent === "ink" ? ACCENTS[1][1] : values.accent} disabled={readOnly}
+            onChange={(e) => onChange("accent", e.target.value as `#${string}`)} />
+          <input aria-label="Custom accent hex" type="text" placeholder="#rrggbb" spellCheck={false}
+            value={custom} disabled={readOnly} aria-invalid={invalidCustom}
+            aria-describedby={invalidCustom ? `accent-error-${mode}` : undefined}
+            style={{ width: "12ch", fontFamily: "var(--font-mono)", ...(invalidCustom ? { borderColor: "var(--danger)" } : {}) }}
+            onChange={(e) => {
+              setCustom(e.target.value);
+              const value = validAppearanceValue("accent", e.target.value);
+              if (value && value !== "ink") onChange("accent", value);
+            }} />
+          {invalidCustom && <span id={`accent-error-${mode}`} className="field-hint" role="status">Use #rrggbb.</span>}
+        </div>
       </div>
       <label className="menu-row toggle-row">
         <span className="menu-row-label">
@@ -87,57 +121,33 @@ export function AppearanceRows(props: {
           preview under it — and the note behind the card — are the answer to
           "how wide is that?", and they have to move with the thumb. */}
       <div className="menu-row measure-row">
-        {/* A real <label>, not the row: wrapping a range in one would hijack
-            the drag. The row's text is still a click target for the slider. */}
-        <label className="menu-row-label" htmlFor={`content-width-${mode}`}>
+        <span className="menu-row-label">
           Content width
           <span className="field-hint">
             How wide the text runs before it wraps. Drag to the end for the full window.
           </span>
-        </label>
-        {tail("contentWidth")}
-        <span className="range-field">
-          <input
-            id={`content-width-${mode}`}
-            className="range-input"
-            type="range"
-            min={EDITOR_MEASURE_SLIDER_MIN}
-            max={EDITOR_MEASURE_SLIDER_MAX}
-            step={EDITOR_MEASURE_STEP}
-            value={measureToSlider(values.contentWidth)}
-            disabled={readOnly}
-            // The <label> also carries the hint line; name the control with the
-            // row's title alone rather than reading the whole paragraph out.
-            aria-label="Content width"
-            aria-valuetext={measureLabel(values.contentWidth)}
-            onChange={(e) => onChange("contentWidth", sliderToMeasure(Number(e.target.value)))}
-          />
-          <span className="range-value">{measureLabel(values.contentWidth)}</span>
         </span>
+        {tail("contentWidth")}
+        <div className="appearance-slider">
+          <BarSlider label="Content width" min={EDITOR_MEASURE_SLIDER_MIN}
+            max={EDITOR_MEASURE_SLIDER_MAX} step={EDITOR_MEASURE_STEP}
+            value={measureToSlider(values.contentWidth)} disabled={readOnly}
+            formatValue={(value) => measureLabel(sliderToMeasure(value))}
+            onChange={(value) => onChange("contentWidth", sliderToMeasure(value))} />
+        </div>
         <ContentWidthPreview measure={values.contentWidth} />
       </div>
       <div className="menu-row measure-row">
-        <label className="menu-row-label" htmlFor={`editor-text-size-${mode}`}>
+        <span className="menu-row-label">
           Text size
           <span className="field-hint">The size of note text in the editor.</span>
-        </label>
-        {tail("textSize")}
-        <span className="range-field">
-          <input
-            id={`editor-text-size-${mode}`}
-            className="range-input"
-            type="range"
-            min={EDITOR_FONT_SIZE_MIN}
-            max={EDITOR_FONT_SIZE_MAX}
-            step={EDITOR_FONT_SIZE_STEP}
-            value={values.textSize}
-            disabled={readOnly}
-            aria-label="Text size"
-            aria-valuetext={`${values.textSize} pixels`}
-            onChange={(e) => onChange("textSize", Number(e.target.value))}
-          />
-          <span className="range-value">{values.textSize}px</span>
         </span>
+        {tail("textSize")}
+        <div className="appearance-slider">
+          <BarSlider label="Text size" min={EDITOR_FONT_SIZE_MIN} max={EDITOR_FONT_SIZE_MAX}
+            step={EDITOR_FONT_SIZE_STEP} value={values.textSize} disabled={readOnly}
+            formatValue={(value) => `${value}px`} onChange={(value) => onChange("textSize", value)} />
+        </div>
       </div>
       <label className="menu-row toggle-row">
         <span className="menu-row-label">
@@ -161,14 +171,9 @@ export function AppearanceRows(props: {
           </span>
         </span>
         {tail("properties")}
-        <MenuSelect<PropertiesMode>
-          value={values.properties}
-          options={PROPERTIES_MODES.map((m) => ({ value: m.id, label: m.label, hint: m.hint }))}
-          onSelect={(m) => onChange("properties", m)}
-          disabled={readOnly}
-          ariaLabel="Properties in document"
-          triggerClassName="role-field-trigger"
-        />
+        <SegmentedChips label="Properties in document" size="sm" value={values.properties}
+          items={PROPERTIES_MODES.map((mode) => ({ value: mode.id, label: mode.label }))}
+          onChange={(value) => onChange("properties", value as PropertiesMode)} disabled={readOnly} />
       </div>
     </>
   );

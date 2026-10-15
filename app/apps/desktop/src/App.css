@@ -1,7 +1,6 @@
 /* ============================================================
    Infinite Brain — App shell styles
-   Atomize PLUS: light-first layered surfaces, pill actions,
-   violet accent, soft diffuse shadows, 4pt grid.
+   Light-first zinc surfaces, ink accent, pill actions, 4pt grid.
    Every value consumes a token from styles/tokens.css.
    ============================================================ */
 
@@ -105,16 +104,15 @@ button.primary.sm {
   font-size: var(--fs-sm);
 }
 
-/* The single hero CTA (vault picker) — gradient fill */
+/* The single hero CTA (vault picker). */
 button.primary.hero {
-  background: var(--accent-gradient);
+  background: var(--accent);
   padding: var(--sp-3) var(--sp-6);
   font-size: var(--fs-lg);
   box-shadow: var(--shadow-md);
 }
 button.primary.hero:hover:not(:disabled) {
-  background: var(--accent-gradient);
-  filter: brightness(1.05);
+  background: var(--accent-hover);
   box-shadow: var(--shadow-lg);
 }
 
@@ -183,7 +181,7 @@ button.primary.hero:hover:not(:disabled) {
   background: var(--bg-subtle);
   border: 1px solid transparent;
   color: var(--text-primary);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-input);
   padding: var(--sp-2) var(--sp-3);
   font: inherit;
   font-size: var(--fs-md);
@@ -212,6 +210,74 @@ button.primary.hero:hover:not(:disabled) {
   box-shadow: var(--focus-ring);
   background: var(--bg-surface);
 }
+
+/* Shared controls use the same surfaces in settings, menus and dialogs. */
+button.secondary.secondary,
+.ghost-pill.ghost-pill {
+  border-radius: var(--radius-pill);
+  background: var(--bg-subtle);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  box-shadow: none;
+}
+button.secondary.secondary:hover:not(:disabled),
+.ghost-pill.ghost-pill:hover:not(:disabled) {
+  background: var(--bg-raised);
+  border-color: var(--border-strong);
+}
+.context-menu.context-menu,
+.account-popover.account-popover {
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-lg);
+}
+.switch.on .switch-knob {
+  background: var(--text-on-accent);
+  box-shadow: var(--shadow-sm);
+}
+.switch .switch-knob {
+  border-radius: var(--radius-pill);
+  transition-timing-function: var(--ease);
+}
+.theme-toggle.theme-toggle:focus-visible,
+button.primary:focus-visible,
+button.secondary:focus-visible,
+.link-btn:focus-visible,
+.icon-btn:focus-visible,
+.row-more-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.appearance-accent-row { flex-wrap: wrap; }
+.appearance-accent-presets,
+.appearance-accent-custom {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+}
+.appearance-accent-swatch {
+  padding: 0;
+  border: 2px solid var(--bg-surface);
+  border-radius: var(--radius-pill);
+  box-shadow: 0 0 0 1px var(--border-strong);
+}
+.appearance-accent-swatch[aria-pressed="true"] {
+  box-shadow: 0 0 0 2px var(--text-primary);
+}
+.appearance-accent-swatch:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.appearance-accent-swatch:disabled { opacity: .45; cursor: default; }
+.appearance-slider { flex: 1 1 220px; max-width: 320px; min-width: 0; }
+.appearance-slider .kit-slider output { min-width: 14ch; text-align: right; }
+.menu-row:has(> .kit-chips) { flex-wrap: wrap; gap: var(--sp-3); }
+.menu-row > .kit-chips { margin-left: auto; }
+.measure-row .width-preview { min-width: 0; }
+.width-preview .width-preview-frame { border-radius: var(--radius-card); }
+.width-preview .width-preview-page { border-radius: var(--radius-input); }
+.width-preview .width-preview-col { transition: none; }
 
 /* ============================================================
    Vault picker — welcome screen
@@ -2306,7 +2372,7 @@ body:has(.sidebar-resizer.dragging) {
   appearance: none;
   width: 100%;
   height: 3px;
-  border-radius: 2px;
+  border-radius: var(--radius-pill);
   background: var(--border-strong);
   cursor: pointer;
 }
@@ -2315,7 +2381,7 @@ body:has(.sidebar-resizer.dragging) {
   appearance: none;
   width: 13px;
   height: 13px;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   background: var(--accent);
   border: 2px solid var(--bg-surface);
   transition: transform var(--t-fast) var(--ease);
@@ -7614,6 +7680,29 @@ button.is-done:disabled {
   flex: none;
 }
 
+/* Surface notices carry status in a dot or an icon, never the whole strip. */
+.banner-slot .banner {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+}
+.banner-slot .banner.global-banner,
+.banner-slot .banner.not-syncing-banner,
+.banner-slot .banner.attachment-sync-notice { border-radius: 0; }
+.banner-slot .banner::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: var(--radius-pill);
+  background: var(--warning);
+}
+.banner-slot .update-banner::before { background: var(--accent); }
+.banner-slot .attachment-sync-notice::before,
+.banner-slot .reconcile-banner--quiet::before { display: none; }
+.banner-slot .not-syncing-banner strong { color: var(--text-primary); }
+.banner-slot .attachment-sync-icon { background: none; border: none; }
+
 /* ---- Toasts ---- */
 .toast-viewport {
   position: fixed;
@@ -7640,7 +7729,7 @@ button.is-done:disabled {
   padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-3);
   background: var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-card);
   box-shadow: var(--shadow-lg);
   font-size: var(--fs-sm);
   color: var(--text-primary);
@@ -7651,7 +7740,7 @@ button.is-done:disabled {
   flex: none;
   width: 6px;
   height: 6px;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   background: var(--text-tertiary);
 }
 .toast-success .toast-dot {
@@ -7661,7 +7750,7 @@ button.is-done:disabled {
   background: var(--danger);
 }
 .toast-error {
-  border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+  border-color: var(--border);
 }
 .toast-text {
   flex: 1;
