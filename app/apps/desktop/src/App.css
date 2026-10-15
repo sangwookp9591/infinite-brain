@@ -287,7 +287,7 @@ button.secondary:focus-visible,
   display: grid;
   place-items: center;
   height: 100%;
-  overflow: hidden;
+  overflow: auto;
   background:
     radial-gradient(900px 460px at 50% -8%, var(--accent-soft) 0%, transparent 62%),
     var(--bg-app);
@@ -301,8 +301,8 @@ button.secondary:focus-visible,
   background-size: 26px 26px;
   opacity: 0.35;
   pointer-events: none;
-  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 45%, black 30%, transparent 75%);
-  mask-image: radial-gradient(ellipse 70% 60% at 50% 45%, black 30%, transparent 75%);
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 45%, var(--text-primary) 30%, transparent 75%);
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 45%, var(--text-primary) 30%, transparent 75%);
 }
 /* Ambient aurora — Motion drifts these blurred fields very slowly. */
 .aurora {
@@ -313,7 +313,7 @@ button.secondary:focus-visible,
 .aurora-blob {
   position: absolute;
   display: block;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   filter: blur(90px);
   will-change: transform;
 }
@@ -338,7 +338,7 @@ button.secondary:focus-visible,
   height: 380px;
   top: 30%;
   left: -180px;
-  background: radial-gradient(circle, #4aa3ff 0%, transparent 70%);
+  background: radial-gradient(circle, var(--accent) 0%, transparent 70%);
   opacity: 0.18;
 }
 /* ---- Welcome-screen sign-in line ----
@@ -412,7 +412,7 @@ button.secondary:focus-visible,
   margin-top: var(--sp-4);
   background: var(--danger-soft);
   padding: var(--sp-2) var(--sp-3);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-card);
 }
 .vault-picker-card .hint {
   color: var(--text-tertiary);
@@ -487,9 +487,9 @@ button.secondary:focus-visible,
   color: var(--text-secondary);
 }
 .new-vault-input {
-  background: var(--bg-surface);
+  background: var(--bg-subtle);
   border: 1px solid var(--border-strong);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-input);
   padding: var(--sp-2) var(--sp-3);
   font-size: var(--fs-md);
   color: var(--text-primary);
@@ -590,7 +590,7 @@ button.secondary:focus-visible,
   display: flex;
   flex-direction: column;
   gap: var(--sp-1);
-  width: min(420px, 84vw);
+  width: min(840px, 90vw);
   margin: var(--sp-6) auto 0;
   text-align: left;
 }
@@ -606,9 +606,31 @@ button.secondary:focus-visible,
    modal (.vault-list-modal), so this box never changes size and the centered
    card never reflows. */
 .recent-scroll {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-1);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--sp-4);
+}
+.recent-folder-card { flex-direction: column; min-width: 0; }
+.recent-folder-preview { width: 100%; display: flex; justify-content: center; }
+.recent-folder-preview .kit-folder { max-width: 100%; height: 190px; margin-top: 20px; }
+/* The page represents the vault itself, not a fabricated note count. */
+.recent-folder-preview .kit-folder-front small { display: none; }
+.recent-folder-card .recent-open { width: 100%; flex: none; padding: var(--sp-3); }
+.recent-folder-card .recent-remove {
+  z-index: 6;
+  top: var(--sp-2);
+  right: var(--sp-2);
+  bottom: auto;
+  height: 30px;
+  border-radius: var(--radius-pill);
+}
+.recent-card.recent-folder-card.removable:hover .recent-meta,
+.recent-card.recent-folder-card.removable:has(.recent-remove:focus-visible) .recent-meta { opacity: 1; }
+.new-vault-form .kit-code { margin: 0 auto; }
+.new-vault-form .new-vault-loc { white-space: normal; overflow: visible; }
+@media (max-width: 760px) {
+  .recent-scroll { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+  .recent-folder-preview .kit-folder { width: 220px; }
 }
 /* "Show all" modal: every vault in one scrollable list. Reuses the standard
    modal shell, widened — vault paths are long and the 420px default truncated
@@ -647,7 +669,7 @@ button.secondary:focus-visible,
   font-size: var(--fs-sm);
   font-weight: 600;
   padding: var(--sp-2);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-card);
   cursor: pointer;
   transition:
     background var(--t-fast) var(--ease),
@@ -667,7 +689,7 @@ button.secondary:focus-visible,
   align-items: center;
   background: var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-card);
   box-shadow: var(--shadow-sm);
   transition:
     background var(--t-fast) var(--ease),
@@ -946,11 +968,11 @@ html[data-platform="windows"]:has(.right-panel) .windows-controls {
 }
 .windows-controls button:focus-visible {
   outline: none;
-  box-shadow: inset 0 0 0 2px var(--accent);
+  box-shadow: var(--focus-ring);
 }
 .windows-controls button.windows-close:hover {
-  background: #c42b1c;
-  color: white;
+  background: var(--danger);
+  color: var(--text-on-accent);
 }
 .windows-controls svg {
   width: 12px;
@@ -960,14 +982,14 @@ html[data-platform="windows"]:has(.right-panel) .windows-controls {
   stroke-width: 1;
 }
 html[data-platform="windows"]:has(.graph-view) .windows-controls {
-  color: white;
-  background: #080910;
+  color: var(--brand-ink);
+  background: var(--brand-tile);
 }
 html[data-platform="windows"]:has(.graph-view) .windows-controls button {
-  color: white;
+  color: var(--brand-ink);
 }
 html[data-platform="windows"]:has(.graph-view) .windows-controls button:not(.windows-close):hover {
-  background: #282b35;
+  background: var(--bg-subtle);
 }
 .windows-boot-drag {
   display: none;
@@ -1018,7 +1040,7 @@ body:has(.sidebar-resizer.dragging) {
      the later-painted main pane so account/vault popovers can still extend
      across the seam instead of the editor covering their right-hand side. */
   z-index: 1;
-  background: transparent;
+  background: var(--bg-app);
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -1237,14 +1259,14 @@ body:has(.sidebar-resizer.dragging) {
 }
 .search-result {
   padding: var(--sp-2) var(--sp-3);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-input);
   cursor: pointer;
   transition: background var(--t-fast) var(--ease);
 }
 /* One highlight, driven by the keyboard cursor — hover moves that cursor
    rather than painting a second, competing one. */
 .search-result.active {
-  background: var(--accent-soft);
+  background: var(--bg-active);
 }
 .search-title {
   display: flex;
@@ -1347,7 +1369,7 @@ body:has(.sidebar-resizer.dragging) {
 .filetree.drop-active {
   outline: 2px dashed var(--accent);
   outline-offset: -4px;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-input);
   background: var(--accent-soft);
 }
 /* Rows are draggable, so press-and-hold reads as picking one up — the closed
@@ -1505,7 +1527,7 @@ body:has(.sidebar-resizer.dragging) {
   border: 1.5px solid var(--border-strong, var(--border));
   border-radius: var(--radius-sm);
   background: transparent;
-  color: #fff;
+  color: var(--text-on-accent);
   cursor: pointer;
   transition:
     background var(--t-fast) var(--ease),
@@ -1572,17 +1594,17 @@ body:has(.sidebar-resizer.dragging) {
   box-shadow: var(--focus-ring);
 }
 .selbar-icon.danger:hover {
-  background: color-mix(in srgb, var(--danger, #e5484d) 14%, transparent);
-  color: var(--danger, #e5484d);
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+  color: var(--danger);
 }
 /* Armed = one more click deletes; make the trash unmistakably hot. */
 .selbar-icon.danger.armed {
-  background: var(--danger, #e5484d);
-  color: #fff;
+  background: var(--danger);
+  color: var(--text-on-accent);
 }
 .selbar-icon.danger.armed:hover {
-  background: var(--danger, #e5484d);
-  color: #fff;
+  background: var(--danger);
+  color: var(--text-on-accent);
 }
 
 /* Bulk-delete progress — the count text plus a determinate fill bar so a big
@@ -1596,14 +1618,14 @@ body:has(.sidebar-resizer.dragging) {
   min-width: 40px;
   height: 4px;
   border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--danger, #e5484d) 20%, transparent);
+  background: color-mix(in srgb, var(--danger) 20%, transparent);
   overflow: hidden;
 }
 .selbar-progress-fill {
   display: block;
   height: 100%;
   border-radius: var(--radius-pill);
-  background: var(--danger, #e5484d);
+  background: var(--danger);
   transition: width var(--t-med) var(--ease);
 }
 
@@ -1618,7 +1640,7 @@ body:has(.sidebar-resizer.dragging) {
   border: 1.5px solid var(--border-strong, var(--border));
   border-radius: var(--radius-sm);
   background: transparent;
-  color: #fff;
+  color: var(--text-on-accent);
   cursor: pointer;
   transition:
     background var(--t-fast) var(--ease),
@@ -1636,13 +1658,14 @@ body:has(.sidebar-resizer.dragging) {
   height: 11px;
 }
 .tree-row.checked {
-  background: var(--accent-soft);
+  background: var(--bg-active);
   color: var(--text-primary);
 }
 .tree-row.checked:hover {
-  background: var(--accent-soft-hover);
+  background: var(--bg-active);
 }
 .tree-row {
+  border-radius: var(--radius-row);
   display: flex;
   align-items: center;
   gap: var(--sp-2);
@@ -1656,10 +1679,7 @@ body:has(.sidebar-resizer.dragging) {
     background var(--t-fast) var(--ease),
     color var(--t-fast) var(--ease);
 }
-/* Flat, edge-to-edge fills — no pills, no shadows, no rounding. The glyph is
-   the first thing in every row, so all rows on a level share one left edge. */
-/* Hover is a lighter step of the selected row's violet, so the two states read
-   as one family instead of a grey hover beside a violet selection. */
+/* Rounded neutral rows keep the selected note distinct from hover. */
 .tree-row:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
@@ -1710,19 +1730,19 @@ body:has(.sidebar-resizer.dragging) {
   }
 }
 .tree-row.selected {
-  background: var(--accent-soft);
+  background: var(--bg-active);
   color: var(--text-primary);
   font-weight: 500;
 }
 .tree-row.selected:hover {
-  background: var(--accent-soft-hover);
+  background: var(--bg-active);
 }
 /* Folder about to receive a dragged note */
 /* "Release here and it goes inside this folder." Faded in rather than snapped
    on, so brushing past a folder on the way somewhere else doesn't strobe. */
 .tree-row.drop-target {
   background: var(--accent-soft);
-  box-shadow: inset 0 0 0 1px var(--accent);
+  box-shadow: var(--focus-ring);
   transition:
     background 120ms var(--ease),
     box-shadow 120ms var(--ease);
@@ -1816,7 +1836,7 @@ body:has(.sidebar-resizer.dragging) {
 }
 .tree-row.is-dir:hover .tree-glyph,
 .tree-row.selected .tree-glyph {
-  color: var(--accent);
+  color: var(--text-primary);
 }
 .tree-glyph.is-empty {
   opacity: 0.5;
@@ -1838,8 +1858,8 @@ body:has(.sidebar-resizer.dragging) {
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
-  mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
-  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+  mask-image: linear-gradient(to right, var(--text-primary) calc(100% - 24px), transparent);
+  -webkit-mask-image: linear-gradient(to right, var(--text-primary) calc(100% - 24px), transparent);
   transition: transform var(--t-fast) var(--ease);
 }
 .tree-row:hover .tree-label {
@@ -1942,7 +1962,7 @@ body:has(.sidebar-resizer.dragging) {
   width: 18px;
   height: 18px;
   flex: 0 0 auto;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   overflow: hidden;
   background: var(--bg-surface);
   border: 1.5px solid var(--user-color, var(--border-strong));
@@ -1962,7 +1982,7 @@ body:has(.sidebar-resizer.dragging) {
   width: 100%;
   height: 100%;
   display: block;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
 }
 .tree-presence-avatar.offline {
   opacity: 0.7;
@@ -2057,7 +2077,7 @@ body:has(.sidebar-resizer.dragging) {
   height: 2px;
   border-radius: var(--radius-pill);
   background: var(--accent);
-  box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 60%, transparent);
+  box-shadow: var(--shadow-sm);
   pointer-events: none;
   opacity: 0;
   will-change: transform;
@@ -2082,7 +2102,7 @@ body:has(.sidebar-resizer.dragging) {
   top: 50%;
   width: 6px;
   height: 6px;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   background: var(--accent);
   transform: translateY(-50%);
 }
@@ -2103,7 +2123,7 @@ body:has(.sidebar-resizer.dragging) {
   min-width: 176px;
   background: var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-card);
   box-shadow: var(--shadow-lg);
   animation: rise-in var(--t-fast) var(--ease) both;
   /* `placeMenu` flips the menu above its anchor when it won't fit below; this is
@@ -2328,7 +2348,7 @@ body:has(.sidebar-resizer.dragging) {
   background: var(--bg-subtle);
   border: 1px solid transparent;
   color: var(--text-primary);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-input);
   padding: var(--sp-2) var(--sp-3);
   font: inherit;
   font-size: var(--fs-md);
@@ -2492,7 +2512,7 @@ body:has(.sidebar-resizer.dragging) {
   min-width: 0;
   height: 100%;
   background: var(--bg-surface);
-  border-top-left-radius: var(--radius-xl);
+  border-top-left-radius: var(--radius-card);
   box-shadow: var(--shadow-md);
   /* Plain `hidden`, NOT `clip`: clip triggered a WKWebView compositing bug
      that blanked sibling layers (the sidebar footer vanished when a synced
@@ -2566,10 +2586,12 @@ body:has(.sidebar-resizer.dragging) {
   align-items: center;
   gap: var(--sp-3);
   padding: var(--sp-2) var(--sp-3);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-row);
 }
+.version-row:hover,
+.version-row:focus-within,
 .version-row.active {
-  background: var(--bg-hover);
+  background: var(--bg-raised);
 }
 /* Current-buffer pseudo-row: an accent dot where the others carry a face. */
 .version-dot {
@@ -2638,7 +2660,8 @@ body:has(.sidebar-resizer.dragging) {
   transition: opacity var(--t-fast) var(--ease);
 }
 .version-row:hover .version-revert,
-.version-row.active .version-revert {
+.version-row.active .version-revert,
+.version-revert:focus-visible {
   opacity: 1;
 }
 .version-revert:disabled {
@@ -2717,7 +2740,7 @@ body:has(.sidebar-resizer.dragging) {
   width: 52px;
   height: 52px;
   border-radius: var(--radius-lg);
-  color: #fff;
+  color: var(--text-on-accent);
   background: var(--accent-gradient, var(--accent));
   box-shadow: var(--shadow-md);
   animation: whats-new-pop 420ms cubic-bezier(0.2, 0.9, 0.3, 1.3) both;
@@ -2727,7 +2750,7 @@ body:has(.sidebar-resizer.dragging) {
   font-family: var(--font-display);
   font-size: var(--fs-xl);
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: var(--display-tracking);
   color: var(--text-primary);
 }
 .whats-new-version {
@@ -2876,8 +2899,8 @@ html[data-platform="macos"] .sidebar-hidden .main-header {
 .main-header > .tab-strip {
   flex: 1 1 auto;
   min-width: 0;
-  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
-  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(to right, var(--text-primary) calc(100% - 28px), transparent);
+  -webkit-mask-image: linear-gradient(to right, var(--text-primary) calc(100% - 28px), transparent);
 }
 .tab {
   position: relative; /* the travelling card anchors here */
@@ -2898,7 +2921,7 @@ html[data-platform="macos"] .sidebar-hidden .main-header {
   position: absolute;
   inset: 0;
   z-index: 0;
-  background: var(--bg-app);
+  background: var(--bg-active);
   border-radius: var(--radius-pill);
 }
 .tab > .tab-label,
@@ -2964,7 +2987,7 @@ html[data-platform="macos"] .sidebar-hidden .main-header {
   border: 0;
   /* Round, to sit inside the round tab pill (a rounded square read as a
      second, mismatched shape). */
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   background: none;
   color: var(--text-tertiary);
   cursor: pointer;
@@ -3034,8 +3057,8 @@ html[data-platform="macos"] .sidebar-hidden .main-header {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
-  border-radius: var(--radius-md);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
+  border-radius: var(--radius-input);
+  box-shadow: var(--shadow-md);
 }
 .file-preview-pdf .file-preview-body {
   overflow: hidden;
@@ -3061,9 +3084,9 @@ html[data-platform="macos"] .sidebar-hidden .main-header {
 .file-preview-video .file-preview-media {
   max-width: 100%;
   max-height: 100%;
-  border-radius: var(--radius-md);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
-  background: #000;
+  border-radius: var(--radius-input);
+  box-shadow: var(--shadow-md);
+  background: var(--bg-app);
 }
 .file-audio {
   display: flex;
@@ -3133,7 +3156,7 @@ html[data-platform="macos"] .sidebar-hidden .main-header {
   min-height: 0;
   overflow: auto;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-input);
   background: var(--bg-surface);
 }
 .file-table {
@@ -3236,7 +3259,7 @@ html[data-platform="macos"] .sidebar-hidden .main-header {
   padding: var(--sp-6);
   background: var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-card);
   box-shadow: var(--shadow-sm);
   text-align: center;
 }
@@ -3726,7 +3749,7 @@ button.secondary.about-update-btn:disabled {
   width: 100%;
   background: transparent;
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-card);
   padding: 6px var(--sp-2);
   text-align: left;
   color: var(--text-primary);
@@ -3790,7 +3813,7 @@ button.secondary.about-update-btn:disabled {
 .identity-avatar.signed-out {
   width: 28px;
   height: 28px;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -3845,7 +3868,7 @@ button.secondary.about-update-btn:disabled {
   bottom: -2px;
   width: 11px;
   height: 11px;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   border: 2px solid var(--bg-app);
   background: var(--text-tertiary);
   transition:
@@ -3864,7 +3887,7 @@ button.secondary.about-update-btn:disabled {
 /* Chosen availability (see AccountMenu): away → amber, busy → red. Matches the
    Settings status dots and the note-roster peer dots. */
 .presence-light.away {
-  background: #f59e0b;
+  background: var(--warning);
 }
 .presence-light.busy {
   background: var(--danger);
@@ -3907,10 +3930,10 @@ button.secondary.about-update-btn:disabled {
 .identity-alert {
   width: 8px;
   height: 8px;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   flex-shrink: 0;
   background: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  box-shadow: var(--focus-ring);
 }
 .identity-chevron {
   color: var(--text-tertiary);
@@ -4126,7 +4149,7 @@ button.secondary.about-update-btn:disabled {
   background: var(--bg-hover);
 }
 .vault-card.current {
-  background: var(--accent-soft);
+  background: var(--bg-active);
 }
 .vault-tile {
   overflow: hidden;
@@ -4136,7 +4159,7 @@ button.secondary.about-update-btn:disabled {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
+  border-radius: var(--radius-pill);
   background: var(--tile-fill, var(--accent-soft));
   color: var(--tile-ink, var(--accent));
   font-size: var(--fs-xs);
@@ -4377,6 +4400,20 @@ button.secondary.about-update-btn:disabled {
   min-width: 0;
 }
 
+/* Sync kit stays compact in the header; status colour lives in the lattice. */
+.sync-badge.sync-badge:has(.kit-lattice), .sync-badge.sync-badge:has(.kit-dial) {
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  gap: var(--sp-2);
+}
+.sync-badge .kit-lattice { min-width: 0; gap: var(--sp-2); font: inherit; color: inherit; }
+.sync-badge .kit-lattice > span:nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sync-badge .kit-lattice-grid { width: 16px; grid-template-columns: repeat(3, 4px); gap: 2px; }
+.sync-badge .kit-lattice-grid span { width: 4px; height: 4px; }
+.sync-badge .kit-lattice-time { display: none; }
+.sync-badge .kit-dial { width: 30px; height: 30px; flex: none; }
+.sync-badge .kit-dial-value, .sync-badge .kit-dial-label { display: none; }
+
 /* ---- Auth + members dialogs ---- */
 /* Roomier than the stock 420px `.modal`: the server-choice cards carry an
    icon tile + two lines each, and the sign-in form has a Google button, a
@@ -4435,7 +4472,7 @@ button.secondary.about-update-btn:disabled {
   width: clamp(720px, 84vw, 1600px);
   height: clamp(560px, 88vh, 1120px);
   border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-card);
   box-shadow: var(--shadow-lg);
   overflow: hidden;
   animation: fade-in var(--t-med) var(--ease) both;
@@ -4471,7 +4508,7 @@ button.secondary.about-update-btn:disabled {
   font-family: var(--font-display);
   font-size: var(--fs-xl);
   font-weight: 700;
-  letter-spacing: -0.01em;
+  letter-spacing: var(--display-tracking);
   color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -4500,6 +4537,14 @@ button.secondary.about-update-btn:disabled {
   overflow-y: auto;
 }
 /* The other settings dialog, pinned to the bottom of the nav. */
+.settings-nav .menu-item {
+  border-radius: var(--radius-row);
+  color: var(--text-secondary);
+}
+.settings-nav .menu-item.active {
+  background: var(--bg-active);
+  color: var(--text-primary);
+}
 .settings-nav-crosslink {
   margin-top: auto;
   padding-top: var(--sp-2);
@@ -4529,7 +4574,7 @@ button.secondary.about-update-btn:disabled {
   max-height: 100%;
   overflow-y: auto;
   background: var(--bg-surface);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-card);
   box-shadow: var(--shadow-sm);
   padding: var(--sp-6) var(--sp-6) var(--sp-8);
   /* Opacity only — `rise-in` leaves a settled transform behind (its fill mode
@@ -4626,7 +4671,7 @@ button.secondary.about-update-btn:disabled {
   background: var(--bg-subtle);
   border: 1px solid transparent;
   color: var(--text-primary);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-input);
   padding: var(--sp-2) var(--sp-3);
   font: inherit;
   font-size: var(--fs-md);
@@ -4914,7 +4959,7 @@ button.secondary.about-update-btn:disabled {
   background: var(--bg-surface);
   color: var(--text-primary);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-input);
   font-size: var(--fs-sm);
   font-weight: 500;
   transition:
@@ -4999,7 +5044,7 @@ button.secondary.about-update-btn:disabled {
   font-size: var(--fs-sm);
   background: var(--danger-soft);
   padding: var(--sp-2) var(--sp-3);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-input);
 }
 
 /* Free-plan upgrade nudge — warning palette, not danger (it isn't an error). */
@@ -5013,7 +5058,7 @@ button.secondary.about-update-btn:disabled {
   color: var(--text-primary);
   background: var(--warning-soft);
   padding: var(--sp-2) var(--sp-3);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-input);
   margin-top: var(--sp-2);
 }
 .limit-nudge .link-btn {
@@ -5032,7 +5077,7 @@ button.secondary.about-update-btn:disabled {
   inset: 0;
   display: grid;
   place-items: center;
-  background: color-mix(in srgb, var(--bg-base, #000) 70%, transparent);
+  background: color-mix(in srgb, var(--bg-app) 70%, transparent);
   z-index: 50;
 }
 .error-boundary-card {
@@ -5045,7 +5090,7 @@ button.secondary.about-update-btn:disabled {
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg, 12px);
-  box-shadow: var(--shadow-lg, 0 8px 32px rgba(0, 0, 0, 0.3));
+  box-shadow: var(--shadow-lg);
 }
 
 /* ---- Server choice — the auth dialog's first step (#91) ----
@@ -5116,7 +5161,7 @@ button.secondary.about-update-btn:disabled {
   place-items: center;
   width: 36px;
   height: 36px;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-input);
   background: var(--bg-surface);
   color: var(--text-secondary);
   box-shadow: var(--shadow-sm);
@@ -5198,7 +5243,7 @@ button.secondary.about-update-btn:disabled {
   overflow-wrap: anywhere;
   padding: var(--sp-2) var(--sp-3);
   background: var(--bg-subtle);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-input);
   color: var(--text-primary);
   font-size: var(--fs-sm);
 }
@@ -5224,7 +5269,7 @@ button.secondary.about-update-btn:disabled {
   margin: 0 0 var(--sp-3);
   padding: var(--sp-3);
   background: var(--accent-soft);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-input);
   color: var(--text-secondary);
   font-size: var(--fs-sm);
   line-height: var(--lh-body);
@@ -5313,8 +5358,15 @@ button.secondary.about-update-btn:disabled {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
-  padding: var(--sp-1) 0;
+  padding: var(--sp-3);
+  border-radius: var(--radius-row);
   font-size: var(--fs-md);
+}
+.member-list li:hover,
+.member-list li:focus-within,
+.share-list li:hover,
+.share-list li:focus-within {
+  background: var(--bg-hover);
 }
 .member-name {
   flex: 1;
@@ -5491,7 +5543,7 @@ button.secondary.about-update-btn:disabled {
   margin-top: var(--sp-2);
   padding: var(--sp-2) var(--sp-3);
   background: var(--bg-subtle);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-input);
   color: var(--text-secondary);
   font-size: var(--fs-sm);
   line-height: var(--lh-body);
@@ -5674,7 +5726,7 @@ button.sync-badge-retry:hover {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(20, 20, 30, 0.4);
+  background: var(--modal-backdrop);
   backdrop-filter: blur(2px);
   display: flex;
   align-items: center;
@@ -5687,7 +5739,7 @@ button.sync-badge-retry:hover {
 }
 .modal {
   background: var(--bg-surface);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-card);
   padding: var(--sp-6);
   width: 420px;
   max-width: 90vw;
@@ -5705,6 +5757,9 @@ button.sync-badge-retry:hover {
   font-weight: 600;
   color: var(--text-primary);
 }
+.modal-header {
+  letter-spacing: var(--display-tracking);
+}
 .modal-header .muted {
   font-family: var(--font-body);
   font-weight: 400;
@@ -5720,7 +5775,13 @@ button.sync-badge-retry:hover {
 .share-add select {
   flex: 1;
 }
-.share-list li .member-name {
+.share-list li .member-list li:hover,
+.member-list li:focus-within,
+.share-list li:hover,
+.share-list li:focus-within {
+  background: var(--bg-hover);
+}
+.member-name {
   flex: 1;
 }
 
@@ -5940,8 +6001,8 @@ button.sync-badge-retry:hover {
   background: var(--text-secondary);
 }
 .mcp-dot.on {
-  background: #22c55e;
-  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.2);
+  background: var(--success);
+  box-shadow: 0 0 0 3px var(--success-soft);
 }
 .mcp-dot.off {
   background: var(--text-secondary);
@@ -5965,8 +6026,8 @@ button.sync-badge-retry:hover {
   padding: 1px var(--sp-2);
 }
 .mcp-status.on {
-  color: #16a34a;
-  background: rgba(34, 197, 94, 0.14);
+  color: var(--success);
+  background: var(--success-soft);
 }
 .mcp-status.off {
   color: var(--text-secondary);
@@ -6012,16 +6073,16 @@ button.sync-badge-retry:hover {
   background: var(--bg-hover);
 }
 .mcp-tool-badge.read {
-  color: #2563eb;
-  background: rgba(37, 99, 235, 0.12);
+  color: var(--link);
+  background: var(--accent-soft);
 }
 .mcp-tool-badge.write {
-  color: #b45309;
-  background: rgba(217, 119, 6, 0.14);
+  color: var(--warning);
+  background: var(--warning-soft);
 }
 .mcp-tool-badge.destructive {
-  color: #dc2626;
-  background: rgba(220, 38, 38, 0.14);
+  color: var(--danger);
+  background: var(--danger-soft);
 }
 
 /* "Set up this vault" folder prompt. Sits above the settings modal (200). */
@@ -6352,7 +6413,7 @@ button.secondary:disabled {
   gap: var(--sp-3);
   padding: var(--sp-4);
   border: 1px solid color-mix(in srgb, var(--danger) 26%, var(--border));
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-card);
   background: color-mix(in srgb, var(--danger-soft) 48%, var(--bg-surface));
 }
 /* Stacked Danger zone cards (Reset local copy, then Make local only). */
@@ -6469,10 +6530,10 @@ button.secondary:disabled {
   background: var(--text-tertiary);
 }
 .status-dot.online {
-  background: #22c55e;
+  background: var(--success);
 }
 .status-dot.away {
-  background: #f59e0b;
+  background: var(--warning);
 }
 .status-dot.busy {
   background: var(--danger);
@@ -6582,7 +6643,7 @@ button.secondary:disabled {
   gap: var(--sp-3);
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-card);
   padding: var(--sp-5);
 }
 .billing-card.plan-pro {
@@ -6872,7 +6933,7 @@ button.secondary:disabled {
   text-align: left;
   background: var(--bg-subtle);
   border: 1.5px solid transparent;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-card);
   cursor: pointer;
   transition:
     background var(--t-fast) var(--ease),
@@ -7256,7 +7317,7 @@ button.is-done:disabled {
    between them; the published url row spans the copy + control columns. */
 .share-options {
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-card);
   background: var(--bg-card);
 }
 .share-option {
@@ -7280,8 +7341,8 @@ button.is-done:disabled {
   color: var(--text-secondary);
 }
 .share-option.is-on .share-option-icon {
-  color: var(--brand-violet);
-  background: var(--brand-violet-tint);
+  color: var(--accent);
+  background: var(--accent-soft);
   border-color: transparent;
 }
 .share-option-icon svg {
@@ -7374,7 +7435,7 @@ button.is-done:disabled {
   width: 52px;
   height: 52px;
   margin: 0 auto var(--sp-4);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-card);
   color: var(--danger);
   background: var(--danger-soft);
 }
@@ -7920,9 +7981,9 @@ button.secondary:active:not(:disabled),
   right: -2px;
   min-width: 16px;
   padding: 0 5px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--accent);
-  color: #fff;
+  color: var(--text-on-accent);
   font-size: var(--fs-xs);
   line-height: 16px;
   text-align: center;
@@ -7948,9 +8009,9 @@ button.secondary:active:not(:disabled),
   right: -2px;
   min-width: 16px;
   padding: 0 5px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--accent);
-  color: #fff;
+  color: var(--text-on-accent);
   font-size: var(--fs-xs);
   font-weight: 600;
   line-height: 16px;
@@ -7960,8 +8021,8 @@ button.secondary:active:not(:disabled),
 }
 .right-panel-tab.active,
 .panel-btn.active {
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--text-on-accent);
+  background: var(--accent);
 }
 /* Activity feed (ActivityFeed.tsx). Same side inset as VersionPanel's head
    (--sp-4), so the header, the list and the empty state share one left edge. */
@@ -8048,7 +8109,7 @@ button.secondary:active:not(:disabled),
   column-gap: var(--sp-3);
   margin: calc(-1 * var(--sp-1)) calc(-1 * var(--sp-2));
   padding: var(--sp-1) var(--sp-2);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-row);
   cursor: pointer;
   transition: background var(--t-fast) var(--ease);
 }
@@ -8222,7 +8283,7 @@ button.secondary:active:not(:disabled),
   display: grid;
   place-items: center;
   overflow: hidden;
-  background: rgba(0, 0, 0, 0.82);
+  background: color-mix(in srgb, var(--bg-app) 92%, transparent);
   cursor: grab;
   touch-action: none;
 }
@@ -8263,7 +8324,7 @@ button.secondary:active:not(:disabled),
   resize: vertical;
   padding: var(--sp-3);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-input);
   background: var(--bg-surface);
   color: var(--text-primary);
   font: inherit;
@@ -8307,7 +8368,7 @@ button.secondary:active:not(:disabled),
   max-width: 100%;
   padding: 4px 4px 4px 6px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-input);
   background: var(--bg-card);
   font-size: var(--fs-xs);
 }
@@ -8380,7 +8441,7 @@ button.secondary:active:not(:disabled),
   gap: 2px;
   margin: var(--sp-2) 0 0;
   padding: var(--sp-3);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-input);
   background: var(--bg-card);
   border: 1px solid var(--border);
   font-size: var(--fs-xs);
@@ -8433,6 +8494,15 @@ button.secondary:active:not(:disabled),
   margin: 0 0 var(--sp-3);
   font-size: var(--fs-sm);
   color: var(--text-secondary);
+}
+
+.settings-page .kit-check-label i,
+.bug-report-include .kit-check-label i {
+  display: none;
+}
+.settings-page .kit-check[aria-checked="true"] .kit-check-label > span,
+.bug-report-include .kit-check[aria-checked="true"] .kit-check-label > span {
+  opacity: 1 !important;
 }
 
 /* ---- Vault settings → General → Vault icon ---- */
@@ -8794,7 +8864,7 @@ button.secondary:active:not(:disabled),
 .members-table {
   width: 100%;
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-card);
   border-collapse: separate;
   border-spacing: 0;
   overflow: hidden;
@@ -8814,13 +8884,19 @@ button.secondary:active:not(:disabled),
   color: var(--text-primary);
   vertical-align: middle;
 }
+.members-table tbody td:first-child {
+  border-radius: var(--radius-row) 0 0 var(--radius-row);
+}
+.members-table tbody td:last-child {
+  border-radius: 0 var(--radius-row) var(--radius-row) 0;
+}
 .members-table tbody tr + tr td {
   border-top: 1px solid var(--border);
 }
 /* Member rows: a lighter tint than the app-wide --bg-hover, so a row reads
    as hovered without competing with the pills and the ⋯ button inside it. */
 .members-table tbody tr:hover td {
-  background: var(--members-row-hover);
+  background: var(--bg-hover);
 }
 /* Member rows open the profile; invited rows have none and stay inert. */
 .members-table tbody tr.is-clickable {
@@ -8830,7 +8906,7 @@ button.secondary:active:not(:disabled),
   outline: none;
 }
 .members-table tbody tr.is-clickable:focus-visible td {
-  background: var(--members-row-hover);
+  background: var(--bg-hover);
   box-shadow: inset 0 1px 0 var(--accent), inset 0 -1px 0 var(--accent);
 }
 .members-table-person {
@@ -10893,11 +10969,31 @@ body.access-board-grabbing * {
   white-space: nowrap;
   align-self: center;
 }
-.appearance-clear {
-  margin-left: auto;
-  margin-right: 8px;
+.settings-content > .menu-row:has(.appearance-clear) > .menu-row-label {
+  flex: 1;
+}
+.link-btn.appearance-clear {
+  margin-left: 0;
+  margin-right: 0;
+  color: var(--text-secondary);
+  font-size: var(--fs-xs);
+  font-weight: 400;
   white-space: nowrap;
   align-self: center;
+}
+.link-btn.appearance-clear:hover {
+  color: var(--text-primary);
+}
+@media (max-width: 900px) {
+  .settings-content > .menu-row:has(.appearance-clear) {
+    flex-wrap: wrap;
+  }
+  .settings-content > .menu-row:has(.appearance-clear) > .menu-row-label {
+    flex: 1 0 100%;
+  }
+  .settings-content > .menu-row > .appearance-clear {
+    margin-left: auto;
+  }
 }
 .appearance-defaults-head {
   display: flex;
