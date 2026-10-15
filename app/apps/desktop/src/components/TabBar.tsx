@@ -1,5 +1,6 @@
+import { SOFT, useSpring } from "./kit/motion";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { LayoutGroup, motion, useReducedMotion } from "motion/react";
+import { LayoutGroup, motion } from "motion/react";
 import { placeMenu, type Placement } from "../lib/menuPlacement";
 import { noteLabel } from "../lib/notePath";
 import { useStore } from "../store";
@@ -30,6 +31,7 @@ interface TabMenu {
  * the old tab to the new one instead of re-painting two boxes.
  */
 export function TabBar() {
+  const spring = useSpring(SOFT);
   const openTabs = useStore((s) => s.openTabs);
   const notePath = useStore((s) => s.openNote?.path ?? null);
   const virtualTabs = useStore((s) => s.virtualTabs);
@@ -37,7 +39,6 @@ export function TabBar() {
   // A virtual tab on screen takes the highlight; the note keeps its tab.
   const activePath = activeVirtual ? null : notePath;
   const openingPath = useStore((s) => s.openingNotePath);
-  const reduceMotion = useReducedMotion();
 
   // Vault machinery can reset the list while a note is still open (see
   // `vaultScopedSyncReset`) — the file on screen always earns a tab.
@@ -122,11 +123,7 @@ export function TabBar() {
                   className="tab-active-bg"
                   layoutId="tab-active-bg"
                   aria-hidden="true"
-                  transition={
-                    reduceMotion
-                      ? { duration: 0 }
-                      : { type: "spring", stiffness: 380, damping: 34, mass: 0.9 }
-                  }
+                  transition={spring}
                 />
               )}
               <button
@@ -180,11 +177,7 @@ export function TabBar() {
                   className="tab-active-bg"
                   layoutId="tab-active-bg"
                   aria-hidden="true"
-                  transition={
-                    reduceMotion
-                      ? { duration: 0 }
-                      : { type: "spring", stiffness: 380, damping: 34, mass: 0.9 }
-                  }
+                  transition={spring}
                 />
               )}
               <button

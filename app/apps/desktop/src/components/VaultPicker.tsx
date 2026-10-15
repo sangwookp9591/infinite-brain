@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import type { VaultInfo, RecentVault } from "../lib/ipc";
 import * as ipc from "../lib/ipc";
@@ -10,6 +10,9 @@ import {
 } from "../store";
 import { Wordmark } from "./Logo";
 import { Spinner } from "./Spinner";
+import { FolderCard } from "./kit/FolderCard";
+import { CodeSlots } from "./kit/CodeSlots";
+import { SOFT, useSpring } from "./kit/motion";
 import { useLocalFolderClasses } from "./useVaultLists";
 import { filterRecentsForWelcome } from "../lib/vault/vaultList";
 
@@ -44,8 +47,6 @@ function isSyncedEntry(e: PickerEntry): boolean {
   return e.kind === "remote" || e.syncedOrgId !== null;
 }
 
-// Springs tuned for small UI: snappy but soft-landing (no rubber-banding).
-const SPRING = { type: "spring", stiffness: 300, damping: 24 } as const;
 const EASE_OUT = [0.16, 1, 0.3, 1] as const;
 
 /** Splash entrance: the wordmark resolves out of a blur, rising and settling
@@ -102,6 +103,10 @@ function tidyPath(path: string): string {
 }
 
 export function VaultPicker() {
+  const spring = useSpring(SOFT);
+  const focusJoinCode = useCallback((node: HTMLDivElement | null) => {
+    node?.querySelector("input")?.focus();
+  }, []);
   const authStatus = useStore((s) => s.authStatus);
   // A link-driven prompt (shared note / server invite / team invitation) mounts
   // its OWN AuthDialog from App.tsx, over this same welcome screen. Two stacked
@@ -489,16 +494,23 @@ export function VaultPicker() {
   // device; "Local" = a plain folder that syncs nowhere. The tag comes from
   // the folder's own config stamp, not just the localStorage caches,
   // so signing out can't demote a synced vault to an untagged "recent".
-  const renderEntry = (e: PickerEntry) => {
+  const renderEntry = (e: PickerEntry, folder = false) => {
     const synced = isSyncedEntry(e);
     const tag = e.kind === "remote" && !e.path ? "Remote" : synced ? "Synced" : "Local";
     return (
       <div
-        className={`recent-card${e.kind === "local" ? " removable" : ""}${
+        className={`recent-card${folder ? " recent-folder-card" : ""}${e.kind === "local" ? " removable" : ""}${
           opening === e.key ? " is-opening" : ""
         }`}
         key={e.key}
       >
+        {folder && (
+          <div className="recent-folder-preview" inert={busy}>
+            <FolderCard label={e.name}
+              items={[{ title: e.name, description: e.path ? tidyPath(e.path) : "Not on this device yet" }]}
+              onItemClick={() => void openEntry(e)} />
+          </div>
+        )}
         <button
           className="recent-open"
           disabled={busy}
@@ -570,7 +582,7 @@ export function VaultPicker() {
           initial={reduceMotion ? false : "hidden"}
           animate="show"
           whileHover={reduceMotion ? undefined : { scale: 1.02 }}
-          transition={SPRING}
+          transition={spring}
         >
           <Wordmark />
         </motion.h1>
@@ -593,7 +605,7 @@ export function VaultPicker() {
                 initial={reduceMotion ? false : { opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={reduceMotion ? undefined : { opacity: 0, y: -8 }}
-                transition={SPRING}
+                transition={spring}
               >
                 <Spinner size="sm" tone="accent" />
                 <p className="picker-landing-label" role="status">
@@ -611,32 +623,19 @@ export function VaultPicker() {
                 initial={reduceMotion ? false : { opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={reduceMotion ? undefined : { opacity: 0, y: -8 }}
-                transition={SPRING}
+                transition={spring}
                 onSubmit={(e) => {
                   e.preventDefault();
                   void confirmJoin();
                 }}
               >
                 <label className="new-vault-label">Enter your team's join code</label>
-                <input
-                  className="new-vault-input join-code-input"
-                  autoFocus
-                  value={joinCode}
-                  disabled={busy}
-                  // Codes are generated uppercase; typing them lowercase is not
-                  // a mistake worth an error message.
-                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                  onKeyDown={(e) => {
-                    if (e.key === "Escape") cancelJoin();
-                  }}
-                  placeholder="K7MPX2RA"
-                  spellCheck={false}
-                  autoComplete="off"
-                />
+                <div ref={focusJoinCode} onKeyDown={(e) => { if (e.key === "Escape") cancelJoin(); }}>
+                  <CodeSlots value={joinCode} onChange={setJoinCode} disabled={busy} error={joinError ?? undefined} />
+                </div>
                 <p className="new-vault-loc">
                   Ask a teammate for it — Vault settings → Members and access.
                 </p>
-                {joinError && <p className="error join-error">{joinError}</p>}
                 <div className="new-vault-buttons">
                   <button
                     type="button"
@@ -672,7 +671,7 @@ export function VaultPicker() {
                 initial={reduceMotion ? false : { opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={reduceMotion ? undefined : { opacity: 0, y: -8 }}
-                transition={SPRING}
+                transition={spring}
                 onSubmit={(e) => {
                   e.preventDefault();
                   void confirmNewVault();
@@ -727,7 +726,7 @@ export function VaultPicker() {
                 initial={reduceMotion ? false : { opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={reduceMotion ? undefined : { opacity: 0 }}
-                transition={SPRING}
+                transition={spring}
               >
                 <motion.button
                   className="primary hero"
@@ -735,7 +734,7 @@ export function VaultPicker() {
                   onClick={startNewVault}
                   whileHover={reduceMotion ? undefined : { scale: 1.04, y: -1 }}
                   whileTap={reduceMotion ? undefined : { scale: 0.96 }}
-                  transition={SPRING}
+                  transition={spring}
                 >
                   New vault
                 </motion.button>
@@ -746,7 +745,7 @@ export function VaultPicker() {
                   onClick={pickExisting}
                   whileHover={reduceMotion ? undefined : { scale: 1.03, y: -1 }}
                   whileTap={reduceMotion ? undefined : { scale: 0.97 }}
-                  transition={SPRING}
+                  transition={spring}
                 >
                   <span className="async-btn-label">
                     {busy ? "Opening…" : "Open existing"}
@@ -768,7 +767,7 @@ export function VaultPicker() {
                   onClick={startJoin}
                   whileHover={reduceMotion ? undefined : { scale: 1.03, y: -1 }}
                   whileTap={reduceMotion ? undefined : { scale: 0.97 }}
-                  transition={SPRING}
+                  transition={spring}
                 >
                   Join a team
                 </motion.button>
@@ -789,7 +788,7 @@ export function VaultPicker() {
             }
           >
             <p className="recent-heading">Recent vaults</p>
-            <div className="recent-scroll">{shownRecents.map(renderEntry)}</div>
+            <div className="recent-scroll">{shownRecents.map((entry) => renderEntry(entry, true))}</div>
             {hiddenRecents > 0 && (
               <button
                 className="recent-more"
@@ -962,13 +961,13 @@ export function VaultPicker() {
               {entries.some(isSyncedEntry) && (
                 <>
                   <p className="vault-list-section">Synced vaults</p>
-                  {entries.filter(isSyncedEntry).map(renderEntry)}
+                  {entries.filter(isSyncedEntry).map((entry) => renderEntry(entry))}
                 </>
               )}
               {entries.some((e) => !isSyncedEntry(e)) && (
                 <>
                   <p className="vault-list-section">On this device only</p>
-                  {entries.filter((e) => !isSyncedEntry(e)).map(renderEntry)}
+                  {entries.filter((e) => !isSyncedEntry(e)).map((entry) => renderEntry(entry))}
                 </>
               )}
             </div>

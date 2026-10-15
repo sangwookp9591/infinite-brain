@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import {
+  SyncBadge,
   isSyncRunActive,
   syncBadgeAction,
   syncBadgeHold,
@@ -426,5 +429,34 @@ describe("a run whose registry pull keeps failing", () => {
   it("reads Synced again once the stamp is gone", () => {
     const progress: SyncProgress = { phase: "error", done: 3, total: 3, failed: 2 };
     expect(syncBadgeLabel({ status: "synced", now, progress, lastSyncedAt: now })).toBe("Synced · just now");
+  });
+});
+
+
+describe("sync badge visual state", () => {
+  const render = (props: Parameters<typeof SyncBadge>[0]) =>
+    renderToStaticMarkup(createElement(SyncBadge, props));
+
+  it("shows the active bulk run as a read-only dial and working lattice", () => {
+    const html = render({ status: "synced", progress: { phase: "uploading", done: 2, total: 5, failed: 0 } });
+    expect(html).toContain('data-status="working"');
+    expect(html).toContain('role="progressbar"');
+    expect(html).toContain('aria-valuenow="40"');
+    expect(html).toContain("Syncing 2/5 updates");
+    expect(html).not.toContain('role="slider"');
+  });
+
+  it("maps pending, completed and failed sync without changing their labels", () => {
+    expect(render({ status: "synced", pending: true })).toContain('data-status="working"');
+    expect(render({ status: "synced" })).toContain('data-status="done"');
+    expect(render({ status: "error" })).toContain('data-status="error"');
+    expect(render({ status: "error" })).toContain("Retrying…");
+  });
+
+  it("keeps paused sync neutral and never shows a completion lattice", () => {
+    const html = render({ status: "synced", rootMissing: true });
+    expect(html).toContain("Paused");
+    expect(html).not.toContain("kit-lattice");
+    expect(html).not.toContain('role="progressbar"');
   });
 });

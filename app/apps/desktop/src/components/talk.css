@@ -19,20 +19,20 @@
    The ring is a pseudo-element so it can overflow the 28px button without
    affecting layout in the header row. */
 .talk-btn.live {
-  color: var(--accent);
-  background: var(--accent-soft);
+  color: var(--text-on-accent);
+  background: var(--accent);
   position: relative;
 }
 
 .talk-btn.live:hover {
-  color: var(--accent);
+  color: var(--text-on-accent);
 }
 
 .talk-btn.live::after {
   content: "";
   position: absolute;
   inset: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-row);
   border: 1.5px solid var(--accent);
   animation: talk-broadcast 1.4s var(--ease) infinite;
   pointer-events: none;

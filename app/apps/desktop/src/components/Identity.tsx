@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { CheckMark } from "./Spinner";
+import { ActivityLattice } from "./kit/ActivityLattice";
+import { ProgressDial } from "./kit/ProgressDial";
 import { isBulkPhase, type SyncProgress } from "../lib/sync/vaultScope";
 import { syncPauseRemaining, type SyncPause } from "../lib/sync/syncPause";
 
@@ -266,7 +267,7 @@ export function SyncBadge({
   /** True while local edits are still flushing to the server → "Syncing…". */
   pending?: boolean;
   /** The open vault's bulk sync run — turns the pill into "Syncing 128/500"
-   *  with a determinate bar. Omit for a pill that only tracks the connection. */
+   *  with a read-only progress dial. Omit for a pill that only tracks the connection. */
   progress?: SyncProgress | null;
   /** False when the pill stands for the vault, not an open note: socket-derived
    *  states are skipped and the label comes from `progress` alone. */
@@ -295,8 +296,7 @@ export function SyncBadge({
     noteOpen,
   });
   const tone = syncBadgeTone({ status, progress, noteOpen });
-  // A determinate fill whenever the run knows its own size; the pre-existing
-  // indeterminate slide covers "working, size unknown" (connecting, saving).
+  // A read-only dial when the run knows its size; the lattice also covers unknown totals.
   const percent = running ? syncRunPercent(progress) : null;
   // Hover answers "how far along?" in the same shape as the folder tooltips.
   const runTitle =
@@ -315,41 +315,28 @@ export function SyncBadge({
   });
   const retryable = action.kind !== "none";
   const onAct = onRetry;
-  const title = retryable ? action.title : runTitle;
+  const title = (retryable ? action.title : runTitle) ?? label;
   const body = (
     <>
-      {tone === "connecting" || (tone === "synced" && pending) ? (
-        <span
-          className={`sync-progress${percent != null ? " determinate" : ""}`}
-          aria-hidden="true"
-        >
-          <span
-            className="sync-progress-fill"
-            style={percent != null ? { width: `${percent}%` } : undefined}
-          />
-        </span>
-      ) : tone === "read-only" ? (
-        <svg
-          className="sync-lock"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.4"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <rect x="4" y="11" width="16" height="10" rx="2" />
-          <path d="M8 11V7a4 4 0 0 1 8 0v4" />
-        </svg>
-      ) : tone === "synced" ? (
-        // Settled and safe reads as a tick, not just a green dot — the same
-        // "this completed" glyph AsyncButton uses.
-        <CheckMark size="xs" />
+      {percent != null && <ProgressDial value={percent} label="Vault sync progress" />}
+      {tone === "connecting" || tone === "synced" || tone === "error" || tone === "no-access" ? (
+        <ActivityLattice
+          label={label}
+          status={tone === "connecting" || (tone === "synced" && pending)
+            ? "working" : tone === "synced" ? "done" : "error"}
+        />
       ) : (
-        <span className="sync-dot" aria-hidden="true" />
+        <>
+          {tone === "read-only" ? (
+            <svg className="sync-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <rect x="4" y="11" width="16" height="10" rx="2" />
+              <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+            </svg>
+          ) : <span className="sync-dot" aria-hidden="true" />}
+          <span className="sync-badge-label">{label}</span>
+        </>
       )}
-      <span className="sync-badge-label">{label}</span>
     </>
   );
   const hold = syncBadgeHold({ rootMissing, enabled, pause, now: Date.now() });
@@ -375,8 +362,8 @@ export function SyncBadge({
     );
   }
   return (
-    <span className={`sync-badge ${tone}${pending ? " pending" : ""}`} title={title}>
+    <div className={`sync-badge ${tone}${pending ? " pending" : ""}`} title={title}>
       {body}
-    </span>
+    </div>
   );
 }
