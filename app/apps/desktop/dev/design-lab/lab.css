@@ -86,9 +86,11 @@ html, body { background: var(--bg-app); color: var(--text-primary); font-family:
 .ss-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: auto; padding-top: 4px; }
 .ss-btn { height: 36px; padding: 0 16px; border: 0; border-radius: var(--radius-pill); background: var(--bg-subtle); color: var(--text-primary); font: inherit; font-size: 13px; cursor: pointer; }
 .ss-btn:hover { background: var(--bg-raised); }
+.ss-variants { display: flex; gap: 8px; }
+.ss-variants .ss-btn[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 .ss-btn[data-primary] { background: var(--accent); color: var(--text-on-accent); }
 .ss-btn[data-primary]:hover { background: var(--accent-hover); }
-.ss-btn[data-danger] { background: var(--danger); color: var(--text-on-accent); }
+.ss-btn[data-danger] { background: #b91c1c; color: #fff; }
 .ss-btn:disabled { opacity: .5; cursor: default; }
 .ss-bar { height: 8px; border-radius: var(--radius-pill); background: var(--bg-subtle); overflow: hidden; }
 .ss-bar span { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width var(--t-med) var(--ease); }
