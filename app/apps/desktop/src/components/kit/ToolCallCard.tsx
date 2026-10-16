@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Adapted from /private/tmp/claude-501/-Users-iron-Project-psw-infinite-brain/7dd0ad66-d583-481d-bb04-d8b07e6c8d31/scratchpad/specs/toolcall-src.tsx; source origin and license require confirmation.
-import { Children, isValidElement, useEffect, useId, useLayoutEffect, useRef, useState, type ReactElement, type ReactNode } from "react";
+import { Children, isValidElement, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from "react";
 import "./ToolCallCard.css";
 
 export type ToolCallStatus = "running" | "success" | "error";
@@ -8,7 +8,8 @@ export type ToolCallCardProps = { name: string; summary?: ReactNode; icon?: Reac
 export type ToolCallGroupProps = { children: ReactNode; label?: string; runningLabel?: string; duration?: number; defaultOpen?: boolean; open?: boolean; onOpenChange?: (open: boolean) => void; className?: string };
 
 export function formatMs(ms: number, live = false) {
-  if (!live && ms < 1000) return `${Math.max(1, Math.round(ms))}ms`;
+  ms = Math.max(0, ms);
+  if (!live && ms < 999.5) return `${Math.max(1, Math.round(ms))}ms`;
   if (ms < 60_000) return `${(Math.floor(ms / 100) / 10).toFixed(1)}초`;
   const s = Math.floor(ms / 1000);
   return `${Math.floor(s / 60)}분 ${String(s % 60).padStart(2, "0")}초`;
@@ -64,7 +65,7 @@ export function ToolCallCard({ name, summary, icon, status, args, result, error,
   const [prevStatus, setPrevStatus] = useState(status); const [autoOpened, setAutoOpened] = useState(false);
   if (status !== prevStatus) { setPrevStatus(status); if (openProp === undefined && openOnError) { if (status === "error" && !openState) { setOpenState(true); setAutoOpened(true); } else if (prevStatus === "error" && autoOpened) { setOpenState(false); setAutoOpened(false); } } }
   const measured = useStopwatch(status === "running", startedAt, false); const ms = status === "running" ? measured ?? 0 : duration ?? measured;
-  const announce = status === "running" ? `${name}: 도구 사용 중` : status === "success" ? `${name}: 완료` : `${name}: 실패${error ? `: ${error}` : ""}`;
+  const announce = status === "running" ? `${name}: 실행 중` : status === "success" ? `${name}: 완료` : `${name}: 실패${error ? `: ${error}` : ""}`;
   return <div className={`kit-tc ${className ?? ""}`} data-status={status} data-open={open || undefined}>
     <span className="kit-tc-sr" role="status" aria-live="polite">{announce}</span>
     <button type="button" className="kit-tc-head" aria-expanded={open} aria-controls={`${id}-body`} onClick={() => { setAutoOpened(false); setOpen(!open); }}>
@@ -72,10 +73,10 @@ export function ToolCallCard({ name, summary, icon, status, args, result, error,
       <span className="kit-tc-status" key={status}>{status === "running" && <Spinner />}{status === "success" && <CheckIcon />}{status === "error" && <ErrorIcon />}<span className="kit-tc-time">{status === "error" ? "실패" : ms != null ? formatMs(ms, status === "running") : null}</span></span><Chevron />
     </button>
     <div className="kit-tc-body" id={`${id}-body`} inert={!open}><div className="kit-tc-clip"><div className="kit-tc-sections">
-      {status === "error" && <div className="kit-tc-error"><ErrorIcon /><p className="kit-tc-error-text">{error ?? "도구 호출에 실패했습니다."}</p>{onRetry && <button type="button" className="kit-tc-retry" onClick={onRetry}><RetryIcon />다시 시도</button>}</div>}
+      {status === "error" && <div className="kit-tc-error"><ErrorIcon /><p className="kit-tc-error-text">{error ?? "도구 호출에 실패했어요."}</p>{onRetry && <button type="button" className="kit-tc-retry" onClick={onRetry}><RetryIcon />다시 시도</button>}</div>}
       {args !== undefined && <CodeSection label="입력" value={args} cap={maxCodeHeight} />}
       {result !== undefined ? <CodeSection label="결과" value={result} cap={maxCodeHeight} /> : status === "running" ? <div className="kit-tc-section"><div className="kit-tc-section-head"><span className="kit-tc-label">결과</span></div><p className="kit-tc-pending">결과를 기다리는 중…</p></div> : null}
-      {args === undefined && result === undefined && status === "success" && <p className="kit-tc-pending">입력 또는 결과가 없습니다.</p>}
+      {args === undefined && result === undefined && status === "success" && <p className="kit-tc-pending">입력 또는 결과가 없어요.</p>}
     </div></div></div>
   </div>;
 }
@@ -95,11 +96,15 @@ export function ToolCallGroup({ children, label, runningLabel = "도구 사용 �
   </div>;
 }
 
+// Above this many characters the JSON is shown unhighlighted: one <span> per token gets slow, and every card renders its body even while collapsed.
+const HIGHLIGHT_MAX = 20_000;
 function CodeSection({ label, value, cap }: { label: string; value: unknown; cap: number }) {
-  const { text, json } = toText(value); const pre = useRef<HTMLPreElement>(null); const [full, setFull] = useState(false); const [height, setHeight] = useState(0);
+  const { text, json } = useMemo(() => toText(value), [value]);
+  const body = useMemo(() => json && text.length <= HIGHLIGHT_MAX ? highlightTokens(text).map((t, i) => t.kind === "plain" ? t.text : <span key={i} className={`kit-tc-t-${t.kind}`}>{t.text}</span>) : text, [text, json]);
+  const pre = useRef<HTMLPreElement>(null); const [full, setFull] = useState(false); const [height, setHeight] = useState(0);
   useLayoutEffect(() => { const el = pre.current; const inner = el?.firstElementChild; if (!el || !inner) return; const measure = () => setHeight(el.scrollHeight); measure(); const ro = new ResizeObserver(measure); ro.observe(inner); return () => ro.disconnect(); }, [text]);
   const capped = height > cap + 24;
-  return <div className="kit-tc-section"><div className="kit-tc-section-head"><span className="kit-tc-label">{label}</span><CopyButton text={text} label={label.toLowerCase()} /></div><pre ref={pre} className="kit-tc-code" data-capped={(capped && !full) || undefined} style={capped ? { maxHeight: full ? height : cap } : undefined}><code>{json ? highlightTokens(text).map((t, i) => t.kind === "plain" ? t.text : <span key={i} className={`kit-tc-t-${t.kind}`}>{t.text}</span>) : text}</code></pre>{capped && <button type="button" className="kit-tc-more" aria-expanded={full} onClick={() => setFull(!full)}>{full ? "접기" : "모두 보기"}</button>}</div>;
+  return <div className="kit-tc-section"><div className="kit-tc-section-head"><span className="kit-tc-label">{label}</span><CopyButton text={text} label={label.toLowerCase()} /></div><pre ref={pre} className="kit-tc-code" data-capped={(capped && !full) || undefined} style={capped ? { maxHeight: full ? height : cap } : undefined}><code>{body}</code></pre>{capped && <button type="button" className="kit-tc-more" aria-expanded={full} onClick={() => setFull(!full)}>{full ? "접기" : "모두 보기"}</button>}</div>;
 }
 function CopyButton({ text, label }: { text: string; label: string }) {
   const [copied, setCopied] = useState(false); useEffect(() => { if (!copied) return; const t = window.setTimeout(() => setCopied(false), 1400); return () => window.clearTimeout(t); }, [copied]);
