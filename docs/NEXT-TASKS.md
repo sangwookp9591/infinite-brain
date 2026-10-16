@@ -27,7 +27,7 @@ tags: [handoff, roadmap, team-second-brain]
 
 | 브랜치 | 내용 | 상태 |
 |---|---|---|
-| `iron/docs-c0-p2p` | C0 P2P 설계 r4 (`docs/superpowers/specs/2026-10-16-c0-p2p-design.md`)와 검증 보고서 4개 | 4차 확인(N14~N16만) 진행 중이었다. 결과는 같은 브랜치의 `docs/reports/C0-REVERIFY3-opus.md`. → T3 |
+| `iron/docs-c0-p2p` | C0 P2P 설계 r4 (`docs/superpowers/specs/2026-10-16-c0-p2p-design.md`)와 검증 보고서 5개 | 4차 확인 결과 "수정 필요" (`docs/reports/C0-REVERIFY3-opus.md`, `e4fd2e1`). 규칙 문장 4곳만 고치면 된다. → T3 |
 
 나머지 `iron/*` 브랜치(`docs-a0-authz`, `spike-b0-llama`, `feat-b0-first-run`, `feat-b0-capacity-q8`, `feat-kit-heatmap`, `feat-kit-toolcall`)는 모두 `main`에 머지됐으므로 지워도 된다.
 
@@ -92,9 +92,16 @@ tags: [handoff, roadmap, team-second-brain]
 
 ### T3. C0 마무리 → C1 LAN 실험
 
-- **먼저:** `iron/docs-c0-p2p`의 `docs/reports/C0-REVERIFY3-opus.md` 판정을 본다.
-  - "C1 진행 가능"이면 `iron/docs-c0-p2p`를 `main`에 머지하고 README Roadmap의 C 행을 갱신한다.
-  - "수정 필요"면 그 보고서의 항목만 고치고(Opus / high), 그 항목만 다시 확인한다(별도 Opus 세션). 지금까지 1차 → 재검증 → 3차 → 4차로 범위가 계속 좁아졌다.
+- **4차 확인 결과(2026-10-16, `docs/reports/C0-REVERIFY3-opus.md`):** 수정 필요. N14 닫힘, N15·N16 부분, 새 높음 N17 1건.
+  - N15: 복구 직후의 복구 키 교체(RR)는 §4.5.1-5-a 조건 때문에 언제나 단독이 되어, 복구에 쓴 코드의 사본이 영구 동결 스위치로 남는다.
+  - N16: 스냅샷 본문의 pending struct/delete set이 상태 해시 D_c에 잡히지 않은 채 새 기기 live doc에 들어가고, 삭제 단위의 origin이 D에 없다(yjs 13.6.31 소스로 확인).
+  - N17: 5-a의 "인수로 생긴 권한 기기" 조건이 권한을 한 번 넘기는 세탁으로 우회되어, 복구에 쓴 코드 사본이 정당한 복구를 이긴다. 평가 순서 ① 안에 고정점 비결정성도 생긴다.
+- **할 일(r5):** 보고서가 제시한 규칙 문장 4곳만 고친다(Opus / high, `iron/docs-c0-p2p`에서).
+  1. 두 자격(공동 서명자, 인수 기기)을 계보로 판정한다.
+  2. 복구로 은퇴한 세대에 대한 주장을 좁힌다.
+  3. pending이 남은 스냅샷은 거부하고, 재인코딩한 상태를 채택한다.
+  4. 삭제 단위 origin을 D에 넣는다.
+- **그다음:** 이 항목만 별도 Opus 세션에서 다시 확인한다. "C1 진행 가능"이 나오면 `iron/docs-c0-p2p`를 `main`에 머지하고 README Roadmap의 C 행을 갱신한다. 지금까지 1차 → 재검증 → 3차 → 4차로 범위가 계속 좁아졌다(높음: 4 → 2 → 3 → 2+1).
 - **알아둘 것:** 분기 규칙, 키 확인값, 복구 키 감싸기, checkpoint, 상태 해시 D는 표준이 아닌 직접 구성이다. 형식 검증은 하지 않았고 C1 속성 기반 테스트와 C2 외부 보안 리뷰로 넘겼다. 재생 비용(중)은 범위 밖으로 남아 있다. OpenMLS를 C2에서 대안으로 검토한다.
 - **C1 계획:** C0 설계 문서의 C1 절(범위: 텍스트 전용 새 vault, 같은 망 2~3대, 성공 기준과 측정).
 
