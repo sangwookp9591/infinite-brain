@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: Apache-2.0
+# B0-a 실험 crate. 앱(src-tauri)과 완전히 분리된 독립 crate이며 앱 의존성을 건드리지 않는다.
+[package]
+name = "b0-llama"
+version = "0.0.0"
+edition = "2021"
+publish = false
+license = "Apache-2.0"
+
+# 상위에 workspace가 없지만, 나중에 생겨도 이 crate가 흡수되지 않도록 독립 workspace로 둔다.
+[workspace]
+
+[features]
+default = []
+metal = ["llama-cpp-2/metal"]
+
+[dependencies]
+llama-cpp-2 = { version = "=0.1.160", default-features = false }
+
+# 앱(src-tauri/Cargo.toml)의 release 프로파일과 같게 맞춘다. 크기 증가분을 앱 조건으로 재기 위해서다.
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = true
+
+# llama-cpp-sys-2 0.1.160의 번들 llama.cpp에는 gemma-embedding2가 없어서, scripts/vendor-llama.sh 로 만든 사본을 쓴다. 래퍼(llama-cpp-2)도 새 C 구조체에 맞춰 한 줄 패치한 사본이다.
+[patch.crates-io]
+llama-cpp-sys-2 = { path = "vendor/llama-cpp-sys-2" }
+llama-cpp-2 = { path = "vendor/llama-cpp-2" }
