@@ -5,8 +5,9 @@ import { useEffect, useRef, useState } from "react";
 import { SpringCheck } from "../../src/components/kit/SpringCheck";
 import type { Demo } from "./types";
 
-// B0-a 측정값으로 교체.
-const SIZE_MB = 200;
+// B0-a 측정(docs/reports/B0-LLAMA-SPIKE.md): Q4_K_XL 176MB / Q8_0 310MB, 앱이 기기에 맞춰 고름
+const SIZE_MB = 180;
+const USED_MB = 190;
 
 function Panel({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
   return <section className="ss-panel" aria-label={`${n}. ${title}`}>
@@ -29,7 +30,7 @@ function SmartSearchScene() {
   const [cleared, setCleared] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const [limitReason, setLimitReason] = useState<"storage" | "memory">("storage");
-  const used = cleared ? 0 : SIZE_MB + 18;
+  const used = cleared ? 0 : USED_MB;
   // Keyboard focus follows the swap between 지우기… and its confirm buttons instead of falling to <body>.
   const openRef = useRef<HTMLButtonElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
@@ -49,7 +50,7 @@ function SmartSearchScene() {
     <Panel n={2} title="내려받는 중">
       <h4>스마트 검색을 준비하고 있어요</h4>
       <Bar percent={42} label="스마트 검색 내려받기" />
-      <p className="ss-meta"><span>84MB / {SIZE_MB}MB</span><span>42%</span></p>
+      <p className="ss-meta"><span>76MB / {SIZE_MB}MB</span><span>42%</span></p>
       <p>이 창을 닫아도 계속 받아요. 그동안에도 노트는 평소처럼 쓸 수 있어요.</p>
       <div className="ss-actions"><button type="button" className="ss-btn">취소</button></div>
     </Panel>
