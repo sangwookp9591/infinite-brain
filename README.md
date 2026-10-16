@@ -4,7 +4,7 @@
 
 # Infinite Brain
 
-**A universe of ideas** — a local-first, collaborative Markdown knowledge app<br>with a calm, ink-on-paper interface you can tint to your own colour.
+**A universe of ideas** — a local-first, collaborative Markdown knowledge app,<br>growing into a shared second brain for teams, with a calm ink-on-paper interface you can tint to your own colour.
 
 [![CI](https://github.com/sangwookp9591/infinite-brain/actions/workflows/ci.yml/badge.svg)](https://github.com/sangwookp9591/infinite-brain/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
@@ -15,7 +15,7 @@
 ![Node >=22](https://img.shields.io/badge/node-%3E%3D22-339933?logo=node.js&logoColor=white)
 ![Local-first](https://img.shields.io/badge/local--first-yes-success)
 
-[Features](#-features) · [Design](#-design) · [How it works](#-how-it-works) · [Quick start](#-quick-start) · [Architecture](#-architecture) · [Docs](#-docs)
+[Features](#-features) · [Design](#-design) · [Roadmap](#-roadmap) · [How it works](#-how-it-works) · [Quick start](#-quick-start) · [Architecture](#-architecture) · [Docs](#-docs)
 
 <br>
 
@@ -60,7 +60,7 @@ What this fork adds on top of Baalda 0.1.83:
 | **AI change ledger** | Every AI edit is recorded and can be undone. An undo is refused (409) if a person has edited the note since. | [`docs/AI-CHANGES.md`](docs/AI-CHANGES.md) |
 | **Invite links** | Teammates join with a link, no email server needed. | [`docs/onboarding-audit.md`](docs/onboarding-audit.md) |
 | **Galaxy graph** | The graph view renders notes as a spiral galaxy (three.js WebGPU, with WebGL2 and 2D fallbacks). | [`docs/galaxy/`](docs/galaxy/) |
-| **New visual language** | Zinc surfaces and an ink accent in light and dark, with spring micro-interactions from a ten-component design kit across the shell, editor, settings, dialogs and dashboards. | [`docs/superpowers/specs/2026-10-15-ui-redesign-color-design.md`](docs/superpowers/specs/2026-10-15-ui-redesign-color-design.md) |
+| **New visual language** | Zinc surfaces and an ink accent in light and dark, with spring micro-interactions from a twelve-component design kit across the shell, editor, settings, dialogs and dashboards. | [`docs/superpowers/specs/2026-10-15-ui-redesign-color-design.md`](docs/superpowers/specs/2026-10-15-ui-redesign-color-design.md) |
 | **Custom accent** | Pick ink, one of eight presets or any `#rrggbb`, per person or as a vault default. A contrast guard keeps button text at 4.5:1 or better in both themes, and the choice paints from the very first frame. | [`docs/superpowers/plans/2026-10-15-ui-redesign-rollout.md`](docs/superpowers/plans/2026-10-15-ui-redesign-rollout.md) |
 | **Rebrand** | App ID `com.infinitebrain.desktop`, URL scheme `infinitebrain://`, new icon and updater key. Rerun `node scripts/rebrand.mjs --dry-run` to check for leftovers. | [`docs/BRAND-ASSETS.md`](docs/BRAND-ASSETS.md) |
 
@@ -79,7 +79,22 @@ The interface is ink on paper: neutral zinc layers carry the structure, and colo
     <td align="center"><sub>Appearance settings with a blue accent: theme chips, swatches, bar sliders.</sub></td>
     <td align="center"><sub>The design kit in the design lab, dark theme.</sub></td>
   </tr>
+  <tr>
+    <td width="50%"><img src="docs/assets/ui/kit-activity-heatmap-dark.png" alt="ActivityHeatmap in dark mode: a year of note edits as a grid of squares, with a tooltip on one day and a less-to-more legend"></td>
+    <td width="50%"><img src="docs/assets/ui/kit-tool-call-light.png" alt="ToolCallCard showing search_notes running, read_note finished and update_note failed with a retry button, plus a folded group of three calls"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub><code>ActivityHeatmap</code>: a year of note edits, with keyboard navigation and a gliding tooltip.</sub></td>
+    <td align="center"><sub><code>ToolCallCard</code>: one AI tool call with its input, result, timing and retry.</sub></td>
+  </tr>
 </table>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/ui/b0-first-run-dark.png">
+  <img src="docs/assets/ui/b0-first-run-light.png" alt="Design lab mock of the first-run smart search prompt: the opening question, downloading, not-enough-space notice, the settings panel and the hint beside the search box" width="900">
+</picture>
+
+<p align="center"><sub>Mock of the first-run "smart search" prompt (on-device semantic search): ask once, download about 180 MB, notes never leave the device. Plain words only, no setup.</sub></p>
 
 | Kit component | Where you meet it |
 |---|---|
@@ -92,8 +107,23 @@ The interface is ink on paper: neutral zinc layers carry the structure, and colo
 | `ProgressDial` | Sync progress when a percentage is known |
 | `GlowCard` · `FolderCard` | Dashboard templates and recent vaults on the welcome screen |
 | `SwipeRow` | In the kit and the design lab; not wired into app lists yet |
+| `ActivityHeatmap` | In the kit and the design lab; planned for vault activity |
+| `ToolCallCard` · `ToolCallGroup` | In the kit and the design lab; planned for the AI change log |
 
 Try every component in both themes and with any accent in the design lab: from `app/apps/desktop`, run `pnpm exec vite --mode simulator` and open `/dev/design-lab/`. The kit lives in [`app/apps/desktop/src/components/kit/`](app/apps/desktop/src/components/kit/) and the rules in [`app/apps/desktop/src/styles/DESIGN-BRIEF.md`](app/apps/desktop/src/styles/DESIGN-BRIEF.md).
+
+## 🗺 Roadmap
+
+Infinite Brain is becoming a **second brain the whole team shares**, usable by people who have never touched a terminal: no command line, no extra installs, no jargon on screen. The plan is in the [team second-brain PRD](docs/superpowers/specs/2026-10-15-team-second-brain-prd.md) (Korean).
+
+| Track | Goal | Status |
+|---|---|---|
+| **A · Hub teams** | Guests, join codes that expire, external-sharing policy, audit log, approval queue, domain auto-join, on the existing server | A0 design [merged](docs/superpowers/specs/2026-10-16-a0-authorization-design.md) and verified. It found three existing authorization gaps; fixing them (A1-0) comes first |
+| **B · Smart search** | On-device semantic search with EmbeddingGemma 2 running inside the app (llama.cpp, GGUF), offered with one "turn on?" prompt | First-run mock [merged](docs/reports/B0-FIRST-RUN-MOCK.md). The llama.cpp spike on Apple Silicon is under review |
+| **C · Share without a server** | Peer-to-peer vaults over Iroh with end-to-end encryption, working on an offline LAN | C0 design under re-verification |
+| **D–F** | Storage node, attachments, local MCP, connected vaults, moving a P2P vault to a hub | After A–C |
+
+Both modes will live side by side: run your own server as today (hub), or share a vault with no server at all (P2P).
 
 ## 🧠 How it works
 
@@ -221,7 +251,8 @@ Self-hosting guide: [`docs/DEPLOY.md`](docs/DEPLOY.md).
 │   │   │   ├── src/            UI, editor, Yjs bridge, sync client
 │   │   │   ├── src-tauri/      Rust: filesystem, watcher, SQLite index, keychain
 │   │   │   ├── src/components/kit/  Design kit (spring micro-interactions)
-│   │   │   └── dev/            Design lab, galaxy lab and window simulator (WebMCP-enabled)
+│   │   │   ├── dev/            Design lab, galaxy lab and window simulator (WebMCP-enabled)
+│   │   │   └── spikes/         Throwaway experiments (not part of the app build)
 │   │   └── server/             Hono API, Hocuspocus sync, Better Auth, MCP, migrations
 │   ├── package.json            pnpm workspace and Turbo tasks
 │   └── turbo.json
@@ -242,8 +273,11 @@ Self-hosting guide: [`docs/DEPLOY.md`](docs/DEPLOY.md).
 | [`docs/RELEASE.md`](docs/RELEASE.md) | How a desktop release is cut |
 | [`docs/AI-CHANGES.md`](docs/AI-CHANGES.md) | AI change ledger contract |
 | [`docs/BRAND-ASSETS.md`](docs/BRAND-ASSETS.md) | Rebrand assets and checks |
-| [`docs/superpowers/specs/`](docs/superpowers/specs/) | UI redesign and colour customization spec |
+| [`docs/superpowers/specs/2026-10-15-team-second-brain-prd.md`](docs/superpowers/specs/2026-10-15-team-second-brain-prd.md) | Team second-brain PRD: hub and P2P modes, smart search, roadmap (Korean) |
+| [`docs/superpowers/specs/2026-10-16-a0-authorization-design.md`](docs/superpowers/specs/2026-10-16-a0-authorization-design.md) | A0 hub authorization design: expected-permission table and test list (Korean) |
+| [`docs/superpowers/specs/`](docs/superpowers/specs/) | All specs, including the UI redesign and colour customization spec |
 | [`docs/superpowers/plans/`](docs/superpowers/plans/) | Rollout plan for the new visual language |
+| [`docs/reports/`](docs/reports/) | Implementation, review and verification reports |
 | [`docs/FINAL-report.md`](docs/FINAL-report.md) | Design and research summary (Korean) |
 | [`docs/research/`](docs/research/) | Research reports |
 | [`docs/UPSTREAM-CLAUDE.md`](docs/UPSTREAM-CLAUDE.md) | Inherited architecture reference |
