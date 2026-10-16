@@ -11,6 +11,7 @@ import { CodeSlots } from "../../src/components/kit/CodeSlots";
 import { ActivityHeatmap, type ActivityDay } from "../../src/components/kit/ActivityHeatmap";
 import type { Demo } from "./types";
 import { smartSearchScene } from "./smartSearchScene";
+import { toolCallScene } from "./toolCallScene";
 
 export type LabTheme = "system" | "light" | "dark";
 export const ACCENTS = [
@@ -88,4 +89,5 @@ export const scenes: Demo[] = [
   { id: "welcome", title: "Welcome / vault picker", usage: "P3, P5 · Open a vault, create a space or join your team.", wide: true, render: () => <Welcome /> },
   { id: "note-activity", title: "노트 활동 · 히트맵", usage: "날짜별 노트 편집 횟수 · 기간 전환, 날짜 선택과 범례 강조를 확인합니다.", wide: true, render: () => <NoteActivity /> },
   smartSearchScene,
+  toolCallScene,
 ];
