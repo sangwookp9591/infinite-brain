@@ -105,3 +105,10 @@ html, body { background: var(--bg-app); color: var(--text-primary); font-family:
 .ss-grid { width: 100%; }
 .ss-row .kit-check-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .ss-row .kit-check { min-height: 32px; flex: none; }
+
+.scene-note-activity { width: 100%; max-width: 900px; padding: 24px; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--bg-surface); }
+.scene-note-activity-title { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.scene-note-activity-title h4 { margin: 0; color: var(--text-primary); font-size: var(--fs-lg); }
+.scene-note-activity-title p, .scene-note-activity-selection { margin: 4px 0 0; color: var(--text-secondary); font-size: var(--fs-sm); }
+.scene-note-activity .kit-heatmap-actions button, .scene-note-activity-title .lab-pill { color: var(--text-primary); }
+@media (max-width: 600px) { .scene-note-activity { padding: 16px; } .scene-note-activity-title { align-items: flex-start; flex-direction: column; } }

@@ -10,3 +10,7 @@ React Bits (https://reactbits.dev), Copyright (c) 2026 David Haz, used under the
 MIT + Commons Clause License Condition v1.0 as part of this application; see
 app/apps/desktop/src/components/kit/LICENSE-react-bits.md. Those components are
 not offered for separate sale, sublicense, or redistribution.
+
+The ActivityHeatmap in app/apps/desktop/src/components/kit/ is adapted from a
+user-provided source file. The original source, author, and license could not
+be verified; source and license confirmation is required before distribution.

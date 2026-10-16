@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import { SegmentedChips } from "../../src/components/kit/SegmentedChips";
 import { BarSlider } from "../../src/components/kit/BarSlider";
 import { SpringCheck } from "../../src/components/kit/SpringCheck";
@@ -8,6 +8,7 @@ import { ActivityLattice } from "../../src/components/kit/ActivityLattice";
 import { FolderCard } from "../../src/components/kit/FolderCard";
 import { GlowCard } from "../../src/components/kit/GlowCard";
 import { CodeSlots } from "../../src/components/kit/CodeSlots";
+import { ActivityHeatmap, type ActivityDay } from "../../src/components/kit/ActivityHeatmap";
 import type { Demo } from "./types";
 import { smartSearchScene } from "./smartSearchScene";
 
@@ -64,9 +65,27 @@ function Welcome() {
   const [notice, setNotice] = useState("Choose a vault to pick up where you left off.");
   return <div className="scene-welcome"><div className="scene-heading"><h4>Your ideas live here.</h4><p role="status">{notice}</p></div><div className="scene-vaults">{["Product team", "Personal", "Research"].map(label => <FolderCard key={label} label={label} items={[{ title: "Getting started", description: label }, { title: "Ideas & questions" }, { title: "Weekly notes" }]} onItemClick={item => setNotice(`${label} / ${item.title} selected — lab preview`)} />)}<GlowCard><span className="scene-create-icon" aria-hidden="true">+</span><h4>Create a vault</h4><p>A fresh space for your next idea.</p><button type="button" onClick={() => setNotice("New vault selected — lab preview")}>Create a vault</button></GlowCard></div><div className="scene-join"><div><h4>Join with a code</h4><p>Have an invitation? Bring your thinking to the team.</p></div><CodeSlots label="Join a vault with a code" value={code} onChange={setCode} onComplete={() => setNotice("Invitation code ready — lab preview; no request sent")} /></div></div>;
 }
+function NoteActivity() {
+  const [range, setRange] = useState<"year" | "recent">("recent");
+  const [selected, setSelected] = useState<string | null>(null);
+  const days = useMemo(() => {
+    const end = new Date(); end.setUTCHours(0, 0, 0, 0);
+    const start = new Date(end);
+    if (range === "recent") start.setUTCDate(start.getUTCDate() - 364);
+    else start.setUTCMonth(0, 1);
+    const items: ActivityDay[] = [];
+    for (let t = start.getTime(); t <= end.getTime(); t += 86_400_000) {
+      const seed = Math.floor(t / 86_400_000);
+      items.push({ date: new Date(t).toISOString().slice(0, 10), count: seed % 13 < 3 ? 0 : (seed * 17 + 11) % 9 });
+    }
+    return items;
+  }, [range]);
+  return <div className="scene-note-activity"><div className="scene-note-activity-title"><div><h4>노트 활동</h4><p>날짜를 선택하면 편집 횟수를 확인할 수 있어요.</p></div><div className="lab-controls"><button type="button" className="lab-pill" aria-pressed={range === "recent"} onClick={() => setRange("recent")}>최근 1년</button><button type="button" className="lab-pill" aria-pressed={range === "year"} onClick={() => setRange("year")}>올해</button></div></div><ActivityHeatmap days={days} label="날짜별 노트 편집 활동" period={range === "recent" ? "최근 1년" : "올해"} selectedDate={selected} onSelectDate={setSelected} actions={selected && <button type="button" className="lab-pill" onClick={() => setSelected(null)}>선택 해제</button>} />{selected && <p className="scene-note-activity-selection" role="status">선택한 날짜: {selected}</p>}</div>;
+}
 export const scenes: Demo[] = [
   { id: "appearance", title: "Settings · Appearance", usage: "P2, P5 · Theme, accent, reading preferences and note properties.", wide: true, render: () => <Appearance /> },
   { id: "sidebar", title: "Sidebar", usage: "P3–P6 · File rows, AI activity, sync status and Markdown tasks.", wide: true, render: () => <Sidebar /> },
   { id: "welcome", title: "Welcome / vault picker", usage: "P3, P5 · Open a vault, create a space or join your team.", wide: true, render: () => <Welcome /> },
+  { id: "note-activity", title: "노트 활동 · 히트맵", usage: "날짜별 노트 편집 횟수 · 기간 전환, 날짜 선택과 범례 강조를 확인합니다.", wide: true, render: () => <NoteActivity /> },
   smartSearchScene,
 ];
