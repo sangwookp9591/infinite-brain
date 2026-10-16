@@ -120,7 +120,7 @@ Infinite Brain is becoming a **second brain the whole team shares**, usable by p
 |---|---|---|
 | **A · Hub teams** | Guests, join codes that expire, external-sharing policy, audit log, approval queue, domain auto-join, on the existing server | A0 design [merged](docs/superpowers/specs/2026-10-16-a0-authorization-design.md) and verified. It found three existing authorization gaps; fixing them (A1-0) comes first |
 | **B · Smart search** | On-device semantic search with EmbeddingGemma 2 running inside the app (llama.cpp, GGUF), offered with one "turn on?" prompt | First-run mock [merged](docs/reports/B0-FIRST-RUN-MOCK.md). The [llama.cpp spike](docs/reports/B0-LLAMA-SPIKE.md) runs it in-app on Apple Silicon (about 15 ms per paragraph on Metal); B1 starts from a llama.cpp fork |
-| **C · Share without a server** | Peer-to-peer vaults over Iroh with end-to-end encryption, working on an offline LAN | C0 design under re-verification |
+| **C · Share without a server** | Peer-to-peer vaults over Iroh with end-to-end encryption, working on an offline LAN | [C0 design](docs/superpowers/specs/2026-10-16-c0-p2p-design.md) merged as draft r4; four independent checks so far, one more round of rule fixes before the C1 LAN experiment |
 | **D–F** | Storage node, attachments, local MCP, connected vaults, moving a P2P vault to a hub | After A–C |
 
 Both modes will live side by side: run your own server as today (hub), or share a vault with no server at all (P2P).
