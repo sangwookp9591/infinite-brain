@@ -1,0 +1,9 @@
+# 모델 파일은 저장소 밖(~/.cache/infinite-brain-b0/models)에 둔다. 실수로 들어오는 것을 막는다.
+*.gguf
+*.safetensors
+*.bin.tmp
+models/
+target/
+Cargo.lock.bak
+# scripts/vendor-llama.sh 가 만드는 외부 소스 사본(llama.cpp 등, 약 180MB). 커밋하지 않는다.
+vendor/
