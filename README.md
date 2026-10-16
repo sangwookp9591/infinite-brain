@@ -269,6 +269,7 @@ Self-hosting guide: [`docs/DEPLOY.md`](docs/DEPLOY.md).
 |---|---|
 | [`docs/Infinite Brain.md`](<docs/Infinite Brain.md>) | Docs index |
 | [`docs/STATUS.md`](docs/STATUS.md) | Fork status and build status |
+| [`docs/NEXT-TASKS.md`](docs/NEXT-TASKS.md) | Next tasks and handoff notes (Korean) |
 | [`docs/DEPLOY.md`](docs/DEPLOY.md) | Self-hosting guide |
 | [`docs/RELEASE.md`](docs/RELEASE.md) | How a desktop release is cut |
 | [`docs/AI-CHANGES.md`](docs/AI-CHANGES.md) | AI change ledger contract |

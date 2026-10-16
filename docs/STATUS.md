@@ -26,6 +26,10 @@ to upstream and not to this fork. This fork has no hosted server or published re
 | Independent review fixes (1 high, 10 medium, some low) | ✅ merged | [[reports/IMPL-REPORT-FIX-V2]] |
 | M6 New visual language: zinc/ink tokens, custom accent (`"ink"` or `#rrggbb`, desktop + server), design kit (10 React Bits–adapted components) applied app-wide, ESLint 9, dev WebMCP tools | ✅ merged | [[superpowers/specs/2026-10-15-ui-redesign-color-design]], [[superpowers/plans/2026-10-15-ui-redesign-rollout]] |
 
+| Team second brain: PRD v2, A0 authorization design, B0 smart-search spike and first-run mock, kit `ActivityHeatmap` + `ToolCallCard` | ✅ merged (C0 P2P design still on `iron/docs-c0-p2p`) | [[NEXT-TASKS]] |
+
+**Next tasks and handoff (2026-10-16):** [[NEXT-TASKS]]. A1-0 fixes three existing authorization gaps first.
+
 **Verified (2026-10-14/15):**
 - Tests: server 1,503, desktop 3,522, Rust 346, `tsc` in both workspaces.
 - Local E2E: Korean top-3 search hits went from 2/10 to 10/10. Also checked: read-only connector
