@@ -10,6 +10,7 @@ import { GlowCard } from "../../src/components/kit/GlowCard";
 import { CodeSlots } from "../../src/components/kit/CodeSlots";
 import type { Demo } from "./types";
 import { smartSearchScene } from "./smartSearchScene";
+import { toolCallScene } from "./toolCallScene";
 
 export type LabTheme = "system" | "light" | "dark";
 export const ACCENTS = [
@@ -69,4 +70,5 @@ export const scenes: Demo[] = [
   { id: "sidebar", title: "Sidebar", usage: "P3–P6 · File rows, AI activity, sync status and Markdown tasks.", wide: true, render: () => <Sidebar /> },
   { id: "welcome", title: "Welcome / vault picker", usage: "P3, P5 · Open a vault, create a space or join your team.", wide: true, render: () => <Welcome /> },
   smartSearchScene,
+  toolCallScene,
 ];

@@ -5,6 +5,11 @@ Infinite Brain is an independent fork and does not use the Baalda name, logo, or
 
 This product includes third-party open-source components distributed under their respective licenses. See the package manifests, Cargo metadata, and included license texts for details.
 
+The interaction design and implementation structure of
+app/apps/desktop/src/components/kit/ToolCallCard.tsx and ToolCallCard.css are
+adapted from a user-provided scratchpad source. Its upstream origin and license
+are unconfirmed; see app/apps/desktop/src/components/kit/LICENSE-tool-call.md.
+
 The interaction designs in app/apps/desktop/src/components/kit/ are adapted from
 React Bits (https://reactbits.dev), Copyright (c) 2026 David Haz, used under the
 MIT + Commons Clause License Condition v1.0 as part of this application; see
