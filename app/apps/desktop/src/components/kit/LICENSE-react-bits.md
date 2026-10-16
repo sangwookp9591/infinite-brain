@@ -23,3 +23,11 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+## ActivityHeatmap source status
+
+`ActivityHeatmap.tsx` and `ActivityHeatmap.css` adapt a source file supplied by
+the user. Its original source, author, and license were not stated and could not
+be verified. Source and license confirmation is required before distribution;
+the MIT + Commons Clause text above does not establish that this component is
+covered by that license.

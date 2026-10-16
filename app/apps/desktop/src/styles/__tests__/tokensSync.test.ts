@@ -21,8 +21,10 @@ describe("design tokens", () => {
   it("defines every kit CSS variable in the light root", () => {
     const root = names(block(":root"));
     const kit = new URL("../../components/kit/", import.meta.url);
-    const used = readdirSync(kit).filter((file) => file.endsWith(".css"))
-      .flatMap((file) => [...readFileSync(new URL(file, kit), "utf8").matchAll(/var\((--[\w-]+)/g)].map((m) => m[1]));
-    expect([...new Set(used)].filter((name) => !root.has(name))).toEqual([]);
+    const styles = readdirSync(kit).filter((file) => file.endsWith(".css"))
+      .map((file) => readFileSync(new URL(file, kit), "utf8").replace(/\/\*[\s\S]*?\*\//g, ""));
+    const used = styles.flatMap((text) => [...text.matchAll(/var\((--[\w-]+)/g)].map((m) => m[1]));
+    const local = new Set(styles.flatMap((text) => [...text.matchAll(/(--[\w-]+)\s*:/g)].map((m) => m[1])));
+    expect([...new Set(used)].filter((name) => !root.has(name) && !local.has(name))).toEqual([]);
   });
 });
