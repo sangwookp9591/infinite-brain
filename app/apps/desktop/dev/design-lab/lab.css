@@ -74,3 +74,32 @@ html, body { background: var(--bg-app); color: var(--text-primary); font-family:
   .scene-vaults .kit-folder { margin-top: 24px; }
   .scene-welcome { padding: 0; }
 }
+/* B0-b smart-search first run */
+.ss-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 16px; }
+.ss-panel { display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 20px; background: var(--bg-app); border: 1px solid var(--border); border-radius: var(--radius-row); }
+.ss-body { display: flex; flex-direction: column; gap: 12px; flex: 1; }
+.ss-body h5 { margin: 0; font-family: var(--font-display); letter-spacing: var(--display-tracking); font-size: 18px; line-height: 1.3; }
+.ss-body p, .lab-card .ss-body p { margin: 0; font-size: 13px; line-height: 1.6; color: var(--text-secondary); }
+.ss-body strong { font-size: 13.5px; font-weight: 600; }
+.ss-note, .lab-card .ss-note { color: var(--text-tertiary); }
+.ss-meta, .lab-card .ss-meta { display: flex; justify-content: space-between; font-variant-numeric: tabular-nums; }
+.ss-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: auto; padding-top: 4px; }
+.ss-btn { height: 36px; padding: 0 16px; border: 0; border-radius: var(--radius-pill); background: var(--bg-subtle); color: var(--text-primary); font: inherit; font-size: 13px; cursor: pointer; }
+.ss-btn:hover { background: var(--bg-raised); }
+.ss-btn[data-primary] { background: var(--accent); color: var(--text-on-accent); }
+.ss-btn[data-primary]:hover { background: var(--accent-hover); }
+.ss-btn[data-danger] { background: var(--danger); color: var(--text-on-accent); }
+.ss-btn:disabled { opacity: .5; cursor: default; }
+.ss-bar { height: 8px; border-radius: var(--radius-pill); background: var(--bg-subtle); overflow: hidden; }
+.ss-bar span { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width var(--t-med) var(--ease); }
+.ss-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 0; border-top: 1px solid var(--border); }
+.ss-row p, .lab-card .ss-row p { margin: 2px 0 0; font-size: 12px; }
+.ss-searchrow { display: flex; align-items: center; gap: 8px; }
+.ss-searchrow .scene-search { flex: 1; min-width: 0; }
+.ss-chip { flex: none; height: 30px; padding: 0 12px; border: 0; border-radius: var(--radius-pill); background: var(--accent-soft); color: var(--accent); font: inherit; font-size: 12px; cursor: pointer; white-space: nowrap; }
+.ss-chip:hover { background: var(--accent-soft-hover); }
+.lab :is(.ss-btn, .ss-chip):focus-visible { outline: none; box-shadow: var(--focus-ring); }
+@media (prefers-reduced-motion: reduce) { .ss-bar span { transition: none; } }
+.ss-grid { width: 100%; }
+.ss-row .kit-check-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.ss-row .kit-check { min-height: 32px; flex: none; }
