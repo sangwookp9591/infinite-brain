@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: Apache-2.0
-// Adapted from /private/tmp/claude-501/-Users-iron-Project-psw-infinite-brain/7dd0ad66-d583-481d-bb04-d8b07e6c8d31/scratchpad/specs/toolcall-src.tsx; source origin and license require confirmation.
 import { Children, isValidElement, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from "react";
 import "./ToolCallCard.css";
 

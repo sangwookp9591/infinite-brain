@@ -1,5 +1,4 @@
 /* SPDX-License-Identifier: Apache-2.0 */
-/* Adapted from the user-provided heatmap-src.tsx; original author and license are unverified. */
 .kit-heatmap { --cell: 12px; --gap: 4px; --label: 28px; --weeks: 0; --col: 0; --row: 0; --wave: 0; --wave-back: 0; position: relative; width: 100%; color: var(--text-primary); font: var(--fs-sm)/var(--lh-body) var(--font-body); }
 .kit-heatmap-header, .kit-heatmap-legend { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
 .kit-heatmap-summary { display: flex; align-items: baseline; gap: var(--sp-2); margin: 0; color: var(--text-secondary); }

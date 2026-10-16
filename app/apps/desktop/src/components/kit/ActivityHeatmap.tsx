@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: Apache-2.0
-// Adapted from the user-provided heatmap-src.tsx; original author and license are unverified.
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
 import { animate, motion, useMotionValue } from "motion/react";
 import { SNAPPY, useSpring } from "./motion";
