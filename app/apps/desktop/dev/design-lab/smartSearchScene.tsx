@@ -5,9 +5,9 @@ import { useEffect, useRef, useState } from "react";
 import { SpringCheck } from "../../src/components/kit/SpringCheck";
 import type { Demo } from "./types";
 
-// B0-a 측정(docs/reports/B0-LLAMA-SPIKE.md): Q4_K_XL 176MB / Q8_0 310MB, 앱이 기기에 맞춰 고름
-const SIZE_MB = 180;
-const USED_MB = 190;
+// B0-a 최종 권고: 기본 Q8_0 310MB, 저사양 Q4_K_XL 180MB(앱이 기기에 맞춰 고름)
+const SIZE_MB = 310;
+const USED_MB = 320;
 
 function Panel({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
   return <section className="ss-panel" aria-label={`${n}. ${title}`}>
@@ -50,7 +50,7 @@ function SmartSearchScene() {
     <Panel n={2} title="내려받는 중">
       <h4>스마트 검색을 준비하고 있어요</h4>
       <Bar percent={42} label="스마트 검색 내려받기" />
-      <p className="ss-meta"><span>76MB / {SIZE_MB}MB</span><span>42%</span></p>
+      <p className="ss-meta"><span>약 130MB / 약 {SIZE_MB}MB</span><span>42%</span></p>
       <p>이 창을 닫아도 계속 받아요. 그동안에도 노트는 평소처럼 쓸 수 있어요.</p>
       <div className="ss-actions"><button type="button" className="ss-btn">취소</button></div>
     </Panel>
