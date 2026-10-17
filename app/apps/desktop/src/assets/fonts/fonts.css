@@ -1,49 +1,41 @@
 /* ============================================================
-   Open Sauce Two — body / UI typeface.
-   Bundled locally (woff2, converted from the official OTFs at
-   github.com/marcologous/open-sauce-fonts, SIL OFL 1.1).
-   No runtime CDN — this ships offline with the desktop app.
+   Orbit typefaces — all SIL OFL 1.1, bundled locally (woff2).
+   No runtime CDN: the packaged-app CSP allows font-src 'self' only.
+
+   Pretendard   Korean + UI fallback. Subset to the KS X 1001 syllables plus
+                Latin/punctuation and clamped to wght 400–700 (variable) —
+                rare Hangul outside the subset falls back to the system face.
+   Fraunces     English display headings (latin, variable wght).
+   Geist        UI text (latin, variable wght).
+   Geist Mono   code / numerals (latin, variable wght).
+   Licenses: OFL-*.txt next to the files.
    ============================================================ */
 
 @font-face {
-  font-family: "Open Sauce Two";
+  font-family: "Pretendard";
   font-style: normal;
-  font-weight: 400;
+  font-weight: 400 700;
   font-display: swap;
-  src: url("./OpenSauceTwo-Regular.woff2") format("woff2");
+  src: url("./Pretendard-subset-wght400-700.woff2") format("woff2");
 }
 @font-face {
-  font-family: "Open Sauce Two";
-  font-style: italic;
-  font-weight: 400;
-  font-display: swap;
-  src: url("./OpenSauceTwo-Italic.woff2") format("woff2");
-}
-@font-face {
-  font-family: "Open Sauce Two";
+  font-family: "Fraunces";
   font-style: normal;
-  font-weight: 500;
+  font-weight: 100 900;
   font-display: swap;
-  src: url("./OpenSauceTwo-Medium.woff2") format("woff2");
+  src: url("./fraunces-latin-wght-normal.woff2") format("woff2");
 }
 @font-face {
-  font-family: "Open Sauce Two";
+  font-family: "Geist";
   font-style: normal;
-  font-weight: 600;
+  font-weight: 100 900;
   font-display: swap;
-  src: url("./OpenSauceTwo-SemiBold.woff2") format("woff2");
+  src: url("./geist-latin-wght-normal.woff2") format("woff2");
 }
 @font-face {
-  font-family: "Open Sauce Two";
+  font-family: "Geist Mono";
   font-style: normal;
-  font-weight: 700;
+  font-weight: 100 900;
   font-display: swap;
-  src: url("./OpenSauceTwo-Bold.woff2") format("woff2");
-}
-@font-face {
-  font-family: "Open Sauce Two";
-  font-style: italic;
-  font-weight: 700;
-  font-display: swap;
-  src: url("./OpenSauceTwo-BoldItalic.woff2") format("woff2");
+  src: url("./geist-mono-latin-wght-normal.woff2") format("woff2");
 }
