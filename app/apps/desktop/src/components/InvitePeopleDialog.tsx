@@ -58,6 +58,8 @@ export function InvitePeopleDialog({ orgId, canManageBilling = false, seatAccoun
   const [access, setAccess] = useState<InviteAccess>("default");
   const [newMemberDefault, setNewMemberDefault] = useState<AccessDefault | null>(null);
   const [savingDefault, setSavingDefault] = useState(false);
+  const [expiresAt, setExpiresAt] = useState<string | null>(null);
+  const [rotating, setRotating] = useState(false);
   const [code, setCode] = useState<string | null>(null);
   const [results, setResults] = useState<InviteManyResult[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -67,7 +69,7 @@ export function InvitePeopleDialog({ orgId, canManageBilling = false, seatAccoun
 
   useEffect(() => {
     let live = true;
-    authManager.api.getJoinCode().then((c) => { if (live) setCode(c); }).catch(() => {});
+    authManager.api.getJoinCodeDetails().then((c) => { if (live) { setCode(c.code); setExpiresAt(c.expiresAt); } }).catch(() => {});
     authManager.api.getAccessDefault(orgId).then((value) => { if (live) setNewMemberDefault(value); }).catch(() => {});
     return () => { live = false; };
   }, [orgId]);
@@ -211,6 +213,14 @@ export function InvitePeopleDialog({ orgId, canManageBilling = false, seatAccoun
           <div className="invite-people-code">
             <span className="muted">Or share the join code</span>
             <code className="invite-people-code-value">{code}</code>
+            {expiresAt && <span className="muted">Expires {new Date(expiresAt).toLocaleDateString()}</span>}
+            <button type="button" className="link-btn" disabled={rotating} onClick={async () => {
+              if (!window.confirm("Create a new join code? The previous code will stop working.")) return;
+              setRotating(true);
+              try { const next = await authManager.api.rotateJoinCode(); setCode(next.code); setExpiresAt(next.expiresAt); }
+              catch { setError("Couldn't create a new code. Check your connection and try again."); }
+              finally { setRotating(false); }
+            }}>Create new code</button>
             <button type="button" className="link-btn invite-people-copy" aria-label="Copy join code" onClick={() => void copy(code)}>Copy</button>
           </div>
         )}

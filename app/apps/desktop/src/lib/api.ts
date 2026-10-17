@@ -2000,6 +2000,14 @@ export class ApiClient {
     return data;
   }
 
+  async getJoinCodeDetails(): Promise<{ code: string; expiresAt: string }> {
+    return (await this.request<{ code: string; expiresAt: string }>("GET", "/api/orgs/join-code")).data;
+  }
+
+  async rotateJoinCode(): Promise<{ code: string; expiresAt: string }> {
+    return (await this.request<{ code: string; expiresAt: string }>("POST", "/api/orgs/join-code/rotate", { body: {} })).data;
+  }
+
   async getJoinCode(): Promise<string> {
     const { data } = await this.request<{ code: string }>("GET", "/api/orgs/join-code");
     return data.code;
@@ -2010,6 +2018,16 @@ export class ApiClient {
     organizationId: string;
     name?: string;
     alreadyMember?: boolean;
+    } catch (error) {
+      if (error instanceof ApiError) {
+        const code = (error.body as { error?: string } | undefined)?.error;
+        const message = ({ join_code_expired: "This code has expired. Ask an admin for a new code.",
+          join_code_rate_limited: "Too many tries. Wait 15 minutes before trying another code.",
+          guest_invite_pending: "Use your invitation link to join this vault as a guest." } as Record<string,string>)[code ?? ""];
+        if (message) throw new ApiError(error.status, message, error.body);
+      }
+      throw error;
+    }
   }> {
     const { data } = await this.request<{
       organizationId: string;
