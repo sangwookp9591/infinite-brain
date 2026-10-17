@@ -129,7 +129,7 @@ async function resolveActiveOrg(
  * Shares the user *created for others* (`created_by`) are untouched — only
  * grants TO this user (`principal_id`) go.
  */
-async function revokeMembership(
+export async function revokeMembership(
   deps: OrgDeps,
   orgId: string,
   userId: string,
@@ -932,8 +932,8 @@ export function createOrgRoutes(deps: OrgDeps): Hono {
 
     const body = await c.req.json().catch(() => null);
     const role = body && typeof body.role === "string" ? body.role : null;
-    if (role !== "member" && role !== "admin") {
-      return c.json({ error: "Role must be 'member' or 'admin'" }, 400);
+    if (role !== "member" && role !== "admin" && role !== "guest") {
+      return c.json({ error: "Choose member, admin or guest" }, 400);
     }
     // No-op guard before any side effects, so repeated clicks don't churn
     // sockets for a change that changes nothing.
@@ -955,11 +955,20 @@ export function createOrgRoutes(deps: OrgDeps): Hono {
         )
       : { rows: [] as Array<{ id: string; vault_id: string }> };
 
-    await pool.query(`UPDATE member SET role = $1 WHERE "organizationId" = $2 AND "userId" = $3`, [
-      role,
-      orgId,
-      targetUserId,
-    ]);
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(`UPDATE member SET role = $1 WHERE "organizationId" = $2 AND "userId" = $3`, [role, orgId, targetUserId]);
+      if (role === "guest") {
+        await client.query("DELETE FROM member_access_snapshots WHERE organization_id=$1 AND user_id=$2", [orgId, targetUserId]);
+        await client.query("DELETE FROM shares WHERE resource_type='vault' AND org_id=$1 AND principal_type='user' AND principal_id=$2", [orgId, targetUserId]);
+        await client.query("DELETE FROM mcp_tokens WHERE organization_id=$1 AND user_id=$2", [orgId, targetUserId]);
+        await client.query("DELETE FROM mcp_oauth_vault WHERE organization_id=$1 AND user_id=$2", [orgId, targetUserId]);
+        await client.query("DELETE FROM bootstrap_sessions WHERE user_id=$1 AND vault_id=ANY($2::text[])", [targetUserId, vaultIds]);
+      }
+      await client.query("COMMIT");
+    } catch (error) { await client.query("ROLLBACK"); throw error; }
+    finally { client.release(); }
 
     // A role change flips effective permissions in BOTH directions, but the
     // `readOnly` flag is baked into the sync token and only checked at connect

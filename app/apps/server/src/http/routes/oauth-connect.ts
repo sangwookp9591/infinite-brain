@@ -1,3 +1,4 @@
+import { isTeamRole } from "../../permissions/roles.js";
 // SPDX-License-Identifier: Apache-2.0
 import { MCP_RESOURCE, allowedResource } from "../../mcp/resource.js";
 import { exchangeOAuthToken } from "../../mcp/oauth-exchange.js";
@@ -175,7 +176,7 @@ oauthConnectRoutes.get("/oauth/consent", async (c) => {
   const { rows: vaults } = await pool.query<{ id: string; name: string; role: string }>(
     `SELECT o.id, o.name, m.role
        FROM member m JOIN organization o ON o.id = m."organizationId"
-      WHERE m."userId" = $1
+      WHERE m."userId" = $1 AND m.role IN ('owner','admin','member')
       ORDER BY o."createdAt" ASC`,
     [session.userId],
   );
@@ -253,6 +254,7 @@ oauthConnectRoutes.post("/oauth/consent", async (c) => {
   }
 
   const role = organizationId ? await orgRole(organizationId, session.userId) : null;
+  if (accept && !isTeamRole(role)) return c.html("This vault is not available for an AI connection.", 403);
   const manage = form[`manage_${organizationId}`] === "yes";
   const scopes = scopePreset(form.scope_preset ?? "write", manage);
   if (accept && (!role || !scopes || (manage && role !== "owner" && role !== "admin"))) {

@@ -1,3 +1,4 @@
+import { applyGuestInvitation } from "../members/guest-invitations.js";
 import { defaultAc, ownerAc, adminAc, memberAc } from "better-auth/plugins/organization/access";
 import { AuditClient } from "../audit/client.js";
 import { betterAuth } from "better-auth";
@@ -328,6 +329,7 @@ export const auth = betterAuth({
           }
         },
         beforeCreateInvitation: async (data) => {
+          if (data.invitation.role === "guest") throw new APIError("BAD_REQUEST", { message: "Choose guest folders or notes in vault member settings.", error: "guest_targets_required" });
           // A re-invite replaces a pending row rather than adding a seat, so it
           // must pass even at the cap — otherwise a full free vault could never
           // re-send a lost invitation.
@@ -351,6 +353,10 @@ export const auth = betterAuth({
         // Hard gate at acceptance (team model only; vault mode never gated it):
         // members + 1 must fit, and someone already on the account takes no seat.
         beforeAcceptInvitation: async (data) => {
+          if (data.invitation.role === "guest") {
+            const targets = await authPool.query("SELECT 1 FROM invitation_shares WHERE invitation_id=$1 LIMIT 1", [data.invitation.id]);
+            if (!targets.rowCount) throw new APIError("FORBIDDEN", { message: "This invitation no longer has shared items. Ask an admin for a new invitation." });
+          }
           if (!teamModel()) return;
           const refused = await checkJoinSeat(authPool, data.organization.id, {
             userId: data.user.id,
@@ -405,12 +411,13 @@ export const auth = betterAuth({
         afterAcceptInvitation: async (data) => {
           // Apply the access the inviter chose (invitation_access, m046). The
           // member row exists by now; best-effort, never fails the accept.
-          await applyInvitationAccess({
+          if (data.invitation.role === "guest") await applyGuestInvitation(data.invitation.id, data.organization.id, data.user.id);
+          else await applyInvitationAccess({
             invitationIds: [data.invitation.id],
             organizationId: data.organization.id,
             userId: data.user.id,
           });
-          const name = data.user.name?.trim() || data.user.email;
+          const name = data.invitation.role === "guest" ? "A guest" : data.user.name?.trim() || data.user.email;
           await announceMemberJoined(data.organization.id, name);
           await announceInvitationGone(data.invitation.id, { userId: data.user.id });
         },
@@ -419,6 +426,9 @@ export const auth = betterAuth({
         // admin) and force-closes live sockets so the new role applies now.
         // Better Auth's own update-member-role endpoint does neither, so it's
         // closed off entirely.
+        beforeAddMember: async (data) => {
+          if (data.member.role === "guest") throw new APIError("FORBIDDEN",{message:"Invite guests with selected folders or notes in vault settings."});
+        },
         beforeUpdateMemberRole: async () => {
           throw new APIError("FORBIDDEN", {
             message: "role_change_not_supported_here",

@@ -1,3 +1,4 @@
+import { isTeamRole } from "../permissions/roles.js";
 // SPDX-License-Identifier: Apache-2.0
 import { MCP_RESOURCE } from "./resource.js";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
@@ -169,7 +170,7 @@ export async function verifyMcpToken(
 
   // Membership can be revoked after the token was minted — re-check every time.
   const role = await orgRole(row.organization_id, row.user_id, db);
-  if (!role) return null;
+  if (!isTeamRole(role)) return null;
 
   // Best-effort activity stamp; never block the request on it. use_count is NOT
   // bumped here — that happens per tools/call via bumpMcpTokenUsage so the count

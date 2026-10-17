@@ -1,3 +1,4 @@
+import { isTeamRole } from "../permissions/roles.js";
 // SPDX-License-Identifier: Apache-2.0
 import { MCP_RESOURCE } from "./resource.js";
 import type pg from "pg";
@@ -73,7 +74,7 @@ export async function resolveOAuthMcpAuth(
   const organizationId = binding.organization_id;
 
   const role = await orgRole(organizationId, session.userId, db);
-  if (!role) return null;
+  if (!isTeamRole(role)) return null;
 
   const scopes = effectiveOAuthScopes(session.scopes).filter((scope) =>
     effectiveOAuthScopes(binding?.scopes).includes(scope) && (scope !== "access:manage" || role === "owner" || role === "admin"));

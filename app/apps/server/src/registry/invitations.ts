@@ -69,12 +69,12 @@ export async function listPendingInvitationsFor(
 export function invitationJson(inv: InvitationRow) {
   return {
     id: inv.id,
-    email: inv.email,
+    email: inv.role === "guest" ? "" : inv.email,
     role: inv.role ?? "member",
     status: invitationState(inv),
     organizationId: inv.organizationId,
     organizationName: inv.organizationName,
-    inviterId: inv.inviterId,
+    inviterId: inv.role === "guest" ? null : inv.inviterId,
     inviterName: inv.inviterName,
     expiresAt: inv.expiresAt.toISOString(),
     createdAt: inv.createdAt.toISOString(),
