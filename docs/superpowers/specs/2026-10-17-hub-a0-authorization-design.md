@@ -584,6 +584,16 @@ A1-1 선행 보안 수정 ─┬─> A1-2 POST /shares 대상 검증 ─┐
   2. `fix(server): close document sockets on every instance`
   3. `feat(desktop): revoke all external access`
 
+### 9.3 A1 2차 구현 진행 기록 (2026-10-17)
+
+- A1-3~A1-7 구현: 감사 행/쓰기 트리거/거부 기록/보존/관리 화면, 참가 코드 만료·교체·사용자별 제한, 개인 항목 공유만 받는 guest, 외부 공유 정책과 V4 재검사, 진행 상태와 재시도가 있는 외부 접근 일괄 회수. 실제 migration은 062~066이며 061 OAuth는 그대로다.
+- Q3 결정: coordinator 승인에 따라 공유 루트를 가상 루트로 투영하고 조상 이름을 숨기는 최소 지원을 구현한다. guest의 rename/move/폴더 생성·삭제는 제한한다. 노트·파일 단건 생성과 일괄 등록은 기존 편집 가능 공유 폴더로만 역변환한다. 원래의 전체 디스크 경로·첨부 상대 경로·폴더 구조 쓰기 역변환 계약은 2~4일 추정의 후속 조각으로 이월한다.
+- M9 확인: Better Auth 1.6.23의 자체 `listMembers`는 guest에게 전체 사람 목록을 반환했다(회귀 테스트가 원래 동작을 재현). HTTP는 자기 행만 반환하고 full-organization/list-invitations는 거부한다. 자체 leave는 공유/연결 정리가 없으므로 공통 `revokeMembership`으로 보낸다. 조직 목록은 guest 조직의 ID·표시 이름만 반환한다.
+- M8 확인: 설치된 Hocuspocus Redis 확장은 변경/awareness를 미러링하며 `closeConnections` 제어 전파가 없다. `sync/doc-revocations.ts`가 commit 뒤 pubsub 종료 신호를 보내며 별도 Redis 연결을 쓰는 두 실제 Hocuspocus 서버의 guest 연결 종료를 회귀 검사한다.
+- Q10은 보류: 좌석 계산 코드는 바꾸지 않는다. 현행 guest 포함 계산을 회귀 검사한다.
+- 조각별 명령·결과, D6 매핑과 미검증/후속 범위는 `docs/reports/IMPL-REPORT-A1-part2.md`에 기록한다.
+
+
 ## 10. 미해결 결정 (사용자 승인 필요)
 
 2026-10-17 사용자 결정: **Q1~Q9, Q11~Q15는 각 권장안을 승인했다. Q10(guest 결제 좌석)은 보류한다.** Q1은 비멤버 개인 공유 행을 보존하고 권한만 끊으며, Q13은 owner/admin만 guest에게 공유할 수 있다. 아래 표는 승인된 권장안과 Q10의 선택지를 기록한다.

@@ -804,3 +804,17 @@ billing later without changing AI access. The setting defaults to `cloud` when
 omitted: AI requires a paid plan (Pro, or Team under `BILLING_MODEL=team`). Free vaults
 have a 20,000-note sync cap on the per-vault model and the `ABUSE_MAX_NOTES` ceiling on
 the Team model.
+
+## Guest access rollout and rollback
+
+Apply migrations 062–066 before enabling guest invitations. Existing sharing stays
+allowed; existing join codes expire 30 days after migration and new codes last 7 days.
+Use the same `REDIS_URL` on every server instance so ACL/member events and document
+connection closures reach every instance.
+
+Before rolling back to a server that predates guest roles, remove all guest
+memberships using Vault settings → Security → Remove all external access, and
+confirm the operation completed in every vault. Older servers treat any membership
+as team membership. Keep the audit tables for investigation; do not restore guest
+rows onto an older server. Download links already issued can remain valid for up
+to 5 minutes, and previously downloaded copies cannot be recalled.
