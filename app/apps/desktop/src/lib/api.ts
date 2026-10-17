@@ -1100,6 +1100,8 @@ export type OrgStatus =
   | { kind: "unknown" };
 
 /** A rejected server response — carries the HTTP status for callers to branch on. */
+export interface ExternalAccessCounts { guests: number; invitations: number; publicLinks: number; aiConnections: number; bootstrapSessions: number }
+export interface ExternalRevocation { id: string; status: "running" | "completed" | "partial"; counts: Partial<ExternalAccessCounts>; errors: Array<{ type: string; id: string; message: string }> }
 export interface SecurityEvent {
   id: string;
   actor_name: string;
@@ -1996,6 +1998,16 @@ export class ApiClient {
   // ---- Join codes -----------------------------------------------------------
 
   /** The active vault's shareable join code (owner/admin; lazily created). */
+  async externalAccessPreview(organizationId: string): Promise<ExternalAccessCounts> {
+    return (await this.request<ExternalAccessCounts>("GET", `/api/orgs/${encodeURIComponent(organizationId)}/external-access/preview`)).data;
+  }
+  async revokeExternalAccess(organizationId: string, operationId: string): Promise<ExternalRevocation> {
+    return (await this.request<ExternalRevocation>("POST", `/api/orgs/${encodeURIComponent(organizationId)}/external-access/revoke`, { body: { operationId, confirm: true } })).data;
+  }
+  async getExternalRevocation(organizationId: string, operationId: string): Promise<ExternalRevocation> {
+    return (await this.request<ExternalRevocation>("GET", `/api/orgs/${encodeURIComponent(organizationId)}/external-access/revoke/${encodeURIComponent(operationId)}`)).data;
+  }
+
   async getExternalSharing(organizationId: string): Promise<{ mode: "on" | "off" | "domains"; domains: string[] }> {
     return (await this.request<{ mode: "on" | "off" | "domains"; domains: string[] }>("GET", `/api/orgs/${encodeURIComponent(organizationId)}/external-sharing`)).data;
   }

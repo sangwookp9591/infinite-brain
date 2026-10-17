@@ -1,3 +1,4 @@
+import { RevokeExternalAccess } from "./RevokeExternalAccess";
 import { ExternalSharingSettings } from "./ExternalSharingSettings";
 // SPDX-License-Identifier: Apache-2.0
 import { useEffect, useState } from "react";
@@ -25,6 +26,7 @@ export function SecurityHistoryTab({ organizationId }: { organizationId: string 
   useEffect(() => { void load(); }, [organizationId]);
   return <div>
     <ExternalSharingSettings organizationId={organizationId} />
+    <RevokeExternalAccess key={organizationId} organizationId={organizationId} />
     <h3>Security history</h3>
     <p>See who changed access to this vault and when.</p>
     {error && <p role="alert" className="auth-error">{error}</p>}
@@ -33,7 +35,7 @@ export function SecurityHistoryTab({ organizationId }: { organizationId: string 
       <div><strong>{event.actor_name || "Unknown"}</strong><div>{securityEventLabel(event)}</div>
         <small>{new Date(event.created_at).toLocaleString()} · {event.result === "ok" ? "Completed" : event.result === "refused" ? "Declined" : "Couldn't complete"}</small></div>
     </li>)}</ul>
-    {next && <button disabled={busy} onClick={() => void load(next)}>Show older changes</button>}
-    {error && <button disabled={busy} onClick={() => void load()}>Try again</button>}
+    {next && <button className="link-btn" disabled={busy} onClick={() => void load(next)}>Show older changes</button>}
+    {error && <button className="link-btn" disabled={busy} onClick={() => void load()}>Try again</button>}
   </div>;
 }

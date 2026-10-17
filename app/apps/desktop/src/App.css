@@ -11011,3 +11011,9 @@ body.access-board-grabbing * {
 .appearance-defaults-head .appearance-tag {
   margin-left: 0;
 }
+
+/* Security settings share the existing form controls and responsive scroller. */
+.security-settings-section { padding-bottom: 24px; margin-bottom: 24px; border-bottom: 1px solid var(--border); }
+.security-settings-section label { display: block; margin-bottom: 12px; }
+.security-settings-section button + button { margin-left: 12px; }
+.security-settings-section p { line-height: 1.5; }
