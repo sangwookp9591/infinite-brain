@@ -857,7 +857,7 @@ interface AppStore {
   /** Remove a member from the active vault (owner/admin), then refresh. */
   removeMember: (userId: string) => Promise<void>;
   /** Change a member's role in the active vault (owner/admin), then refresh. */
-  updateMemberRole: (userId: string, role: "member" | "admin") => Promise<void>;
+  updateMemberRole: (userId: string, role: "member" | "admin" | "guest") => Promise<void>;
   acceptInvitation: (invitationId: string) => Promise<void>;
   /** Re-read only the signed-in user's own pending invitations (live arrival,
    *  window focus, the account menu opening). Cheap: one GET. */

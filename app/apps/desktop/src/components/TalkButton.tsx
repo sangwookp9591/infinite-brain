@@ -30,6 +30,7 @@ const MEGAPHONE_ICON = (
  * own reminder.
  */
 export function TalkButton() {
+  const isGuest = useStore((state) => state.members.find((member) => member.userId === state.session?.user.id)?.role === "guest");
   const broadcasting = useStore((s) => s.broadcasting);
   const speakers = useStore((s) => s.voiceSpeakers);
   const voiceError = useStore((s) => s.voiceError);
@@ -96,6 +97,7 @@ export function TalkButton() {
   // control being used — that shake is what tells a listener audio is incoming
   // and where to look, before they've parsed any text.
   const receiving = speakers.length > 0 && !broadcasting;
+  if (isGuest) return null;
 
   return (
     <>

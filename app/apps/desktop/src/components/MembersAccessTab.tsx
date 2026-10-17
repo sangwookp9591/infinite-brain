@@ -372,10 +372,15 @@ export function MembersAccessTab({ canManage, onOpenTab, onCloseSettings, resetT
     });
   };
 
-  const changeRole = (m: MemberOverview, role: "member" | "admin") => run(async () => {
-    await useStore.getState().updateMemberRole(m.userId, role);
-    await reload();
-  });
+  const changeRole = (m: MemberOverview, role: "member" | "admin" | "guest"): Promise<void> => {
+    const apply = () => run(async () => { await useStore.getState().updateMemberRole(m.userId, role); await reload(); });
+    if (role === "guest") {
+      setConfirm({ title: `Change ${displayName(m)} to a guest?`, label: "Change to guest", tone: "danger",
+        body: "They will lose access to the rest of the vault and keep only folders and notes shared directly with them.", apply });
+      return Promise.resolve();
+    }
+    return apply();
+  };
 
   const askRemove = (m: MemberOverview) => setConfirm({
     title: `Remove ${displayName(m)} from ${vaultName}?`,

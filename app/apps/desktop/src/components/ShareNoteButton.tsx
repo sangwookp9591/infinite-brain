@@ -27,13 +27,14 @@ import { Switch } from "./Switch";
  * it; the old URL stops working.
  */
 export function ShareNoteButton({ docId }: { docId: string }) {
+  const isGuest = useStore((state) => state.members.find((member) => member.userId === state.session?.user.id)?.role === "guest");
   const orgId = useStore((s) => s.session?.activeOrganizationId ?? null);
   const [open, setOpen] = useState(false);
 
   // A different note is a different link: never carry an open dialog over.
   useEffect(() => setOpen(false), [docId]);
 
-  if (!orgId) return null;
+  if (!orgId || isGuest) return null;
 
   return (
     <>

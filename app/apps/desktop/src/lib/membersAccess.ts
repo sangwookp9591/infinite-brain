@@ -46,6 +46,7 @@ export const ROLE_LABEL: Record<string, string> = {
   owner: "Owner",
   admin: "Admin",
   member: "Member",
+  guest: "Guest",
 };
 
 export const LEVEL_TO_MODE: Record<Exclude<MemberAccessLevel, "custom">, TeamAccessMode> = {
@@ -325,7 +326,7 @@ export function canManageMemberAccess(
   isSelf: boolean,
 ): boolean {
   if (viewerRole === "owner") return true;
-  if (viewerRole === "admin") return isSelf || targetRole === "member" || targetRole === "admin";
+  if (viewerRole === "admin") return isSelf || targetRole === "member" || targetRole === "admin" || targetRole === "guest";
   return false;
 }
 

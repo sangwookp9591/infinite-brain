@@ -717,7 +717,7 @@ export function MemberAccessBoard({
     <div ref={boardRef} className={`access-board${dragKey ? " is-dragging" : ""}`}>
       <div className="access-board-head">
         <p className="access-board-intro"><span className="access-board-intro-drag">Drag</span> rows between columns, or use the arrows. Changes save right away.</p>
-        {!hideSetEverything && <MenuSelect<EverythingChoice | "none">
+        {!hideSetEverything && member.role !== "guest" && <MenuSelect<EverythingChoice | "none">
           value="none"
           options={[
             { value: "open", label: "Can edit", hint: "Every folder and note" },
@@ -764,7 +764,7 @@ export function MemberAccessBoard({
                     value="none"
                     // Expand and collapse only change the view, so they stay
                     // offered when moves are not (busy writes are guarded).
-                    options={canSetAccess ? actions : actions.filter((a) => a.value === "expand" || a.value === "collapse")}
+                    options={canSetAccess ? actions.filter((action) => member.role !== "guest" || action.value !== "add") : actions.filter((a) => a.value === "expand" || a.value === "collapse")}
                     triggerContent={dots}
                     caret={false}
                     ariaLabel={`${col.title} actions`}

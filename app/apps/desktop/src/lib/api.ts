@@ -417,7 +417,7 @@ export type MemberAccessLevel = "edit" | "view" | "none" | "custom";
 export interface MemberOverview {
   userId: string;
   memberId: string;
-  role: "owner" | "admin" | "member";
+  role: "owner" | "admin" | "member" | "guest";
   name: string | null;
   email: string | null;
   image: string | null;
@@ -469,7 +469,8 @@ export interface MembersOverview {
 
 export interface InviteManyInput {
   emails: string[];
-  role: "member" | "admin";
+  role: "member" | "admin" | "guest";
+  targets?: Array<{ resourceType: "folder" | "file"; resourceId: string; permission: "view" | "edit" }>;
   /** null = whatever the vault's New members setting says. */
   access: TeamAccessMode | null;
 }
@@ -980,7 +981,7 @@ export interface OrgBilling {
 export interface MyBillingVault {
   orgId: string;
   name: string;
-  role: "owner" | "admin" | "member";
+  role: "owner" | "admin" | "member" | "guest";
   plan: "free" | "pro";
   status: "none" | "active" | "past_due" | "canceled";
   currentPeriodEnd: string | null;
@@ -2014,27 +2015,19 @@ export class ApiClient {
   }
 
   /** Join a vault by its shared code (any signed-in user). */
-  async joinVault(code: string): Promise<{
-    organizationId: string;
-    name?: string;
-    alreadyMember?: boolean;
+  async joinVault(code: string): Promise<{ organizationId: string; name?: string; alreadyMember?: boolean }> {
+    try {
+      return (await this.request<{ organizationId: string; name?: string; alreadyMember?: boolean }>("POST", "/api/orgs/join", { body: { code } })).data;
     } catch (error) {
       if (error instanceof ApiError) {
-        const code = (error.body as { error?: string } | undefined)?.error;
+        const refusal = (error.body as { error?: string } | undefined)?.error;
         const message = ({ join_code_expired: "This code has expired. Ask an admin for a new code.",
           join_code_rate_limited: "Too many tries. Wait 15 minutes before trying another code.",
-          guest_invite_pending: "Use your invitation link to join this vault as a guest." } as Record<string,string>)[code ?? ""];
+          guest_invite_pending: "Use your invitation link to join this vault as a guest." } as Record<string,string>)[refusal ?? ""];
         if (message) throw new ApiError(error.status, message, error.body);
       }
       throw error;
     }
-  }> {
-    const { data } = await this.request<{
-      organizationId: string;
-      name?: string;
-      alreadyMember?: boolean;
-    }>("POST", "/api/orgs/join", { body: { code } });
-    return data;
   }
 
   /**
@@ -2174,7 +2167,7 @@ export class ApiClient {
   async updateMemberRole(
     organizationId: string,
     userId: string,
-    role: "member" | "admin",
+    role: "member" | "admin" | "guest",
   ): Promise<void> {
     await this.request<{ updated: boolean }>(
       "PATCH",

@@ -15,7 +15,7 @@
 
 import { canManageMemberAccess } from "../lib/membersAccess";
 
-export const ASSIGNABLE_ROLES = ["member", "admin"] as const;
+export const ASSIGNABLE_ROLES = ["member", "admin", "guest"] as const;
 export type AssignableRole = (typeof ASSIGNABLE_ROLES)[number];
 
 export interface MemberRoleArgs {
@@ -31,7 +31,7 @@ export function canActOnMember({ canManage, myUserId, myRole, target }: MemberRo
     canManage &&
     target.userId !== myUserId &&
     target.role !== "owner" &&
-    (myRole === "owner" || target.role === "member")
+    (myRole === "owner" || target.role === "member" || target.role === "guest")
   );
 }
 

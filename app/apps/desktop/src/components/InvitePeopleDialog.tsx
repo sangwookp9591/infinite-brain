@@ -54,7 +54,10 @@ export function InvitePeopleDialog({ orgId, canManageBilling = false, seatAccoun
   const serverUrl = useStore((s) => s.serverUrl);
   const [chips, setChips] = useState<string[]>([]);
   const [draft, setDraft] = useState("");
-  const [role, setRole] = useState<"member" | "admin">("member");
+  const [role, setRole] = useState<"member" | "admin" | "guest">("member");
+  const [guestItems, setGuestItems] = useState<Array<{ resourceType: "folder" | "file"; resourceId: string; label: string }>>([]);
+  const [guestTargets, setGuestTargets] = useState<string[]>([]);
+  const [guestPermission, setGuestPermission] = useState<"view" | "edit">("view");
   const [access, setAccess] = useState<InviteAccess>("default");
   const [newMemberDefault, setNewMemberDefault] = useState<AccessDefault | null>(null);
   const [savingDefault, setSavingDefault] = useState(false);
@@ -73,6 +76,20 @@ export function InvitePeopleDialog({ orgId, canManageBilling = false, seatAccoun
     authManager.api.getAccessDefault(orgId).then((value) => { if (live) setNewMemberDefault(value); }).catch(() => {});
     return () => { live = false; };
   }, [orgId]);
+
+  useEffect(() => {
+    if (role !== "guest") return;
+    let live = true;
+    void authManager.api.listVaults().then(async (vaults) => {
+      const items = await Promise.all(vaults.filter((vault) => (vault.organizationId ?? vault.organization_id) === orgId).map(async (vault) => {
+        const tree = await authManager.api.listAccessTree(vault.id);
+        return [...tree.folders.map((folder) => ({ resourceType: "folder" as const, resourceId: folder.id, label: folder.path })),
+          ...tree.notes.map((note) => ({ resourceType: "file" as const, resourceId: note.id, label: note.relPath }))];
+      }));
+      if (live) setGuestItems(items.flat());
+    }).catch(() => { if (live) setError("Couldn't load shared items. Check your connection and try again."); });
+    return () => { live = false; };
+  }, [role, orgId]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape" && !upgradeOpen) onClose(); };
@@ -100,7 +117,8 @@ export function InvitePeopleDialog({ orgId, canManageBilling = false, seatAccoun
       const out = await authManager.api.inviteMany(orgId, {
         emails: all,
         role,
-        access: access === "default" ? null : access,
+        access: role === "guest" || access === "default" ? null : access,
+        ...(role === "guest" ? { targets: guestItems.filter((item) => guestTargets.includes(item.resourceId)).map(({ resourceType, resourceId }) => ({ resourceType, resourceId, permission: guestPermission })) } : {}),
       });
       setResults(out);
       setChips(out.filter((r) => r.error).map((r) => r.email));
@@ -189,14 +207,14 @@ export function InvitePeopleDialog({ orgId, canManageBilling = false, seatAccoun
             <span className="invite-field-label">Role</span>
             <MenuSelect
               value={role}
-              options={[{ value: "member", label: "Member" }, { value: "admin", label: "Admin", hint: "Can manage people and access" }]}
+              options={[{ value: "member", label: "Member" }, { value: "admin", label: "Admin", hint: "Can manage people and access" }, { value: "guest", label: "Guest", hint: "Only selected folders and notes" }]}
               onSelect={setRole}
               ariaLabel="Role"
               triggerClassName="invite-field-trigger"
               menuClassName="access-menu"
             />
           </label>
-          <label className="invite-field">
+          {role !== "guest" && (<label className="invite-field">
             <span className="invite-field-label">Access</span>
             <MenuSelect
               value={access}
@@ -207,9 +225,14 @@ export function InvitePeopleDialog({ orgId, canManageBilling = false, seatAccoun
               menuClassName="access-menu"
               disabled={role === "admin"}
             />
-          </label>
+          </label>)}
         </div>
-        {code && (
+        {role === "guest" && <fieldset><legend>Share with this guest</legend>
+          <p>Choose folders or notes. Everything else stays private.</p>
+          <select aria-label="Guest can" value={guestPermission} onChange={(event) => setGuestPermission(event.target.value as "view" | "edit")}><option value="view">Can view</option><option value="edit">Can edit</option></select>
+          {guestItems.map((item) => <label key={item.resourceId} style={{ display: "block" }}><input type="checkbox" checked={guestTargets.includes(item.resourceId)} onChange={(event) => setGuestTargets((old) => event.target.checked ? [...old, item.resourceId] : old.filter((id) => id !== item.resourceId))} /> {item.label}</label>)}
+        </fieldset>}
+        {code && role !== "guest" && (
           <div className="invite-people-code">
             <span className="muted">Or share the join code</span>
             <code className="invite-people-code-value">{code}</code>
@@ -258,7 +281,7 @@ export function InvitePeopleDialog({ orgId, canManageBilling = false, seatAccoun
                       ? `Invitation emailed to ${r.email}. You can also share this link:`
                       : r.error
                         ? `Invitation created, but the email to ${r.email} couldn't be sent (${r.error}). Share this link instead:`
-                        : `Invitation created. Share this link with ${r.email}:`}
+                        : role === "guest" ? `This server does not send email. Send this link privately to ${r.email}. Anyone with the link can join using that address:` : `Invitation created. Share this link with ${r.email}:`}
                   </span>
                   {link && (
                     <div className="invite-notice-link">
@@ -276,7 +299,7 @@ export function InvitePeopleDialog({ orgId, canManageBilling = false, seatAccoun
           <AsyncButton
             className="primary"
             spinnerTone="on-accent"
-            disabled={all.length === 0 || invalid.length > 0}
+            disabled={all.length === 0 || invalid.length > 0 || role === "guest" && guestTargets.length === 0}
             onClick={send}
           >
             {all.length >= 2 ? "Send invites" : "Send invite"}

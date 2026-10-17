@@ -92,7 +92,7 @@ export function MemberProfilePage({
   onChanged: () => Promise<void>;
   /** A per-item write: cheap, debounced side effects only — no reloads. */
   onItemWritten: () => void;
-  onRoleChange: (role: "member" | "admin") => Promise<void>;
+  onRoleChange: (role: "member" | "admin" | "guest") => Promise<void>;
   onRemove: () => void;
   /** Open a note named by an Activity row; rows are plain text without it. */
   onOpenNote?: (path: string) => void;
@@ -158,7 +158,7 @@ export function MemberProfilePage({
               <dd>{member.email || "—"}</dd>
               <dt>Role</dt>
               <dd>
-                {canAct && (member.role === "member" || member.role === "admin") ? (
+                {canAct && (member.role === "member" || member.role === "admin" || member.role === "guest") ? (
                   <RoleSelect variant="field" value={member.role} ariaLabel={`Role of ${name}`} onSelect={onRoleChange} />
                 ) : (
                   ROLE_LABEL[member.role] ?? member.role
