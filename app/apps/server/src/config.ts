@@ -69,6 +69,17 @@ function optional(name: string): string | undefined {
   return v === undefined || v === "" ? undefined : v;
 }
 
+/** Public server origin is explicit; forwarded headers and path-prefix aliases are unsupported. */
+function publicServerUrl(): string {
+  const value = required("BETTER_AUTH_URL", "http://localhost:3010");
+  const url = new URL(value);
+  if (url.username || url.password || url.search || value.includes("#") || url.pathname !== "/"
+    || !(url.protocol === "https:" || (url.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)))) {
+    throw new Error("BETTER_AUTH_URL must be a public HTTPS origin (HTTP loopback allowed for development)");
+  }
+  return url.origin;
+}
+
 export const config = {
   databaseUrl: required(
     "DATABASE_URL",
@@ -77,7 +88,7 @@ export const config = {
   /** Shared secret: Better Auth crypto + HS256 per-doc sync JWTs. Fail-closed
    *  in production (see {@link jwtSecret}). */
   jwtSecret: jwtSecret(),
-  betterAuthUrl: required("BETTER_AUTH_URL", "http://localhost:3010"),
+  betterAuthUrl: publicServerUrl(),
   port: int("PORT", 3010),
   hocuspocusPort: int("HOCUSPOCUS_PORT", 3011),
   syncTokenTtlSeconds: int("SYNC_TOKEN_TTL_SECONDS", 600),

@@ -3,6 +3,7 @@ import { APIError, createAuthMiddleware } from "better-auth/api";
 import { bearer, mcp, organization } from "better-auth/plugins";
 import { Algorithm, hash as argonHash, verify as argonVerify } from "@node-rs/argon2";
 import pg from "pg";
+import { MCP_RESOURCE } from "../mcp/resource.js";
 import { MCP_SCOPES } from "../mcp/scopes.js";
 import { config } from "../config.js";
 import { BRAND_NAME } from "../brand.js";
@@ -49,6 +50,7 @@ const argonOpts = { algorithm: Algorithm.Argon2id } as const;
 const mcpMetadata = {
   scopes_supported: ["openid", "profile", "email", "offline_access", ...MCP_SCOPES],
   authorization_response_iss_parameter_supported: true,
+  client_id_metadata_document_supported: true,
 };
 
 export const authPool = new pg.Pool({ connectionString: config.databaseUrl });
@@ -434,7 +436,7 @@ export const auth = betterAuth({
     mcp({
       // Canonical resource id advertised in the protected-resource metadata:
       // the MCP endpoint clients actually POST to.
-      resource: `${config.betterAuthUrl}/api/mcp`,
+      resource: MCP_RESOURCE,
       loginPage: `${config.betterAuthUrl}/oauth/login`,
       oidcConfig: {
         scopes: [...MCP_SCOPES],

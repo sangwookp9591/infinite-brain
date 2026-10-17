@@ -279,6 +279,7 @@ export function createApp(deps: AppDeps): Hono {
     return new Response(JSON.stringify({ ...metadata,
       scopes_supported: ["openid", "profile", "email", "offline_access", ...MCP_SCOPES],
       authorization_response_iss_parameter_supported: true,
+      client_id_metadata_document_supported: true,
     }), { status: response.status, headers: response.headers });
   };
   app.get("/.well-known/oauth-authorization-server", (c) => discovery(c.req.raw));

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+import { MCP_RESOURCE } from "./resource.js";
 import type pg from "pg";
 import { pool as defaultPool } from "../db/pool.js";
 import { orgRole } from "../permissions/lookup.js";
@@ -34,36 +36,11 @@ export async function setVaultBinding(
     `INSERT INTO mcp_oauth_vault (client_id, user_id, organization_id, scopes)
      VALUES ($1, $2, $3, $4)
      ON CONFLICT (client_id, user_id)
-       DO UPDATE SET organization_id = EXCLUDED.organization_id, scopes = EXCLUDED.scopes, updated_at = clock_timestamp()
+       DO UPDATE SET organization_id = EXCLUDED.organization_id, scopes = EXCLUDED.scopes, generation = gen_random_uuid()::text, updated_at = clock_timestamp()
      RETURNING updated_at::text`,
     [clientId, userId, organizationId, scopes?.join(" ") ?? null],
   );
   return rows[0].updated_at;
-}
-
-/** The vault bound to (client, user), or null if none was recorded. */
-async function getVaultBinding(
-  clientId: string,
-  userId: string,
-  db: Queryable = defaultPool,
-): Promise<{ organization_id: string; scopes: string | null } | null> {
-  const { rows } = await db.query<{ organization_id: string; scopes: string | null }>(
-    "SELECT organization_id, scopes FROM mcp_oauth_vault WHERE client_id = $1 AND user_id = $2",
-    [clientId, userId],
-  );
-  return rows[0] ?? null;
-}
-
-/** Fallback when no binding exists: the user's sole vault, else null. */
-async function soleVault(
-  userId: string,
-  db: Queryable = defaultPool,
-): Promise<string | null> {
-  const { rows } = await db.query<{ organizationId: string }>(
-    `SELECT "organizationId" FROM member WHERE "userId" = $1`,
-    [userId],
-  );
-  return rows.length === 1 ? rows[0].organizationId : null;
 }
 
 /** Why an OAuth bearer did not resolve: signed in, but no vault chosen. */
@@ -85,26 +62,21 @@ export async function resolveOAuthMcpAuth(
   const session = await auth.api.getMcpSession({ headers });
   if (!session?.userId || !session.clientId) return null;
 
-  const binding = await getVaultBinding(session.clientId, session.userId, db);
-  // Scoped grants must keep their approved vault binding, including after revoke.
-  if (!binding && session.scopes.split(/\s+/).some((scope) => scope.startsWith("notes:") || scope.startsWith("access:"))) {
-    onFailure?.("no_vault_selected");
-    return null;
-  }
-  const organizationId =
-    binding?.organization_id ??
-    (await soleVault(session.userId, db));
-  if (!organizationId) {
-    onFailure?.("no_vault_selected");
-    return null;
-  }
+  const bearer = headers.get("authorization")?.replace(/^Bearer /i, "");
+  const { rows: bound } = await db.query(
+    `SELECT b.organization_id, b.scopes FROM "oauthAccessToken" t JOIN mcp_oauth_vault b
+       ON b.client_id = t."clientId" AND b.user_id = t."userId" AND b.generation = t.generation
+      WHERE t."accessToken" = $1 AND t.resource = $2`, [bearer, MCP_RESOURCE],
+  );
+  const binding = bound[0] as { organization_id: string; scopes: string | null } | undefined;
+  if (!binding) { onFailure?.("no_vault_selected"); return null; }
+  const organizationId = binding.organization_id;
 
   const role = await orgRole(organizationId, session.userId, db);
   if (!role) return null;
 
   const scopes = effectiveOAuthScopes(session.scopes).filter((scope) =>
     effectiveOAuthScopes(binding?.scopes).includes(scope) && (scope !== "access:manage" || role === "owner" || role === "admin"));
-  if (!binding) await setVaultBinding(session.clientId, session.userId, organizationId, db);
   await db.query(
     `UPDATE mcp_oauth_vault SET last_used_at = now(), last_client = COALESCE($3, last_client)
       WHERE client_id = $1 AND user_id = $2`,
@@ -149,6 +121,26 @@ export async function prepareOAuthConsent(
   return true;
 }
 
+/** Serialize the full provider issuance with consent/revoke across server processes. */
+export async function lockOAuthConnection(db: Queryable, clientId: string, userId: string): Promise<void> {
+  await db.query("SELECT pg_advisory_lock(hashtextextended($1, 0))", [JSON.stringify([clientId, userId])]);
+}
+export async function unlockOAuthConnection(db: Queryable, clientId: string, userId: string): Promise<void> {
+  await db.query("SELECT pg_advisory_unlock(hashtextextended($1, 0))", [JSON.stringify([clientId, userId])]);
+}
+
+export async function stampOAuthGrant(code: string, clientId: string, userId: string, db: Queryable = defaultPool): Promise<void> {
+  const ctx = await auth.$context;
+  const grant = await ctx.internalAdapter.findVerificationValue(code);
+  const { rows } = await db.query("SELECT generation FROM mcp_oauth_vault WHERE client_id = $1 AND user_id = $2", [clientId, userId]);
+  if (!grant || !rows[0]) throw new Error("Missing connection");
+  const value = JSON.parse(grant.value);
+  if (value.clientId !== clientId || value.userId !== userId) throw new Error("Invalid grant");
+  await ctx.internalAdapter.updateVerificationByIdentifier(code, {
+    value: JSON.stringify({ ...value, resource: value.resource ?? MCP_RESOURCE, generation: rows[0].generation }),
+  });
+}
+
 export async function listOAuthConnections(auth: McpAuth, db: Queryable = defaultPool) {
   const { rows } = await db.query<{
     id: string; name: string; scopes: string | null; createdAt: string;
@@ -178,6 +170,7 @@ export async function listOAuthConnections(auth: McpAuth, db: Queryable = defaul
 export async function revokeOAuthConnection(userId: string, organizationId: string, clientId: string): Promise<boolean> {
   const db = await defaultPool.connect();
   try {
+    await lockOAuthConnection(db, clientId, userId);
     await db.query("BEGIN");
     const connections = await listOAuthConnections({ userId, organizationId }, db);
     const found = connections.some((c) => c.id === clientId);
@@ -202,5 +195,5 @@ export async function revokeOAuthConnection(userId: string, organizationId: stri
   } catch (error) {
     await db.query("ROLLBACK");
     throw error;
-  } finally { db.release(); }
+  } finally { await unlockOAuthConnection(db, clientId, userId); db.release(); }
 }
