@@ -1,3 +1,4 @@
+import { shareErrorMessage } from "./shareErrorMessage";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 // The `.skel-line` shimmer lives with the editor skeleton (as ContentWidthPreview does).
 import "./editor.css";
@@ -272,7 +273,7 @@ export function MembersAccessTab({ canManage, onOpenTab, onCloseSettings, resetT
       await work();
     } catch (cause) {
       if (peopleLimitKind(cause)) { setLimitCause(cause); return; }
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(shareErrorMessage(cause));
     } finally {
       setBusy(false);
     }

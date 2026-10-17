@@ -1,3 +1,4 @@
+import { shareErrorMessage } from "./shareErrorMessage";
 // SPDX-License-Identifier: Apache-2.0
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { sharePrincipalType, shareResourceId, shareResourceType, type BulkAccessResource, type MemberOverview, type TeamAccessMode } from "../lib/api";
@@ -352,7 +353,7 @@ export function MemberAccessBoard({
         // Put the moved rows back, then ask the server what is true: the
         // write is atomic, but a lost answer can hide one that DID commit.
         setSummaryModes((prev) => revertModes(prev, before, affected.map((r) => r.key)));
-        toast(accessWriteFailureMessage(cause), "error");
+        toast(shareErrorMessage(cause, accessWriteFailureMessage(cause)), "error");
         rereadOrReload(allRows.filter((r) => affectedKeys.has(r.key) || ancestors.has(r.path)));
       }
       return false;
@@ -406,7 +407,7 @@ export function MemberAccessBoard({
         try {
           for (const lock of blockers) await useStore.getState().removeLock(lock.id);
         } catch (cause) {
-          toast(accessWriteFailureMessage(cause), "error");
+          toast(shareErrorMessage(cause, accessWriteFailureMessage(cause)), "error");
           rereadOrReload(allRows);
           return;
         } finally { if (live.current) setBusy(false); }
@@ -477,7 +478,7 @@ export function MemberAccessBoard({
       }
       await onChanged();
     } catch (cause) {
-      if (live.current) toast(accessWriteFailureMessage(cause), "error");
+      if (live.current) toast(shareErrorMessage(cause, accessWriteFailureMessage(cause)), "error");
     } finally {
       if (live.current) setBusy(false);
     }
