@@ -6,8 +6,8 @@
    break local-first and leak identity), and the same seed renders the same
    neuron on every machine. People differ by shape as well as hue.
 
-   EAGER-SAFE. The old generator (`@dicebear/collection`) was ~300 KB, so this
-   module had to stay behind a lazy boundary. The neuron generator is ~3 KB
+   EAGER-SAFE. The old third-party generator was ~300 KB, so it had to stay
+   behind a lazy boundary. The neuron generator is ~3 KB
    with no dependencies, so it is imported statically everywhere (`./Face`
    is now a thin re-export) and no first-screen monogram swap is needed.
    ============================================================ */

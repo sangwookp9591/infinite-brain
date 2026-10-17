@@ -1,6 +1,6 @@
 /* Avatar wrappers for the first-screen call sites (sidebar presence faces, the
    identity bar, the version list). They used to lazy-load `./Avatar` because
-   DiceBear weighed ~300 KB; the neuron generator is tiny, so they now render
+   the old generator weighed ~300 KB; the neuron generator is tiny, so they now render
    synchronously — no monogram flash — and keep their names so callers are
    unchanged. */
 import { Avatar, FaceSvg, type FaceProps } from "./Avatar";

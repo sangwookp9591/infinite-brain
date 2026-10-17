@@ -23,7 +23,7 @@ import { visibleFolders } from "../lib/vault/vaultList";
 import { MenuIcon } from "./MenuIcon";
 import { PeopleLimitNotice, peopleLimitKind } from "./PeopleLimitNotice";
 
-// DiceBear is heavy; the tile paints its initial until the glyph chunk lands.
+// The tile paints its initial until the glyph chunk lands.
 const VaultIconSvg = lazy(() => import("./VaultIconSvg"));
 
 const MOD_IS_META = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
