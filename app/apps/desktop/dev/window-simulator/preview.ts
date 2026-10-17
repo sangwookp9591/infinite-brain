@@ -13,6 +13,7 @@ import { registerDevTools } from "../webmcp";
 import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import dailyDashboard from "../../src/dashboards/templates/daily-home.html?raw";
 const params = new URLSearchParams(location.search);
+const surface = params.get("surface");
 document.documentElement.dataset.platform = params.get("platform") === "macos" ? "macos" : "windows";
 notes.push({ ...notes[0], id: "preview-home", docId: "preview-home", relPath: "Home.html", title: "Home", folderId: null });
 notes.push({ ...notes[0], id: "preview-link", docId: "preview-link", relPath: "Artifact.url", title: "Artifact", folderId: null });
@@ -286,8 +287,10 @@ useStore.setState({
   },
   vault,
   tree,
-  openNote: { path: "Q3 plan.md", id: "preview-note", title: "Q3 plan" },
-  openTabs: ["Q3 plan.md"],
+  openNote: surface === "home"
+    ? { path: "Home.html", id: "preview-home", title: "Home" }
+    : { path: "Q3 plan.md", id: "preview-note", title: "Q3 plan" },
+  openTabs: [surface === "home" ? "Home.html" : "Q3 plan.md"],
   authStatus: "signed-in",
 
   syncEnabled: true,
@@ -301,7 +304,34 @@ useStore.setState({
 });
 (window as any).previewStore = useStore;
 (window as any).previewUnknownRequests = unknownRequests;
-await import("/src/main.tsx");
+if (surface === "health" || surface === "housekeeper") {
+  await import("/src/assets/fonts/fonts.css");
+  await import("/src/styles/tokens.css");
+  await import("/src/App.css");
+  const { initTheme } = await import("/src/lib/theme.ts");
+  initTheme();
+  if (surface === "housekeeper") {
+    Object.defineProperty(authManager.api, "housekeeperStatus", {
+      configurable: true,
+      value: async () => ({ available: true, provider: "Preview", model: "Preview model", requiresTeam: false }),
+    });
+    Object.defineProperty(authManager.api, "housekeeperDiagnose", {
+      configurable: true,
+      value: async () => ({ checked: 12, model: "Preview model", findings: [] }),
+    });
+  }
+  const React = await import("react");
+  const { createRoot } = await import("react-dom/client");
+  const { SurfacePreview } = await import("./surfacePreview");
+  createRoot(document.getElementById("root")!).render(React.createElement(SurfacePreview, { surface }));
+} else {
+  await import("/src/main.tsx");
+  if (surface === "dashboard-dialog") {
+    window.setTimeout(() => window.dispatchEvent(new CustomEvent("infinitebrain:new-dashboard", { detail: { templateId: "daily" } })), 100);
+  } else if (surface === "dashboard-manage") {
+    window.setTimeout(() => window.dispatchEvent(new CustomEvent("infinitebrain:new-dashboard", { detail: { manage: true } })), 100);
+  }
+}
 requestAnimationFrame(() => registerDevTools([
   {
     name: "app_state",
