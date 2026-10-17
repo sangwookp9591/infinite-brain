@@ -242,7 +242,7 @@ export function createMcpRoutes(deps: McpDeps): Hono {
     if (!session) return c.json({ error: "Authentication required" }, 401);
     const org = await resolveActiveOrg(session.userId, session.activeOrganizationId);
     if (!org) return c.json({ error: "No active vault" }, 400);
-    if (!(await orgRole(org, session.userId))) {
+    if (!isTeamRole(await orgRole(org, session.userId))) {
       return c.json({ error: "Not a member of this vault" }, 403);
     }
     const tokens = await listMcpTokens({ userId: session.userId, organizationId: org });
@@ -255,7 +255,7 @@ export function createMcpRoutes(deps: McpDeps): Hono {
     if (!session) return c.json({ error: "Authentication required" }, 401);
     const org = await resolveActiveOrg(session.userId, session.activeOrganizationId);
     if (!org) return c.json({ error: "No active vault" }, 400);
-    if (!(await orgRole(org, session.userId))) return c.json({ error: "Not a member of this vault" }, 403);
+    if (!isTeamRole(await orgRole(org, session.userId))) return c.json({ error: "Not a member of this vault" }, 403);
     const identity = { userId: session.userId, organizationId: org };
     const [tokens, oauth] = await Promise.all([listMcpTokens(identity), listOAuthConnections(identity)]);
     return c.json({ tokens, connections: [...tokens.map((t) => ({ ...t, kind: "token" })), ...oauth], tools: TOOL_CATALOG });
@@ -284,7 +284,7 @@ export function createMcpRoutes(deps: McpDeps): Hono {
     const org = await resolveActiveOrg(session.userId, session.activeOrganizationId);
     if (!org) return c.json({ error: "No active vault" }, 400);
     const role = await orgRole(org, session.userId);
-    if (!role) {
+    if (!isTeamRole(role)) {
       return c.json({ error: "Not a member of this vault" }, 403);
     }
     const body = (await c.req.json().catch(() => ({}))) as { name?: unknown; scopes?: unknown };

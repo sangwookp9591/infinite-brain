@@ -11,10 +11,11 @@ export const auditRequests: MiddlewareHandler = async (c, next) => {
   const context: AuditContext = { requestId: randomUUID(), actorKind: "system" };
   const securityWrite = !["GET", "HEAD", "OPTIONS"].includes(c.req.method) &&
     /shares|access|members|invitations|organization\/|orgs\/join|public-link|mcp/.test(c.req.path);
-  const body = securityWrite && !c.req.path.startsWith("/api/mcp") ? c.req.raw.clone().json().catch(() => ({})) : Promise.resolve({});
+  const mcpProtocol = /^\/api\/mcp\/?$/.test(c.req.path);
+  const body = securityWrite && !mcpProtocol ? c.req.raw.clone().json().catch(() => ({})) : Promise.resolve({});
   return auditContext.run(context, async () => {
     c.header("X-Request-Id", context.requestId);
-    if (securityWrite && !c.req.path.startsWith("/api/mcp")) await getSession(c);
+    if (securityWrite && !mcpProtocol) await getSession(c);
     await next();
     if (!securityWrite || c.res.status < 400) return;
     const input = await body as Record<string, unknown>;

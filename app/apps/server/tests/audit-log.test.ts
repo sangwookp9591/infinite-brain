@@ -75,3 +75,16 @@ it("missing actor context is system/unknown and pooled connections never leak ac
   });
   expect((await pool.query("SELECT * FROM audit_log ORDER BY id DESC LIMIT 1")).rows[0]).toMatchObject({ actor_user_id: member.userId, request_id: "second" });
 });
+it("rollback to a savepoint never commits later access mutations",async()=>{
+ const client=await pool.connect();try{await auditContext.run({actorKind:"user",actorUserId:owner.userId,requestId:"outer-rollback"},async()=>{
+  await client.query("BEGIN");await client.query("SAVEPOINT point");await client.query("ROLLBACK TO SAVEPOINT point");
+  await client.query("INSERT INTO shares (id,org_id,resource_type,resource_id,principal_type,principal_id,permission) VALUES ('savepoint-write',$1,'file',$2,'user',$3,'view')",[org,doc,member.userId]);await client.query("ROLLBACK");
+ });expect((await client.query("SELECT 1 FROM shares WHERE id='savepoint-write'")).rowCount).toBe(0);expect((await client.query("SELECT 1 FROM audit_log WHERE request_id='outer-rollback'")).rowCount).toBe(0);}finally{client.release();}
+});
+it("parallel implicit access writes retain their own audit identities",async()=>{
+ const client=await pool.connect();try{
+  const write=(id:string,actor:string)=>auditContext.run({actorKind:"user",actorUserId:actor,requestId:id},()=>client.query("INSERT INTO shares (id,org_id,resource_type,resource_id,principal_type,principal_id,permission) VALUES ($1,$2,'file',$3,'user',$4,'view')",[id,org,doc,actor]));
+  await Promise.all([write("parallel-owner",owner.userId),write("parallel-member",member.userId)]);
+  expect((await client.query("SELECT request_id,actor_user_id FROM audit_log WHERE request_id LIKE 'parallel-%' ORDER BY request_id")).rows).toEqual([{request_id:"parallel-member",actor_user_id:member.userId},{request_id:"parallel-owner",actor_user_id:owner.userId}]);
+ }finally{client.release();}
+});

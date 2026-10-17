@@ -108,9 +108,10 @@ describe("MCP connection scopes", () => {
   });
 
   it("checks roles for omitted and explicit token scopes and rejects unknown stored scopes", async () => {
-    for (const role of ["owner", "admin", "member", "viewer"]) {
+    for (const role of ["owner", "admin", "member", "viewer", "guest"]) {
       await pool.query('UPDATE member SET role = $1 WHERE "userId" = $2', [role, user.userId]);
       const minted = await request("/api/mcp/tokens", { method: "POST", headers: sessionHeaders(), body: JSON.stringify({ name: role }) });
+      if (role === "viewer" || role === "guest") { expect(minted.status).toBe(403); continue; }
       expect(minted.status).toBe(201);
       const row = await minted.json() as { id: string; token: string; scopes: string[] };
       expect(row.scopes).toEqual(DEFAULT_MCP_SCOPES);
