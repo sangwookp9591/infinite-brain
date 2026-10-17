@@ -214,8 +214,7 @@ export function InvitePeopleDialog({ orgId, canManageBilling = false, seatAccoun
             <span className="muted">Or share the join code</span>
             <code className="invite-people-code-value">{code}</code>
             {expiresAt && <span className="muted">Expires {new Date(expiresAt).toLocaleDateString()}</span>}
-            <button type="button" className="link-btn" disabled={rotating} onClick={async () => {
-              if (!window.confirm("Create a new join code? The previous code will stop working.")) return;
+            <button type="button" className="link-btn" title="The previous code will stop working" disabled={rotating} onClick={async () => {
               setRotating(true);
               try { const next = await authManager.api.rotateJoinCode(); setCode(next.code); setExpiresAt(next.expiresAt); }
               catch { setError("Couldn't create a new code. Check your connection and try again."); }
