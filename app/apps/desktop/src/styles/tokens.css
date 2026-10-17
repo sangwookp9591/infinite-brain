@@ -63,13 +63,11 @@
   --editor-selection-bg: rgba(74, 63, 212, 0.16);
   --editor-selection-bg-inactive: rgba(74, 63, 212, 0.09);
 
-  /* Brand — Infinite Brain logo. Fixed identity colors (not themed): the
-     bracket mark's dot + wordmark brackets are green; the mark tile is a
-     dark app-icon square so the off-white brackets read in either theme. */
-  --brand-green: #57bd9c;
-  --brand-green-bright: #64cba9;
-  --brand-ink: #ededea;         /* off-white brackets on the dark tile */
-  --brand-tile: linear-gradient(155deg, #23232b 0%, #111116 100%);
+  /* Brand — fixed identity colours (not themed): the dark Orbit "night" tile
+     and its off-white ink, used where the graph's dark chrome meets window
+     controls. */
+  --brand-ink: #e9ebf9;
+  --brand-tile: linear-gradient(155deg, #141830 0%, #080a16 100%);
   /* Violet and its lavender tint (violet at ~12%). */
   --brand-violet: #7c5cff;
   --brand-violet-tint: #f0ebfd;
@@ -305,7 +303,7 @@
   --bg-active: #282d58;
   --members-row-hover: color-mix(in srgb, var(--accent-soft) 18%, transparent);
 
-  /* Off-white body copy with zinc secondary and tertiary tiers. */
+  /* Indigo-tinted body copy with secondary and tertiary tiers (each >= 4.5:1). */
   --text-primary: #e9ebf9;
   --text-secondary: #b4b9d6;
   --text-tertiary: #a0a6c8;
@@ -401,7 +399,7 @@
     --bg-active: #282d58;
     --members-row-hover: color-mix(in srgb, var(--accent-soft) 18%, transparent);
 
-    /* Off-white body copy with zinc secondary and tertiary tiers. */
+    /* Indigo-tinted body copy with secondary and tertiary tiers (each >= 4.5:1). */
     --text-primary: #e9ebf9;
     --text-secondary: #b4b9d6;
     --text-tertiary: #a0a6c8;
