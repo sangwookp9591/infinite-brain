@@ -1,3 +1,4 @@
+import { createExternalRevokeRoutes } from "./routes/external-revoke.js";
 // SPDX-License-Identifier: Apache-2.0
 import { pool } from "../db/pool.js";
 import { APIError } from "better-auth/api";
@@ -356,6 +357,12 @@ export function createApp(deps: AppDeps): Hono {
       method: "POST", headers: c.req.raw.headers, body: "{}",
     }));
   });
+  app.get("/api/auth/organization/list",async(c)=>{
+    const session=await getSession(c);if(!session)return c.json({error:"Authentication required"},401);
+    const organizations=await auth.api.listOrganizations({headers:c.req.raw.headers});
+    const memberships=(await pool.query<{id:string;role:string}>('SELECT "organizationId" AS id,role FROM member WHERE "userId"=$1',[session.userId])).rows;
+    return c.json(organizations.map(org=>memberships.find(m=>m.id===org.id)?.role==="guest"?{id:org.id,name:org.name}:org));
+  });
   app.post("/api/auth/organization/remove-member", (c) => c.json({ error: "Use vault member settings to remove a person." }, 403));
   app.on(["GET", "POST"], "/api/auth/*", (c) => handleOAuthRequest(c.req.raw));
 
@@ -442,6 +449,7 @@ export function createApp(deps: AppDeps): Hono {
       billingProvider,
     }),
   );
+  app.route("/api", createExternalRevokeRoutes({...deps,billingProvider}));
   app.route("/api", createBillingRoutes({ provider: billingProvider }));
   app.route("/api", graphRoutes);
   app.route("/api", createHousekeeperRoutes(deps.docWriter));

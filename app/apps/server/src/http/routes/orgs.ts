@@ -1,3 +1,4 @@
+import type pg from "pg";
 import { claimJoinAttempt, getOrRotateJoinCode } from "../../join-codes/service.js";
 import { randomUUID } from "node:crypto";
 import { Hono } from "hono";
@@ -134,7 +135,8 @@ export async function revokeMembership(
   orgId: string,
   userId: string,
   reason: "removed" | "left",
-): Promise<void> {
+  options?: { expectedRole?: string; beforeCommit?: (client: pg.PoolClient) => Promise<void> },
+): Promise<boolean> {
   // Snapshot the org's docs so we can kill any live sockets the departing
   // member holds. closeConnections on a doc with no live socket is a cheap
   // no-op, so covering every doc in the org is fine (this is rare).
@@ -155,6 +157,8 @@ export async function revokeMembership(
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    const membership = (await client.query<{role:string}>('SELECT role FROM member WHERE "organizationId"=$1 AND "userId"=$2 FOR UPDATE',[orgId,userId])).rows[0];
+    if (!membership || (options?.expectedRole && membership.role!==options.expectedRole)) { await client.query("ROLLBACK"); return false; }
     await client.query(`DELETE FROM member WHERE "organizationId" = $1 AND "userId" = $2`, [
       orgId,
       userId,
@@ -169,6 +173,7 @@ export async function revokeMembership(
         WHERE "userId" = $1 AND "activeOrganizationId" = $2`,
       [userId, orgId],
     );
+    await options?.beforeCommit?.(client);
     await client.query("COMMIT");
   } catch (err) {
     await client.query("ROLLBACK");
@@ -189,6 +194,7 @@ export async function revokeMembership(
   // client that understands it why (`member-removed`), so vault-wide frames
   // (voice, joins) stop now rather than at token expiry.
   await announceMemberRemoved(orgId, userId, reason);
+  return true;
 }
 
 /**
