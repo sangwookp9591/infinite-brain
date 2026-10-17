@@ -44,6 +44,8 @@
   /* Accent (ink by default; custom accents override this tier) */
   --accent: #4a3fd4;
   --accent-hover: #3d33b8;
+  /* The Orbit default, kept even when a custom accent overrides --accent (swatch). */
+  --accent-default: #4a3fd4;
   --accent-soft: #e9e7ff;
   --accent-soft-hover: #dcd9ff;
   --accent-gradient: linear-gradient(135deg, #6a5ff0 0%, #4a3fd4 100%);
@@ -104,6 +106,8 @@
   /* Orbit islands: floating panels (sidebar, popovers) and the editor sheet. */
   --radius-island: 20px;
   --radius-sheet: 26px;
+  /* Panels nested inside a sheet (settings content card). */
+  --radius-inner: 22px;
 
   /* Shadows (restrained in light; surface contrast in dark) */
   --shadow-sm: 0 1px 2px rgb(20 22 43 / 0.05);
@@ -155,6 +159,10 @@
   /* Height of the top chrome row (tabs, sidebar/search tools, the floating
      controls pill). Everything in it is centred on half of this. */
   --chrome-row-h: 48px;
+  /* Orbit icon rail: its width and where its first control starts (below the
+     macOS traffic lights, see the macOS block). */
+  --rail-w: 64px;
+  --rail-top: 16px;
 
   /* Typography */
   /* Latin glyphs come from the first family, Hangul falls through to
@@ -264,6 +272,7 @@
      tauri.conf.json sets: change one, change both. Its `y` is NOT the centre —
      `y: 28` measured out at a 26px centre. */
   --chrome-row-h: 52px;
+  --rail-top: calc(var(--chrome-row-h) + 4px);
 }
 
 /* Order matters: light-custom → dark → dark-custom → fallback-custom.
@@ -304,6 +313,7 @@
 
   --accent: #a29bff;
   --accent-hover: #b8b2ff;
+  --accent-default: #a29bff;
   --accent-soft: #232150;
   --accent-soft-hover: #2e2b68;
   --accent-gradient: linear-gradient(135deg, #c1bcff 0%, #a29bff 100%);
@@ -399,6 +409,7 @@
 
     --accent: #a29bff;
     --accent-hover: #b8b2ff;
+    --accent-default: #a29bff;
     --accent-soft: #232150;
     --accent-soft-hover: #2e2b68;
     --accent-gradient: linear-gradient(135deg, #c1bcff 0%, #a29bff 100%);

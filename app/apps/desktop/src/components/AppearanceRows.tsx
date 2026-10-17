@@ -30,7 +30,7 @@ const THEME_OPTIONS: ReadonlyArray<{ value: ThemeMode; label: string }> = [
 
 // Accent seed palette data; the rendered accent is adjusted for readability.
 const ACCENTS = [
-  ["Ink", "ink"], ["Blue", "#3b74d1"], ["Teal", "#23877e"],
+  ["Orbit", "ink"], ["Blue", "#3b74d1"], ["Teal", "#23877e"],
   ["Green", "#3f8850"], ["Amber", "#c98a12"], ["Coral", "#dc6e52"],
   ["Rose", "#d4567a"], ["Violet", "#7f73ff"],
 ] as const;
@@ -80,7 +80,7 @@ export function AppearanceRows(props: {
           {ACCENTS.map(([name, value]) => (
             <button key={name} type="button" className="appearance-accent-swatch"
               title={name} aria-label={`Accent ${name}`} aria-pressed={values.accent === value}
-              disabled={readOnly} style={{ width: 24, height: 24, background: value === "ink" ? "var(--text-primary)" : value }}
+              disabled={readOnly} style={{ width: 24, height: 24, background: value === "ink" ? "var(--accent-default)" : value }}
               onClick={() => onChange("accent", value)} />
           ))}
         </div>

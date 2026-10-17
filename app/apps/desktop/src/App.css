@@ -112,6 +112,13 @@ button.primary:disabled {
   cursor: default;
   box-shadow: none;
 }
+/* Destructive confirmation: the same pill in the danger colour. */
+button.primary.danger {
+  background: var(--danger);
+}
+button.primary.danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 88%, black);
+}
 button.primary.sm {
   padding: var(--sp-1) var(--sp-3);
   font-size: var(--fs-sm);
@@ -225,6 +232,22 @@ button.primary.hero:hover:not(:disabled) {
   border-color: var(--accent);
   box-shadow: var(--focus-ring);
   background: var(--bg-surface);
+}
+
+/* Native selects outside dialogs (activity panel, filters) get the same well. */
+select {
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--text-primary);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-input);
+  padding: var(--sp-1) var(--sp-2);
+}
+select:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--focus-ring);
 }
 
 /* Shared controls use the same surfaces in settings, menus and dialogs. */
@@ -849,10 +872,7 @@ button.secondary:focus-visible,
   /* Width is user-set (see SidebarResizer); the fallback is the default so the
      layout is correct for one paint before React sets the variable. */
   --sidebar-layout-w: var(--sidebar-w, 264px);
-  /* Orbit's icon rail: a fixed island left of the sidebar island. The first
-     tool sits below the macOS traffic lights (they float over the rail). */
-  --rail-w: 64px;
-  --rail-top: 16px;
+  /* Orbit's icon rail (`--rail-w`, `--rail-top` live in tokens.css). */
   grid-template-columns: var(--rail-w) var(--sidebar-layout-w) minmax(0, 1fr);
   height: 100%;
   background: var(--bg-app);
@@ -867,9 +887,6 @@ button.secondary:focus-visible,
 }
 .app.sidebar-hidden {
   --sidebar-layout-w: 0px;
-}
-html[data-platform="macos"] .app {
-  --rail-top: calc(var(--chrome-row-h) + 4px);
 }
 
 /* ---- Icon rail ---- */
@@ -2571,10 +2588,10 @@ body:has(.sidebar-resizer.dragging) {
   flex-direction: column;
   min-width: 0;
   height: 100%;
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sheet);
-  box-shadow: var(--shadow-lg);
+  /* Orbit: the header (breadcrumb, tabs, controls) sits on the canvas; only
+     `.editor-wrap` below it is the floating sheet. */
+  background: transparent;
+  padding: 0 var(--sp-3) var(--sp-3) 0;
   /* Plain `hidden`, NOT `clip`: clip triggered a WKWebView compositing bug
      that blanked sibling layers (the sidebar footer vanished when a synced
      note's editor layers came up). Programmatic focus-scroll into the
@@ -3130,6 +3147,11 @@ body:has(.sidebar-resizer.dragging) {
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  /* The floating Orbit sheet. */
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sheet);
+  box-shadow: var(--shadow-md);
 }
 .editor-host {
   height: 100%;
@@ -11135,8 +11157,7 @@ body.access-board-grabbing * {
   background: var(--bg-surface);
 }
 .settings-content {
-  --p5-inner-radius: 22px;
-  border-radius: var(--p5-inner-radius);
+  border-radius: var(--radius-inner);
 }
 .settings-page-header {
   background: var(--bg-surface);
