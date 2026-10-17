@@ -1,5 +1,5 @@
 import { claimJoinAttempt, getOrRotateJoinCode } from "../../join-codes/service.js";
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { Hono } from "hono";
 import { pool } from "../../db/pool.js";
 import { orgRole } from "../../permissions/lookup.js";
@@ -95,18 +95,7 @@ export interface OrgDeps {
 export const MEMBERSHIP_CHECK_MAX = 200;
 
 // Crockford-style base32 alphabet: no ambiguous 0/O/1/I. 32 symbols.
-const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-const CODE_LEN = 8;
 
-/** An 8-char uppercase code from crypto-random bytes (no ambiguous chars). */
-function generateCode(): string {
-  const bytes = randomBytes(CODE_LEN);
-  let out = "";
-  for (let i = 0; i < CODE_LEN; i++) {
-    out += ALPHABET[bytes[i] % ALPHABET.length];
-  }
-  return out;
-}
 
 /**
  * The vault this user is acting in: the session's active org, else their

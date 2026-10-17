@@ -3,7 +3,8 @@ import { randomBytes } from "node:crypto";
 import { pool } from "../db/pool.js";
 export const JOIN_ATTEMPT_LIMIT = 10;
 export const JOIN_ATTEMPT_WINDOW_MINUTES = 15;
-const generate = () => randomBytes(6).toString("hex").toUpperCase();
+const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const generate = () => Array.from(randomBytes(8), (byte) => ALPHABET[byte % ALPHABET.length]).join("");
 export async function getOrRotateJoinCode(organizationId: string, actorUserId: string, rotate = false) {
   for (let tries = 0; tries < 5; tries++) {
     try {
