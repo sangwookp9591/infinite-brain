@@ -171,6 +171,9 @@ export async function validateShareTargets(
   if (ids.length === 0 || ids.length > 500) {
     throw new AccessManagementError("Choose between 1 and 500 people", 400, "invalid_audience");
   }
+  // Global revocation lock must precede membership row locks: a bulk revoke
+  // holds it while deleting guest rows on another transaction connection.
+  await db.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",[`external-access:${organizationId}`]);
   const { rows } = await db.query<{ user_id: string; role: string }>(
     `SELECT "userId" AS user_id, role FROM member
       WHERE "organizationId" = $1 AND "userId" = ANY($2::text[])

@@ -51,3 +51,8 @@ it("a guest invitation cannot be accepted across bulk revocation",async()=>{
  await revokeExternalAccess(f.org,f.owner.userId,deps,randomUUID(),async()=>{acceptance??=acceptGuestInvitation(invitation.id,{userId:f.external.userId,email:f.external.email}).catch(error=>error);});
  expect(await acceptance).toMatchObject({code:"invitation_unavailable"});expect((await pool.query('SELECT 1 FROM member WHERE "organizationId"=$1 AND "userId"=$2',[f.org,f.external.userId])).rowCount).toBe(0);
 });
+it("concurrent guest share waits before membership locks and leaves no orphan",async()=>{
+ const app=createApp(recording.deps);let shared:Promise<Response>|undefined;
+ const result=await revokeExternalAccess(f.org,f.owner.userId,deps,randomUUID(),async()=>{shared??=app.request("/api/shares",{method:"POST",headers:authHeaders(f.owner),body:JSON.stringify({resourceType:"file",resourceId:f.visible,principalId:f.guest.userId,permission:"edit"})});});
+ expect(result.status).toBe("completed");expect((await shared)!.status).toBe(400);expect((await pool.query("SELECT 1 FROM shares WHERE principal_id=$1",[f.guest.userId])).rowCount).toBe(0);
+});

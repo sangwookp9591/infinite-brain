@@ -157,8 +157,10 @@ export async function revokeMembership(
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    const membership = (await client.query<{role:string}>('SELECT role FROM member WHERE "organizationId"=$1 AND "userId"=$2 FOR UPDATE',[orgId,userId])).rows[0];
-    if (!membership || (options?.expectedRole && membership.role!==options.expectedRole)) { await client.query("ROLLBACK"); return false; }
+    if(options?.expectedRole){
+      const membership=(await client.query<{role:string}>('SELECT role FROM member WHERE "organizationId"=$1 AND "userId"=$2 FOR UPDATE',[orgId,userId])).rows[0];
+      if(membership?.role!==options.expectedRole){await client.query("ROLLBACK");return false;}
+    }
     await client.query(`DELETE FROM member WHERE "organizationId" = $1 AND "userId" = $2`, [
       orgId,
       userId,
