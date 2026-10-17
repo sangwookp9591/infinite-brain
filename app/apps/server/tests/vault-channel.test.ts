@@ -101,6 +101,7 @@ function channelWith(
   const pubsub = new InMemoryPubSub();
   pubsubs.push(pubsub);
   const channel = new VaultChannel({
+    roleForUser: async () => "team",
     pubsub,
     verifyToken: async (token: string) => {
       if (token !== "good") throw new Error("bad token");
@@ -345,6 +346,7 @@ describe("VaultChannel relay (spec 05 §3.1)", () => {
       releaseAcl = r;
     });
     const channel = new VaultChannel({
+    roleForUser: async () => "team",
       pubsub,
       verifyToken: async () => ({ userId: "u1", vaultId: "v1" }),
       listReadableDocs: async () => {
@@ -382,6 +384,7 @@ function voiceChannel(): { channel: VaultChannel; pubsub: InMemoryPubSub } {
   const pubsub = new InMemoryPubSub();
   pubsubs.push(pubsub);
   const channel = new VaultChannel({
+    roleForUser: async () => "team",
     pubsub,
     verifyToken: async (token: string) => ({ userId: token, vaultId: "v1" }),
     listReadableDocs: async () => new Set<string>(),

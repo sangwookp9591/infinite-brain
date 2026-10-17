@@ -54,6 +54,7 @@ function channelWith(readable: () => Set<string>): {
   const pubsub = new InMemoryPubSub();
   pubsubs.push(pubsub);
   const channel = new VaultChannel({
+    roleForUser: async () => "team",
     pubsub,
     verifyToken: async (token: string) => {
       if (token !== "good") throw new Error("bad token");

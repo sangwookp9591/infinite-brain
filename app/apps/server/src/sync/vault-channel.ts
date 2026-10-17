@@ -1,3 +1,5 @@
+import { orgRole, vaultOrg } from "../permissions/lookup.js";
+import { createHmac } from "node:crypto";
 import { WebSocketServer, type WebSocket } from "ws";
 import type { IncomingMessage, Server as HttpServer } from "node:http";
 import type { Socket } from "node:net";
@@ -5,7 +7,7 @@ import { config } from "../config.js";
 import { type PubSub, vaultTopic } from "./pubsub.js";
 import { decodeUserEvent, USER_EVENTS_CAP, userTopic } from "./user-events.js";
 import { verifyVaultToken } from "../tokens/vault-token.js";
-import { listReadableDocsInVault } from "../permissions/vault-docs.js";
+import { listReadableDocsInVault, listDeletedReadableDocsInVault } from "../permissions/vault-docs.js";
 import { listEmptyDocs, loadDocDiff } from "../yjs/persistence.js";
 import { deletedNotesAmong } from "../trash/access.js";
 import { observeCount } from "../metrics/sync-metrics.js";
@@ -69,6 +71,7 @@ import {
  * moves none at all for `vaultSendStallMs`.
  */
 export interface VaultChannelDeps {
+  roleForUser?: (userId: string, vaultId: string) => Promise<"guest" | "team" | "none">;
   pubsub: PubSub;
   listReadableDocs?: typeof listReadableDocsInVault;
   loadDiff?: typeof loadDocDiff;
@@ -146,6 +149,7 @@ export const COVERED_CAP = 2000;
 
 export class VaultChannel {
   private readonly pubsub: PubSub;
+  private readonly roleForUser: NonNullable<VaultChannelDeps["roleForUser"]>;
   private readonly listReadableDocs: typeof listReadableDocsInVault;
   private readonly loadDiff: typeof loadDocDiff;
   private readonly listEmpty: typeof listEmptyDocs;
@@ -177,6 +181,10 @@ export class VaultChannel {
 
   constructor(deps: VaultChannelDeps) {
     this.pubsub = deps.pubsub;
+    this.roleForUser = deps.roleForUser ?? (async (userId, vaultId) => {
+      const org = await vaultOrg(vaultId); const role = org ? await orgRole(org, userId) : null;
+      return role === "guest" ? "guest" : role === "owner" || role === "admin" || role === "member" ? "team" : "none";
+    });
     this.listReadableDocs = deps.listReadableDocs ?? listReadableDocsInVault;
     this.loadDiff = deps.loadDiff ?? loadDocDiff;
     this.listEmpty = deps.listEmpty ?? listEmptyDocs;
@@ -447,6 +455,7 @@ export class VaultChannel {
   /** Drive one connection through hello -> backfill -> live fanout. */
   handleConnection(ws: WebSocket): void {
     const conn = new VaultConnection(ws, this.pubsub, {
+      roleForUser: this.roleForUser,
       listReadableDocs: this.listReadableDocs,
       loadDiff: this.loadDiff,
       listEmpty: this.listEmpty,
@@ -465,6 +474,7 @@ export class VaultChannel {
 }
 
 interface ConnDeps {
+  roleForUser: NonNullable<VaultChannelDeps["roleForUser"]>;
   listReadableDocs: typeof listReadableDocsInVault;
   loadDiff: typeof loadDocDiff;
   listEmpty: typeof listEmptyDocs;
@@ -502,6 +512,8 @@ class VaultConnection {
    *  clients would misparse as doc updates (see {@link HelloFrame.caps}). */
   private caps = new Set<string>();
   private readable = new Set<string>();
+  private guest = false;
+  private seenPresence = new Set<string>();
   private unsubscribe: (() => void) | null = null;
   /** The user-addressed topic (`invitations` cap only, sync/user-events.ts). */
   private unsubscribeUser: (() => void) | null = null;
@@ -626,6 +638,11 @@ class VaultConnection {
     this.userId = claims.userId;
     this.vaultId = claims.vaultId;
     try {
+      const role = await this.deps.roleForUser(this.userId, this.vaultId);
+      if (role === "none") return this.fail("membership ended", WS_CLOSE_UNAUTHORIZED);
+      this.guest = role === "guest";
+    } catch { return this.fail("acl resolve failed"); }
+    try {
       this.deps.noteLastSeen?.(this.userId, this.vaultId);
     } catch {
       // never let a "last active" stamp affect the handshake
@@ -741,6 +758,7 @@ class VaultConnection {
         (id) => !this.readable.has(id),
       );
       deleted = await this.deps.listDeletedAmong(this.vaultId!, candidates);
+      if (this.guest) { const allowed = await listDeletedReadableDocsInVault(this.userId!, this.vaultId!); deleted = new Set([...deleted].filter((id) => allowed.has(id))); }
     } catch (err) {
       console.error("Vault channel tombstone probe failed:", err);
     }
@@ -859,7 +877,7 @@ class VaultConnection {
   /** Binary from the client. Only voice frames are defined; the leading type
    *  byte leaves room for more without another compat break. */
   private onBinary(bytes: Uint8Array): void {
-    if (this.closed || bytes.length === 0) return;
+    if (this.closed || this.guest || bytes.length === 0) return;
     if (bytes[0] === VOICE_FRAME) this.handleVoice(bytes);
   }
 
@@ -1130,6 +1148,7 @@ class VaultConnection {
       return;
     }
     if (msg.type === "member-joined") {
+      if (this.guest) return;
       // Org-wide news, not doc-scoped — forward to every subscriber of this
       // vault so their roster refreshes and the join celebration fires live.
       this.send({ t: "member", name: msg.name });
@@ -1137,10 +1156,11 @@ class VaultConnection {
     }
     if (msg.type === "org-changed") {
       // Org-wide like a join: every subscriber patches the vault's name/icon.
-      this.send({ t: "org", ...msg.change });
+      this.send(this.guest ? { t: "org", name: msg.change.name } : { t: "org", ...msg.change });
       return;
     }
     if (msg.type === "appearance-changed") {
+      if (this.guest) return;
       // Org-wide like `org`: every member applies the vault's appearance.
       this.send({ t: "appearance-changed", ...msg.change });
       return;
@@ -1150,12 +1170,21 @@ class VaultConnection {
       // read (ACL-safe). A null docId ("not viewing"/gone) always passes so the
       // client can clear that user from wherever it last showed them.
       const { presence } = msg;
+      if (this.guest) {
+        if (presence.docId === null && !this.seenPresence.has(presence.userId)) return;
+        if (presence.docId !== null && !this.readable.has(presence.docId)) return;
+        if (presence.docId === null) this.seenPresence.delete(presence.userId); else this.seenPresence.add(presence.userId);
+        const self = presence.userId === this.userId;
+        this.send({ t: "presence", ...presence, userId: self ? presence.userId : createHmac("sha256", config.jwtSecret).update(`${this.userId}:${presence.userId}`).digest("hex"), name: self ? presence.name : "Other user" });
+        return;
+      }
       if (presence.docId === null || this.readable.has(presence.docId)) {
         this.send({ t: "presence", ...presence });
       }
       return;
     }
     if (msg.type === "voice") {
+      if (this.guest) return;
       // Vault-wide, like member-joined: audio is addressed to the team, and
       // vault membership is already proven by the token behind every connection.
       //
@@ -1198,6 +1227,9 @@ class VaultConnection {
     if (!this.userId || !this.vaultId) return;
     let next: Set<string>;
     try {
+      const role = await this.deps.roleForUser(this.userId, this.vaultId);
+      if (role === "none") return this.fail("membership ended", WS_CLOSE_UNAUTHORIZED);
+      this.guest = role === "guest";
       next = await this.deps.listReadableDocs(this.userId, this.vaultId);
     } catch (err) {
       console.error("Vault channel ACL refresh failed:", err);
