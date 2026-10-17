@@ -129,7 +129,7 @@ const SETTINGS_TABS: Array<{ id: SettingsTab; label: string; icon: React.ReactNo
   { id: "dashboards", label: "Dashboards", icon: <MenuIcon><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></MenuIcon> },
   {
     id: "mcp",
-    label: "AI 연결",
+    label: "AI connections",
     icon: (
       <MenuIcon>
         <path d="M4 17l6-6-6-6" />
