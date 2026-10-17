@@ -40,3 +40,16 @@ it("cache and reference agree for a guest", async () => {
 it("inserting a guest member writes no join snapshot", async () => {
   expect((await pool.query("SELECT * FROM member_access_snapshots WHERE user_id=$1", [f.guest.userId])).rowCount).toBe(0);
 });
+it("guest is never vault-wide and deleted readable set only covers shared scope",async()=>{
+ const {listDeletedReadableDocsInVault}=await import("../src/permissions/vault-docs.js");
+ await pool.query("UPDATE notes SET deleted_at=now() WHERE vault_id=$1",[f.vault]);
+ expect(await listDeletedReadableDocsInVault(f.guest.userId,f.vault)).toEqual(new Set([f.visible]));
+ expect((await vaultAccess(pool,f.guest.userId,f.vault))?.vaultWide).toBe(false);
+});
+it("readable set equals resolver for every doc (guest), including denies and locks",async()=>{
+ const {seedLock}=await import("./helpers/seed.js");await seedLock(f.org,"file",f.visible,{type:"org"});
+ expect(await effectivePermission(f.guest.userId,f.visible)).toBe("view");
+ const readable=await listReadableDocsInVault(f.guest.userId,f.vault);
+ for(const id of [f.visible,f.hidden,f.root,f.ownOutside])expect(readable.has(id)).toBe((await effectivePermission(f.guest.userId,id))!=="none");
+ await seedShare(f.org,"file",f.visible,f.guest.userId,"denied");expect(await effectivePermission(f.guest.userId,f.visible)).toBe("none");expect(await listReadableDocsInVault(f.guest.userId,f.vault)).toEqual(new Set());
+});

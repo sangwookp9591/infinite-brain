@@ -42,3 +42,26 @@ it("registry cursors are opaque and scoped to the guest", async () => {
   }
   expect((await get(`/api/notes?vaultId=${f.vault}&limit=1&after=Clients%2FAcme`)).status).toBe(400);
 });
+it("locks endpoint is scoped for guest",async()=>{
+ await pool.query("INSERT INTO shares (id,org_id,resource_type,resource_id,principal_type,principal_id,permission) VALUES ('hidden-lock',$1,'folder',$2,'org',$1,'locked'),('visible-lock',$1,'folder',$3,'org',$1,'locked')",[f.org,f.beta,f.shared]);
+ const response=await get(`/api/vaults/${f.vault}/locks`);expect(response.status).toBe(200);const body=JSON.stringify(await response.json());expect(body).not.toContain(f.beta);expect(body).toContain(f.shared);
+});
+it("graph and search never surface out-of-scope titles or snippets",async()=>{
+ await pool.query("UPDATE notes SET title='Secret Beta title' WHERE id=$1",[f.hidden]);
+ await pool.query("INSERT INTO note_index (doc_id,vault_id,title,content,vector) VALUES ($1,$2,'Visible','Shared body',NULL),($3,$2,'Secret Beta title','Secret Beta snippet',NULL)",[f.visible,f.vault,f.hidden]);
+ await pool.query("INSERT INTO note_links (vault_id,from_doc,to_title) VALUES ($1,$2,'Private linked title')",[f.vault,f.hidden]);
+ for(const path of [`/api/vaults/${f.vault}/graph`,`/api/vaults/${f.vault}/search?q=Secret`]){const response=await get(path);expect(response.status).toBe(200);const body=JSON.stringify(await response.json());for(const secret of [f.hidden,"Secret Beta","Private linked title"])expect(body).not.toContain(secret);}
+});
+it("guest invitation previews hide email and inviter identity",async()=>{
+ const {createGuestInvitation}=await import("../src/members/guest-invitations.js");const invitation=await createGuestInvitation(f.org,f.owner.userId,f.external.email,[{resourceType:"folder",resourceId:f.shared,permission:"view"}]);
+ await pool.query('UPDATE "user" SET name=\'Private inviter\' WHERE id=$1',[f.owner.userId]);
+ const response=await app.request(`/api/invitations/${invitation.id}/preview`);expect(response.status).toBe(200);const body=JSON.stringify(await response.json());expect(body).not.toContain(f.external.email);expect(body).not.toContain(f.owner.userId);expect(body).not.toContain("Private inviter");
+ const page=await app.request(`/invite/${invitation.id}`);expect(page.status).toBe(200);const html=await page.text();expect(html).not.toContain(f.external.email);expect(html).not.toContain("Private inviter");
+});
+it("guest HTTP file and folder tombstones never name out-of-scope items",async()=>{
+ await pool.query("INSERT INTO file_tombstones (id,vault_id,path) VALUES ('scoped-file',$1,'Clients/Acme/Shared/old.pdf'),('denied-file',$1,'Clients/Acme/Shared/denied.pdf'),('private-file',$1,'Clients/Beta/private.pdf'),('direct-file',$1,'Clients/Beta/direct.pdf')",[f.vault]);
+ const {seedShare}=await import("./helpers/seed.js");await seedShare(f.org,"file","denied-file",f.guest.userId,"denied");await seedShare(f.org,"file","direct-file",f.guest.userId,"view");
+ await pool.query("INSERT INTO folder_tombstones (id,vault_id,path) VALUES ('scoped-folder',$1,'Clients/Acme/Shared/Old'),('private-folder',$1,'Clients/Beta/Old')",[f.vault]);
+ const files=await get(`/api/vaults/${f.vault}/file-tombstones`);expect(files.status).toBe(200);expect(new Set((await files.json() as any).ids)).toEqual(new Set(["scoped-file","direct-file"]));
+ const folders=await get(`/api/folders?vaultId=${f.vault}`);expect(folders.status).toBe(200);expect((await folders.json() as any).tombstones).toEqual(["scoped-folder"]);
+});

@@ -44,3 +44,9 @@ it("policy settings require managers and carry CORS headers",async()=>{
  const response=await app.request(`/api/orgs/${f.org}/external-sharing`,{headers});
  expect(response.status).toBe(200);expect(response.headers.get("access-control-allow-origin")).toBe("tauri://localhost");
 });
+it("accepting an invitation rechecks current policy and rolls membership back",async()=>{
+ const {createGuestInvitation}=await import("../src/members/guest-invitations.js");
+ const invitation=await createGuestInvitation(f.org,f.owner.userId,f.external.email,[{resourceType:"folder",resourceId:f.shared,permission:"edit"}]);
+ await policy("off");const response=await app.request("/api/auth/organization/accept-invitation",{method:"POST",headers:authHeaders(f.external),body:JSON.stringify({invitationId:invitation.id})});
+ expect(response.status).toBe(403);expect((await pool.query('SELECT 1 FROM member WHERE "organizationId"=$1 AND "userId"=$2',[f.org,f.external.userId])).rowCount).toBe(0);expect((await pool.query("SELECT status FROM invitation WHERE id=$1",[invitation.id])).rows[0].status).toBe("pending");
+});

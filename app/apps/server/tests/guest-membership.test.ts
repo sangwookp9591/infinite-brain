@@ -55,3 +55,16 @@ it("guest invite rejects vault-wide access modes", async () => {
   const res = await app.request(`/api/orgs/${f.org}/invitations`, { method: "POST", headers: authHeaders(f.owner), body: JSON.stringify({ emails: [f.external.email], role: "guest", access: "open", targets: [{ resourceType: "folder", resourceId: f.shared, permission: "edit" }] }) });
   expect(res.status).toBe(400);
 });
+it("guest organization list contains display names without private metadata",async()=>{
+ await pool.query("UPDATE organization SET metadata='private-organization-metadata',logo='private-logo' WHERE id=$1",[f.org]);
+ const response=await app.request("/api/auth/organization/list",{headers:authHeaders(f.guest)});expect(response.status).toBe(200);
+ const rows=await response.json() as any[];expect(rows.find(row=>row.id===f.org)).toEqual({id:f.org,name:"Guest vault"});
+});
+it("guest activity hides granters",async()=>{
+ const response=await app.request(`/api/orgs/${f.org}/members/${f.guest.userId}/activity`,{headers:authHeaders(f.guest)});expect(response.status).toBe(200);const body=JSON.stringify(await response.json());expect(body).not.toContain(f.owner.email);expect(body).not.toContain(f.member.email);
+});
+it("admin can manage a guest's scoped access and summaries match the resolver",async()=>{
+ await pool.query("UPDATE member SET role='admin' WHERE \"organizationId\"=$1 AND \"userId\"=$2",[f.org,f.member.userId]);
+ const summary=await app.request(`/api/orgs/${f.org}/access/summaries`,{method:"POST",headers:authHeaders(f.member),body:JSON.stringify({groups:[[{resourceType:"file",resourceId:f.visible}],[{resourceType:"file",resourceId:f.hidden}]],userIds:[f.guest.userId]})});expect(summary.status).toBe(200);expect(await summary.json()).toEqual({modes:["open","private"]});
+ const share=await app.request("/api/shares",{method:"POST",headers:authHeaders(f.member),body:JSON.stringify({resourceType:"file",resourceId:f.hidden,principalId:f.guest.userId,permission:"view"})});expect(share.status).toBe(201);
+});
