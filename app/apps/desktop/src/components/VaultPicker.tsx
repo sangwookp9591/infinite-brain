@@ -10,7 +10,8 @@ import {
 } from "../store";
 import { Wordmark } from "./Logo";
 import { Spinner } from "./Spinner";
-import { FolderCard } from "./kit/FolderCard";
+import { vaultTileColor } from "../lib/appearance";
+import { vaultMarkSvg } from "../lib/avatar/vaultMark";
 import { CodeSlots } from "./kit/CodeSlots";
 import { SOFT, useSpring } from "./kit/motion";
 import { useLocalFolderClasses } from "./useVaultLists";
@@ -505,11 +506,18 @@ export function VaultPicker() {
         key={e.key}
       >
         {folder && (
-          <div className="recent-folder-preview" inert={busy}>
-            <FolderCard label={e.name}
-              items={[{ title: e.name, description: e.path ? tidyPath(e.path) : "Not on this device yet" }]}
-              onItemClick={() => void openEntry(e)} />
-          </div>
+          // Decorative mark, seeded by the vault's name; the row's own button
+          // below is the one control that opens it.
+          <span
+            className="recent-mark"
+            aria-hidden="true"
+            dangerouslySetInnerHTML={{
+              __html: vaultMarkSvg(e.name, (() => {
+                const color = vaultTileColor(e.key);
+                return { fill: color.fill, ink: color.value };
+              })()),
+            }}
+          />
         )}
         <button
           className="recent-open"

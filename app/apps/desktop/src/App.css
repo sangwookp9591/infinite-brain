@@ -403,24 +403,26 @@ button.secondary:focus-visible,
   border-radius: 0;
   box-shadow: none;
 }
-/* Splash hero: the wordmark IS the screen — edge-to-edge width, a small
-   gutter left and right. */
+/* Splash hero: the wordmark leads the screen, set in the display face. */
 .vault-picker-card .product-name {
-  margin: 0 0 clamp(48px, 8vh, 96px);
+  margin: 0 0 clamp(32px, 6vh, 64px);
   line-height: 1;
   cursor: default;
   user-select: none;
 }
-/* Infinite Brain wordmark — ink on light theme, silver on dark. One background image
-   per theme, so the splash fetches only the SVG it actually shows. */
+/* Infinite Brain wordmark — live Fraunces text in the body ink. */
 .wordmark {
   display: inline-block;
-  width: min(42vw, 670px);
-  aspect-ratio: 1144 / 200;
-  background: url("./assets/brand/infinite-brain-wordmark-ink.svg") center / contain no-repeat;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(44px, 8vw, 88px);
+  line-height: 1.05;
+  letter-spacing: var(--display-tracking);
+  color: var(--text-primary);
 }
-[data-theme="dark"] .wordmark {
-  background-image: url("./assets/brand/infinite-brain-wordmark-silver.svg");
+/* The name is drawn as live text (the element keeps its aria-label). */
+.wordmark::before {
+  content: "Infinite Brain";
 }
 .vault-actions {
   display: flex;
@@ -629,15 +631,14 @@ button.secondary:focus-visible,
    card never reflows. */
 .recent-scroll {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: var(--sp-4);
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--sp-3);
 }
-.recent-folder-card { flex-direction: column; min-width: 0; }
-.recent-folder-preview { width: 100%; display: flex; justify-content: center; }
-.recent-folder-preview .kit-folder { max-width: 100%; height: 190px; margin-top: 20px; }
-/* The page represents the vault itself, not a fabricated note count. */
-.recent-folder-preview .kit-folder-front small { display: none; }
-.recent-folder-card .recent-open { width: 100%; flex: none; padding: var(--sp-3); }
+/* Orbit vault card: the generated mark beside the name, path and state. */
+.recent-folder-card { min-width: 0; padding-left: var(--sp-4); gap: var(--sp-3); }
+.recent-mark { flex: none; width: 40px; height: 40px; }
+.recent-mark svg { display: block; width: 100%; height: 100%; }
+.recent-folder-card .recent-open { padding: var(--sp-4) var(--sp-3) var(--sp-4) 0; }
 .recent-folder-card .recent-remove {
   z-index: 6;
   top: var(--sp-2);
@@ -651,8 +652,7 @@ button.secondary:focus-visible,
 .new-vault-form .kit-code { margin: 0 auto; }
 .new-vault-form .new-vault-loc { white-space: normal; overflow: visible; }
 @media (max-width: 760px) {
-  .recent-scroll { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
-  .recent-folder-preview .kit-folder { width: 220px; }
+  .recent-scroll { grid-template-columns: 1fr; }
 }
 /* "Show all" modal: every vault in one scrollable list. Reuses the standard
    modal shell, widened — vault paths are long and the 420px default truncated
@@ -711,15 +711,17 @@ button.secondary:focus-visible,
   align-items: center;
   background: var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-card);
+  border-radius: var(--radius-island);
   box-shadow: var(--shadow-sm);
   transition:
     background var(--t-fast) var(--ease),
-    border-color var(--t-fast) var(--ease);
+    border-color var(--t-fast) var(--ease),
+    box-shadow var(--t-fast) var(--ease);
 }
 .recent-card:hover {
-  background: var(--bg-hover);
-  border-color: var(--border-strong);
+  background: var(--bg-surface);
+  border-color: var(--accent);
+  box-shadow: var(--shadow-md);
 }
 .recent-open {
   flex: 1;
