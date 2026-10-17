@@ -129,3 +129,20 @@ it("removal after an in-flight share deletes the committed grant", async () => {
     blocker.release();
   }
 });
+
+
+it("target validation rechecks the actor after membership removal or demotion", async () => {
+  const { validateShareTargets } = await import("../src/permissions/access-management.js");
+  await seedMember(orgId, outsider.userId, "member");
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query('UPDATE member SET role = \'member\' WHERE "organizationId" = $1 AND "userId" = $2', [orgId, owner.userId]);
+    await expect(validateShareTargets(client, orgId, [outsider.userId], owner.userId, [{ resourceType: "file", resourceId: docId }])).rejects.toMatchObject({ code: "access_manager_required" });
+    await client.query('DELETE FROM member WHERE "organizationId" = $1 AND "userId" = $2', [orgId, owner.userId]);
+    await expect(validateShareTargets(client, orgId, [outsider.userId], owner.userId, [{ resourceType: "file", resourceId: docId }], true)).rejects.toMatchObject({ code: "access_manager_required" });
+  } finally {
+    await client.query("ROLLBACK");
+    client.release();
+  }
+});

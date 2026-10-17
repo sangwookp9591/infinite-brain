@@ -534,7 +534,7 @@ export function createShareRoutes(deps: ShareDeps): Hono {
     try {
       await client.query("BEGIN");
       if (principalType === "user") {
-        await validateShareTargets(client, gate.organizationId!, [principalId], session.userId, [{ resourceType, resourceId }]);
+        await validateShareTargets(client, gate.organizationId!, [principalId], session.userId, [{ resourceType, resourceId }], true);
       }
 
       // Locks are subsumption-aware: an Everyone/org lock on a resource makes any

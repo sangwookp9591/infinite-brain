@@ -164,6 +164,7 @@ export async function validateShareTargets(
   userIds: string[],
   actorUserId: string,
   resources: AccessResource[],
+  allowCreator = false,
 ): Promise<string[]> {
   const ids = [...new Set(userIds.filter(Boolean))].sort();
   if (ids.length === 0 || ids.length > 500) {
@@ -179,6 +180,9 @@ export async function validateShareTargets(
     throw new AccessManagementError("This person has not joined this vault yet. Invite them first.", 400, "share_target_not_member");
   }
   const actorRole = await orgRole(organizationId, actorUserId, db);
+  if (!isManagerRole(actorRole) && !(allowCreator && isTeamRole(actorRole))) {
+    throw new AccessManagementError("Ask a vault owner or admin to change sharing.", 403, "access_manager_required");
+  }
   for (const row of rows) {
     if (!isTeamRole(row.role)) {
       if (resources.some((resource) => resource.resourceType === "vault")) {
