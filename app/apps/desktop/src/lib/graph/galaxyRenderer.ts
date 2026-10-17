@@ -82,10 +82,10 @@ export class GalaxyRenderer {
   private background = particles(1600, dot);
   private dustGroup = new THREE.Group();
   private lines = new LineSegments2(new LineSegmentsGeometry(), new THREE.Line2NodeMaterial({
-    color: '#779acb', transparent: true, opacity: 0.085, depthWrite: false, blending: THREE.AdditiveBlending,
+    transparent: true, opacity: 0.085, depthWrite: false, blending: THREE.AdditiveBlending,
   }));
   private rays = new LineSegments2(new LineSegmentsGeometry(), new THREE.Line2NodeMaterial({
-    color: '#c2ddff', transparent: true, opacity: 0.6, depthWrite: false, blending: THREE.AdditiveBlending,
+    transparent: true, opacity: 0.6, depthWrite: false, blending: THREE.AdditiveBlending,
   }));
   private nodes: GalaxyNode[] = [];
   private lookup = new Map<string, number>();
@@ -124,7 +124,16 @@ export class GalaxyRenderer {
 
   private constructor(private renderer: THREE.WebGPURenderer, private input: HTMLCanvasElement, private callbacks: Callbacks) {
     this.backend = 'isWebGLBackend' in renderer.backend ? 'WebGL2' : 'WebGPU';
-    this.scene.background = new THREE.Color('#070b1d');
+    // Keep the opaque WebGPU/WebGL scene clear in step with the CSS starfield
+    // palette. The HTML canvas is alpha:false, so the CSS gradient is not
+    // visible behind this renderer.
+    const graphSpace = getComputedStyle(input).getPropertyValue('--graph-space-core').trim();
+    if (graphSpace) this.scene.background = new THREE.Color(graphSpace);
+    const graphStyle = getComputedStyle(input);
+    const edge = graphStyle.getPropertyValue('--graph-edge').trim();
+    const ray = graphStyle.getPropertyValue('--graph-ray').trim();
+    if (edge) this.lines.material.color.set(edge);
+    if (ray) this.rays.material.color.set(ray);
     renderer.onDeviceLost = (info) => { if (!this.disposed) callbacks.fail(new Error(info.message)); };
     renderer.onError = (message) => { if (!this.disposed) callbacks.fail(new Error(String(message))); };
     renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.5));
