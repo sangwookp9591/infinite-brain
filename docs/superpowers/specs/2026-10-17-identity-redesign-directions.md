@@ -87,7 +87,7 @@
 | 아바타 궁합 | Orbit 아바타(가장 약한 16px) → Neuron/Constellation 권장 | Neuron | Constellation |
 | 그래프 연결 | 다크 우주 유지(자연스러움) | 신경망 도식 | 별자리 도감 |
 
-## 6. 추천: **Orbit 셸 + Folio의 따뜻한 서체/카드 일부 + Neuron 아바타**가 아니라, 단일 방향으로는 **Orbit**
+## 6. 추천: Orbit (아바타는 Neuron 권장)
 
 선택 이유: (1) 제품명 "Infinite Brain"과 은하 모티프(이미 있는 Galaxy 그래프)와 일관된다, (2) 구조 변경이 레일/패널/시트로 분명해 P3 하나로 정체성이 크게 바뀌는 데 비해 에디터·다이얼로그는 토큰+radius 중심이라 비용이 Folio보다 낮다, (3) 비개발자 친화성이 Synapse보다 높다. 단 **한 가지 수정**: 아바타는 Orbit 방향의 Orbit 생성기 대신 **Neuron(또는 Constellation)을 기본으로 권장**한다(16px 구별력). 한글 UI의 디스플레이 서체는 Fraunces에 한글이 없어 시스템 서체 폴백이 되므로, 제목은 Geist 600 + 라틴에만 Fraunces를 쓰는 안을 기본으로 한다.
 
