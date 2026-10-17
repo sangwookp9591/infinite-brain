@@ -24,6 +24,7 @@ Read this file and the relevant tests before changing code. See [`docs/UPSTREAM-
 ## Fork additions (where to look)
 
 - MCP scopes and connections: `app/apps/server/src/mcp/scopes.ts`, `mcp/oauth.ts`, `mcp/tokens.ts`, `http/routes/oauth-connect.ts`; desktop wizard `src/lib/aiConnection.ts`, `src/lib/connectLink.ts`. Scope checks fail closed.
+- MCP OAuth audience/CIMD: `mcp/resource.ts`, `mcp/oauth-exchange.ts`, `mcp/cimd.ts`, migration 061. `BETTER_AUTH_URL` is an explicit HTTPS public origin (HTTP loopback for development); only its `/api/mcp` resource is allowed. OAuth grant/token resource and random connection generation must match the current binding. Consent/exchange/revoke serialize under a per-connection PostgreSQL advisory lock. Legacy unbound OAuth tokens require reconnect; manual legacy tokens remain local credentials. CIMD public clients use pinned public-IP HTTPS fetches and exact redirect matching; `MCP_CIMD_ALLOW_PRIVATE_IPS=true` is development-only.
 - AI change ledger: `app/apps/server/src/ai-changes/` + `http/routes/ai-changes.ts`, migration 057; contract in `docs/AI-CHANGES.md`. Ledger rows commit in the same transaction as the Yjs update.
 - Search: server `src/index/embedder.ts` (Unicode + bigram, `embed_version`, migration 056); desktop trigram/filename search in `src-tauri/src/index.rs`.
 - Invite links: `components/InvitePeopleDialog.tsx` builds the link on the existing join-code/invite flow (`src/lib/inviteLink.ts`); onboarding timing in `src/lib/onboardingTimer.ts`.
