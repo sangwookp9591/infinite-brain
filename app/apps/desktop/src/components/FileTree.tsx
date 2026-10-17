@@ -1084,6 +1084,7 @@ export function FileTree() {
     name: string;
     node: NodeApi<TreeNode>;
   }) => {
+    if(isGuest){toast("Ask an admin to rename this item.","error");return;}
     const oldPath = node.data.path;
     const dir = parentDir(oldPath);
     let newName = name.trim();
@@ -1132,6 +1133,7 @@ export function FileTree() {
     destDir: string,
     index: number,
   ) => {
+    if(isGuest){toast("Ask an admin to move folders or notes.","error");return;}
     // dragIds are node ids === current paths. Their paths after the drop only
     // change when the parent folder changes (a reorder keeps the same path).
     const from = dragIds;
@@ -1555,6 +1557,7 @@ export function FileTree() {
   }
 
   async function createUniqueFolder(dir: string) {
+    if(isGuest){toast("Ask an admin to add a folder.","error");return;}
     if (rootBlocked(dir)) return;
     const name = "New Folder";
     for (let i = 0; i < 50; i++) {
@@ -1753,7 +1756,7 @@ export function FileTree() {
             className={`tree-tool${rootFrozen ? " blocked" : ""}`}
             title={rootFrozen ? ROOT_FROZEN_HINT : "New note"}
             aria-label="New note"
-            aria-disabled={rootFrozen}
+            aria-disabled={rootFrozen || isGuest}
             onClick={() => void useStore.getState().createNoteIn("")}
           >
             {ICON_NEW_NOTE}

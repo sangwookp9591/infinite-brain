@@ -169,6 +169,13 @@ describe("createNoteIn / createNoteAt", () => {
     expect(useStore.getState().pendingTitleFocus).toBe(path);
   });
 
+  it("guest root creation and inline-title rename never touch the local filesystem",async()=>{
+    useStore.setState({syncEnabled:true,session:{user:{id:"guest"}} as any,members:[{userId:"guest",role:"guest"}] as any});
+    expect(await useStore.getState().createNoteIn("")).toBeNull();expect(await useStore.getState().createNoteAt("","Guest")).toBeNull();
+    expect(await useStore.getState().renameNoteFileExact("Shared/a.md","Shared/b.md")).toBe(false);expect(ipcMock.createNote).not.toHaveBeenCalled();
+    useStore.setState({members:[],session:null,syncEnabled:false});
+  });
+
   it("refuses the vault root while the freeze latch is on, and creates nothing", async () => {
     useStore.setState({ rootFrozen: true });
     expect(await useStore.getState().createNoteIn("")).toBeNull();

@@ -11017,3 +11017,10 @@ body.access-board-grabbing * {
 .security-settings-section label { display: block; margin-bottom: 12px; }
 .security-settings-section button + button { margin-left: 12px; }
 .security-settings-section p { line-height: 1.5; }
+
+.modal.invite-people { max-height: calc(100dvh - 32px); overflow-y: auto; }
+.invite-guest-targets { margin: 0; padding: 12px; border: 1px solid var(--border); border-radius: 12px; min-width: 0; }
+.invite-guest-items { max-height: min(240px, 30dvh); overflow-y: auto; margin-top: 12px; }
+.invite-guest-item { display: flex; align-items: center; gap: 8px; padding: 5px 0; }
+.invite-guest-item input[type="checkbox"] { width: 16px; height: 16px; flex: 0 0 16px; margin: 0; }
+.invite-guest-item span { overflow-wrap: anywhere; }

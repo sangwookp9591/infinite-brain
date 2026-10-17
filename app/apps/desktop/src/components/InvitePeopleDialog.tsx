@@ -182,7 +182,7 @@ export function InvitePeopleDialog({ orgId, canManageBilling = false, seatAccoun
         {invalid.length > 0 && (
           <div className="auth-error">{invalid.length === 1 ? `“${invalid[0]}” isn't an email address.` : `${invalid.length} entries aren't email addresses.`}</div>
         )}
-        <div className="invite-people-fields">
+        {role !== "guest" && (<div className="invite-people-fields">
           <label className="invite-field invite-field-default">
             <span className="invite-field-label">New members</span>
             <MenuSelect
@@ -201,7 +201,7 @@ export function InvitePeopleDialog({ orgId, canManageBilling = false, seatAccoun
               disabled={!newMemberDefault || savingDefault}
             />
           </label>
-        </div>
+        </div>)}
         <div className="invite-people-fields">
           <label className="invite-field">
             <span className="invite-field-label">Role</span>
@@ -227,10 +227,10 @@ export function InvitePeopleDialog({ orgId, canManageBilling = false, seatAccoun
             />
           </label>)}
         </div>
-        {role === "guest" && <fieldset><legend>Share with this guest</legend>
+        {role === "guest" && <fieldset className="invite-guest-targets"><legend>Share with this guest</legend>
           <p>Choose folders or notes. Everything else stays private.</p>
           <select aria-label="Guest can" value={guestPermission} onChange={(event) => setGuestPermission(event.target.value as "view" | "edit")}><option value="view">Can view</option><option value="edit">Can edit</option></select>
-          {guestItems.map((item) => <label key={item.resourceId} style={{ display: "block" }}><input type="checkbox" checked={guestTargets.includes(item.resourceId)} onChange={(event) => setGuestTargets((old) => event.target.checked ? [...old, item.resourceId] : old.filter((id) => id !== item.resourceId))} /> {item.label}</label>)}
+          <div className="invite-guest-items">{guestItems.map((item) => <label key={item.resourceId} className="invite-guest-item"><input type="checkbox" checked={guestTargets.includes(item.resourceId)} onChange={(event) => setGuestTargets((old) => event.target.checked ? [...old, item.resourceId] : old.filter((id) => id !== item.resourceId))} /> <span>{item.label}</span></label>)}</div>
         </fieldset>}
         {code && role !== "guest" && (
           <div className="invite-people-code">
