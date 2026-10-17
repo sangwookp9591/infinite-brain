@@ -924,8 +924,9 @@ export class VaultSyncEngine {
           status: control.status as ActivityStatus,
         });
       } else if (control.t === "err") {
-        // Server refused us mid-session (e.g. bad token) — reconnect fresh.
-        this.onDisconnect();
+        // The server follows this diagnostic frame with a close code. Keep the
+        // close handler attached until then: detaching here loses the 4401
+        // revocation signal and would retry the same rejected credentials.
       }
       return;
     }
