@@ -8,6 +8,8 @@ import { recordingAppDeps } from "./helpers/app.js";
 import {
   freezeVaultRoot,
   seedFolder,
+  seedDeny,
+  seedItemPrivate,
   seedLock,
   seedMember,
   seedNote,
@@ -85,6 +87,35 @@ describe("MCP server", () => {
   });
   afterAll(async () => {
     await pool.end();
+  });
+
+  it("create_note adopt refuses an unreadable existing note", async () => {
+    const org = await seedOrg("Adopt", "adopt");
+    const member = await seedUser("member@adopt.test");
+    await seedMember(org, member, "member");
+    await seedVaultGrant(org, "edit");
+    const vault = await seedVault(org);
+    const doc = await seedNote(vault, null, "secret.md");
+    await seedDeny(org, "file", doc, member);
+    const result = await call(await tokenFor(member, org), "create_note", { vaultId: vault, relPath: "secret.md" });
+    expect(result.isError).toBe(true);
+    expect(result.text).not.toContain(doc);
+  });
+
+  it("list_folders hides private folders", async () => {
+    const org = await seedOrg("Folders", "private-folders");
+    const member = await seedUser("member@folders.test");
+    await seedMember(org, member, "member");
+    await seedVaultGrant(org, "edit");
+    const vault = await seedVault(org);
+    const hidden = await seedFolder(vault, null, "Secret", "Secret");
+    await seedItemPrivate(org, "folder", hidden);
+    const token = await tokenFor(member, org);
+    const listed = await call(token, "list_folders", { vaultId: vault });
+    expect(JSON.stringify(listed.data)).not.toContain(hidden);
+    const adopt = await call(token, "create_folder", { vaultId: vault, name: "Secret", path: "Secret" });
+    expect(adopt.isError).toBe(true);
+    expect(adopt.text).not.toContain(hidden);
   });
 
   it("rejects missing/invalid tokens with 401", async () => {

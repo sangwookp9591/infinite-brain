@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { pool } from "../db/pool.js";
 import { orgRole, resolveResource } from "../permissions/lookup.js";
 import { createResolverCache, effectivePermission, type Permission } from "../permissions/resolver.js";
-import { listReadableDocsInVault, vaultAccess } from "../permissions/vault-docs.js";
+import { listReadableDocsInVault, listVisibleFolders, vaultAccess } from "../permissions/vault-docs.js";
 import {
   canEditFolder,
   canReadAttachment,
@@ -288,15 +288,7 @@ export async function listVaults(ctx: McpContext) {
 
 export async function listFolders(ctx: McpContext, vaultId: string) {
   await requireVaultInScope(ctx.auth, vaultId);
-  const { rows } = await pool.query<{
-    id: string;
-    parent_id: string | null;
-    name: string;
-    path: string;
-  }>(
-    "SELECT id, parent_id, name, path FROM folders WHERE vault_id = $1 ORDER BY path",
-    [vaultId],
-  );
+  const rows = await listVisibleFolders(ctx.auth.userId, vaultId);
   return rows.map((r) => ({
     folderId: r.id,
     parentId: r.parent_id,
@@ -326,6 +318,12 @@ async function assertRootNotFrozen(
     throw new McpToolError(
       `This vault's root is frozen — ${action} this inside a folder instead.`,
     );
+  }
+}
+
+async function assertReadableFolder(ctx: McpContext, vaultId: string, folderId: string): Promise<void> {
+  if (!(await listVisibleFolders(ctx.auth.userId, vaultId)).some((row) => row.id === folderId)) {
+    throw new McpToolError("This item is not available to you", "NOT_READABLE");
   }
 }
 
@@ -364,6 +362,7 @@ export async function createFolder(
   );
   if (existing.rows[0]) {
     const row = existing.rows[0];
+    await assertReadableFolder(ctx, input.vaultId, row.id);
     return { folderId: row.id, parentId, name: row.name, path: row.path, adopted: true };
   }
   // After the adopt path: freezing the root must not break re-registering a
@@ -394,6 +393,7 @@ export async function createFolder(
       );
       const w = winner.rows[0];
       if (w) {
+        await assertReadableFolder(ctx, input.vaultId, w.id);
         return { folderId: w.id, parentId, name: w.name, path: w.path, adopted: true };
       }
     }
@@ -712,6 +712,9 @@ export async function createNote(
   );
   if (existing.rows[0]) {
     const row = existing.rows[0];
+    if ((await effectivePermission(ctx.auth.userId, row.id)) === "none") {
+      throw new McpToolError("This item is not available to you", "NOT_READABLE");
+    }
     // Seed content only into an EMPTY note. "Create" must never become a way to
     // overwrite a note that already says something — that's `update_note`, which
     // the caller can reach for once `adopted` has told it what happened.
