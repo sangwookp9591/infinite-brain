@@ -6,6 +6,7 @@ import { pool } from "../db/pool.js";
 import { getSession } from "../http/session.js";
 import { orgRole, vaultOrg, resolveResource } from "./lookup.js";
 import { guestView, redactGuestPeople } from "./guest-view.js";
+import { canEditFolder } from "./http-gates.js";
 import { isTeamRole } from "./roles.js";
 const cursorKey = createHash("sha256").update(config.jwtSecret).digest();
 function cursor(value: string, scope: string, decode = false): string {
@@ -42,6 +43,11 @@ export const guestHttp: MiddlewareHandler = async (c, next) => {
     const resource = await resolveResource(item[1] === "folders" ? "folder" : "file", item[2]);
     if (resource) { organizationId = resource.organizationId; vaultId = resource.vaultId; }
   }
+  const changeId=path.match(/\/ai-changes\/([^/]+)/)?.[1];
+  if(changeId && changeId!=="revert-batch"){
+    const change=(await pool.query<{org_id:string;vault_id:string}>("SELECT org_id,vault_id FROM ai_change_ledger WHERE id=$1",[changeId])).rows[0];
+    if(change){organizationId=change.org_id;vaultId=change.vault_id;}
+  }
   if (typeof input.resourceId === "string" && ["file", "folder", "vault"].includes(String(input.resourceType))) {
     const resource = await resolveResource(input.resourceType as "file" | "folder" | "vault", input.resourceId);
     if (resource) { organizationId = resource.organizationId; vaultId = resource.vaultId; }
@@ -61,11 +67,32 @@ export const guestHttp: MiddlewareHandler = async (c, next) => {
   const write = !["GET", "HEAD", "OPTIONS"].includes(c.req.method);
   if (/\/mcp(?:\/|$)|\/oauth/.test(path) || /\/(storage|checkpoints|access-tree|access-board|billing|usage|appearance|housekeeper|invitation-expiries)(?:\/|$)/.test(path) ||
     /\/auth\/organization\/(get-full-organization|list-invitations|create-invitation|add-member|update-member-role|remove-member)/.test(path) ||
-    (write && (/\/folders(?:\/|$)/.test(path) || /\/(notes|files)\/[^/]+/.test(path) && c.req.method === "PATCH" || /-batch|\/batch(?:\/|$)/.test(path)))) {
+    (write && (/\/folders(?:\/|$)/.test(path) || /\/(notes|files)\/[^/]+/.test(path) && c.req.method === "PATCH"))) {
     return c.json(refuse, 403);
   }
   if (blob && c.req.method === "DELETE" && blob.created_by !== session.userId) return c.json({ error: "guest_action_not_available", message: "You can only remove attachments you uploaded. Ask an admin for help." }, 403);
   let view = vaultId ? await guestView(session.userId, vaultId) : null;
+  // Reverse only note/file registration inside existing shared folders. Guest
+  // rename/move and folder creation stay closed until the full Q3 contract.
+  const batch=path.match(/\/vaults\/[^/]+\/(notes|files)\/batch$/);
+  if(view && batch && write && Array.isArray(input.items)){
+    const items=[];
+    for(const raw of input.items){
+      if(!raw || typeof raw!=="object")return c.json(refuse,403);
+      const item=raw as Record<string,unknown>;
+      if(typeof item.relPath!=="string")return c.json(refuse,403);
+      const display=item.relPath.replace(/\\/g,"/");const split=display.lastIndexOf("/");
+      const parent=split<0?null:view.folders.find(folder=>view!.projectPath(folder.path).toLowerCase()===display.slice(0,split).toLowerCase());
+      const claimed=batch[1]==="notes"?item.docId:item.fileId;
+      const existing=typeof claimed==="string"?(await pool.query<{path:string;vault_id:string}>(batch[1]==="notes"?"SELECT rel_path AS path,vault_id FROM notes WHERE id=$1":"SELECT path,vault_id FROM files WHERE id=$1",[claimed])).rows[0]:null;
+      if(existing && (existing.vault_id!==vaultId || !view.readable.has(claimed as string) || view.projectPath(existing.path).toLowerCase()!==display.toLowerCase()))return c.json(refuse,403);
+      if(!existing && (!parent || !(await canEditFolder(session.userId,parent.id))))return c.json(refuse,403);
+      const canonical=existing?.path??`${parent!.path}/${display.slice(split+1)}`;
+      if(typeof item.folderPath==="string" && item.folderPath.toLowerCase()!==display.slice(0,Math.max(split,0)).toLowerCase())return c.json(refuse,403);
+      items.push({...item,relPath:canonical,folderPath:canonical.slice(0,canonical.lastIndexOf("/"))});
+    }
+    c.req.raw=new Request(c.req.raw,{body:JSON.stringify({...input,items})});
+  }
   if (view && c.req.query("after")) {
     try {
       const url = new URL(c.req.url); url.searchParams.set("after", cursor(c.req.query("after")!, `${session.userId}:${vaultId}`, true));
@@ -105,13 +132,13 @@ export const guestHttp: MiddlewareHandler = async (c, next) => {
       const row = { ...value };
       const canonicalPath = row.rel_path ?? row.relPath ?? row.path;
       if (typeof row.title === "string" && row.title === canonicalPath) row.title = view!.projectPath(row.title);
-      for (const key of ["path", "rel_path", "relPath", "beforePath", "afterPath", "originalPath"]) {
+      for (const key of ["path", "rel_path", "relPath", "beforePath", "afterPath", "before_path", "after_path", "originalPath"]) {
         if (typeof row[key] === "string") row[key] = view!.projectPath(row[key]);
       }
       for (const key of ["parent_id", "parentId", "folder_id", "folderId"]) {
         if (row[key] && !view!.folderIds.has(row[key])) row[key] = null;
       }
-      if (Array.isArray(row.referencedBy)) row.referencedBy = row.referencedBy.filter((ref: any) => view!.readable.has(ref.docId ?? ref.doc_id ?? ref.id));
+      if (Array.isArray(row.referencedBy)) row.referencedBy = row.referencedBy.filter((ref: any) => view!.readable.has(typeof ref === "string" ? ref : ref.docId ?? ref.doc_id ?? ref.id));
       return Object.fromEntries(Object.entries(row).map(([key, value]) => [key, project(value)]));
     };
     body = project(body);

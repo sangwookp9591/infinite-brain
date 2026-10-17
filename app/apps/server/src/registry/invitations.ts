@@ -75,7 +75,7 @@ export function invitationJson(inv: InvitationRow) {
     organizationId: inv.organizationId,
     organizationName: inv.organizationName,
     inviterId: inv.role === "guest" ? null : inv.inviterId,
-    inviterName: inv.inviterName,
+    inviterName: inv.role === "guest" ? "A vault admin" : inv.inviterName,
     expiresAt: inv.expiresAt.toISOString(),
     createdAt: inv.createdAt.toISOString(),
   };

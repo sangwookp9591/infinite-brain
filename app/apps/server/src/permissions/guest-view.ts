@@ -44,12 +44,13 @@ export function redactGuestPeople(value: unknown, selfId: string): unknown {
   if (Array.isArray(value)) return value.map((item) => redactGuestPeople(item, selfId));
   if (!value || typeof value !== "object") return value;
   const row = { ...value } as Record<string, unknown>;
-  for (const key of ["created_by", "last_edited_by", "author_id", "authorId", "deleted_by", "user_id"]) {
+  for (const key of ["created_by", "last_edited_by", "author_id", "authorId", "deleted_by", "user_id", "actor_user_id", "reverted_by"]) {
     if (row[key] && row[key] !== selfId) row[key] = null;
   }
   for (const key of ["last_edited_by_name", "author_name", "authorName", "deleted_by_name"]) {
     if (row[key]) row[key] = "Other user";
   }
+  if (row.connection_label) row.connection_label = "AI connection";
   for (const key of ["by", "invitedBy"]) if (row[key]) row[key] = null;
   return Object.fromEntries(Object.entries(row).map(([key, item]) => [key, redactGuestPeople(item, selfId)]));
 }

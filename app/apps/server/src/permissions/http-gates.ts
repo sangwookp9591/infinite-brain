@@ -574,6 +574,7 @@ export async function canWriteBlob(
   if (!vaultId) return false; // a legacy row with no collection has no folder and no posture
   const organizationId = await vaultOrg(vaultId, db);
   if (organizationId && (await orgRole(organizationId, userId, db)) === "guest") {
+    if (blob.doc_id && await fileDoc(db,vaultId,blob.doc_id)) return canEditDoc(userId,blob.doc_id,db);
     const candidates = await db.query<{ id: string }>(`SELECT id FROM notes WHERE vault_id=$1 AND deleted_at IS NULL AND
       (id=$2::text OR id IN (SELECT doc_id FROM note_index WHERE vault_id=$1 AND $3::text IS NOT NULL AND content LIKE '%' || $3 || '%' ESCAPE '\\'))`,
       [vaultId, blob.doc_id ?? null, blob.rel_path ? likeEscape(blob.rel_path) : null]);
