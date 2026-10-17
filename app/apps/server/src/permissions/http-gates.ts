@@ -1,3 +1,4 @@
+import { isManagerRole } from "./roles.js";
 import type pg from "pg";
 import { pool as defaultPool } from "../db/pool.js";
 import { orgRole, vaultOrg } from "./lookup.js";
@@ -592,14 +593,6 @@ export async function canWriteBlob(
 export type DeleteRefusalCode = "delete_not_creator" | "folder_has_others_items" | "account_read_only";
 export type DeleteGate = { ok: true } | { ok: false; code: DeleteRefusalCode };
 
-/** True when a Better Auth role string (possibly comma-joined) names owner or admin. */
-function isManagerRole(role: string | null | undefined): boolean {
-  if (!role) return false;
-  return role.split(",").some((r) => {
-    const t = r.trim();
-    return t === "owner" || t === "admin";
-  });
-}
 
 /**
  * The deletion rule: an owner or admin may delete anything; a plain member may
