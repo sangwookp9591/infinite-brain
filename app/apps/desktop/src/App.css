@@ -2536,8 +2536,9 @@ body:has(.sidebar-resizer.dragging) {
   min-width: 0;
   height: 100%;
   background: var(--bg-surface);
-  border-top-left-radius: var(--radius-card);
-  box-shadow: var(--shadow-md);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sheet);
+  box-shadow: var(--shadow-lg);
   /* Plain `hidden`, NOT `clip`: clip triggered a WKWebView compositing bug
      that blanked sibling layers (the sidebar footer vanished when a synced
      note's editor layers came up). Programmatic focus-scroll into the
@@ -2555,14 +2556,15 @@ body:has(.sidebar-resizer.dragging) {
    ============================================================ */
 .version-panel {
   position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
+  top: var(--sp-3);
+  right: var(--sp-3);
+  bottom: var(--sp-3);
   width: min(320px, 85vw);
   display: flex;
   flex-direction: column;
   background: var(--bg-surface);
-  border-left: 1px solid var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-island);
   box-shadow: var(--shadow-lg);
   z-index: 120; /* over the editor + backlinks, under overlays/modals (200+) */
   outline: none;
@@ -3666,7 +3668,7 @@ button.secondary.about-update-btn:disabled {
   bottom: calc(100% + var(--sp-2));
   left: auto;
   right: 0;
-  width: 300px;
+  width: min(300px, calc(100vw - var(--sp-4) - var(--sp-4)));
   max-height: min(420px, 60vh);
   overflow-y: auto;
 }

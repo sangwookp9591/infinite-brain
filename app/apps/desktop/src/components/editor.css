@@ -15,6 +15,7 @@
   height: 100%;
   min-height: 0;
   background: var(--bg-surface);
+  min-width: 0;
 }
 
 .editor-toolbar {
@@ -45,6 +46,21 @@
 .editor-topbar .editor-toolbar {
   flex: 0 0 auto;
   padding: 0;
+}
+
+@media (max-width: 720px) {
+  .editor-toolbar {
+    padding-inline: var(--sp-4);
+  }
+  .editor-topbar {
+    padding-right: var(--sp-4);
+  }
+  .editor-topbar .editor-lockbanner {
+    margin-left: var(--sp-4);
+  }
+  .editor-lockbanner {
+    margin-inline: var(--sp-4);
+  }
 }
 
 .editor-column .editor-host {
@@ -228,7 +244,7 @@
   flex-direction: column;
   gap: 1px;
   min-width: 192px;
-  max-width: 256px;
+  max-width: min(256px, calc(100vw - var(--sp-4) - var(--sp-4)));
   padding: var(--sp-1) var(--sp-2) var(--sp-2);
   /* Compact translucent glass panel. */
   background: color-mix(in srgb, var(--bg-surface) 82%, transparent);
