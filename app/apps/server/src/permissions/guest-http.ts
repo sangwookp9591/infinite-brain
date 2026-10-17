@@ -132,6 +132,10 @@ export const guestHttp: MiddlewareHandler = async (c, next) => {
       const row = { ...value };
       const canonicalPath = row.rel_path ?? row.relPath ?? row.path;
       if (typeof row.title === "string" && row.title === canonicalPath) row.title = view!.projectPath(row.title);
+      for(const prefix of ["before","after"]){
+        const original=row[`${prefix}_path`]??row[`${prefix}Path`];
+        for(const key of [`${prefix}_title`,`${prefix}Title`]) if(typeof row[key]==="string" && row[key]===original)row[key]=view!.projectPath(row[key]);
+      }
       for (const key of ["path", "rel_path", "relPath", "beforePath", "afterPath", "before_path", "after_path", "originalPath"]) {
         if (typeof row[key] === "string") row[key] = view!.projectPath(row[key]);
       }
