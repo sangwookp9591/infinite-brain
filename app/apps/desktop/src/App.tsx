@@ -37,6 +37,8 @@ import { SidebarHeader } from "./components/SidebarHeader";
 import { Spinner } from "./components/Spinner";
 import { SidebarResizer } from "./components/SidebarResizer";
 import { SidebarToggle } from "./components/SidebarToggle";
+import { Breadcrumb } from "./components/Breadcrumb";
+import { OrbitIcon } from "./components/icons/OrbitIcon";
 import { GraphButton } from "./components/GraphButton";
 import { TabBar } from "./components/TabBar";
 import { VirtualTabHost } from "./components/VirtualTabHost";
@@ -1622,6 +1624,11 @@ export default function App() {
         className={`app${effectiveSidebarHidden ? " sidebar-hidden" : ""}`}
         style={{ "--sidebar-w": `${sidebarWidth}px` } as React.CSSProperties}
       >
+        {/* The icon rail's island. Its buttons are the SidebarToggle below,
+            positioned over it; it also clears the macOS traffic lights. */}
+        <div className="rail" data-tauri-drag-region="deep">
+          <OrbitIcon name="brand" size={22} className="rail-mark" />
+        </div>
         <SidebarToggle
           hidden={effectiveSidebarHidden}
           onToggle={() => {
@@ -1695,6 +1702,7 @@ export default function App() {
                 title. A `.note-title` span used to sit here showing the *indexed*
                 title, which for a legacy note whose H1 and filename disagree said
                 something different from its own tab. */}
+            <Breadcrumb />
             <TabBar />
             <div ref={setDashboardHeaderActionsHost} id="dashboard-header-actions" className="dashboard-header-actions" />
             {/* The right-hand controls float as one pill over the white row. */}

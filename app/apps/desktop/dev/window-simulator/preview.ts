@@ -98,6 +98,8 @@ mockIPC(
     if (fixture.handled) return fixture.value;
     switch (cmd) {
       case "get_last_vault":
+        // `?welcome=1` previews the vault picker (nothing to reopen).
+        return params.get("welcome") === "1" ? null : vault;
       case "open_vault":
         return vault;
       case "get_recent_vaults":

@@ -847,14 +847,45 @@ button.secondary:focus-visible,
   /* Width is user-set (see SidebarResizer); the fallback is the default so the
      layout is correct for one paint before React sets the variable. */
   --sidebar-layout-w: var(--sidebar-w, 264px);
-  grid-template-columns: var(--sidebar-layout-w) minmax(0, 1fr);
+  /* Orbit's icon rail: a fixed island left of the sidebar island. The first
+     tool sits below the macOS traffic lights (they float over the rail). */
+  --rail-w: 64px;
+  --rail-top: 16px;
+  grid-template-columns: var(--rail-w) var(--sidebar-layout-w) minmax(0, 1fr);
   height: 100%;
   background: var(--bg-app);
   position: relative;
   transition: grid-template-columns 220ms var(--ease);
 }
+/* Narrow windows: the sidebar island gives up width before the editor does. */
+@media (max-width: 820px) {
+  .app:not(.sidebar-hidden) {
+    --sidebar-layout-w: min(var(--sidebar-w, 264px), 208px);
+  }
+}
 .app.sidebar-hidden {
   --sidebar-layout-w: 0px;
+}
+html[data-platform="macos"] .app {
+  --rail-top: calc(var(--chrome-row-h) + 4px);
+}
+
+/* ---- Icon rail ---- */
+.rail {
+  grid-column: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: var(--sp-3) 0 var(--sp-3) var(--sp-3);
+  padding-top: var(--rail-top);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-island);
+  background: var(--bg-subtle);
+  box-shadow: var(--shadow-sm);
+  color: var(--accent);
+}
+.rail .rail-mark {
+  flex: none;
 }
 
 /* ---- Window drag regions ----
@@ -886,24 +917,26 @@ button.secondary:focus-visible,
    header. It remains outside both drag regions, so the icon clicks while the
    empty chrome around it still moves the window. */
 .titlebar-tools {
+  /* Stacked inside the rail, under its brand mark. */
   position: absolute;
-  /* Centred on the chrome row (the tools are 28px tall). */
-  top: calc(var(--chrome-row-h) / 2 - 14px);
-  left: calc(var(--sidebar-layout-w) + 8px);
+  top: calc(var(--rail-top) + 22px + var(--sp-4));
+  left: calc(var(--sp-3) + 1px);
+  width: calc(var(--rail-w) - var(--sp-3) - 2px);
   z-index: 60;
   display: flex;
-  gap: 2px;
-  transition: left 220ms var(--ease);
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-1);
 }
 .titlebar-tool {
-  width: 28px;
-  height: 28px;
+  width: 36px;
+  height: 36px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   padding: 0;
   border: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-lg);
   background: transparent;
   color: var(--text-secondary);
   transition:
@@ -914,6 +947,11 @@ button.secondary:focus-visible,
   color: var(--text-primary);
   background: var(--bg-hover);
 }
+.titlebar-tool[aria-pressed="true"],
+.titlebar-tool[aria-expanded="true"] {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
 .titlebar-tool:focus-visible {
   outline: none;
   box-shadow: var(--focus-ring);
@@ -922,35 +960,20 @@ button.secondary:focus-visible,
   width: 18px;
   height: 18px;
 }
-html[data-platform="macos"] .titlebar-tools {
-  left: 84px;
-}
 
-/* Windows owns one blended chrome row, with navigation over the sidebar and
-   caption buttons at the window's right edge. */
-html[data-platform="windows"] .titlebar-tools {
-  /* Inset the navigation slightly within the vault tile's left edge. */
-  left: 16px;
-}
+/* Windows owns one blended chrome row with caption buttons at the window's
+   right edge; the rail carries the navigation, so nothing else is inset. */
 html[data-platform="windows"] .titlebar-tool.graph-btn svg {
   /* This drawing fills more of its viewBox than the sidebar/search glyphs. */
   width: 16px;
   height: 16px;
 }
-html[data-platform="windows"] .sidebar-header {
-  padding-top: var(--chrome-row-h);
-}
 html[data-platform="windows"] .main {
   border-top-left-radius: 0;
 }
 html[data-platform="windows"] .main-header {
-  padding-left: var(--sp-3);
   padding-right: 146px;
   gap: var(--sp-2);
-}
-html[data-platform="windows"] .sidebar-hidden .main-header {
-  /* Sidebar, search and graph remain above the expanded content. */
-  padding-left: 114px;
 }
 html[data-platform="windows"] .header-actions {
   border: 0;
@@ -1033,7 +1056,7 @@ html[data-platform="windows"]:has(.booting):not(:has(.app)) .windows-boot-drag {
   position: absolute;
   top: 0;
   bottom: 0;
-  left: calc(var(--sidebar-w, 264px) - 3px);
+  left: calc(var(--rail-w, 64px) + var(--sidebar-layout-w, 264px) - 3px);
   width: 7px;
   z-index: 40;
   cursor: col-resize;
@@ -1062,7 +1085,13 @@ body:has(.sidebar-resizer.dragging) {
      the later-painted main pane so account/vault popovers can still extend
      across the seam instead of the editor covering their right-hand side. */
   z-index: 1;
-  background: var(--bg-app);
+  /* Orbit: a floating island beside the rail, on the canvas. */
+  grid-column: 2;
+  margin: var(--sp-3) var(--sp-2) var(--sp-3) var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-island);
+  box-shadow: var(--shadow-sm);
+  background: var(--bg-subtle);
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -1077,6 +1106,8 @@ body:has(.sidebar-resizer.dragging) {
     transform 220ms var(--ease);
 }
 .sidebar-hidden .sidebar {
+  margin: 0;
+  border-width: 0;
   opacity: 0;
   transform: translateX(-12px);
   pointer-events: none;
@@ -1090,7 +1121,7 @@ body:has(.sidebar-resizer.dragging) {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: calc(var(--sp-6) + var(--titlebar-inset)) var(--sp-3) var(--sp-3);
+  padding: var(--sp-4) var(--sp-3) var(--sp-3);
 }
 .sidebar-header-main {
   display: flex;
@@ -1680,14 +1711,14 @@ body:has(.sidebar-resizer.dragging) {
   height: 11px;
 }
 .tree-row.checked {
-  background: var(--bg-active);
+  background: var(--accent-soft);
   color: var(--text-primary);
 }
 .tree-row.checked:hover {
-  background: var(--bg-active);
+  background: var(--accent-soft-hover);
 }
 .tree-row {
-  border-radius: var(--radius-row);
+  border-radius: var(--radius-lg);
   /* Inset from the sidebar edge so the rounded fill reads as a pill. */
   margin-inline: var(--sp-2);
   display: flex;
@@ -1754,12 +1785,13 @@ body:has(.sidebar-resizer.dragging) {
   }
 }
 .tree-row.selected {
-  background: var(--bg-active);
-  color: var(--text-primary);
-  font-weight: 500;
+  background: var(--accent-soft);
+  /* Pulled toward the body ink so a custom accent never drops below 4.5:1. */
+  color: color-mix(in srgb, var(--accent) 70%, var(--text-primary));
+  font-weight: 600;
 }
 .tree-row.selected:hover {
-  background: var(--bg-active);
+  background: var(--accent-soft-hover);
 }
 /* Folder about to receive a dragged note */
 /* "Release here and it goes inside this folder." Faded in rather than snapped
@@ -1858,9 +1890,11 @@ body:has(.sidebar-resizer.dragging) {
   color: var(--text-secondary);
   transform: scale(1.08);
 }
-.tree-row.is-dir:hover .tree-glyph,
-.tree-row.selected .tree-glyph {
+.tree-row.is-dir:hover .tree-glyph {
   color: var(--text-primary);
+}
+.tree-row.selected .tree-glyph {
+  color: var(--accent);
 }
 .tree-glyph.is-empty {
   opacity: 0.5;
@@ -2868,15 +2902,59 @@ body:has(.sidebar-resizer.dragging) {
   /* Same centre line as the traffic lights and the sidebar/search tools; the
      row is taller than the pill, so the pill also clears the window's top. */
   min-height: var(--chrome-row-h);
-  padding: 0 var(--sp-4) 0 calc(var(--sp-3) + 66px);
+  padding: 0 var(--sp-4) 0 var(--sp-4);
   background: transparent;
 }
-html[data-platform="macos"] .main-header {
-  padding-left: var(--sp-3);
+/* Breadcrumb: where you are. Read-only context, left of the open-file tabs; it
+   gives way first when the header runs short. */
+.main-header > .breadcrumb {
+  flex: 0 1 auto;
+  min-width: 0;
 }
-html[data-platform="macos"] .sidebar-hidden .main-header {
-  /* Traffic lights + sidebar and search stay clear of the first tab. */
-  padding-left: 154px;
+.breadcrumb {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 34%;
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+}
+.breadcrumb ol {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+}
+.breadcrumb li {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.breadcrumb li + li::before {
+  content: "/";
+  margin: 0 var(--sp-2);
+  color: var(--text-tertiary);
+}
+.breadcrumb li[aria-current="page"] {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.breadcrumb li:not(:last-child) {
+  flex: 0 1 auto;
+  max-width: 14ch;
+}
+@container dashboard-header (max-width: 900px) {
+  .breadcrumb {
+    display: none;
+  }
+}
+/* Short header: the sync badge keeps its dot and drops its words. */
+@container dashboard-header (max-width: 600px) {
+  .header-actions .sync-badge .kit-lattice > span:nth-child(2) {
+    display: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2934,7 +3012,7 @@ html[data-platform="macos"] .sidebar-hidden .main-header {
   align-items: center;
   flex: none;
   max-width: 220px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-md);
   color: var(--text-secondary);
 }
 /* No hover fill on an inactive tab: the only thing that changes under the
@@ -2947,8 +3025,8 @@ html[data-platform="macos"] .sidebar-hidden .main-header {
   position: absolute;
   inset: 0;
   z-index: 0;
-  background: var(--bg-active);
-  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  border-radius: var(--radius-md);
 }
 .tab > .tab-label,
 .tab > .tab-close {
@@ -2956,7 +3034,7 @@ html[data-platform="macos"] .sidebar-hidden .main-header {
   z-index: 1;
 }
 .tab.active {
-  color: var(--text-primary);
+  color: color-mix(in srgb, var(--accent) 70%, var(--text-primary));
 }
 /* Click acknowledged, open in flight (same signal as the sidebar row). */
 .tab.opening {
@@ -2972,7 +3050,7 @@ html[data-platform="macos"] .sidebar-hidden .main-header {
   align-self: center;
   margin: 0 var(--sp-1);
   border: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: none;
   color: var(--text-tertiary);
   cursor: pointer;
