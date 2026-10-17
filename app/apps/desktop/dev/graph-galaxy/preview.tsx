@@ -7,7 +7,7 @@ import { registerDevTools } from '../webmcp';
 import '../../src/styles/tokens.css';
 import '../../src/App.css';
 const params = new URLSearchParams(location.search);
-const count = [200, 2000, 20000].includes(Number(params.get('count'))) ? Number(params.get('count')) : 200;
+const count = [5, 20, 40, 200, 500, 2000, 20000].includes(Number(params.get('count'))) ? Number(params.get('count')) : 200;
 const platform = params.get('platform') === 'windows' ? 'windows' : 'macos';
 document.documentElement.dataset.platform = platform;
 document.documentElement.dataset.theme = params.get('theme') ?? 'dark';
