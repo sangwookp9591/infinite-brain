@@ -1,3 +1,4 @@
+import { claimJoinAttempt, getOrRotateJoinCode } from "../../join-codes/service.js";
 import { randomBytes, randomUUID } from "node:crypto";
 import { Hono } from "hono";
 import { pool } from "../../db/pool.js";
@@ -488,35 +489,17 @@ export function createOrgRoutes(deps: OrgDeps): Hono {
       return c.json({ error: "Only vault owner/admin can view the join code" }, 403);
     }
 
-    const existing = await pool.query<{ code: string }>(
-      "SELECT code FROM org_join_codes WHERE organization_id = $1",
-      [org],
-    );
-    if (existing.rows[0]) return c.json({ code: existing.rows[0].code });
+    return c.json(await getOrRotateJoinCode(org, session.userId));
+  });
 
-    // Lazily generate + persist. Retry on the (unlikely) unique-code collision.
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const code = generateCode();
-      try {
-        const { rows } = await pool.query<{ code: string }>(
-          `INSERT INTO org_join_codes (organization_id, code) VALUES ($1, $2)
-           ON CONFLICT (organization_id) DO NOTHING
-           RETURNING code`,
-          [org, code],
-        );
-        if (rows[0]) return c.json({ code: rows[0].code });
-        // Another request generated the code first — read it back.
-        const raced = await pool.query<{ code: string }>(
-          "SELECT code FROM org_join_codes WHERE organization_id = $1",
-          [org],
-        );
-        if (raced.rows[0]) return c.json({ code: raced.rows[0].code });
-      } catch (err) {
-        // Unique violation on `code` (23505): loop and try a fresh code.
-        if ((err as { code?: string }).code !== "23505") throw err;
-      }
-    }
-    return c.json({ error: "Could not generate a join code" }, 500);
+  orgRoutes.post("/orgs/join-code/rotate", async (c) => {
+    const session = await getSession(c);
+    if (!session) return c.json({ error: "Authentication required" }, 401);
+    const org = await resolveActiveOrg(session.userId, session.activeOrganizationId);
+    if (!org) return c.json({ error: "No active vault" }, 400);
+    const role = await orgRole(org, session.userId);
+    if (role !== "owner" && role !== "admin") return c.json({ error: "access_manager_required" }, 403);
+    return c.json(await getOrRotateJoinCode(org, session.userId, true));
   });
 
   // Redeem a join code: join the vault as a 'member' (idempotent).
@@ -524,12 +507,14 @@ export function createOrgRoutes(deps: OrgDeps): Hono {
     const session = await getSession(c);
     if (!session) return c.json({ error: "Authentication required" }, 401);
 
+    const attemptId = await claimJoinAttempt(session.userId);
+    if (!attemptId) return c.json({ error: "join_code_rate_limited", message: "Too many tries. Wait 15 minutes before trying another code." }, 429);
     const body = await c.req.json().catch(() => ({}));
     const code = typeof body.code === "string" ? body.code.trim().toUpperCase() : "";
     if (!code) return c.json({ error: "code is required" }, 400);
 
-    const { rows } = await pool.query<{ organization_id: string; name: string }>(
-      `SELECT j.organization_id, o.name
+    const { rows } = await pool.query<{ organization_id: string; name: string; expired: boolean }>(
+      `SELECT j.organization_id, o.name, j.expires_at <= now() AS expired
          FROM org_join_codes j JOIN organization o ON o.id = j.organization_id
         WHERE j.code = $1`,
       [code],
@@ -537,6 +522,7 @@ export function createOrgRoutes(deps: OrgDeps): Hono {
     const target = rows[0];
     if (!target) return c.json({ error: "Unknown join code" }, 404);
 
+    if (target.expired) return c.json({ error: "join_code_expired", message: "This code has expired. Ask an admin for a new code." }, 410);
     const organizationId = target.organization_id;
     if (await orgRole(organizationId, session.userId)) {
       return c.json({ organizationId, name: target.name, alreadyMember: true });
@@ -557,6 +543,7 @@ export function createOrgRoutes(deps: OrgDeps): Hono {
       [organizationId, session.email],
     );
     const liveInvite = invited.rows.find((r) => r.live);
+    if (liveInvite?.role === "guest") return c.json({ error: "guest_invite_pending", message: "Use your invitation link to join this vault as a guest." }, 409);
     const role = liveInvite?.role === "admin" ? "admin" : "member";
 
     if (teamModel()) {
@@ -577,6 +564,9 @@ export function createOrgRoutes(deps: OrgDeps): Hono {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
+      const currentCode = await client.query("SELECT 1 FROM org_join_codes WHERE organization_id = $1 AND code = $2 AND expires_at > now() FOR SHARE", [organizationId, code]);
+      if (!currentCode.rowCount) { await client.query("ROLLBACK"); return c.json({ error: "join_code_expired", message: "Ask an admin for a new code." }, 410); }
+      await client.query("UPDATE join_code_attempts SET ok = true WHERE id = $1", [attemptId]);
       await client.query(
         `INSERT INTO member (id, "organizationId", "userId", role, "createdAt")
          VALUES ($1, $2, $3, $4, now())`,
