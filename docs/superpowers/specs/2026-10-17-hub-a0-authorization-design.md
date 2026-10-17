@@ -476,7 +476,7 @@ A1-1 선행 보안 수정 ─┬─> A1-2 POST /shares 대상 검증 ─┐
 
 - A1-1의 R1(관계 판정)은 §10 Q1이 결정된 뒤에 넣는다. 나머지 A1-1 수정은 결정 없이 진행할 수 있다.
 - A1-3을 A1-4보다 먼저 하는 이유는, 그 뒤 조각들이 모두 감사 로그에 기록해야 하기 때문이다.
-- migration 번호는 현재 마지막인 060(`M/060_ai_change_retention.sql`) 다음부터 쓴다.
+- migration 번호는 main의 061(`M/062_mcp_oauth_audience.sql`) 다음인 062부터 쓴다. 기존 계획의 061~065는 062~066으로 정정한다.
 
 ### 9.2 조각별 내용
 
@@ -498,13 +498,14 @@ A1-1 선행 보안 수정 ─┬─> A1-2 POST /shares 대상 검증 ─┐
   4. (Q1 후) `fix(server): require an active vault relation for every grant`
 
 **A1-2 `POST /shares` 대상 검증 (migration 없음)**
+- 2026-10-17 결정: V4의 off/domains 정책 재검사는 해당 스키마가 생기는 A1-6으로 옮긴다. 이 조각은 멤버십, guest 대상 제한, 트랜잭션 검증을 적용한다.
 - 변경 파일: `S/http/routes/shares.ts`(§7 V1~V7), `S/permissions/access-management.ts`(V3/V4를 bulk access와 team-access에 적용), `S/mcp/service.ts`(V8). 데스크톱에서는 `D/components/` 공유 화면에 오류 문구를 연결한다.
 - 테스트: §7.2 전체.
 - commit:
   1. `fix(server): validate share targets against vault membership`
   2. `feat(desktop): explain refused share targets`
 
-**A1-3 통합 감사 로그 최소판 (`M/061_audit_log.sql`)**
+**A1-3 통합 감사 로그 최소판 (`M/062_audit_log.sql`)**
 - 스키마: `audit_log(id bigserial, organization_id, actor_user_id, actor_kind('user'|'system'|'mcp'), action, target_type, target_id, before jsonb, after jsonb, result('ok'|'refused'|'failed'), request_id, created_at)`, 인덱스 `(organization_id, created_at DESC)`. 보존 기간은 `organization_access_settings.audit_retention_days`(기본값은 §10 Q11)로 둔다.
 - 변경 파일:
   - 신규 `S/audit/log.ts`: `recordAudit(client, entry)`. 권한 변경과 같은 트랜잭션 안에서 부른다. AI 변경 기록이 Yjs 업데이트와 같은 트랜잭션에 들어가는 것과 같은 원칙이다.
@@ -521,7 +522,7 @@ A1-1 선행 보안 수정 ─┬─> A1-2 POST /shares 대상 검증 ─┐
   3. `feat(server): audit log listing and retention`
   4. `feat(desktop): security log view for admins`
 
-**A1-4 참가 코드 만료·재발급·시도 제한 (`M/062_join_code_lifecycle.sql`)**
+**A1-4 참가 코드 만료·재발급·시도 제한 (`M/063_join_code_lifecycle.sql`)**
 - 스키마: `org_join_codes`에 `expires_at`, `rotated_at`, `created_by`를 더한다(기존 행은 §6.2). 시도 기록 테이블 `join_code_attempts(user_id, attempted_at, ok)`를 둔다. 로그인 시도 제한(`S/auth/signin-throttle.ts`, migration 036)과 같은 방식이다.
 - 변경 파일: `S/http/routes/orgs.ts`
   - `GET /orgs/join-code`는 `expiresAt`을 함께 준다.
@@ -534,7 +535,7 @@ A1-1 선행 보안 수정 ─┬─> A1-2 POST /shares 대상 검증 ─┐
   2. `feat(server): rate-limit join code redemption`
   3. `feat(desktop): show join code expiry and regenerate`
 
-**A1-5 허브 게스트 (`M/063_guest_role.sql`)**
+**A1-5 허브 게스트 (`M/064_guest_role.sql`)**
 - 스키마:
   - trigger 함수를 다시 만들어 guest를 제외한다.
   - guest 초대의 공유 대상을 저장할 `invitation_shares(invitation_id, resource_type, resource_id, permission)`를 둔다.
@@ -556,7 +557,7 @@ A1-1 선행 보안 수정 ─┬─> A1-2 POST /shares 대상 검증 ─┐
   7. `feat(desktop): guest invite flow and guest view`
   8. `test(server): D6 guest matrix`
 
-**A1-6 외부 공유 정책 (`M/064_external_sharing_policy.sql`)**
+**A1-6 외부 공유 정책 (`M/065_external_sharing_policy.sql`)**
 - 스키마: `organization_access_settings`에 `external_sharing`(`off`|`domains`|`on`, 기본 `on`)과 `external_domains text[]`을 더한다.
 - 변경 파일:
   - 신규 경로 `GET/PUT /orgs/:orgId/external-sharing`(owner/admin. owner만 바꿀 수 있게 할지는 §10 Q12)
@@ -568,7 +569,7 @@ A1-1 선행 보안 수정 ─┬─> A1-2 POST /shares 대상 검증 ─┐
   1. `feat(server): external sharing policy`
   2. `feat(desktop): external sharing settings`
 
-**A1-7 외부 접근 일괄 회수 (`M/065_external_revocations.sql`)**
+**A1-7 외부 접근 일괄 회수 (`M/066_external_revocations.sql`)**
 - 스키마: `external_revocations(id, organization_id, actor_user_id, status, counts jsonb, errors jsonb, started_at, finished_at)`.
 - 변경 파일:
   - 신규 경로 `POST /orgs/:orgId/external-access/revoke`와 `GET .../revoke/:id`(owner/admin).
@@ -585,7 +586,7 @@ A1-1 선행 보안 수정 ─┬─> A1-2 POST /shares 대상 검증 ─┐
 
 ## 10. 미해결 결정 (사용자 승인 필요)
 
-각 항목의 "권장"은 이 문서의 기본 가정이다. 승인 전에는 해당 조각을 진행하지 않는다.
+2026-10-17 사용자 결정: **Q1~Q9, Q11~Q15는 각 권장안을 승인했다. Q10(guest 결제 좌석)은 보류한다.** Q1은 비멤버 개인 공유 행을 보존하고 권한만 끊으며, Q13은 owner/admin만 guest에게 공유할 수 있다. 아래 표는 승인된 권장안과 Q10의 선택지를 기록한다.
 
 | ID | 질문 | 선택지 | 권장 | 영향 |
 |---|---|---|---|---|
