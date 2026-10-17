@@ -25,6 +25,13 @@ to upstream and not to this fork. This fork has no hosted server or published re
 | M5 Galaxy graph (three.js WebGPU → WebGL2 → 2D) | ✅ merged | [[reports/IMPL-REPORT-M5]] |
 | Independent review fixes (1 high, 10 medium, some low) | ✅ merged | [[reports/IMPL-REPORT-FIX-V2]] |
 | M6 New visual language: zinc/ink tokens, custom accent (`"ink"` or `#rrggbb`, desktop + server), design kit (10 React Bits–adapted components) applied app-wide, ESLint 9, dev WebMCP tools | ✅ merged | [[superpowers/specs/2026-10-15-ui-redesign-color-design]], [[superpowers/plans/2026-10-15-ui-redesign-rollout]] |
+| MCP OAuth audience binding (migration 061), secure CIMD clients, consent/exchange/revoke generation guard (review items L1, L3). Unbound legacy OAuth tokens must reconnect | ✅ merged | [[reports/IMPL-REPORT-oauth]] |
+| Sparse galaxy on small vaults (radius, star density, camera fit; 2D fallback too) | ✅ merged | [[reports/IMPL-REPORT-GALAXY]] |
+| PRD A0 hub authorization design (role × resource matrix, 64-path D6 checklist, Q1–Q15 approved 2026-10-17 except Q10) | ✅ merged | [[superpowers/specs/2026-10-17-hub-a0-authorization-design]], [[reports/IMPL-REPORT-A0]] |
+| PRD A1 hub: security fixes P1–P3 (removed creator re-share, non-member sync token, share target validation), audit log, join-code expiry/rotation, hub guests (minimal path projection), external sharing policy, bulk external revocation (migrations 062–066) | ✅ merged | [[reports/IMPL-REPORT-A1-part1]], [[reports/IMPL-REPORT-A1-part2]], [[reports/VERIFY-REPORT-server-ce13dc5]] |
+| PRD B0 on-device semantic search measurement (BGE-m3-ko GGUF via llama.cpp, Apple M4 only) | ✅ merged | [[reports/B0-MEASUREMENT]] |
+| PRD C0 P2P design (recommends Iroh + own protocol; 14 owner decisions open) | ✅ merged | [[superpowers/specs/2026-10-17-p2p-c0-design]], [[reports/IMPL-REPORT-C0]] |
+| M7 Orbit identity redesign: Orbit tokens, bundled Fraunces/Geist/Pretendard, 1.5px icons, icon rail + floating sidebar, editor sheet, dialogs, dashboards, graph tokens; in-house Neuron avatars and vault marks (`@dicebear` removed) | ✅ merged | [[superpowers/specs/2026-10-17-identity-redesign-directions]], [[reports/IMPL-REPORT-redesign-final]] |
 
 **Verified (2026-10-14/15):**
 - Tests: server 1,503, desktop 3,522, Rust 346, `tsc` in both workspaces.
@@ -36,14 +43,21 @@ to upstream and not to this fork. This fork has no hosted server or published re
 **Not yet verified:** in-app UI flows of the packaged app, real claude.ai / ChatGPT connector
 connections (needs a public HTTPS server), usability tests with non-developers, Windows/Linux builds.
 
+**Verified (2026-10-17):** independent server run on `ce13dc5`: 1,639 tests passed, 2 failures
+classified (one transient deadlock in `resetDb`, one stale vault-channel assertion, since fixed);
+migrations apply on an empty DB and on a seeded 060 DB. Desktop vitest 3,596 and `tsc` in both
+workspaces after the redesign. Packaged app, native Windows/WebView2 and real external OAuth clients
+remain unverified.
+
 **Open items:**
 - Put a password on the updater private key before any release.
-- CIMD and full OAuth audience binding.
-- Sparse-looking galaxy on small vaults.
-- Deferred low-severity review items.
+- Hub guests: full path re-rooting for sync cursors, bootstrap manifest and attachments (Q3), guest seat billing (Q10).
+- Membership loss deletes the local team vault folder without a recovery copy (2026-10-09 decision); revisit now that guests and bulk revocation exist.
+- Deferred review items L4 (ACL metadata scope), L8/L9 (multi-writer locking, broadcast-then-DB-failure recovery).
+- B0 follow-ups: Windows/Linux and packaged-app size measurements, vault-scale quality corpus.
 
 **Decisions pending (owner):** business model, primary target users, whether to rename `.context/` /
-the internal `context` DB, whether to keep tracking upstream Baalda.
+the internal `context` DB, whether to keep tracking upstream Baalda, the 14 C0 decisions before C1.
 
 ## Where we are
 
