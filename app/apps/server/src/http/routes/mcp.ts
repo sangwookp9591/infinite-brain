@@ -1,3 +1,4 @@
+import { auditContext } from "../../audit/log.js";
 import { createHash } from "node:crypto";
 import { Hono } from "hono";
 import { pool } from "../../db/pool.js";
@@ -195,6 +196,8 @@ export function createMcpRoutes(deps: McpDeps): Hono {
       );
     }
 
+    const audit = auditContext.getStore();
+    if (audit) { audit.actorUserId = auth.userId; audit.actorKind = "mcp"; audit.organizationId = auth.organizationId; }
     const ctx: McpContext = {
       auth,
       docWriter: deps.docWriter,

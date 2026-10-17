@@ -32,6 +32,8 @@ Read this file and the relevant tests before changing code. See [`docs/UPSTREAM-
 - Rebrand map: `scripts/rebrand.mjs` (idempotent; `--dry-run` must report 0 files). It skips historical records: `docs/research/`, `docs/reports/`, `docs/FINAL-report.md`, `docs/UPSTREAM-CLAUDE.md`.
 - Implementation reports live in `docs/reports/`; fork status in `docs/STATUS.md` (top section).
 
+- Security audit: migration 062 installs row triggers on access/membership/invitation/link/connection tables. Both application and Better Auth pools use `audit/client.ts` to bind AsyncLocalStorage actor/request identity with transaction-local `set_config`. A mutation and its audit row commit or roll back together; missing identity is system/unknown. Never use session-wide SET for request identity, bypass these pools for authorization writes, or log note content/credentials. Explicit `recordAudit(client, entry)` uses the same transaction; refused writes are recorded after rollback. Retention is 365 days by default.
+
 ## Local gotchas
 
 - Node 25: run desktop vitest with `NODE_OPTIONS=--no-experimental-webstorage`.

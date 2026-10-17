@@ -1,3 +1,5 @@
+import { recordAudit } from "../audit/log.js";
+import { pool } from "../db/pool.js";
 import { allowsTool } from "./scopes.js";
 import { inc } from "../metrics/sync-metrics.js";
 import { McpToolError, type McpContext } from "./service.js";
@@ -134,6 +136,9 @@ export async function handleMcpMessage(
       } catch (err) {
         // Expected, user-facing failures (bad args, no access) → isError result.
         if (err instanceof McpToolError) {
+          await recordAudit(pool, { organizationId: ctx.auth.organizationId, actorUserId: ctx.auth.userId,
+            actorKind: "mcp", action: `mcp.${tool.name}`, targetType: "request", result: "refused",
+            refs: { code: err.code ?? "not_allowed" } });
           inc(`mcp.tool.${tool.name}.refused`);
           if (err.code) inc(`mcp.tool.${tool.name}.refused.${err.code}`);
           return ok(msg.id, toolError(err.message, err.code));

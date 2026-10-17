@@ -1,3 +1,4 @@
+import { AuditClient } from "../audit/client.js";
 import { betterAuth } from "better-auth";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import { bearer, mcp, organization } from "better-auth/plugins";
@@ -53,7 +54,7 @@ const mcpMetadata = {
   client_id_metadata_document_supported: true,
 };
 
-export const authPool = new pg.Pool({ connectionString: config.databaseUrl });
+export const authPool = new pg.Pool({ Client: AuditClient, connectionString: config.databaseUrl });
 
 // Google social sign-in is opt-in: only wired when both creds are present, so a
 // self-hosted server without them just omits the provider (the desktop hides

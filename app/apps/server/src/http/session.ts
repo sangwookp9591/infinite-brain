@@ -1,3 +1,4 @@
+import { auditContext } from "../audit/log.js";
 import type { Context } from "hono";
 import { auth } from "../auth/auth.js";
 
@@ -15,6 +16,12 @@ export interface SessionInfo {
 export async function getSession(c: Context): Promise<SessionInfo | null> {
   const result = await auth.api.getSession({ headers: c.req.raw.headers });
   if (!result?.user) return null;
+  const context = auditContext.getStore();
+  if (context) {
+    context.actorUserId = result.user.id;
+    context.actorKind = "user";
+    context.organizationId = (result.session as { activeOrganizationId?: string | null }).activeOrganizationId ?? undefined;
+  }
   return {
     userId: result.user.id,
     email: result.user.email,

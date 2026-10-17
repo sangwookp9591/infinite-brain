@@ -1,3 +1,5 @@
+import { auditRequests } from "../audit/http.js";
+import { auditRoutes } from "./routes/audit.js";
 import { createAiChangeRoutes } from "./routes/ai-changes.js";
 import { MCP_SCOPES } from "../mcp/scopes.js";
 import { Hono } from "hono";
@@ -147,6 +149,8 @@ function allowedOrigins(): string[] {
  */
 export function createApp(deps: AppDeps): Hono {
   const app = new Hono();
+  app.use("*", auditRequests);
+  app.route("/api", auditRoutes);
 
   // CORS must run before any route (incl. Better Auth) so cross-origin browser
   // clients — chiefly the Tauri webview — succeed and can read auth headers.
