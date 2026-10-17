@@ -1,4 +1,4 @@
-import { isManagerRole } from "./roles.js";
+import { isManagerRole, isTeamRole } from "./roles.js";
 import type pg from "pg";
 import { pool as defaultPool } from "../db/pool.js";
 import { orgRole, vaultOrg } from "./lookup.js";
@@ -137,6 +137,10 @@ export async function canEditFolder(
     ? await cache.role(db, row.organization_id, userId)
     : await orgRole(row.organization_id, userId, db);
   if (role === null) return false; // not a member of the vault
+  if (!isTeamRole(role)) {
+    const context = await buildAccessContext("folder", folderId, db, cache);
+    return !!context && (await resolveAccessForUser(context, userId, role, db, cache)).permission === "edit";
+  }
 
   // Overlays first — they outrank the role below, because what the Access panel
   // sets applies to whoever set it.
@@ -434,6 +438,8 @@ export async function vaultRootWritable(
   db: Queryable = defaultPool,
   cache?: ResolverCache,
 ): Promise<boolean> {
+  const role = cache ? await cache.role(db, organizationId, userId) : await orgRole(organizationId, userId, db);
+  if (!isTeamRole(role)) return false;
   // Billing lapse caps everyone, ahead of the person's own level.
   if (await isAccountReadOnly(db, organizationId, cache)) return false;
   // A person's own vault level decides for them, whatever the posture.
@@ -622,6 +628,9 @@ export async function canDeleteItem(
     input.orgRole !== undefined ? input.orgRole : await orgRole(input.orgId, input.userId, db);
   if (isManagerRole(role)) return { ok: true };
   const notCreator: DeleteGate = { ok: false, code: "delete_not_creator" };
+  if (!isTeamRole(role)) {
+    if (input.kind === "folder" || (await effectivePermission(input.userId, input.id, db)) !== "edit") return notCreator;
+  }
 
   if (input.kind === "note" || input.kind === "file") {
     const table = input.kind === "note" ? "notes" : "files";

@@ -1,7 +1,7 @@
-import { isActiveRole } from "./roles.js";
+import { isActiveRole, isTeamRole } from "./roles.js";
 import type pg from "pg";
 import { pool as defaultPool } from "../db/pool.js";
-import { memberAccessSnapshot, personalVaultLevel, type PersonalVaultLevel, vaultBaseline } from "./resolver.js";
+import { buildAccessContextFromIndex, loadAccessIndex, resolveAccessForUser, memberAccessSnapshot, personalVaultLevel, type PersonalVaultLevel, vaultBaseline } from "./resolver.js";
 
 type Queryable = Pick<pg.Pool, "query">;
 
@@ -68,6 +68,7 @@ export async function vaultAccess(
   );
   const row = org.rows[0];
   if (!row || !isActiveRole(row.role)) return null;
+  if (!isTeamRole(row.role)) return { organizationId: row.organization_id, role: row.role, vaultWide: false, personal: null };
   const personal = await personalVaultLevel(db, row.organization_id, userId);
   const base = { organizationId: row.organization_id, role: row.role, personal };
   if (personal !== null) return { ...base, vaultWide: personal !== "denied" };
@@ -295,7 +296,7 @@ async function listDocsInVault(
   //
   // A soft-deleted note keeps `created_by`, `folder_id` and its `shares` rows, so
   // this resolves a tombstone's permission exactly as it did while the note lived.
-  const isMember = role !== null;
+  const isMember = isTeamRole(role);
   const filesUnion = opts.deleted
     ? ""
     : `UNION
@@ -400,7 +401,7 @@ async function listDocsInVault(
        -- posture, which vaultAccess has already answered as vaultWide.
        user_vault_grant AS (
           SELECT 1 FROM shares
-           WHERE resource_type = 'vault' AND resource_id = $3
+           WHERE $4 AND resource_type = 'vault' AND resource_id = $3
              AND permission IN ('view', 'edit', 'readonly')
              AND principal_type = 'user' AND principal_id = $1
        )${deadFolderCte}
@@ -460,7 +461,7 @@ async function listDocsInVault(
 
   // The join snapshot is part of the vault-wide baseline a person's own vault
   // level replaces, so it is ignored when they have one.
-  const snapshot = personal !== null ? null : await memberAccessSnapshot(db, organizationId, userId);
+  const snapshot = !isTeamRole(role) || personal !== null ? null : await memberAccessSnapshot(db, organizationId, userId);
   if (snapshot) {
     const existingRows = await db.query<{ id: string }>(
       opts.deleted
@@ -619,6 +620,15 @@ export async function listVisibleFolders(
     "SELECT id, vault_id, parent_id, name, path, sort, created_by, created_at, color FROM folders WHERE vault_id = $1 ORDER BY sort, path",
     [vaultId],
   );
+  if (!isTeamRole(access.role)) {
+    const index = await loadAccessIndex(db, access.organizationId);
+    const visible: VaultFolderRow[] = [];
+    for (const folder of all.rows) {
+      const context = await buildAccessContextFromIndex(index, "folder", folder.id, db);
+      if (context && (await resolveAccessForUser(context, userId, access.role, db, undefined, index)).permission !== "none") visible.push(folder);
+    }
+    return visible;
+  }
   // A per-member deny hides the folder from that person outright. An org deny
   // (item Private) hides it from the TEAM — so it does not apply to an
   // owner/admin or to someone with a personal vault grant, and a folder the
