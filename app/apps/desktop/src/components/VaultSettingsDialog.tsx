@@ -251,7 +251,7 @@ export function VaultSettingsDialog({
         teamBilling ? { ...BILLING_TAB, label: "Usage" } : BILLING_TAB,
       );
     }
-    if (isSynced && canManage) out.push({ id: "security", label: "Security history", icon: <MenuIcon><path d="M12 3 3 7v5c0 5 9 9 9 9s9-4 9-9V7Z" /></MenuIcon> });
+    if (isSynced && canManage) out.push({ id: "security", label: "Security", icon: <MenuIcon><path d="M12 3 3 7v5c0 5 9 9 9 9s9-4 9-9V7Z" /></MenuIcon> });
     return out;
   }, [showVaults, billingEnabled, teamBilling, isSynced, canManage]);
 

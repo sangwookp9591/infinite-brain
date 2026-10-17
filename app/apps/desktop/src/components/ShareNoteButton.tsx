@@ -78,6 +78,7 @@ function ShareNoteDialog({
   const notePath = useStore((s) => s.openNote?.path ?? null);
   // `undefined` while the first fetch is in flight; null = not published.
   const [publicLink, setPublicLink] = useState<PublicLink | null | undefined>(undefined);
+  const [publicAllowed, setPublicAllowed] = useState<boolean | null>(null);
   const [publicBusy, setPublicBusy] = useState(false);
   const [copied, setCopied] = useState<"team" | "public" | null>(null);
 
@@ -91,6 +92,7 @@ function ShareNoteDialog({
 
   useEffect(() => {
     let alive = true;
+    void authManager.api.sharingAvailability(orgId).then((availability) => { if(alive) setPublicAllowed(availability.publicLinks); }).catch(() => { if(alive) setPublicAllowed(null); });
     authManager.api
       .getPublicLink(docId)
       .then((link) => {
@@ -226,13 +228,14 @@ function ShareNoteDialog({
             </span>
             <span className="share-option-copy">
               <strong>Publish to the web</strong>
+              {publicAllowed !== true && <small>{publicAllowed === false ? "This vault does not allow public links. Ask an admin for help." : "Public sharing settings are unavailable. Try again later."}</small>}
               <span>Anyone with the link can read it in a browser.</span>
             </span>
             {/* The switch stays put while it works (disabled, not swapped for a
                 spinner) so the row never changes width mid-click. */}
             <Switch
               checked={published}
-              disabled={publicLink === undefined || publicBusy}
+              disabled={publicLink === undefined || publicBusy || !published && publicAllowed !== true}
               onChange={(next) => void setPublished(next)}
               ariaLabel="Publish to the web"
             />

@@ -1996,6 +1996,16 @@ export class ApiClient {
   // ---- Join codes -----------------------------------------------------------
 
   /** The active vault's shareable join code (owner/admin; lazily created). */
+  async getExternalSharing(organizationId: string): Promise<{ mode: "on" | "off" | "domains"; domains: string[] }> {
+    return (await this.request<{ mode: "on" | "off" | "domains"; domains: string[] }>("GET", `/api/orgs/${encodeURIComponent(organizationId)}/external-sharing`)).data;
+  }
+  async setExternalSharing(organizationId: string, policy: { mode: "on" | "off" | "domains"; domains: string[] }) {
+    return (await this.request<typeof policy>("PUT", `/api/orgs/${encodeURIComponent(organizationId)}/external-sharing`, { body: policy })).data;
+  }
+  async sharingAvailability(organizationId: string): Promise<{ publicLinks: boolean }> {
+    return (await this.request<{ publicLinks: boolean }>("GET", `/api/orgs/${encodeURIComponent(organizationId)}/sharing-availability`)).data;
+  }
+
   async getSecurityEvents(organizationId: string, before?: string): Promise<{ events: SecurityEvent[]; nextBefore: string | null }> {
     const { data } = await this.request<{ events: SecurityEvent[]; nextBefore: string | null }>("GET", `/api/orgs/${encodeURIComponent(organizationId)}/audit${before ? `?before=${encodeURIComponent(before)}` : ""}`);
     return data;

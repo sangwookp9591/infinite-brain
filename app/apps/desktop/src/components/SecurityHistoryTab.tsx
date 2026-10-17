@@ -1,3 +1,4 @@
+import { ExternalSharingSettings } from "./ExternalSharingSettings";
 // SPDX-License-Identifier: Apache-2.0
 import { useEffect, useState } from "react";
 import { authManager } from "../lib/auth/authManager";
@@ -23,6 +24,8 @@ export function SecurityHistoryTab({ organizationId }: { organizationId: string 
   };
   useEffect(() => { void load(); }, [organizationId]);
   return <div>
+    <ExternalSharingSettings organizationId={organizationId} />
+    <h3>Security history</h3>
     <p>See who changed access to this vault and when.</p>
     {error && <p role="alert" className="auth-error">{error}</p>}
     {!busy && !error && events.length === 0 && <p>No security changes yet.</p>}
