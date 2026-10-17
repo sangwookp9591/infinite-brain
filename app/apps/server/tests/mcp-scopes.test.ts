@@ -135,6 +135,85 @@ describe("MCP connection scopes", () => {
     expect(await list.json()).toMatchObject({ connections: [{ kind: "oauth", name: "Test Claude", scopes: ["notes:read"], lastUsedAt: expect.any(String), useCount: 1 }] });
   });
 
+  it("rejects a stored OAuth token audience mismatch and missing generation", async () => {
+    const linked = await connect("read");
+    const stored = (await pool.query('SELECT resource, generation FROM "oauthAccessToken" WHERE "accessToken" = $1', [linked.access_token])).rows[0];
+    expect(stored.resource).toBe(`${config.betterAuthUrl}/api/mcp`);
+    expect(stored.generation).toEqual(expect.any(String));
+    await pool.query('UPDATE "oauthAccessToken" SET resource = $2 WHERE "accessToken" = $1', [linked.access_token, "https://other.example/api/mcp"]);
+    expect((await rpc(linked.access_token)).status).toBe(401);
+    await pool.query('UPDATE "oauthAccessToken" SET resource = $2, generation = NULL WHERE "accessToken" = $1', [linked.access_token, stored.resource]);
+    expect((await rpc(linked.access_token)).status).toBe(401);
+  });
+
+  it("binds new manual tokens and preserves legacy local tokens", async () => {
+    const { token, row } = await createMcpToken({ userId: user.userId, organizationId: org }, "audience");
+    await pool.query("UPDATE mcp_tokens SET resource = 'https://other.example/api/mcp' WHERE id = $1", [row.id]);
+    expect((await rpc(token)).status).toBe(401);
+    await pool.query("UPDATE mcp_tokens SET resource = NULL WHERE id = $1", [row.id]);
+    expect((await rpc(token)).status).toBe(200);
+  });
+
+  it("rejects a tampered grant audience before provider issuance and blocks raw OIDC bypass routes", async () => {
+    const started = await begin();
+    const approved = await consent(started.code, started.clientId, "read");
+    const code = new URL(approved.headers.get("location")!).searchParams.get("code")!;
+    const ctx = await auth.$context;
+    const grant = await ctx.internalAdapter.findVerificationValue(code);
+    const value = JSON.parse(grant!.value);
+    expect(value.resource).toBe(`${config.betterAuthUrl}/api/mcp`);
+    expect(value.generation).toEqual(expect.any(String));
+    await ctx.internalAdapter.updateVerificationByIdentifier(code, { value: JSON.stringify({ ...value, resource: "https://other.example/api/mcp" }) });
+    expect((await exchange(started.clientId, started.verifier, code)).status).toBe(401);
+    for (const endpoint of ["token", "authorize", "consent"]) {
+      expect((await request(`/api/auth/oauth2/${endpoint}`, { method: "POST", headers: sessionHeaders(), body: "{}" })).status).toBe(400);
+    }
+  });
+
+  it("rejects old tokens and refresh grants after a new consent generation", async () => {
+    const linked = await connect("read");
+    const { setVaultBinding } = await import("../src/mcp/oauth.js");
+    await setVaultBinding(linked.clientId, user.userId, org, undefined, ["notes:read"]);
+    expect((await rpc(linked.access_token)).status).toBe(401);
+    const refreshed = await request("/api/auth/mcp/token", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ client_id: linked.clientId, grant_type: "refresh_token", refresh_token: linked.refresh_token }) });
+    expect(refreshed.status).toBe(401);
+  });
+
+  it.each(["authorization_code", "refresh_token"])("serializes disconnect against %s paused inside provider issuance", async (grantType) => {
+    const started = await begin();
+    const approved = await consent(started.code, started.clientId, "read");
+    const code = new URL(approved.headers.get("location")!).searchParams.get("code")!;
+    const refreshSource = grantType === "refresh_token" ? await (await exchange(started.clientId, started.verifier, code)).json() as { refresh_token: string } : null;
+    let entered!: () => void;
+    let resume!: () => void;
+    const inside = new Promise<void>((resolve) => { entered = resolve; });
+    const gate = new Promise<void>((resolve) => { resume = resolve; });
+    const handler = auth.handler;
+    const spy = vi.spyOn(auth, "handler").mockImplementationOnce(async (req) => {
+      entered(); await gate; return handler(req);
+    });
+    try {
+      const exchanging = refreshSource ? request("/api/auth/mcp/token", { method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ client_id: started.clientId, grant_type: "refresh_token", refresh_token: refreshSource.refresh_token }) })
+        : exchange(started.clientId, started.verifier, code);
+      await inside;
+      const { revokeOAuthConnection } = await import("../src/mcp/oauth.js");
+      const disconnecting = revokeOAuthConnection(user.userId, org, started.clientId);
+      resume();
+      const response = await exchanging;
+      expect(response.status).toBe(200);
+      const token = await response.json() as { access_token: string };
+      expect(await disconnecting).toBe(true);
+      expect((await rpc(token.access_token)).status).toBe(401);
+      expect((await pool.query('SELECT id FROM "oauthAccessToken" WHERE "clientId" = $1', [started.clientId])).rows).toEqual([]);
+      // A reconnect uses a new random generation; the just-revoked token stays dead.
+      const { setVaultBinding } = await import("../src/mcp/oauth.js");
+      await setVaultBinding(started.clientId, user.userId, org, undefined, ["notes:read"]);
+      expect((await rpc(token.access_token)).status).toBe(401);
+    } finally { resume(); spy.mockRestore(); }
+  });
+
   it("defaults branded consent to read+write with access:manage off", async () => {
     const linked = await connect();
     expect(await names(linked.access_token)).toContain("update_note");
@@ -193,8 +272,8 @@ describe("MCP connection scopes", () => {
       [randomUUID(), started.clientId, user.userId, token, randomUUID()]);
     const listed = await request("/api/mcp/connections", { headers: sessionHeaders() });
     expect(await listed.json()).toMatchObject({ connections: [{ kind: "oauth", scopes: ["notes:read", "notes:write", "notes:delete"] }] });
-    expect(await names(token)).toEqual(expect.arrayContaining(["update_note", "delete_note"]));
-    expect(await names(token)).not.toContain("manage_access");
+    // Legacy OAuth tokens have no provable audience; reconnection is required.
+    expect((await rpc(token)).status).toBe(401);
     expect((await request(`/api/mcp/connections/oauth/${started.clientId}`, { method: "DELETE", headers: sessionHeaders() })).status).toBe(200);
     expect((await rpc(token)).status).toBe(401);
   });
