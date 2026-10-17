@@ -8,6 +8,7 @@ import { auditContext } from "./log.js";
  */
 export class AuditClient extends pg.Client {
   private auditTransaction = false;
+  private auditTail: Promise<void> = Promise.resolve();
 
   override query(...args: any[]): any {
     const input = args[0];
@@ -49,7 +50,10 @@ export class AuditClient extends pg.Client {
         await raw("ROLLBACK"); throw error;
       }
     };
-    const pending = run();
+    // A client may receive parallel independent writes (pg supports queuing).
+    // Keep the implicit transaction wrappers from nesting or committing each other.
+    const pending = this.auditTail.then(run);
+    this.auditTail = pending.then(() => undefined, () => undefined);
     if (callback) { void pending.then((result) => callback(null, result), callback); return; }
     return pending;
   }

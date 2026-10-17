@@ -13,7 +13,7 @@ auditRoutes.get("/orgs/:orgId/audit", async (c) => {
   if (!isManagerRole(await orgRole(orgId, session.userId))) return c.json({ error: "access_manager_required" }, 403);
   const cursor = c.req.query("before");
   if (cursor && !/^\d+$/.test(cursor)) return c.json({ error: "invalid_cursor" }, 400);
-  const limit = Math.min(100, Math.max(1, Number(c.req.query("limit")) || 50));
+  const limit = Math.min(100, Math.max(1, Math.floor(Number(c.req.query("limit")) || 50)));
   const { rows } = await pool.query(
     `SELECT a.*, COALESCE(u.name, 'Unknown') AS actor_name FROM audit_log a
        LEFT JOIN "user" u ON u.id = a.actor_user_id
