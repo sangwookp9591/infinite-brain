@@ -38,7 +38,7 @@ afterEach(() => {
 });
 
 describe("one avatar rule on every surface", () => {
-  it("isolates masks between vault icons, account faces, and repeated gallery characters", () => {
+  it("keeps vault-icon ids scoped and gives generated avatars no ids to clash", () => {
     const html = renderToStaticMarkup(createElement("div", null,
       createElement(VaultIconSvg, { icon: "book", color: "purple" }),
       createElement(Avatar, { label: NAME, userId: USER }),
@@ -49,8 +49,11 @@ describe("one avatar rule on every surface", () => {
     const host = document.createElement("div");
     host.innerHTML = html;
     const ids = [...host.querySelectorAll("svg [id]")].map((element) => element.id);
-    expect(ids.length).toBeGreaterThanOrEqual(5);
+    expect(ids.length).toBeGreaterThanOrEqual(1);
     expect(new Set(ids).size).toBe(ids.length);
+    for (const face of host.querySelectorAll(".avatar, .presence-avatar")) {
+      expect(face.querySelector("[id]")).toBeNull();
+    }
     for (const svg of host.querySelectorAll("svg")) {
       const localIds = new Set([...svg.querySelectorAll("[id]")].map((element) => element.id));
       for (const match of svg.outerHTML.matchAll(/url\(#([^)]+)\)/g)) {

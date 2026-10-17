@@ -23,7 +23,6 @@
  *  lazy too (`components/FilePreview.tsx`) and equally not warmed. */
 export function prefetchAfterPaint(): void {
   const warm = () => {
-    void import("../components/Avatar"); // sidebar/footer faces
     void import("../components/Editor"); // CodeMirror + lezer, the big one
     void import("../components/VaultSettingsDialog");
   };
