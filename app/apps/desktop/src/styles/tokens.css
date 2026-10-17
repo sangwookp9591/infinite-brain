@@ -1,7 +1,9 @@
 /* ============================================================
-   Infinite Brain — Design Tokens (zinc / ink)
-   Light-first zinc surfaces, 4pt grid, rounded controls, restrained
-   shadows, ink primary. The same scale is mirrored for dark.
+   Infinite Brain — Design Tokens (Orbit)
+   Calm floating islands in a night sky: indigo-tinted neutrals, one violet
+   accent, generous radii, soft violet-tinted shadows, 1.5px line icons, 4pt
+   grid. Palette source: dev/design-lab/directions/tokens.ts (orbit).
+   The same scale is mirrored for dark.
    All UI styling MUST consume these variables — no hardcoded colors.
 
    Theming: light lives on :root. Dark is applied by [data-theme="dark"]
@@ -12,52 +14,52 @@
 
 :root {
   /* Modal scrim behind dialogs. */
-  --modal-backdrop: rgb(0 0 0 / 0.32);
+  --modal-backdrop: rgb(20 22 43 / 0.36);
   color-scheme: light;
 
   /* Toasts sit above every modal/overlay layer (highest is the lightbox, 1000). */
   --z-toast: 1100;
 
   /* Surfaces (light) */
-  --bg-app: #fafafa;
+  --bg-app: #f1f2f9;
   --bg-surface: #ffffff;
-  --bg-subtle: #f4f4f5;
+  --bg-subtle: #f8f9fd;
   --bg-card: #ffffff;
-  --bg-hover: #f4f4f5;
-  --bg-active: #e4e4e7;
+  --bg-hover: #eceefa;
+  --bg-active: #e3e5f6;
   --members-row-hover: color-mix(in srgb, var(--accent-soft) 18%, transparent);
 
   /* Text */
-  --text-primary: #18181b;
-  --text-secondary: #52525b;
-  --text-tertiary: #a1a1aa;
+  --text-primary: #14162b;
+  --text-secondary: #555a74;
+  --text-tertiary: #636886;
   /* The faint tier: markdown syntax markers (#, **, `, >, -), the fold
      chevrons and the line-number gutter. One step quieter than tertiary —
      present enough to find, quiet enough that prose reads as prose. Every
      theme block below must define it too: miss one and every marker in the
      editor turns black for a frame (or forever, in that theme). */
-  --text-faint: #d4d4d8;
-  --text-on-accent: #fafafa;
+  --text-faint: #a9aecb;
+  --text-on-accent: #ffffff;
 
   /* Accent (ink by default; custom accents override this tier) */
-  --accent: #18181b;
-  --accent-hover: #27272a;
-  --accent-soft: #f4f4f5;
-  --accent-soft-hover: #e4e4e7;
-  --accent-gradient: linear-gradient(135deg, #3f3f46 0%, #18181b 100%);
+  --accent: #4a3fd4;
+  --accent-hover: #3d33b8;
+  --accent-soft: #e9e7ff;
+  --accent-soft-hover: #dcd9ff;
+  --accent-gradient: linear-gradient(135deg, #6a5ff0 0%, #4a3fd4 100%);
   /* Rare decorative-only partner (hero art), never for controls */
   --decor-gradient: var(--accent-gradient);
 
   /* Links (secondary accent) */
-  --link: #3b82f6;
+  --link: #3250d8;
 
   /* Text selection is its own interaction colour. Our editor lifts
      drawSelection's wash above rich content, while native selection paints
      behind text, so they need separate values for the two rendering paths. */
-  --selection-bg: #d4d4d8;
+  --selection-bg: #d9d6ff;
   --selection-text: var(--text-primary);
-  --editor-selection-bg: rgba(24, 24, 27, 0.12);
-  --editor-selection-bg-inactive: rgba(24, 24, 27, 0.08);
+  --editor-selection-bg: rgba(74, 63, 212, 0.16);
+  --editor-selection-bg-inactive: rgba(74, 63, 212, 0.09);
 
   /* Brand — Infinite Brain logo. Fixed identity colors (not themed): the
      bracket mark's dot + wordmark brackets are green; the mark tile is a
@@ -71,8 +73,8 @@
   --brand-violet-tint: #f0ebfd;
 
   /* Semantic */
-  --danger: #dc2626;
-  --danger-soft: #fef2f2;
+  --danger: #b3261e;
+  --danger-soft: #fdecea;
   --success: #16a34a;
   --success-soft: #f0fdf4;
   --warning: #d97706;
@@ -85,12 +87,12 @@
   --access-edit-fg: #2f7044;
   --access-view-bg: #fff4e0;
   --access-view-fg: #7a6212;
-  --access-none-bg: #f0f0f2;
-  --access-none-fg: #55555f;
+  --access-none-bg: #eceef7;
+  --access-none-fg: #555a74;
 
   /* Borders */
-  --border: #e4e4e7;
-  --border-strong: #d4d4d8;
+  --border: #dcdeed;
+  --border-strong: #c4c7e0;
   --focus-ring: 0 0 0 2px var(--bg-surface), 0 0 0 4px color-mix(in srgb, var(--accent) 45%, transparent);
 
   /* Radii (generously rounded, pills for actions/chips) */
@@ -99,11 +101,14 @@
   --radius-lg: 14px;
   --radius-xl: 18px;
   --radius-pill: 999px;
+  /* Orbit islands: floating panels (sidebar, popovers) and the editor sheet. */
+  --radius-island: 20px;
+  --radius-sheet: 26px;
 
   /* Shadows (restrained in light; surface contrast in dark) */
-  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.04);
-  --shadow-md: 0 1px 2px rgb(0 0 0 / 0.04), 0 8px 24px -12px rgb(0 0 0 / 0.08);
-  --shadow-lg: 0 2px 4px rgb(0 0 0 / 0.04), 0 24px 48px -24px rgb(0 0 0 / 0.16);
+  --shadow-sm: 0 1px 2px rgb(20 22 43 / 0.05);
+  --shadow-md: 0 1px 2px rgb(20 22 43 / 0.04), 0 10px 28px -14px rgb(74 63 212 / 0.18);
+  --shadow-lg: 0 2px 4px rgb(20 22 43 / 0.04), 0 28px 56px -24px rgb(74 63 212 / 0.28);
 
   /* Spacing — 4pt grid */
   --sp-1: 4px;
@@ -152,9 +157,12 @@
   --chrome-row-h: 48px;
 
   /* Typography */
-  --font-body: "Open Sauce Two", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-display: "Radio Canada Big", "Open Sauce Two", -apple-system, sans-serif;
-  --font-mono: "JetBrains Mono", "SF Mono", ui-monospace, monospace;
+  /* Latin glyphs come from the first family, Hangul falls through to
+     Pretendard (both bundled in assets/fonts). */
+  --font-body: "Geist", "Pretendard", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-display: "Fraunces", "Pretendard", "Geist", -apple-system, serif;
+  --font-mono: "Geist Mono", "Pretendard", "SF Mono", ui-monospace, monospace;
+  --font-ko: "Pretendard", "Geist", -apple-system, sans-serif;
   --fs-xs: 11px;
   --fs-sm: 12.5px;
   --fs-md: 14px;
@@ -170,6 +178,11 @@
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --t-fast: 120ms;
   --t-med: 200ms;
+  /* Orbit: unhurried arrivals for floating surfaces. */
+  --t-slow: 320ms;
+  --ease-orbit: cubic-bezier(0.22, 1, 0.36, 1);
+  /* Stroke width of every line icon (Orbit icon set). */
+  --icon-stroke: 1.5;
 
   /* ---- Editor syntax surfaces (see lib/editor/theme.ts + ofm/) ---- */
 
@@ -187,12 +200,12 @@
   --indent-guide: var(--border);
   --indent-guide-active: var(--border-strong);
 
-  --bg-raised: #e4e4e7;
+  --bg-raised: #e3e5f6;
   --radius-input: 12px;
   --radius-row: 16px;
   --radius-card: 20px;
   --radius-slot: 14px;
-  --display-tracking: -0.03em;
+  --display-tracking: -0.015em;
   --folder-color: var(--accent);
   --folder-highlight: color-mix(in srgb, var(--text-on-accent) 10%, transparent);
   --glow-hue-one: color-mix(in srgb, var(--accent) 30%, var(--success));
@@ -232,6 +245,15 @@
   );
 }
 
+/* Honour the OS "reduce motion" setting for every token-driven transition. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --t-fast: 1ms;
+    --t-med: 1ms;
+    --t-slow: 1ms;
+  }
+}
+
 /* Traffic lights are ~12px tall centred around y≈19, so 28px clears them —
    the same strip macOS would have reserved for itself before we took the
    title bar over. Deliberately outside the theme blocks: it's a property of
@@ -261,42 +283,42 @@
 
 /* ---- Dark theme tokens (shared by explicit toggle + system fallback) ---- */
 [data-theme="dark"] {
-  --modal-backdrop: rgb(0 0 0 / 0.6);
+  --modal-backdrop: rgb(4 5 12 / 0.66);
   color-scheme: dark;
 
   /* Neutral charcoal layers: elevation gets lighter in small, predictable
      steps, so cards and controls separate without purple-grey colour noise. */
-  --bg-app: #111113;
-  --bg-surface: #18181b;
-  --bg-subtle: #1f1f23;
-  --bg-card: #18181b;
-  --bg-hover: #232327;
-  --bg-active: #27272a;
+  --bg-app: #080a16;
+  --bg-surface: #141830;
+  --bg-subtle: #0e1122;
+  --bg-card: #141830;
+  --bg-hover: #1c2142;
+  --bg-active: #232850;
   --members-row-hover: color-mix(in srgb, var(--accent-soft) 18%, transparent);
 
   /* Off-white body copy with zinc secondary and tertiary tiers. */
-  --text-primary: #f5f5f5;
-  --text-secondary: #b4b4bc;
-  --text-tertiary: #929299;
-  --text-faint: #86868f;
+  --text-primary: #e9ebf9;
+  --text-secondary: #a2a8c8;
+  --text-tertiary: #8a90b3;
+  --text-faint: #6a72a6;
 
-  --accent: #f5f5f5;
-  --accent-hover: #e4e4e7;
-  --accent-soft: #27272a;
-  --accent-soft-hover: #3f3f46;
-  --accent-gradient: linear-gradient(135deg, #ffffff 0%, #d4d4d8 100%);
+  --accent: #a29bff;
+  --accent-hover: #b8b2ff;
+  --accent-soft: #232150;
+  --accent-soft-hover: #2e2b68;
+  --accent-gradient: linear-gradient(135deg, #c1bcff 0%, #a29bff 100%);
   --decor-gradient: var(--accent-gradient);
 
-  --link: #82b7ff;
+  --link: #8ea2ff;
 
-  --selection-bg: #384f83;
-  --selection-text: #f4f4f6;
+  --selection-bg: #3a3680;
+  --selection-text: #f4f4ff;
   /* drawSelection sits above editor text and opaque widgets. A restrained
      navy overlay keeps selected body text at 7:1 and links at 4.5:1. */
-  --editor-selection-bg: rgba(53, 90, 159, 0.32);
-  --editor-selection-bg-inactive: rgba(53, 90, 159, 0.20);
+  --editor-selection-bg: rgba(162, 155, 255, 0.28);
+  --editor-selection-bg-inactive: rgba(162, 155, 255, 0.17);
 
-  --danger-soft: rgb(229 72 77 / 0.14);
+  --danger-soft: rgb(255 143 135 / 0.14);
   --brand-violet-tint: rgba(124, 92, 255, 0.16);
   --success: #22c55e;
   --success-soft: rgb(34 197 94 / 0.14);
@@ -307,27 +329,27 @@
   --access-edit-fg: #74d39c;
   --access-view-bg: rgba(240, 180, 41, 0.16);
   --access-view-fg: #f2c45c;
-  --access-none-bg: rgba(255, 255, 255, 0.06);
-  --access-none-fg: #b6b6bf;
+  --access-none-bg: rgba(162, 168, 200, 0.10);
+  --access-none-fg: #b4b9d6;
 
-  --border: #27272a;
-  --border-strong: #3f3f46;
+  --border: #262b4a;
+  --border-strong: #3a4068;
   --focus-ring: 0 0 0 2px var(--bg-surface), 0 0 0 4px color-mix(in srgb, var(--accent) 45%, transparent);
 
   --highlight-bg: rgba(255, 208, 0, 0.22);
 
   --shadow-sm: none;
   --shadow-md: 0 0 0 1px var(--border);
-  --shadow-lg: 0 0 0 1px var(--border), 0 24px 48px -24px rgb(0 0 0 / 0.6);
+  --shadow-lg: 0 0 0 1px var(--border), 0 28px 56px -24px rgb(0 0 0 / 0.7);
 
-  --bg-raised: #27272a;
-  --text-on-accent: #18181b;
-  --danger: #e5484d;
+  --bg-raised: #232850;
+  --text-on-accent: #0b0c1e;
+  --danger: #ff8f87;
   --radius-input: 12px;
   --radius-row: 16px;
   --radius-card: 20px;
   --radius-slot: 14px;
-  --display-tracking: -0.03em;
+  --display-tracking: -0.015em;
   --folder-color: var(--accent);
   --folder-highlight: color-mix(in srgb, var(--text-on-accent) 10%, transparent);
   --glow-hue-one: color-mix(in srgb, var(--accent) 30%, var(--success));
@@ -347,51 +369,51 @@
   --members-row-hover: color-mix(in srgb, var(--accent) 4%, var(--bg-surface));
   --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 40%, transparent);
   /* Restore the dark selection overlays: light-custom has higher specificity. */
-  --selection-bg: #384f83;
-  --editor-selection-bg: rgba(53, 90, 159, 0.32);
-  --editor-selection-bg-inactive: rgba(53, 90, 159, 0.20);
+  --selection-bg: #3a3680;
+  --editor-selection-bg: rgba(162, 155, 255, 0.28);
+  --editor-selection-bg-inactive: rgba(162, 155, 255, 0.17);
 }
 
 /* Pre-hydration fallback: honour the OS until the toggle script paints
    data-theme. Once data-theme is set (light or dark), this no longer matches. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]):not([data-theme="dark"]) {
-    --modal-backdrop: rgb(0 0 0 / 0.6);
+    --modal-backdrop: rgb(4 5 12 / 0.66);
     color-scheme: dark;
 
     /* Neutral charcoal layers: elevation gets lighter in small, predictable
        steps, so cards and controls separate without purple-grey colour noise. */
-    --bg-app: #111113;
-    --bg-surface: #18181b;
-    --bg-subtle: #1f1f23;
-    --bg-card: #18181b;
-    --bg-hover: #232327;
-    --bg-active: #27272a;
+    --bg-app: #080a16;
+    --bg-surface: #141830;
+    --bg-subtle: #0e1122;
+    --bg-card: #141830;
+    --bg-hover: #1c2142;
+    --bg-active: #232850;
     --members-row-hover: color-mix(in srgb, var(--accent-soft) 18%, transparent);
 
     /* Off-white body copy with zinc secondary and tertiary tiers. */
-    --text-primary: #f5f5f5;
-    --text-secondary: #b4b4bc;
-    --text-tertiary: #929299;
-    --text-faint: #86868f;
+    --text-primary: #e9ebf9;
+    --text-secondary: #a2a8c8;
+    --text-tertiary: #8a90b3;
+    --text-faint: #6a72a6;
 
-    --accent: #f5f5f5;
-    --accent-hover: #e4e4e7;
-    --accent-soft: #27272a;
-    --accent-soft-hover: #3f3f46;
-    --accent-gradient: linear-gradient(135deg, #ffffff 0%, #d4d4d8 100%);
+    --accent: #a29bff;
+    --accent-hover: #b8b2ff;
+    --accent-soft: #232150;
+    --accent-soft-hover: #2e2b68;
+    --accent-gradient: linear-gradient(135deg, #c1bcff 0%, #a29bff 100%);
     --decor-gradient: var(--accent-gradient);
 
-    --link: #82b7ff;
+    --link: #8ea2ff;
 
-    --selection-bg: #384f83;
-    --selection-text: #f4f4f6;
+    --selection-bg: #3a3680;
+    --selection-text: #f4f4ff;
     /* drawSelection sits above editor text and opaque widgets. A restrained
        navy overlay keeps selected body text at 7:1 and links at 4.5:1. */
-    --editor-selection-bg: rgba(53, 90, 159, 0.32);
-    --editor-selection-bg-inactive: rgba(53, 90, 159, 0.20);
+    --editor-selection-bg: rgba(162, 155, 255, 0.28);
+    --editor-selection-bg-inactive: rgba(162, 155, 255, 0.17);
 
-    --danger-soft: rgb(229 72 77 / 0.14);
+    --danger-soft: rgb(255 143 135 / 0.14);
     --brand-violet-tint: rgba(124, 92, 255, 0.16);
     --success: #22c55e;
     --success-soft: rgb(34 197 94 / 0.14);
@@ -402,27 +424,27 @@
     --access-edit-fg: #74d39c;
     --access-view-bg: rgba(240, 180, 41, 0.16);
     --access-view-fg: #f2c45c;
-    --access-none-bg: rgba(255, 255, 255, 0.06);
-    --access-none-fg: #b6b6bf;
+    --access-none-bg: rgba(162, 168, 200, 0.10);
+    --access-none-fg: #b4b9d6;
 
-    --border: #27272a;
-    --border-strong: #3f3f46;
+    --border: #262b4a;
+    --border-strong: #3a4068;
     --focus-ring: 0 0 0 2px var(--bg-surface), 0 0 0 4px color-mix(in srgb, var(--accent) 45%, transparent);
 
     --highlight-bg: rgba(255, 208, 0, 0.22);
 
     --shadow-sm: none;
     --shadow-md: 0 0 0 1px var(--border);
-    --shadow-lg: 0 0 0 1px var(--border), 0 24px 48px -24px rgb(0 0 0 / 0.6);
+    --shadow-lg: 0 0 0 1px var(--border), 0 28px 56px -24px rgb(0 0 0 / 0.7);
 
-    --bg-raised: #27272a;
-    --text-on-accent: #18181b;
-    --danger: #e5484d;
+    --bg-raised: #232850;
+    --text-on-accent: #0b0c1e;
+    --danger: #ff8f87;
     --radius-input: 12px;
     --radius-row: 16px;
     --radius-card: 20px;
     --radius-slot: 14px;
-    --display-tracking: -0.03em;
+    --display-tracking: -0.015em;
     --folder-color: var(--accent);
     --folder-highlight: color-mix(in srgb, var(--text-on-accent) 10%, transparent);
     --glow-hue-one: color-mix(in srgb, var(--accent) 30%, var(--success));
@@ -440,8 +462,8 @@
     --bg-active: color-mix(in srgb, var(--accent) 24%, var(--bg-surface));
     --members-row-hover: color-mix(in srgb, var(--accent) 4%, var(--bg-surface));
     --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 40%, transparent);
-    --selection-bg: #384f83;
-    --editor-selection-bg: rgba(53, 90, 159, 0.32);
-    --editor-selection-bg-inactive: rgba(53, 90, 159, 0.20);
+    --selection-bg: #3a3680;
+    --editor-selection-bg: rgba(162, 155, 255, 0.28);
+    --editor-selection-bg-inactive: rgba(162, 155, 255, 0.17);
   }
 }
