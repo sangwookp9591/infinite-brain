@@ -290,17 +290,17 @@
      steps, so cards and controls separate without purple-grey colour noise. */
   --bg-app: #080a16;
   --bg-surface: #141830;
-  --bg-subtle: #0e1122;
+  --bg-subtle: #181c38;
   --bg-card: #141830;
-  --bg-hover: #1c2142;
-  --bg-active: #232850;
+  --bg-hover: #1f2447;
+  --bg-active: #282d58;
   --members-row-hover: color-mix(in srgb, var(--accent-soft) 18%, transparent);
 
   /* Off-white body copy with zinc secondary and tertiary tiers. */
   --text-primary: #e9ebf9;
-  --text-secondary: #a2a8c8;
-  --text-tertiary: #8a90b3;
-  --text-faint: #6a72a6;
+  --text-secondary: #b4b9d6;
+  --text-tertiary: #a0a6c8;
+  --text-faint: #868cb4;
 
   --accent: #a29bff;
   --accent-hover: #b8b2ff;
@@ -309,14 +309,14 @@
   --accent-gradient: linear-gradient(135deg, #c1bcff 0%, #a29bff 100%);
   --decor-gradient: var(--accent-gradient);
 
-  --link: #8ea2ff;
+  --link: #a3b3ff;
 
   --selection-bg: #3a3680;
   --selection-text: #f4f4ff;
   /* drawSelection sits above editor text and opaque widgets. A restrained
      navy overlay keeps selected body text at 7:1 and links at 4.5:1. */
-  --editor-selection-bg: rgba(162, 155, 255, 0.28);
-  --editor-selection-bg-inactive: rgba(162, 155, 255, 0.17);
+  --editor-selection-bg: rgba(162, 155, 255, 0.24);
+  --editor-selection-bg-inactive: rgba(162, 155, 255, 0.15);
 
   --danger-soft: rgb(255 143 135 / 0.14);
   --brand-violet-tint: rgba(124, 92, 255, 0.16);
@@ -342,7 +342,7 @@
   --shadow-md: 0 0 0 1px var(--border);
   --shadow-lg: 0 0 0 1px var(--border), 0 28px 56px -24px rgb(0 0 0 / 0.7);
 
-  --bg-raised: #232850;
+  --bg-raised: #282d58;
   --text-on-accent: #0b0c1e;
   --danger: #ff8f87;
   --radius-input: 12px;
@@ -370,8 +370,8 @@
   --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 40%, transparent);
   /* Restore the dark selection overlays: light-custom has higher specificity. */
   --selection-bg: #3a3680;
-  --editor-selection-bg: rgba(162, 155, 255, 0.28);
-  --editor-selection-bg-inactive: rgba(162, 155, 255, 0.17);
+  --editor-selection-bg: rgba(162, 155, 255, 0.24);
+  --editor-selection-bg-inactive: rgba(162, 155, 255, 0.15);
 }
 
 /* Pre-hydration fallback: honour the OS until the toggle script paints
@@ -385,17 +385,17 @@
        steps, so cards and controls separate without purple-grey colour noise. */
     --bg-app: #080a16;
     --bg-surface: #141830;
-    --bg-subtle: #0e1122;
+    --bg-subtle: #181c38;
     --bg-card: #141830;
-    --bg-hover: #1c2142;
-    --bg-active: #232850;
+    --bg-hover: #1f2447;
+    --bg-active: #282d58;
     --members-row-hover: color-mix(in srgb, var(--accent-soft) 18%, transparent);
 
     /* Off-white body copy with zinc secondary and tertiary tiers. */
     --text-primary: #e9ebf9;
-    --text-secondary: #a2a8c8;
-    --text-tertiary: #8a90b3;
-    --text-faint: #6a72a6;
+    --text-secondary: #b4b9d6;
+    --text-tertiary: #a0a6c8;
+    --text-faint: #868cb4;
 
     --accent: #a29bff;
     --accent-hover: #b8b2ff;
@@ -404,14 +404,14 @@
     --accent-gradient: linear-gradient(135deg, #c1bcff 0%, #a29bff 100%);
     --decor-gradient: var(--accent-gradient);
 
-    --link: #8ea2ff;
+    --link: #a3b3ff;
 
     --selection-bg: #3a3680;
     --selection-text: #f4f4ff;
     /* drawSelection sits above editor text and opaque widgets. A restrained
        navy overlay keeps selected body text at 7:1 and links at 4.5:1. */
-    --editor-selection-bg: rgba(162, 155, 255, 0.28);
-    --editor-selection-bg-inactive: rgba(162, 155, 255, 0.17);
+    --editor-selection-bg: rgba(162, 155, 255, 0.24);
+    --editor-selection-bg-inactive: rgba(162, 155, 255, 0.15);
 
     --danger-soft: rgb(255 143 135 / 0.14);
     --brand-violet-tint: rgba(124, 92, 255, 0.16);
@@ -437,7 +437,7 @@
     --shadow-md: 0 0 0 1px var(--border);
     --shadow-lg: 0 0 0 1px var(--border), 0 28px 56px -24px rgb(0 0 0 / 0.7);
 
-    --bg-raised: #232850;
+    --bg-raised: #282d58;
     --text-on-accent: #0b0c1e;
     --danger: #ff8f87;
     --radius-input: 12px;
@@ -463,7 +463,7 @@
     --members-row-hover: color-mix(in srgb, var(--accent) 4%, var(--bg-surface));
     --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 40%, transparent);
     --selection-bg: #3a3680;
-    --editor-selection-bg: rgba(162, 155, 255, 0.28);
-    --editor-selection-bg-inactive: rgba(162, 155, 255, 0.17);
+    --editor-selection-bg: rgba(162, 155, 255, 0.24);
+    --editor-selection-bg-inactive: rgba(162, 155, 255, 0.15);
   }
 }
