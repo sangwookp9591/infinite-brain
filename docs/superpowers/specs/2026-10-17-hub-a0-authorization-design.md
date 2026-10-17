@@ -368,3 +368,242 @@ vault 하나(posture Shared, `join_default='open'`), 폴더 `Clients/Acme/Shared
 | G13 | guest 초대 가능 | 우리 API(425-428)와 Better Auth(`ROLE_NOT_FOUND`) 모두 guest 역할을 거부한다 | D6-43, 45의 근거 | D6-43, 45 |
 | G14 | vault 통계 없음 | 저장 공간 사용량과 체크포인트 노트 수를 받는다 | `S/http/routes/blobs.ts:2227-2236`, `S/http/routes/versions.ts:404-407` | D6-34, 59 |
 | G15 | 좌석 정책에 따름 | 좌석으로 센다 | `S/billing/plan.ts:222, 271` | D6-64 |
+
+## 6. 기존 데이터 migration 기본값 [PRD F2, #22]
+
+### 6.1 원칙
+- **기존 행의 역할은 하나도 바꾸지 않는다.** migration이 끝난 직후 모든 vault의 guest 수는 0이다.
+- 기존 (사용자, 문서) 쌍의 판정 결과는 바뀌지 않는다. 예외는 §5.1의 결함을 고친 부분(M1, M2)이며, 이 차이는 의도한 변경으로 테스트에 고정한다.
+- 기존 행은 지우지 않는다. 쓸모없어진 행도 남기고, 개수를 감사 로그에 기록한다(삭제·회수·복구 가드를 지킨다).
+
+### 6.2 항목별 기본값
+
+| 대상 | migration 후 상태 | 근거·이유 |
+|---|---|---|
+| `member.role` (owner/admin/member) | 그대로다 | 컬럼에 CHECK가 없다(`M/001_better_auth.sql:16`). guest 추가에 스키마 변경이 필요 없다 |
+| `member_access_snapshots` | 그대로다. trigger 함수만 교체해 **새로 들어오는 guest**를 제외한다 | `M/032_member_access_defaults.sql:43`. 기존 snapshot은 기존 member의 권한 근거다 |
+| `organization_access_settings.join_default` | 그대로다 | guest에게는 적용하지 않는다(R2) |
+| `shares` (활성 관계가 있는 사람의 행) | 그대로다 | 판정 결과가 같다 |
+| `shares` (활성 관계가 없는 사람의 개인 행) | **지우지 않는다.** migration이 개수를 조직별로 감사 로그(`action='migration.orphan_user_shares'`)에 남긴다. R1이 들어가면 이 행은 권한을 주지 않는다 | 재현 P1, P2. 처리 방식은 §10 Q1 |
+| `invitation` (대기 중) | 그대로다. `role`이 null이면 지금처럼 member로 본다 | `S/registry/invitations.ts:73` |
+| `invitation_access` | 그대로다. guest 초대에는 만들지 않는다 | D6-44 |
+| `org_join_codes` | 코드는 그대로 둔다. `expires_at`은 **배포 시점 + 30일**로 채운다. 관리자 화면에 만료일을 보여 준다 | 지금은 만료가 없다(`M/005_join_codes_and_index.sql`, `S/http/routes/orgs.ts:523-542`). 바로 막으면 쓰고 있던 팀의 합류가 끊긴다. 값은 §10 Q2 |
+| 외부 공유 정책(신규) | 기존 vault와 새 vault 모두 `on` | 지금 동작과 같다(공개 링크 허용, guest 없음). 값은 §10 Q12 |
+| `audit_log`(신규) | 빈 상태로 시작한다. 과거 기록을 채우지 않는다 | 기존 기록(AI 변경, 버전 작성자, 멤버 활동)은 제자리에 남는다(§9 A1-3) |
+| `mcp_tokens`, `public_links` | 그대로다 | guest가 없으므로 영향이 없다 |
+
+### 6.3 호환성과 롤백
+- **롤백 순서가 중요하다.** 구버전 서버는 guest 행을 member로 판정한다(§5.2 G1~G15). 서버를 되돌리기 전에 guest 멤버를 모두 제거해야 한다(A1-7 일괄 회수로 할 수 있다). 운영 문서(`docs/DEPLOY.md`)에 이 순서를 적는다.
+- migration은 앞으로만 진행한다. trigger를 되돌릴 때도 새 migration으로 원래 함수를 다시 만든다.
+- 구버전 데스크톱이 `role: "guest"`를 받으면 member처럼 보여 줄 수 있다. 서버가 거부하므로 권한이 새지는 않지만, 버튼이 실패로 끝나는 화면이 생긴다. 최소 클라이언트 버전 처리(`S/http/client-version.ts`)로 guest 계정에 업데이트를 요구할지는 A1-5에서 정한다(**미검증**: 구버전 데스크톱의 역할 문자열 처리).
+
+### 6.4 migration 테스트 (`T/guest-migration.test.ts`)
+- "existing owner/admin/member permissions are unchanged across 061-065": 고정 시나리오 전체의 판정을 migration 전후로 비교한다.
+- "join snapshot rows are untouched and new members still get one"
+- "a guest insert writes no join snapshot"
+- "pending invitations keep their role and access mode"
+- "seeded join code expiry is deployment time plus 30 days and the code still redeems"
+- "orphan per-user shares are kept and counted in the audit log"
+- 기존 `T/renumbered-migrations.test.ts`, `T/join-default-seed.test.ts`, `T/member-access-defaults.test.ts`가 계속 통과해야 한다.
+
+## 7. `POST /shares` 대상 검증 규칙 [PRD F2, F01]
+
+### 7.1 규칙
+
+| ID | 규칙 | 실패 응답 |
+|---|---|---|
+| V1 | 호출자는 `canManage`를 통과해야 한다. 만든 사람 경로는 **팀 역할**일 때만 연다(A1-1). guest는 항상 실패한다 | 403 `Not allowed to manage shares here`(현행 문구) |
+| V2 | `principalType='user'`면 `principalId`가 **리소스가 속한 조직**(`gate.organizationId`)에 활성 관계(owner/admin/member/guest)로 있어야 한다. `view`, `edit`, `locked`, `denied` 모두에 적용한다 | 400 `share_target_not_member` |
+| V3 | 대상이 guest면 `resourceType`은 `folder`나 `file`이어야 한다. 개인 vault 수준(`vault`)은 만들 수 없다 | 400 `guest_vault_level_not_allowed` |
+| V4 | 대상이 guest면 현재 외부 공유 정책을 다시 확인한다. `off`면 거부하고, `domains`면 guest 이메일 도메인이 허용 목록에 있어야 한다 | 403 `external_sharing_blocked` |
+| V5 | guest를 대상으로 공유할 수 있는 사람은 owner/admin이다. 만든 사람인 member가 guest에게 공유할 수 있는지는 §10 Q13 | 403 `access_manager_required` |
+| V6 | `principalType='org'`면 지금처럼 `principalId`를 조직 ID로 강제한다(`S/http/routes/shares.ts:523-524`). 조직 행은 guest에게 닿지 않는다(R2) | — |
+| V7 | 멤버십 확인과 INSERT를 한 트랜잭션 안에서 한다. 대상 member 행은 `FOR SHARE`로 잠근다. 동시에 일어나는 제거(`revokeMembership`, `S/http/routes/orgs.ts:165-187`)와 순서가 정해져 주인 없는 행이 남지 않는다 | — |
+| V8 | 같은 규칙을 모든 공유 쓰기 경로에 적용한다: `applyBulkAccess`(`S/permissions/access-management.ts:259`, 대상 검증은 157-182에 이미 있다), `PUT /orgs/:orgId/team-access`, guest 초대 수락 때 적용하는 항목 공유(D6-44), MCP 접근 관리 도구(`S/mcp/service.ts:140-214`) | 각 경로의 기존 오류 형식 |
+| V9 | 허용한 쓰기와 거부한 쓰기를 모두 감사 로그에 남긴다(이전 권한, 이후 권한, 결과). A1-3 | — |
+
+화면 문구는 PRD §0.1을 따른다. 예를 들어 V2는 "이 사람은 아직 이 vault에 들어오지 않았습니다. 먼저 초대해 주세요."로, V4는 "이 vault는 외부 사람과 공유할 수 없게 설정되어 있습니다. 관리자에게 문의하세요."로 쓴다.
+
+### 7.2 테스트 (`T/shares-target-validation.test.ts`)
+- "rejects a principal that is not a member of the resource's vault" (재현 P2를 회귀 테스트로 옮긴다)
+- "rejects a principal id that does not exist"
+- "rejects a member of a different vault even when the caller's active vault matches"
+- "rejects a vault-level row for a guest"
+- "re-checks the external sharing policy for guest targets"
+- "a member creator cannot share with a guest unless allowed (Q13)"
+- "removed creator cannot share at all" (재현 P3)
+- "concurrent removal and share leave no orphan row"
+- "bulk access, team-access and MCP access tools apply the same rules"
+- "every accepted and refused share write is audited"
+
+## 8. 메일 기능이 없는 자체 설치 환경 [PRD §9 A0, F02, S05]
+
+### 8.1 현재 동작 (확인)
+- `EMAIL_FROM`과 전송 수단이 없으면 메일이 꺼진다. 반쯤 설정한 경우에는 시작할 때 실패한다(`S/config.ts:165-179`, `S/email/mailer.ts:81`).
+- 인증 메일 설정은 메일이 켜졌을 때만 들어간다(`S/auth/auth.ts:161-175`). `requireEmailVerification: false`(136)라서 비밀번호로 가입한 계정은 `emailVerified = false`로 남는다(189행 주석). Google 로그인은 확인된 이메일을 준다(`trustedProviders`).
+- 초대는 만들어지지만 메일은 가지 않는다(`S/http/routes/members.ts:434, 456`). 데스크톱은 링크를 보여 준다(`D/components/InvitePeopleDialog.tsx:248-252`). `POST /invitations/:id/send`는 400 `email_not_configured`로 답한다(`S/http/routes/invitations.ts:70-75`).
+- 비밀번호 재설정은 400으로 거부한다(`S/http/routes/password-reset.ts:62-68`).
+- 초대 수락은 초대 이메일과 세션 이메일이 같은지만 본다(`S/http/routes/invitations.ts:31-32` 주석, Better Auth). 그래서 메일이 없으면 **초대 링크를 가진 사람은 누구나 그 이메일로 가입해 수락할 수 있다.**
+
+### 8.2 기대 동작
+
+| ID | 상황 | 동작 |
+|---|---|---|
+| E1 | guest 초대를 만들 때 | 링크와 QR을 보여 준다. 문구: "이 서버는 메일을 보내지 않습니다. 아래 링크를 초대할 사람에게 직접 전해 주세요. 링크를 가진 사람은 누구나 이 주소로 들어올 수 있으니 공개된 곳에 올리지 마세요." |
+| E2 | guest 초대 만료 | 메일 유무와 관계없이 기존 초대 만료(기본 7일, `S/config.ts:97`)를 쓴다. 만료되거나 취소된 초대는 이유와 함께 거부한다(PRD F1 완료 기준) |
+| E3 | guest가 수락했을 때 | A1에서는 승인 대기열 없이 바로 들어온다. Members 화면과 감사 로그에 "누가 어떤 초대로 들어왔는지"를 남기고, 바로 내보낼 수 있게 한다. A2의 승인 대기열이 생기면, 메일 없는 서버의 guest 수락에 승인을 기본으로 요구할 수 있다(§10 Q14) |
+| E4 | 외부 공유 정책이 `domains`일 때 | **서버가 확인한 이메일(`emailVerified = true`)만** 인정한다(PRD F1.4). 메일이 없는 서버에서는 Google 로그인 계정만 이 조건을 통과한다. 그래서 설정 화면에 "이 서버는 메일 확인을 할 수 없어, 허용한 도메인의 Google 계정으로만 게스트가 들어올 수 있습니다."라고 알린다(§10 Q15) |
+| E5 | 감사 로그, 일괄 회수 | 메일 없이도 그대로 동작한다. 나가기·제거 알림 메일은 보내지 않고 앱 안 알림만 쓴다 |
+| E6 | guest가 비밀번호를 잊었을 때 | 재설정할 수 없다(현행). 관리자가 내보낸 뒤 다시 초대한다. 이 한계를 관리자용 도움말에 적는다 |
+| E7 | 초대 미리보기 | 지금처럼 초대 ID만으로 열 수 있다. 보여 주는 정보는 §3.2 invite 표를 따른다 |
+
+### 8.3 테스트 (`T/guest-no-email.test.ts`, 메일 끈 설정으로 실행)
+- "guest invite without email returns a shareable link and emailed=false"
+- "send endpoint answers email_not_configured for a guest invite"
+- "domains policy refuses an unverified account"
+- "domains policy accepts a verified account from an allowed domain"
+- "expired guest invitation is refused with a reason"
+
+## 9. A1 구현 작업 분해
+
+### 9.1 의존 순서
+
+```
+A1-1 선행 보안 수정 ─┬─> A1-2 POST /shares 대상 검증 ─┐
+                     └─> A1-3 감사 로그 최소판 ───────┼─> A1-4 참가 코드 만료·재발급
+                                                      └─> A1-5 허브 게스트 ─> A1-6 외부 공유 정책 ─> A1-7 외부 접근 일괄 회수
+```
+
+- A1-1의 R1(관계 판정)은 §10 Q1이 결정된 뒤에 넣는다. 나머지 A1-1 수정은 결정 없이 진행할 수 있다.
+- A1-3을 A1-4보다 먼저 하는 이유는, 그 뒤 조각들이 모두 감사 로그에 기록해야 하기 때문이다.
+- migration 번호는 현재 마지막인 060(`M/060_ai_change_retention.sql`) 다음부터 쓴다.
+
+### 9.2 조각별 내용
+
+**A1-1 선행 보안 수정 (migration 없음)**
+- 변경 파일:
+  - 신규 `S/permissions/roles.ts`: `isTeamRole`, `isActiveRole`, `isManagerRole`. `S/permissions/http-gates.ts:596`의 `isManagerRole`을 옮긴다.
+  - `S/http/routes/shares.ts` `canManage`: 만든 사람 경로는 팀 역할일 때만 연다(M1).
+  - `S/http/routes/public-links.ts` `gate`: 같은 규칙을 적용한다(M4).
+  - `S/mcp/service.ts`: adopt 경로를 `NOT_READABLE`로 바꾸고(M5), `listFolders`를 `listVisibleFolders`로 거른다(M6).
+  - (Q1 결정 후) `S/http/routes/sync-token.ts`, `S/permissions/resolver.ts`, `S/permissions/vault-docs.ts`에 R1을 넣는다(M2).
+- 테스트:
+  - `T/removed-creator-regrant.test.ts` "removed creator cannot manage shares", "removed creator cannot mint a public link"
+  - `T/mcp.test.ts` "create_note adopt refuses an unreadable existing note", "list_folders hides private folders"
+  - (Q1 후) `T/sync-token.test.ts` "external with a per-user share is refused". `T/vault-docs.test.ts:129-153`의 기대값을 결정에 맞게 바꾼다.
+- commit:
+  1. `refactor(server): centralize role predicates`
+  2. `fix(server): require team membership for creator share management`
+  3. `fix(server): refuse unreadable adopts and unfiltered folder lists over MCP`
+  4. (Q1 후) `fix(server): require an active vault relation for every grant`
+
+**A1-2 `POST /shares` 대상 검증 (migration 없음)**
+- 변경 파일: `S/http/routes/shares.ts`(§7 V1~V7), `S/permissions/access-management.ts`(V3/V4를 bulk access와 team-access에 적용), `S/mcp/service.ts`(V8). 데스크톱에서는 `D/components/` 공유 화면에 오류 문구를 연결한다.
+- 테스트: §7.2 전체.
+- commit:
+  1. `fix(server): validate share targets against vault membership`
+  2. `feat(desktop): explain refused share targets`
+
+**A1-3 통합 감사 로그 최소판 (`M/061_audit_log.sql`)**
+- 스키마: `audit_log(id bigserial, organization_id, actor_user_id, actor_kind('user'|'system'|'mcp'), action, target_type, target_id, before jsonb, after jsonb, result('ok'|'refused'|'failed'), request_id, created_at)`, 인덱스 `(organization_id, created_at DESC)`. 보존 기간은 `organization_access_settings.audit_retention_days`(기본값은 §10 Q11)로 둔다.
+- 변경 파일:
+  - 신규 `S/audit/log.ts`: `recordAudit(client, entry)`. 권한 변경과 같은 트랜잭션 안에서 부른다. AI 변경 기록이 Yjs 업데이트와 같은 트랜잭션에 들어가는 것과 같은 원칙이다.
+  - 신규 `S/http/routes/audit.ts`: `GET /orgs/:orgId/audit`(owner/admin, 페이지 단위).
+  - 요청 상관 ID 미들웨어(`S/http/app.ts`). 서버 코드(`S/`) 전체에서 요청 ID 처리를 찾지 못했다.
+  - 기록 지점: 공유 생성·삭제, team-access, bulk access, 멤버 공유 초기화, 역할 변경, 제거·나가기, 초대 생성·취소·수락, 참가 코드 재발급·사용, 공개 링크 생성·삭제, MCP 토큰 생성·삭제. 이후 조각의 정책 변경과 일괄 회수도 여기에 기록한다.
+  - 보존 기간이 지난 행 정리: 기존 정리 작업(`S/invitations/sweep.ts`와 같은 방식)에 붙인다.
+- 기존 기록과의 관계: AI 변경 기록(`ai_change_ledger`)은 문서 내용 변경, 버전 작성자(`note_versions`)는 편집 이력, 멤버 활동 피드(`S/http/routes/members.ts:240`)는 공유 행에서 만든 화면용 요약이다. 감사 로그는 **멤버·공유·정책·연결의 변경만** 기록하고 내용 변경은 기록하지 않는다. 각 행에 관련 기록 ID(예: `ai_change_ledger.id`)를 둘 수 있는 `refs jsonb`를 둔다.
+- 데스크톱: 설정 → "보안 기록" 화면(관리자만). 기술 용어 없이 "누가 · 무엇을 · 언제 · 결과"로 보여 준다.
+- 테스트: `T/audit-log.test.ts` "share write and audit row commit together", "a refused share write is audited", "members and guests cannot read the audit log", "retention sweep deletes only expired rows".
+- commit:
+  1. `feat(server): add audit log table and writer`
+  2. `feat(server): audit membership, share and invitation changes`
+  3. `feat(server): audit log listing and retention`
+  4. `feat(desktop): security log view for admins`
+
+**A1-4 참가 코드 만료·재발급·시도 제한 (`M/062_join_code_lifecycle.sql`)**
+- 스키마: `org_join_codes`에 `expires_at`, `rotated_at`, `created_by`를 더한다(기존 행은 §6.2). 시도 기록 테이블 `join_code_attempts(user_id, attempted_at, ok)`를 둔다. 로그인 시도 제한(`S/auth/signin-throttle.ts`, migration 036)과 같은 방식이다.
+- 변경 파일: `S/http/routes/orgs.ts`
+  - `GET /orgs/join-code`는 `expiresAt`을 함께 준다.
+  - 신규 `POST /orgs/join-code/rotate`(owner/admin): 이전 코드를 즉시 무효로 한다.
+  - `POST /orgs/join`: 만료면 410 `join_code_expired`, 시도 초과면 429 `join_code_rate_limited`, 살아 있는 guest 초대가 있으면 409 `guest_invite_pending`(D6-47). 역할은 지금처럼 member/admin만 준다.
+- 데스크톱: `D/components/InvitePeopleDialog.tsx`에 만료일과 "새 코드 만들기"를 넣는다. 참가 화면에 만료·시도 초과 이유를 한 문장으로 보여 준다.
+- 테스트: `T/join-code-lifecycle.test.ts` "expired code is refused with a reason", "rotation invalidates the previous code", "attempts beyond the limit are refused", "a pending guest invite cannot be redeemed through the join code", "redeeming never promotes a guest".
+- commit:
+  1. `feat(server): join code expiry and rotation`
+  2. `feat(server): rate-limit join code redemption`
+  3. `feat(desktop): show join code expiry and regenerate`
+
+**A1-5 허브 게스트 (`M/063_guest_role.sql`)**
+- 스키마:
+  - trigger 함수를 다시 만들어 guest를 제외한다.
+  - guest 초대의 공유 대상을 저장할 `invitation_shares(invitation_id, resource_type, resource_id, permission)`를 둔다.
+  - 역할 강등 때 snapshot과 개인 vault 수준 행을 정리하는 것은 코드에서 처리한다.
+- 변경 파일(§4의 D6 경로 전체):
+  - Better Auth 역할 정의: `S/auth/auth.ts`
+  - 판정: `S/permissions/resolver.ts`, `vault-docs.ts`, `http-gates.ts`, `access-management.ts`
+  - 신규 이름 가리기 도우미: `S/permissions/redact.ts`
+  - 경로: `S/http/routes/{members,registry,versions,blobs,graph,bulk,shares,public-links,mcp,oauth-connect,orgs,invitations,bootstrap}.ts`, `S/trash/service.ts`, `S/sync/vault-channel.ts`, `S/yjs/bootstrap.ts`(페이지마다 재확인, M7), `S/http/app.ts`(Better Auth 조직 엔드포인트 가로채기, D6-46)
+  - 데스크톱: 역할 표시 "게스트", 관리 버튼 숨김, 초대 화면의 "게스트로 초대"(폴더·노트 선택), 게스트가 보는 빈 상태 문구.
+- 테스트: §4의 `T/guest-*.test.ts` 전체. 출시 조건은 표의 모든 기대 거부가 통과하는 것이다(PRD F2, §11).
+- commit:
+  1. `feat(server): guest role definition and snapshot trigger`
+  2. `feat(server): resolve guest access from per-user grants only`
+  3. `feat(server): scope HTTP gates and listings for guests`
+  4. `feat(server): scope sync, bootstrap and vault channel for guests`
+  5. `feat(server): redact people and vault metadata for guests`
+  6. `feat(server): guest invitations with explicit targets`
+  7. `feat(desktop): guest invite flow and guest view`
+  8. `test(server): D6 guest matrix`
+
+**A1-6 외부 공유 정책 (`M/064_external_sharing_policy.sql`)**
+- 스키마: `organization_access_settings`에 `external_sharing`(`off`|`domains`|`on`, 기본 `on`)과 `external_domains text[]`을 더한다.
+- 변경 파일:
+  - 신규 경로 `GET/PUT /orgs/:orgId/external-sharing`(owner/admin. owner만 바꿀 수 있게 할지는 §10 Q12)
+  - 적용 지점: guest 초대 생성·수락(`S/auth/auth.ts` hook 325, 348), `POST /shares`(V4), 공개 링크 생성(`S/http/routes/public-links.ts`), 공개 링크 열람(`GET /p/:token`, §10 Q9)
+  - 우선순위는 PRD F1.4의 순서로 하나의 함수에 둔다.
+- 데스크톱: 설정 → "외부 공유" 세 가지 선택과 도메인 목록. `domains`에서 공개 링크 버튼을 끄고 이유를 보여 준다.
+- 테스트: `T/external-sharing-policy.test.ts` "off refuses guest invites, guest shares and public links", "domains accepts only verified allowed domains", "domains refuses anonymous public links", "policy precedence is identical on every join path".
+- commit:
+  1. `feat(server): external sharing policy`
+  2. `feat(desktop): external sharing settings`
+
+**A1-7 외부 접근 일괄 회수 (`M/065_external_revocations.sql`)**
+- 스키마: `external_revocations(id, organization_id, actor_user_id, status, counts jsonb, errors jsonb, started_at, finished_at)`.
+- 변경 파일:
+  - 신규 경로 `POST /orgs/:orgId/external-access/revoke`와 `GET .../revoke/:id`(owner/admin).
+  - 한 번에 처리하는 것: guest 제거(`revokeMembership` 재사용), 대기 중 guest 초대 취소, 공개 링크 삭제, guest의 MCP 토큰·OAuth 연결 삭제, guest bootstrap 세션 삭제.
+  - 다중 인스턴스 전파: `acl-changed`와 `member-removed`는 이미 pubsub으로 간다. Hocuspocus 소켓 종료도 pubsub으로 모든 인스턴스에 알린다(M8).
+  - 같은 요청을 다시 보내도 결과가 같아야 한다. 부분 실패는 `errors`에 항목별로 남기고, 화면에 "완료 / 일부 실패(다시 시도)"로 보여 준다.
+  - 단계마다 감사 로그에 기록한다.
+- 데스크톱: 설정 → "외부 접근 모두 끊기". 끊기 전에 대상 수(게스트 ○명, 공개 링크 ○개, AI 연결 ○개)와 "이미 받은 내용은 회수할 수 없습니다. 발급된 다운로드 링크는 최대 5분 동안 열릴 수 있습니다."를 보여 준다(`S/blobs/config.ts:225`).
+- 테스트: `T/external-revoke.test.ts` "revokes guests, invites, public links and guest MCP tokens", "re-running is idempotent", "partial failure is reported per item", "revocation reaches sockets on another instance"(두 인스턴스 하네스, M8).
+- commit:
+  1. `feat(server): bulk external access revocation`
+  2. `fix(server): close document sockets on every instance`
+  3. `feat(desktop): revoke all external access`
+
+## 10. 미해결 결정 (사용자 승인 필요)
+
+각 항목의 "권장"은 이 문서의 기본 가정이다. 승인 전에는 해당 조각을 진행하지 않는다.
+
+| ID | 질문 | 선택지 | 권장 | 영향 |
+|---|---|---|---|---|
+| Q1 | member 행이 없는 사람에게 이미 저장된 개인 공유를 어떻게 처리할까 | (a) R1을 적용해 권한을 끊고 행은 보존한다 (b) 지금처럼 문서 동기화만 허용한다 | (a). 지금은 문서 토큰은 허용하고 vault 채널은 거부해 동작이 서로 다르다(M2). `T/vault-docs.test.ts:129-153`의 기대를 바꾼다 | A1-1 |
+| Q2 | 기존 참가 코드의 만료 | (a) 배포 후 30일 (b) 바로 만료 (c) 만료 없음 유지 | (a). 새 코드의 기본 만료는 7일로 하고 관리자가 바꿀 수 있게 한다 | A1-4, §6.2 |
+| Q3 | guest에게 공유 폴더의 경로를 어떻게 보여 줄까 | (a) 공유된 폴더를 진입점으로 경로를 다시 잡는다(조상 이름 없음) (b) 조상 이름 노출을 허용하고 문서에 적는다 | (a)가 PRD F2를 충족한다. 다만 디스크 경로(`rel_path`)와 registry 계약이 guest에게 따로 생겨 비용이 크다. 비용 추정은 A1-5 착수 전에 한다 | D6-08, D6-25, A1-5 |
+| Q4 | guest에게 vault(조직) 이름을 보여 줄까 | (a) 표시 이름만 보여 주고 다른 note collection 이름은 숨긴다 (b) 모두 숨긴다 | (a). 초대 미리보기에서 이미 이름이 보이고, 이름이 없으면 사용자가 어떤 vault인지 알 수 없다 | D6-21, 26, 50 |
+| Q5 | 공유 노트 안에서 다른 사람의 이름(버전 작성자, presence, 합류 알림) | (a) "다른 사용자"로 가린다 (b) 같은 노트를 편집하는 사람의 표시 이름만 보여 준다 | (a). 협업이 불편하면 (b)를 정책 옵션으로 둔다 | D6-20, 22, 58 |
+| Q6 | member가 보는 대기 중 초대 이메일 | (a) 지금처럼 보여 준다 (b) owner/admin만 본다 | (b). guest 이메일은 외부 사람의 개인정보다 | D6-41 |
+| Q7 | guest의 외부 AI(MCP) 연결 | (a) A1에서는 금지 (b) 공유 범위만 읽기 허용 | (a). MCP 경로의 guest 필터는 별도 조각으로 뒤에 둔다 | D6-35~39 |
+| Q8 | member를 guest로 강등하는 기능 | (a) 허용한다(snapshot과 개인 vault 수준 정리, 확인 화면) (b) 내보낸 뒤 다시 초대하게 한다 | (a). 감사 로그에 남긴다 | D6-48 |
+| Q9 | 정책을 `off`나 `domains`로 바꿀 때 기존 공개 링크 | (a) 바로 열람을 막는다 (b) 그대로 두고 일괄 회수로 지우게 한다 | (a). 정책 이름과 실제 동작을 일치시킨다(S07) | A1-6 |
+| Q10 | guest를 결제 좌석으로 셀까 | (a) 세지 않되 vault당 상한을 둔다 (b) member와 같이 센다 | 결정 필요(요금 정책). 기술적으로는 둘 다 가능하다 | D6-64 |
+| Q11 | 감사 로그 기본 보존 기간 | 90일 / 1년 / 무기한 | 1년. PRD §6.2의 보존 표에 함께 적는다 | A1-3 |
+| Q12 | 외부 공유 정책의 기본값과 변경 권한 | 새 vault `on` 또는 `off`. 변경은 owner만 또는 owner/admin | 기존·새 vault 모두 `on`, 변경은 owner/admin. 작은 팀의 초대 흐름을 막지 않는다(PRD §0.1) | A1-6 |
+| Q13 | 만든 사람인 member가 자기 노트를 guest에게 공유할 수 있을까 | (a) owner/admin만 가능 (b) 만든 사람도 가능 | (a). 외부 노출은 관리 결정이다 | V5 |
+| Q14 | 메일 없는 서버에서 guest 수락에 승인을 요구할까 | (a) A1은 바로 합류, A2 승인 대기열이 생기면 기본 요구 (b) A1부터 수락을 막고 관리자가 직접 추가 | (a) | E3 |
+| Q15 | 메일 없는 서버의 `domains` 정책 | (a) 확인된 이메일(Google 로그인)만 인정 (b) 입력한 이메일 도메인을 인정하고 경고만 표시 | (a). PRD F1.4의 "서버가 확인한 현재 이메일 인증 상태만" 규칙과 같다 | E4 |
+
+## 11. 검증 기록
+명령, 결과, 미검증 항목, 커밋 목록은 `docs/reports/IMPL-REPORT-A0.md`에 있다. 이 문서는 코드를 바꾸지 않는다. §1.3의 probe 테스트는 실행 후 지웠다.
