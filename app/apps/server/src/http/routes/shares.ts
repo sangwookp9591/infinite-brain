@@ -1,3 +1,4 @@
+import { isManagerRole, isTeamRole } from "../../permissions/roles.js";
 import { randomUUID } from "node:crypto";
 import { isAccountReadOnly } from "../../billing/lapse.js";
 import { Hono } from "hono";
@@ -257,11 +258,12 @@ export function createShareRoutes(deps: ShareDeps): Hono {
     const info = await resolveResource(resourceType, resourceId);
     if (!info) return { ok: false, status: 404, error: "Unknown resource" };
     const role = await orgRole(info.organizationId, userId);
-    const isAdmin = role === "owner" || role === "admin";
+    const isAdmin = isManagerRole(role);
     // Vault posture (Open/Read-only/Private) is an owner/admin decision;
     // the per-resource "creator can manage" escape hatch doesn't apply.
     const isCreator =
       resourceType !== "vault" &&
+      isTeamRole(role) &&
       info.createdBy !== null &&
       info.createdBy === userId;
     if (!isAdmin && !isCreator) {

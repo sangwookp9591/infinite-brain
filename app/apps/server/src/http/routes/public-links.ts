@@ -1,3 +1,4 @@
+import { isManagerRole, isTeamRole } from "../../permissions/roles.js";
 import { randomBytes, randomUUID } from "node:crypto";
 import { Readable } from "node:stream";
 import { Hono } from "hono";
@@ -113,8 +114,8 @@ async function gate(
   const note = await liveNote(docId);
   if (!note) return { ok: false, status: 404, error: "Unknown note" };
   const role = await orgRole(note.organizationId, userId);
-  const isAdmin = role === "owner" || role === "admin";
-  const isCreator = note.createdBy !== null && note.createdBy === userId;
+  const isAdmin = isManagerRole(role);
+  const isCreator = isTeamRole(role) && note.createdBy !== null && note.createdBy === userId;
   if (!isAdmin && !isCreator) {
     return { ok: false, status: 403, error: "Not allowed to manage sharing here" };
   }
