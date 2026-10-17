@@ -1,3 +1,4 @@
+import { defaultAc, ownerAc, adminAc, memberAc } from "better-auth/plugins/organization/access";
 import { AuditClient } from "../audit/client.js";
 import { betterAuth } from "better-auth";
 import { APIError, createAuthMiddleware } from "better-auth/api";
@@ -248,6 +249,7 @@ export const auth = betterAuth({
     bearer(),
     organization({
       creatorRole: "owner",
+      roles: { owner: ownerAc, admin: adminAc, member: memberAc, guest: defaultAc.newRole({}) },
       invitationExpiresIn: config.invitationExpiresInSeconds, // INVITATION_EXPIRES_HOURS, default 7 days
       // Better Auth's own delete-organization endpoint is closed off entirely,
       // the same way `beforeUpdateMemberRole` closes off role changes below.
