@@ -1,3 +1,4 @@
+import { SecurityHistoryTab } from "./SecurityHistoryTab";
 import { SpringCheck } from "./kit/SpringCheck";
 /* The vault-settings dialog and its nine tabs — the whole settings surface of
    the app, split out of `AccountMenu.tsx` so it can load on demand. Nothing
@@ -236,6 +237,8 @@ export function VaultSettingsDialog({
     !session &&
     localClasses.resolved &&
     visibleFolders(locals, localClasses.classes).length > 0;
+  const myMember = members.find((m) => m.userId === session?.user.id);
+  const canManage = myMember?.role === "owner" || myMember?.role === "admin";
   const tabs = useMemo(() => {
     const out = SHOW_AI_TAB ? [GENERAL_TAB, AI_TAB] : [GENERAL_TAB];
     if (showVaults) out.push(...SETTINGS_TABS);
@@ -248,8 +251,9 @@ export function VaultSettingsDialog({
         teamBilling ? { ...BILLING_TAB, label: "Usage" } : BILLING_TAB,
       );
     }
+    if (isSynced && canManage) out.push({ id: "security", label: "Security history", icon: <MenuIcon><path d="M12 3 3 7v5c0 5 9 9 9 9s9-4 9-9V7Z" /></MenuIcon> });
     return out;
-  }, [showVaults, billingEnabled, teamBilling]);
+  }, [showVaults, billingEnabled, teamBilling, isSynced, canManage]);
 
   // Warm the Members tab's roster as the dialog opens (#307); paint only.
   useEffect(() => {
@@ -260,8 +264,6 @@ export function VaultSettingsDialog({
   }, [session, members]);
 
   if (!session && !vault) return null;
-  const myMember = members.find((m) => m.userId === session?.user.id);
-  const canManage = myMember?.role === "owner" || myMember?.role === "admin";
   // Stricter than `canManage`: making a vault local only destroys the server
   // copy for everyone, so an admin may not do it (the server agrees — 403
   // `owner_only`) and the control simply isn't drawn for them.
@@ -362,6 +364,8 @@ export function VaultSettingsDialog({
               onCloseSettings={onClose}
               resetToken={tabReset}
             />
+          ) : shown === "security" && canManage && activeOrg ? (
+            <SecurityHistoryTab organizationId={activeOrg.id} />
           ) : shown === "billing" ? (
             <BillingTab canManage={canManage} isSynced={isSynced} />
           ) : shown === "mcp" ? (

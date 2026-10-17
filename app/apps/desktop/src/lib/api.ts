@@ -1099,6 +1099,14 @@ export type OrgStatus =
   | { kind: "unknown" };
 
 /** A rejected server response — carries the HTTP status for callers to branch on. */
+export interface SecurityEvent {
+  id: string;
+  actor_name: string;
+  target_type: string;
+  result: "ok" | "refused" | "failed";
+  created_at: string;
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -1987,6 +1995,11 @@ export class ApiClient {
   // ---- Join codes -----------------------------------------------------------
 
   /** The active vault's shareable join code (owner/admin; lazily created). */
+  async getSecurityEvents(organizationId: string, before?: string): Promise<{ events: SecurityEvent[]; nextBefore: string | null }> {
+    const { data } = await this.request<{ events: SecurityEvent[]; nextBefore: string | null }>("GET", `/api/orgs/${encodeURIComponent(organizationId)}/audit${before ? `?before=${encodeURIComponent(before)}` : ""}`);
+    return data;
+  }
+
   async getJoinCode(): Promise<string> {
     const { data } = await this.request<{ code: string }>("GET", "/api/orgs/join-code");
     return data.code;
