@@ -22,6 +22,17 @@ test("rebrand substitutions are idempotent and keep internal storage identity", 
   assert.equal(BRAND.devDeepLinkScheme, "infinitebrain-dev");
 });
 
+test("rebrand keeps upstream attribution phrases", () => {
+  const input = "Hard fork of Baalda 0.1.83. Keep tracking upstream Baalda? Baalda/Atomize PLUS. Baalda처럼 서버를 띄운다. Baalda app";
+  const once = rebrandText(input);
+  assert.equal(rebrandText(once), once);
+  assert.match(once, /fork of Baalda 0\.1\.83/);
+  assert.match(once, /upstream Baalda\?/);
+  assert.match(once, /Baalda\/Atomize PLUS/);
+  assert.match(once, /Baalda처럼/);
+  assert.match(once, /Infinite Brain app/);
+});
+
 test("Tauri production, development, and staging configs use the fork identity", () => {
   const config = (path) => JSON.parse(readFileSync(new URL(path, import.meta.url), "utf8"));
   const main = config("../app/apps/desktop/src-tauri/tauri.conf.json");

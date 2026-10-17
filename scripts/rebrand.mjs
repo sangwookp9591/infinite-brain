@@ -102,10 +102,27 @@ const replacements = [
   [BRAND.from.repositoryPath, "sangwookp9591/infinite-brain"],
 ];
 
+// Phrases that name the upstream project on purpose (fork attribution, design history).
+const preservedPhrases = [
+  "Baalda 0.1.83",
+  "upstream Baalda",
+  "Baalda/Atomize PLUS",
+  "Baalda처럼",
+  "Baalda에서 물려받은",
+];
+
 export function rebrandText(input) {
-  return replacements
+  const masked = preservedPhrases.reduce(
+    (text, phrase, i) => text.split(phrase).join(`\u0000preserved${i}\u0000`),
+    input,
+  );
+  const replaced = replacements
     .sort(([a], [b]) => b.length - a.length)
-    .reduce((text, [from, to]) => text.split(from).join(to), input);
+    .reduce((text, [from, to]) => text.split(from).join(to), masked);
+  return preservedPhrases.reduce(
+    (text, phrase, i) => text.split(`\u0000preserved${i}\u0000`).join(phrase),
+    replaced,
+  );
 }
 
 function isExcluded(path) {
