@@ -1,0 +1,7 @@
+/model/*.gguf
+/target/
+/result.json
+
+/inputs.json
+
+/tools/

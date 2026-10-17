@@ -1,0 +1,224 @@
+{
+  "queries": [
+    {
+      "q": "회의 일정 다시 잡는 방법",
+      "answer": "meeting-reschedule",
+      "category": "ko"
+    },
+    {
+      "q": "프로젝트 예산 승인 절차",
+      "answer": "budget-approval",
+      "category": "ko"
+    },
+    {
+      "q": "환불 요청 고객 대응",
+      "answer": "refund-support",
+      "category": "ko"
+    },
+    {
+      "q": "how to restore deleted files",
+      "answer": "file-recovery",
+      "category": "en"
+    },
+    {
+      "q": "team member access permission",
+      "answer": "access-control",
+      "category": "en"
+    },
+    {
+      "q": "async retry exponential backoff",
+      "answer": "retry-code",
+      "category": "code"
+    },
+    {
+      "q": "API 속도 제한 설계",
+      "answer": "api-rate-limit",
+      "category": "ko"
+    },
+    {
+      "q": "디자인 토큰 color palette",
+      "answer": "design-tokens",
+      "category": "mixed"
+    },
+    {
+      "q": "프로젝트 Orion launch notes",
+      "answer": "orion-launch",
+      "category": "name"
+    },
+    {
+      "q": "vault sync architecture",
+      "answer": "vault-sync",
+      "category": "en"
+    },
+    {
+      "q": "QZ-4819",
+      "answer": "exact-id",
+      "category": "name"
+    },
+    {
+      "q": "분기별 고객 이탈 방지",
+      "answer": "retention-plan",
+      "category": "ko"
+    },
+    {
+      "q": "embedding model local search",
+      "answer": "semantic-search",
+      "category": "en"
+    },
+    {
+      "q": "팀 회고 action items",
+      "answer": "retro-actions",
+      "category": "ko"
+    },
+    {
+      "q": "스타벅스 주문 api retries",
+      "answer": "cafe-retries",
+      "category": "mixed"
+    },
+    {
+      "q": "존재하지 않는 초전도 드론 레시피",
+      "answer": null,
+      "category": "no_answer"
+    }
+  ],
+  "docs": [
+    {
+      "id": "meeting-reschedule",
+      "title": "회의 일정 변경 가이드",
+      "path": "팀/회의-일정-변경.md",
+      "text": "회의 참석자가 겹치면 캘린더에서 빈 시간을 확인하고 새로운 날짜를 제안합니다. 변경 이유와 참석자를 초대에 기록하세요."
+    },
+    {
+      "id": "budget-approval",
+      "title": "프로젝트 비용 결재",
+      "path": "운영/예산-승인.md",
+      "text": "프로젝트 예산은 담당 리드가 산출 근거와 견적서를 첨부해 결재를 요청합니다. 재무 담당자가 승인한 뒤 집행합니다."
+    },
+    {
+      "id": "refund-support",
+      "title": "환불 문의 응대",
+      "path": "지원/환불-요청.md",
+      "text": "고객이 결제 취소나 환불을 요청하면 주문 번호와 결제 상태를 확인한 뒤 처리 기한을 안내합니다."
+    },
+    {
+      "id": "file-recovery",
+      "title": "삭제 파일 되살리기",
+      "path": "가이드/파일-복구.md",
+      "text": "휴지통에서 지운 문서를 찾아 복원할 수 있습니다. 동기화된 vault는 관리자에게 복구 권한을 확인합니다."
+    },
+    {
+      "id": "access-control",
+      "title": "팀 구성원 접근 권한",
+      "path": "보안/access.md",
+      "text": "Invite a teammate to the vault and assign the least privilege role needed. Revoke access when someone leaves."
+    },
+    {
+      "id": "retry-code",
+      "title": "HTTP retry policy",
+      "path": "engineering/retry.ts.md",
+      "text": "Use exponential backoff with jitter for transient HTTP failures. Limit attempts and honor Retry-After for rate limiting."
+    },
+    {
+      "id": "api-rate-limit",
+      "title": "API 호출 제한 정책",
+      "path": "engineering/rate-limit.md",
+      "text": "요청 빈도를 제한하고 초과 요청에 429를 반환합니다. Retry-After 헤더와 사용자별 토큰 버킷을 적용합니다."
+    },
+    {
+      "id": "design-tokens",
+      "title": "Color and spacing tokens",
+      "path": "design/system.md",
+      "text": "디자인 시스템의 color palette, typography, spacing 값을 토큰으로 관리합니다. 다크 모드도 같은 이름의 토큰으로 연결합니다."
+    },
+    {
+      "id": "orion-launch",
+      "title": "Project Orion launch notes",
+      "path": "projects/orion.md",
+      "text": "Orion launches on 2026-11-03. The launch checklist covers migration, support staffing, and customer announcements."
+    },
+    {
+      "id": "vault-sync",
+      "title": "Vault sync design",
+      "path": "architecture/sync.md",
+      "text": "The vault sync protocol transfers Yjs updates and reconciles local Markdown files. Startup pulls remote state before seeding an empty local vault."
+    },
+    {
+      "id": "exact-id",
+      "title": "Incident QZ-4819",
+      "path": "incidents/QZ-4819.md",
+      "text": "QZ-4819: the cache invalidation incident was resolved by rotating the stale edge configuration."
+    },
+    {
+      "id": "retention-plan",
+      "title": "고객 유지 계획",
+      "path": "business/retention.md",
+      "text": "분기마다 이탈 위험 고객을 파악합니다. 제품 사용이 줄어든 팀에 교육과 온보딩 점검을 제공해 재계약률을 높입니다."
+    },
+    {
+      "id": "semantic-search",
+      "title": "Local semantic retrieval",
+      "path": "engineering/embeddings.md",
+      "text": "A multilingual embedding model creates vectors on device so conceptually related notes can be found without sending note text to a server."
+    },
+    {
+      "id": "retro-actions",
+      "title": "팀 회고 후속 작업",
+      "path": "팀/회고.md",
+      "text": "회고에서 나온 개선점을 담당자와 마감일이 있는 action items로 정리하고 다음 주에 진행 상황을 확인합니다."
+    },
+    {
+      "id": "cafe-retries",
+      "title": "Cafe ordering service",
+      "path": "apps/cafe.md",
+      "text": "The Starbucks order API retries failed requests with bounded exponential backoff and idempotency keys."
+    },
+    {
+      "id": "distractor-01",
+      "title": "Kitchen inventory",
+      "path": "home/kitchen.md",
+      "text": "우유, 커피 원두, 종이컵의 재고를 매주 확인하고 필요한 물품을 주문합니다."
+    },
+    {
+      "id": "distractor-02",
+      "title": "Company picnic",
+      "path": "people/picnic.md",
+      "text": "The summer picnic is planned for Friday. Bring lunch, sunscreen, and comfortable walking shoes."
+    },
+    {
+      "id": "distractor-03",
+      "title": "Mountain weather",
+      "path": "travel/hiking.md",
+      "text": "산행 전 기상 예보와 일몰 시간을 확인하고 물과 비상용 배터리를 챙깁니다."
+    },
+    {
+      "id": "distractor-04",
+      "title": "Release calendar",
+      "path": "engineering/releases.md",
+      "text": "Weekly release notes list merged pull requests, version numbers, and deployment windows."
+    },
+    {
+      "id": "distractor-05",
+      "title": "개인 독서 기록",
+      "path": "개인/독서.md",
+      "text": "읽은 책의 인상적인 구절과 다음에 읽을 책 목록을 기록합니다."
+    },
+    {
+      "id": "distractor-06",
+      "title": "Office network",
+      "path": "it/network.md",
+      "text": "The office Wi-Fi password is stored in the company password manager. Contact IT for guest access."
+    },
+    {
+      "id": "distractor-07",
+      "title": "새 노트 작성법",
+      "path": "가이드/노트.md",
+      "text": "문서 제목을 짧게 쓰고 관련 자료에 연결합니다. vault 안에 내용을 저장하면 팀원이 함께 볼 수 있습니다."
+    },
+    {
+      "id": "distractor-08",
+      "title": "Shopping list",
+      "path": "home/shopping.md",
+      "text": "Buy apples, rice, detergent, and batteries this weekend."
+    }
+  ]
+}
