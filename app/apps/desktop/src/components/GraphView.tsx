@@ -23,7 +23,7 @@ import {
 } from "../lib/graph/graphSettings";
 import { useGraphData } from "../lib/graph/useGraphData";
 import { GalaxyRenderer, type GalaxyNode } from "../lib/graph/galaxyRenderer";
-import { buildGalaxyLayout, FAST_GALAXY_THRESHOLD, type GalaxyPosition } from "../lib/graph/galaxyLayout";
+import { buildGalaxyLayout, FAST_GALAXY_THRESHOLD, starRandom, type GalaxyPosition } from "../lib/graph/galaxyLayout";
 import { SimClient } from "../lib/graph/simClient";
 import { useStore } from "../store";
 import { GraphControls } from "./GraphControls";
@@ -949,6 +949,7 @@ export function GraphView({ onClose }: { onClose: () => void }) {
     let width = 0;
     let height = 0;
     let dpr = window.devicePixelRatio || 1;
+    let fallbackFitCount = -1;
 
     S.colors = readColors(wrap);
     S.fontFamily =
@@ -1032,6 +1033,13 @@ export function GraphView({ onClose }: { onClose: () => void }) {
 
     // ---- Drawing ----
     function draw() {
+      if (!webgl && S.visNodes.length > 0 && S.visNodes.length <= 40 && fallbackFitCount !== S.visNodes.length) {
+        const extent = Math.max(80, ...S.visNodes.map((node) => Math.max(Math.abs(node.x), Math.abs(node.y))));
+        S.camera.x = 0;
+        S.camera.y = 0;
+        S.camera.k = clamp(Math.min(width, height) * 0.34 / extent, 1, MAX_SCALE);
+        fallbackFitCount = S.visNodes.length;
+      }
       ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx!.clearRect(0, 0, width, height); // transparent → CSS backdrop shows through
       ctx!.save();
@@ -1041,6 +1049,21 @@ export function GraphView({ onClose }: { onClose: () => void }) {
       const s = settingsRef.current;
       const colors = S.colors;
       const k = S.camera.k;
+
+      if (!webgl && S.visNodes.length > 0 && S.visNodes.length <= 40) {
+        const extent = Math.max(80, ...S.visNodes.map((node) => Math.max(Math.abs(node.x), Math.abs(node.y)))) * 4;
+        const count = Math.max(80, S.visNodes.length * 18);
+        for (let i = 0; i < count; i++) {
+          const x = (starRandom(`fallback:${i}:x`) * 2 - 1) * extent;
+          const y = (starRandom(`fallback:${i}:y`) * 2 - 1) * extent;
+          ctx!.globalAlpha = 0.16 + starRandom(`fallback:${i}:a`) * 0.24;
+          ctx!.fillStyle = "#c5d5ff";
+          ctx!.beginPath();
+          ctx!.arc(x, y, 0.5 + starRandom(`fallback:${i}:r`) * 0.7, 0, Math.PI * 2);
+          ctx!.fill();
+        }
+        ctx!.globalAlpha = 1;
+      }
 
       const hovered = S.hoveredId
         ? S.nodesById.get(S.hoveredId) ?? null

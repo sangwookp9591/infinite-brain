@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from 'vitest';
-import { buildGalaxyLayout, GALAXY_RADIUS, recentBrightness } from './galaxyLayout';
+import { buildGalaxyLayout, GALAXY_RADIUS, galaxyRadiusForCount, recentBrightness } from './galaxyLayout';
 
 const nodes = Array.from({ length: 200 }, (_, i) => ({ id: `n${i}`, path: `Folder ${i % 4}/${i}.md`, title: `${i}`, linkCount: i % 20 === 0 ? 30 : 2 }));
 const edges = nodes.slice(4).map((node, i) => ({ source: node.id, target: nodes[i % 4].id }));
@@ -36,5 +36,23 @@ describe('galaxy presentation', () => {
     expect(recentBrightness(now, now)).toBe(1.65);
     expect(recentBrightness(now + 1000, now)).toBe(1.65);
     expect(recentBrightness(now - 30 * 86400000, now)).toBeLessThan(1.02);
+  });
+  it('scales sparse vaults to their note count while preserving the full large-vault radius', () => {
+    const ratios: number[] = [];
+    for (const count of [5, 20, 40, 500, 3000]) {
+      const sample = Array.from({ length: count }, (_, i) => ({
+        id: `sparse-${i}`, path: `Folder ${i % 4}/${i}.md`, title: `${i}`, linkCount: i % 7,
+      }));
+      const layout = buildGalaxyLayout(sample, []);
+      const occupiedRadius = Math.max(...[...layout.values()].map((point) => Math.hypot(point.x, point.y)));
+      const boundary = galaxyRadiusForCount(count);
+      ratios.push(occupiedRadius / boundary);
+      expect(occupiedRadius).toBeLessThanOrEqual(boundary + 0.001);
+      expect(occupiedRadius / boundary).toBeGreaterThan(0.35);
+    }
+    expect(ratios[0]).toBeGreaterThan(0.35);
+    expect(galaxyRadiusForCount(500)).toBeLessThan(galaxyRadiusForCount(3000));
+    expect(galaxyRadiusForCount(3000)).toBe(GALAXY_RADIUS);
+    expect(galaxyRadiusForCount(20000)).toBe(GALAXY_RADIUS);
   });
 });
