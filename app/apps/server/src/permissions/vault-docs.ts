@@ -1,3 +1,4 @@
+import { isActiveRole } from "./roles.js";
 import type pg from "pg";
 import { pool as defaultPool } from "../db/pool.js";
 import { memberAccessSnapshot, personalVaultLevel, type PersonalVaultLevel, vaultBaseline } from "./resolver.js";
@@ -66,7 +67,7 @@ export async function vaultAccess(
     [vaultId, userId],
   );
   const row = org.rows[0];
-  if (!row) return null;
+  if (!row || !isActiveRole(row.role)) return null;
   const personal = await personalVaultLevel(db, row.organization_id, userId);
   const base = { organizationId: row.organization_id, role: row.role, personal };
   if (personal !== null) return { ...base, vaultWide: personal !== "denied" };

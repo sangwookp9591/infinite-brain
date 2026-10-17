@@ -1,3 +1,4 @@
+import { isActiveRole } from "./roles.js";
 import type pg from "pg";
 import { lapseEnforced, resolveAccountPlan, type AccountPlan } from "../billing/plan.js";
 import { pool as defaultPool } from "../db/pool.js";
@@ -1304,6 +1305,7 @@ async function effectivePermissionInner(
 
   const facts = cache ? await cache.membership(db, loc.organizationId, userId) : null;
   const role = facts ? facts.role : await memberRole(db, loc.organizationId, userId);
+  if (!isActiveRole(role)) return "none";
 
   // The person's own vault level replaces the whole vault-wide baseline (org
   // posture, join snapshot, role shortcut, authorship) — see
@@ -1520,6 +1522,7 @@ export async function resolveAccessForUser(
   /** Preloaded rows for `ctx.organizationId` — see {@link AccessIndex}. */
   accessIndex?: AccessIndex,
 ): Promise<ResolvedAccess> {
+  if (!isActiveRole(role)) return { permission: "none", capped: false };
   const resolved = await resolveAccessForUserInner(ctx, userId, role, db, cache, accessIndex);
   if (resolved.permission !== "edit") return resolved;
   // Billing lapse cap, exactly as in {@link effectivePermission}.

@@ -149,8 +149,8 @@ describe("listReadableDocsInVault agrees with effectivePermission (spec 05 §3.1
     // a freshly-joined member's background vault sync (regression: this set used
     // to come back empty, so new members saw blank notes until they opened each).
     expect(await listReadableDocsInVault(member, vault)).toEqual(new Set(all));
-    // Per-user vault grant works even without membership…
-    expect(await listReadableDocsInVault(guest, vault)).toEqual(new Set(all));
+    // Historical grants are preserved but require an active vault relation.
+    expect(await listReadableDocsInVault(guest, vault)).toEqual(new Set());
     // …but the org-wide grant never leaks to outsiders.
     expect(await listReadableDocsInVault(outsider, vault)).toEqual(new Set());
   });
