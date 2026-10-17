@@ -29,7 +29,7 @@ Read this file and the relevant tests before changing code. See [`docs/UPSTREAM-
 - Search: server `src/index/embedder.ts` (Unicode + bigram, `embed_version`, migration 056); desktop trigram/filename search in `src-tauri/src/index.rs`.
 - Invite links: `components/InvitePeopleDialog.tsx` builds the link on the existing join-code/invite flow (`src/lib/inviteLink.ts`); onboarding timing in `src/lib/onboardingTimer.ts`.
 - Galaxy graph: `src/lib/graph/galaxyLayout.ts`, `galaxyRenderer.ts`, mounted by `components/GraphView.tsx`; preview harness `apps/desktop/dev/graph-galaxy/`.
-- Rebrand map: `scripts/rebrand.mjs` (idempotent; `--dry-run` must report 0 files). It skips historical records: `docs/research/`, `docs/reports/`, `docs/FINAL-report.md`, `docs/UPSTREAM-CLAUDE.md`.
+- Rebrand map: `scripts/rebrand.mjs` (idempotent; `--dry-run` must report 0 files). It skips historical records: `docs/research/`, `docs/reports/`, `docs/FINAL-report.md`, `docs/UPSTREAM-CLAUDE.md`, and the 2026-10-17 identity-directions spec (it quotes the original request).
 - Implementation reports live in `docs/reports/`; fork status in `docs/STATUS.md` (top section).
 
 - Security audit: migration 062 installs row triggers on access/membership/invitation/link/connection tables. Both application and Better Auth pools use `audit/client.ts` to bind AsyncLocalStorage actor/request identity with transaction-local `set_config`. A mutation and its audit row commit or roll back together; missing identity is system/unknown. Never use session-wide SET for request identity, bypass these pools for authorization writes, or log note content/credentials. Explicit `recordAudit(client, entry)` uses the same transaction; refused writes are recorded after rollback. Retention is 365 days by default.

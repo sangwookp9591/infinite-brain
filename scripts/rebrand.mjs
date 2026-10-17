@@ -45,6 +45,7 @@ export const BRAND = {
     ".git/", "node_modules/", "target/", "dist/", "build/", ".context/",
     "app/apps/desktop/public/dashboard-templates/", // Imported vendor assets and attribution.
     "docs/research/", "docs/FINAL-report.md", "docs/UPSTREAM-CLAUDE.md", "docs/BRANDING.md", // Historical/source records.
+    "docs/superpowers/specs/2026-10-17-identity-redesign-directions.md", // Quotes the original redesign request verbatim.
     "scripts/rebrand.mjs", "scripts/rebrand.test.mjs", "docs/reports/", // Source map, fixtures, and audit reports preserve old values intentionally.
     "CHANGELOG.md", "LICENSE", "NOTICE", "TRADEMARK.md", // Rewritten or preserved separately.
   ],
