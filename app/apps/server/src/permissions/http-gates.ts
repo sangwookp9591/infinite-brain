@@ -489,6 +489,7 @@ export async function canWriteAttachment(
 ): Promise<boolean> {
   const access = await vaultAccess(db, userId, vaultId);
   if (!access || access.role === null) return false; // unknown vault or not a member
+  if (!isTeamRole(access.role)) return false;
   if (await vaultRootWritable(userId, access.organizationId, db)) return true;
   // Under Can view / No access the root is closed, but a person may still edit
   // notes through a folder or note grant, and pasting an image into one of
@@ -571,6 +572,15 @@ export async function canWriteBlob(
 ): Promise<boolean> {
   const vaultId = blob.vault_id;
   if (!vaultId) return false; // a legacy row with no collection has no folder and no posture
+  const organizationId = await vaultOrg(vaultId, db);
+  if (organizationId && (await orgRole(organizationId, userId, db)) === "guest") {
+    const candidates = await db.query<{ id: string }>(`SELECT id FROM notes WHERE vault_id=$1 AND deleted_at IS NULL AND
+      (id=$2::text OR id IN (SELECT doc_id FROM note_index WHERE vault_id=$1 AND $3::text IS NOT NULL AND content LIKE '%' || $3 || '%' ESCAPE '\\'))`,
+      [vaultId, blob.doc_id ?? null, blob.rel_path ? likeEscape(blob.rel_path) : null]);
+    for (const row of candidates.rows) if ((await effectivePermission(userId, row.id, db)) === "edit") return true;
+    // Tree files still use their own resolver and parent checks below.
+    if (!blob.doc_id || !(await fileDoc(db, vaultId, blob.doc_id))) return false;
+  }
   if (blob.doc_id) {
     const file = await fileDoc(db, vaultId, blob.doc_id);
     if (file) {

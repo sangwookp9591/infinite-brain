@@ -1,3 +1,4 @@
+import { guestHttp } from "../permissions/guest-http.js";
 import { auditRequests } from "../audit/http.js";
 import { auditRoutes } from "./routes/audit.js";
 import { createAiChangeRoutes } from "./routes/ai-changes.js";
@@ -150,7 +151,6 @@ function allowedOrigins(): string[] {
 export function createApp(deps: AppDeps): Hono {
   const app = new Hono();
   app.use("*", auditRequests);
-  app.route("/api", auditRoutes);
 
   // CORS must run before any route (incl. Better Auth) so cross-origin browser
   // clients — chiefly the Tauri webview — succeed and can read auth headers.
@@ -221,6 +221,8 @@ export function createApp(deps: AppDeps): Hono {
     if (c.req.path.startsWith("/api/blobs/")) return next();
     return compressor(c, next);
   });
+
+  app.use("/api/*", guestHttp);
 
   // `features`: what this server accepts beyond the base protocol, so a desktop
   // can pick a path with one call per server URL instead of wasting a chunk on
@@ -324,12 +326,22 @@ export function createApp(deps: AppDeps): Hono {
   // Better Auth owns everything under /api/auth (web-standard Request handler).
   // Email sign-in passes the per-account failure throttle first (#237).
   app.post("/api/auth/sign-in/email", (c) => throttledSignIn(c.req.raw, auth.handler));
+  // Better Auth leave only deletes membership; use our grant/socket teardown.
+  app.post("/api/auth/organization/leave", async (c) => {
+    const input = await c.req.json().catch(() => ({}));
+    if (typeof input.organizationId !== "string") return c.json({ error: "organizationId required" }, 400);
+    return app.fetch(new Request(new URL(`/api/orgs/${encodeURIComponent(input.organizationId)}/leave`, c.req.url), {
+      method: "POST", headers: c.req.raw.headers, body: "{}",
+    }));
+  });
+  app.post("/api/auth/organization/remove-member", (c) => c.json({ error: "Use vault member settings to remove a person." }, 403));
   app.on(["GET", "POST"], "/api/auth/*", (c) => handleOAuthRequest(c.req.raw));
 
   // Desktop Google sign-in handoff — deliberately NOT under /api/auth (the
   // catch-all above would shadow it). See desktop-oauth.ts.
   app.route("/api", desktopOauthRoutes);
   app.route("/api", bugReportRoutes);
+  app.route("/api", auditRoutes);
   // Invitation preview (public, by unguessable id) + the signed-in inbox that
   // sidesteps Better Auth's verified-email gate on list-user-invitations.
   app.route("/api", invitationRoutes);

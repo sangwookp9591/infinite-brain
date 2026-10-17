@@ -1,3 +1,4 @@
+import { canEditFolder } from "../permissions/http-gates.js";
 // SPDX-License-Identifier: Apache-2.0
 //
 // Per-vault note Trash: list, restore, purge (offline reconciliation, Phase 2).
@@ -245,6 +246,10 @@ export async function restoreNote(
     throw new TrashError(403, "no_edit_permission", "You cannot restore this note");
   }
 
+  if (role === "guest") {
+    const parent = (await defaultPool.query<{ id: string }>("SELECT id FROM folders WHERE vault_id=$1 AND path=$2", [note.vault_id, dirname(note.rel_path)])).rows[0];
+    if (!parent || !(await canEditFolder(userId, parent.id))) throw new TrashError(409, "guest_restore_outside_scope", "Ask an admin to restore this note inside a shared folder.");
+  }
   const client = await defaultPool.connect();
   try {
     await client.query("BEGIN");
