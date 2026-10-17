@@ -48,6 +48,7 @@ class FakeWs extends EventEmitter {
 
 function makeChannel(): VaultChannel {
   return new VaultChannel({
+    roleForUser: async () => "team",
     pubsub: new InMemoryPubSub(),
     // token = "<vaultId>:<userId>".
     verifyToken: async (token: string) => {

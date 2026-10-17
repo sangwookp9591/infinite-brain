@@ -1,3 +1,4 @@
+import { requireExternalSharing } from "./external-sharing.js";
 // SPDX-License-Identifier: Apache-2.0
 import { isActiveRole, isManagerRole, isTeamRole } from "./roles.js";
 import { randomUUID } from "node:crypto";
@@ -191,7 +192,8 @@ export async function validateShareTargets(
       if (!isManagerRole(actorRole)) {
         throw new AccessManagementError("Ask a vault owner or admin to share with a guest.", 403, "access_manager_required");
       }
-      // External policy is introduced and checked in A1-6.
+      const identity=(await db.query<{email:string;verified:boolean}>('SELECT email,"emailVerified" AS verified FROM "user" WHERE id=$1',[row.user_id])).rows[0];
+      await requireExternalSharing(organizationId,"share",identity,db);
     }
     if (actorRole === "admin" && !canManageMemberAccess(actorRole, row.role, row.user_id === actorUserId)) {
       throw new AccessManagementError("An admin cannot change the owner's access.", 403, "access_manager_required");

@@ -11,7 +11,7 @@ export const auditRequests: MiddlewareHandler = async (c, next) => {
   const context: AuditContext = { requestId: randomUUID(), actorKind: "system" };
   const securityWrite = !["GET", "HEAD", "OPTIONS"].includes(c.req.method) &&
     /shares|access|members|invitations|organization\/|orgs\/join|public-link|mcp/.test(c.req.path);
-  const body = securityWrite ? c.req.raw.clone().json().catch(() => ({})) : Promise.resolve({});
+  const body = securityWrite && !c.req.path.startsWith("/api/mcp") ? c.req.raw.clone().json().catch(() => ({})) : Promise.resolve({});
   return auditContext.run(context, async () => {
     c.header("X-Request-Id", context.requestId);
     if (securityWrite && !c.req.path.startsWith("/api/mcp")) await getSession(c);
@@ -25,6 +25,10 @@ export const auditRequests: MiddlewareHandler = async (c, next) => {
         ["vault", "folder", "file"].includes(input.resourceType)) {
       organizationId = (await resolveResource(input.resourceType as "vault" | "folder" | "file", input.resourceId))?.organizationId;
     }
+    if (!organizationId && typeof input.invitationId === "string") organizationId =
+      (await pool.query<{id:string}>('SELECT "organizationId" AS id FROM invitation WHERE id=$1',[input.invitationId])).rows[0]?.id;
+    const noteId = c.req.path.match(/\/notes\/([^/]+)/)?.[1];
+    if (noteId) organizationId = (await resolveResource("file",noteId))?.organizationId;
     await recordAudit(pool, { organizationId, action: `${c.req.method} ${c.req.path.replace(/\/p\/[^/]+/, "/p/[link]")}`,
       targetType: "request", result: c.res.status < 500 ? "refused" : "failed",
       refs: { status: c.res.status } });

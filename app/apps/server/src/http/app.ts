@@ -1,3 +1,12 @@
+// SPDX-License-Identifier: Apache-2.0
+import { pool } from "../db/pool.js";
+import { APIError } from "better-auth/api";
+import { acceptGuestInvitation } from "../members/guest-invitations.js";
+import { AccessManagementError } from "../permissions/access-management.js";
+import { getSession } from "./session.js";
+import { announceMemberJoined } from "../sync/member-events.js";
+import { announceInvitationGone } from "../sync/user-events.js";
+import { externalSharingRoutes } from "./routes/external-sharing.js";
 import { guestHttp } from "../permissions/guest-http.js";
 import { auditRequests } from "../audit/http.js";
 import { auditRoutes } from "./routes/audit.js";
@@ -193,6 +202,7 @@ export function createApp(deps: AppDeps): Hono {
       // we ship.
       exposeHeaders: [
         "set-auth-token",
+        "X-Request-Id",
         "X-InfiniteBrain-Cursor",
         "X-InfiniteBrain-Docs",
         "X-InfiniteBrain-Bytes",
@@ -326,6 +336,18 @@ export function createApp(deps: AppDeps): Hono {
   // Better Auth owns everything under /api/auth (web-standard Request handler).
   // Email sign-in passes the per-account failure throttle first (#237).
   app.post("/api/auth/sign-in/email", (c) => throttledSignIn(c.req.raw, auth.handler));
+  app.post("/api/auth/organization/accept-invitation", async (c) => {
+    const input=await c.req.raw.clone().json().catch(()=>({})) as Record<string, unknown>;
+    const invitation=typeof input.invitationId==="string" ? (await pool.query<{role:string}>("SELECT role FROM invitation WHERE id=$1",[input.invitationId])).rows[0] : null;
+    if(invitation?.role!=="guest" || typeof input.invitationId!=="string")return handleOAuthRequest(c.req.raw);
+    const session=await getSession(c); if(!session)return c.json({error:"Authentication required"},401);
+    try {
+      const org=await acceptGuestInvitation(input.invitationId,session);
+      await auth.api.setActiveOrganization({headers:c.req.raw.headers,body:{organizationId:org}});
+      await announceMemberJoined(org,"A guest"); await announceInvitationGone(input.invitationId,{userId:session.userId});
+      return c.json({organizationId:org,role:"guest",accepted:true});
+    }catch(error){if(error instanceof AccessManagementError)return c.json({error:error.code,message:error.message},error.status);if(error instanceof APIError)return c.json(error.body,error.statusCode as 400 | 401 | 402 | 403 | 404 | 500);throw error;}
+  });
   // Better Auth leave only deletes membership; use our grant/socket teardown.
   app.post("/api/auth/organization/leave", async (c) => {
     const input = await c.req.json().catch(() => ({}));
@@ -342,6 +364,7 @@ export function createApp(deps: AppDeps): Hono {
   app.route("/api", desktopOauthRoutes);
   app.route("/api", bugReportRoutes);
   app.route("/api", auditRoutes);
+  app.route("/api", externalSharingRoutes);
   // Invitation preview (public, by unguessable id) + the signed-in inbox that
   // sidesteps Better Auth's verified-email gate on list-user-invitations.
   app.route("/api", invitationRoutes);

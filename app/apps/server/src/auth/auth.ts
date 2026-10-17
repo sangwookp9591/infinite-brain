@@ -353,10 +353,7 @@ export const auth = betterAuth({
         // Hard gate at acceptance (team model only; vault mode never gated it):
         // members + 1 must fit, and someone already on the account takes no seat.
         beforeAcceptInvitation: async (data) => {
-          if (data.invitation.role === "guest") {
-            const targets = await authPool.query("SELECT 1 FROM invitation_shares WHERE invitation_id=$1 LIMIT 1", [data.invitation.id]);
-            if (!targets.rowCount) throw new APIError("FORBIDDEN", { message: "This invitation no longer has shared items. Ask an admin for a new invitation." });
-          }
+          if (data.invitation.role === "guest") throw new APIError("FORBIDDEN",{message:"Accept this invitation through the vault invitation link."});
           if (!teamModel()) return;
           const refused = await checkJoinSeat(authPool, data.organization.id, {
             userId: data.user.id,

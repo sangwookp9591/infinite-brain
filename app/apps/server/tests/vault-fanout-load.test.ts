@@ -51,6 +51,7 @@ async function waitFor(fn: () => boolean, ms = 4000): Promise<void> {
 describe("vault fanout isolation / load (spec 05 §5)", () => {
   it("an update reaches only its own vault's subscribers", async () => {
     const channel = new VaultChannel({
+    roleForUser: async () => "team",
       pubsub: new InMemoryPubSub(),
       // token = "<vaultId>:<userId>"; each vault has exactly one doc.
       verifyToken: async (token: string) => {

@@ -1,3 +1,4 @@
+import { recordAudit } from "../../audit/log.js";
 import { createGuestInvitation, validateInvitationTargets } from "../../members/guest-invitations.js";
 import { AccessManagementError } from "../../permissions/access-management.js";
 import { checkInviteSeat, teamModel } from "../../billing/plan.js";
@@ -471,7 +472,8 @@ memberRoutes.post("/orgs/:orgId/invitations", async (c) => {
       const emailed = canEmail ? await emailInvitation(inv.id) : false;
       results.push({ email, invitationId: inv.id, emailed });
     } catch (err) {
-      const { code } = inviteErrorCode(err);
+      const code = err instanceof AccessManagementError ? err.code : inviteErrorCode(err).code;
+      await recordAudit(pool,{organizationId:orgId,action:"invitation.refused",targetType:"invitation",targetId:email,result:"refused",refs:{code}});
       if ((code === "member_limit_reached" || code === "seat_limit_reached") && err instanceof APIError) {
         limitError = (err.body ?? {}) as Record<string, unknown>;
       }
