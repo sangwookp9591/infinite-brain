@@ -100,3 +100,32 @@ it("concurrent removal and share leave no orphan row", async () => {
     remover.release();
   }
 });
+
+it("removal after an in-flight share deletes the committed grant", async () => {
+  await seedMember(orgId, outsider.userId, "member");
+  await pool.query("INSERT INTO organization_access_settings (organization_id) VALUES ($1) ON CONFLICT DO NOTHING", [orgId]);
+  const blocker = await pool.connect();
+  const waitsFor = async (fragment: string) => {
+    for (let attempt = 0; attempt < 200; attempt++) {
+      const result = await pool.query("SELECT 1 FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock' AND query LIKE $1", [`%${fragment}%`]);
+      if (result.rowCount) return;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    throw new Error(`Expected blocked query: ${fragment}`);
+  };
+  try {
+    await blocker.query("BEGIN");
+    await blocker.query("SELECT 1 FROM organization_access_settings WHERE organization_id = $1 FOR UPDATE", [orgId]);
+    const sharing = post(outsider.userId);
+    await waitsFor("organization_access_settings");
+    const removing = app.request(`/api/orgs/${orgId}/members/${outsider.userId}`, { method: "DELETE", headers: authHeaders(owner) });
+    await waitsFor("DELETE FROM member");
+    await blocker.query("COMMIT");
+    expect((await sharing).status).toBe(201);
+    expect((await removing).status).toBe(200);
+    expect((await pool.query("SELECT id FROM shares WHERE principal_id = $1", [outsider.userId])).rowCount).toBe(0);
+  } finally {
+    await blocker.query("ROLLBACK");
+    blocker.release();
+  }
+});

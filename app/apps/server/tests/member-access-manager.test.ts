@@ -71,6 +71,7 @@ describe("member access management by role", () => {
     expect(canManageMemberAccess("owner", "owner", true)).toBe(true);
     expect(canManageMemberAccess("owner", "admin", false)).toBe(true);
     expect(canManageMemberAccess("admin", "member", false)).toBe(true);
+    expect(canManageMemberAccess("admin", "guest", false)).toBe(true);
     expect(canManageMemberAccess("admin", "admin", true)).toBe(true);
     expect(canManageMemberAccess("admin", "admin", false)).toBe(true);
     expect(canManageMemberAccess("admin", "owner", false)).toBe(false);

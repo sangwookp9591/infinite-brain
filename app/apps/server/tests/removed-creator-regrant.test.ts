@@ -32,3 +32,18 @@ it("removed creator cannot mint a public link", async () => {
   const res = await app.request(`/api/notes/${docId}/public-link`, { method: "POST", headers: authHeaders(creator) });
   expect(res.status).toBe(403);
 });
+
+it("guest creator cannot manage shares", async () => {
+  await seedMember(orgId, creator.userId, "member");
+  await pool.query('UPDATE member SET role = \'guest\' WHERE "userId" = $1', [creator.userId]);
+  const res = await app.request("/api/shares", { method: "POST", headers: authHeaders(creator), body: JSON.stringify({ resourceType: "file", resourceId: docId, principalId: creator.userId, permission: "edit" }) });
+  expect(res.status).toBe(403);
+});
+
+it("guest cannot mint a public link", async () => {
+  await seedMember(orgId, creator.userId, "member");
+  await pool.query('UPDATE member SET role = \'guest\' WHERE "userId" = $1', [creator.userId]);
+  await seedShare(orgId, "file", docId, creator.userId, "view");
+  const res = await app.request(`/api/notes/${docId}/public-link`, { method: "POST", headers: authHeaders(creator) });
+  expect(res.status).toBe(403);
+});

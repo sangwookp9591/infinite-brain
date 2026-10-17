@@ -133,7 +133,7 @@ async function requireDeletable(
 }
 
 function accessToolError(error: unknown): never {
-  if (error instanceof AccessManagementError) throw new McpToolError(error.message);
+  if (error instanceof AccessManagementError) throw new McpToolError(error.message, error.code);
   throw error;
 }
 
