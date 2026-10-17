@@ -2,7 +2,7 @@
 
 This directory is standalone and is not connected to desktop or server product code. See `../../../../../docs/reports/B0-MEASUREMENT.md` for the decision and results.
 
-Requires Apple Silicon, Rust, clang/Xcode tools, Python 3, and network access. If CMake is not installed, install its binary within this experiment directory:
+Requires Apple Silicon, Rust, clang/Xcode tools, Python 3.11 or later, and network access. If CMake is not installed, install its binary within this experiment directory:
 
 ```sh
 cd app/apps/desktop/dev/semantic-b0
