@@ -159,6 +159,31 @@ export function noteSizeRefusal(
   return null;
 }
 
+/**
+ * {@link noteSizeRefusal} for a live `Y.Text`, without copying the doc on every
+ * message.
+ *
+ * `beforeHandleMessage` runs for EVERY sync message, i.e. every few keystrokes
+ * of every editor, and measuring the doc in bytes means `toString()` — one full
+ * copy of the note per message (about 1 ms and 2 MB of garbage for a
+ * 1M-character note; a typical note costs microseconds, so this only matters for
+ * big notes edited by several people at once).
+ *
+ * The shortcut is exact, not approximate: UTF-8 uses at most 3 bytes per UTF-16
+ * code unit (a surrogate pair is 4 bytes for 2 units), so a doc whose unit count
+ * times 3 fits under the cap cannot exceed it in bytes and needs no measuring.
+ * `Y.Text.length` is O(1). Only a doc that could be near the cap is measured, by
+ * the same byte count as before, so the cap stays a wall for CJK and emoji notes.
+ */
+export function noteSizeRefusalFor(
+  updateBytes: number,
+  text: { length: number; toString(): string },
+  capBytes: number = config.maxNoteMb * 1024 * 1024,
+): string | null {
+  if (updateBytes <= capBytes && text.length * 3 <= capBytes) return null;
+  return noteSizeRefusal(updateBytes, text.toString(), capBytes);
+}
+
 export function createSyncServer(
   port: number = config.hocuspocusPort,
   onDocChanged?: DocChangedHook,
@@ -190,9 +215,9 @@ export function createSyncServer(
      * a second for as long as the app was open.
      */
     async beforeHandleMessage(data) {
-      const refusal = noteSizeRefusal(
+      const refusal = noteSizeRefusalFor(
         data.update.byteLength,
-        data.document.getText("content").toString(),
+        data.document.getText("content"),
       );
       if (refusal) {
         console.error(`${refusal} for ${data.documentName}`);

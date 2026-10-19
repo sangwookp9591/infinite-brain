@@ -57,6 +57,7 @@ Run `pnpm install` from `app/`.
 - Desktop TypeScript tests: `pnpm test` from `app/apps/desktop/`.
 - Desktop Rust checks: `cargo check` or `cargo test` from `app/apps/desktop/src-tauri/`.
 - Desktop dev/build: `pnpm run dev:desktop` / `pnpm run build:desktop` from `app/`.
+- Memory and load: measurements, what was tried and not adopted (mimalloc), and how to reproduce them are in `docs/RESOURCE_OPT.md`. The Rust data-volume bench takes `INFINITE_BRAIN_BENCH_REPEAT=N` to watch the macOS footprint across rebuild rounds. Do not add a global allocator without an A/B there.
 - Server tests can wipe their configured database. Use a dedicated disposable database and never the shared `context` database.
 
 Run the checks relevant to the change and report commands and outcomes. Do not push. Never commit credentials, `.env` files, or updater private keys. New source files use the Apache-2.0 SPDX header.

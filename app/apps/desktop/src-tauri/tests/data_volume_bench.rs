@@ -15,6 +15,20 @@
 //!   INFINITE_BRAIN_BENCH_LARGE_KB    approx size of a large note (KB) (default 64)
 
 use desktop_lib::index::Index;
+
+/// This process's physical footprint as macOS reports it (the number Activity
+/// Monitor calls "Memory"), or None where `footprint` does not exist.
+fn self_footprint() -> Option<String> {
+    let out = std::process::Command::new("/usr/bin/footprint")
+        .arg("-p")
+        .arg(std::process::id().to_string())
+        .output()
+        .ok()?;
+    String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .find(|l| l.contains("Footprint:"))
+        .map(|l| l.trim().to_string())
+}
 use desktop_lib::notefile;
 use std::path::PathBuf;
 use std::time::Instant;
@@ -329,6 +343,20 @@ fn data_volume_bench() {
         "index.sqlite dir:        {:.1} MB",
         sqlite_bytes as f64 / 1_048_576.0
     );
+    // Retention (docs/RESOURCE_OPT.md): repeat the heaviest operation and watch the
+    // footprint. A leak grows every round; freed-but-retained pages (the macOS
+    // malloc behaviour db-tool hit) climb and stay. `INFINITE_BRAIN_BENCH_REPEAT=N`
+    // runs N rounds; the numbers come from macOS `footprint`, so this is macOS-only.
+    let repeat = env_usize("INFINITE_BRAIN_BENCH_REPEAT", 0);
+    if repeat > 0 {
+        println!("footprint before: {}", self_footprint().unwrap_or_default());
+        for i in 1..=repeat {
+            idx.rebuild(&vault).unwrap();
+            println!("footprint after rebuild #{i}: {}", self_footprint().unwrap_or_default());
+        }
+        std::thread::sleep(std::time::Duration::from_secs(3));
+        println!("footprint 3s after the last round: {}", self_footprint().unwrap_or_default());
+    }
     println!("=== done ({}) ===\n", vault.display());
 
     let _ = std::fs::remove_dir_all(&vault);
