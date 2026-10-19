@@ -1,5 +1,11 @@
 # Releasing the Infinite Brain desktop app
 
+> **Two release paths.** This document is the GitHub Actions path. To build signed and notarized
+> installers on this Mac and publish them with `latest.json` yourself, see
+> [`RELEASE_SIGNING.md`](RELEASE_SIGNING.md). If you publish locally, do it *before* pushing the
+> version bump: the `gate` job below skips a version that already has a release. Without the six
+> Apple secrets the workflow now builds an ad-hoc signed `.dmg` instead of failing.
+
 **The version bump *is* the release.** Bump it in all four places — they must
 agree or the build fails the tag/version check — and merge to `main`. There is no
 tag to push by hand: the workflow sees the version changed and tauri-action

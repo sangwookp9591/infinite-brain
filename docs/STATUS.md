@@ -9,9 +9,9 @@ tags: [infinite-brain, status, roadmap]
 
 > Live checklist. Update as phases land. Back to index: [[Infinite Brain]].
 
-## Status (2026-10-15)
+## Status (2026-10-19)
 
-No hosted server or published release yet.
+No hosted server or published release yet. The first installers (0.1.83) are built locally; publishing waits on the owner.
 
 | Milestone | State | Report |
 |---|---|---|
@@ -31,6 +31,9 @@ No hosted server or published release yet.
 | PRD C0 P2P design (recommends Iroh + own protocol; 14 owner decisions open) | ✅ merged | [[superpowers/specs/2026-10-17-p2p-c0-design]], [[reports/IMPL-REPORT-C0]] |
 | M7 Orbit identity redesign: Orbit tokens, bundled Fraunces/Geist/Pretendard, 1.5px icons, icon rail + floating sidebar, editor sheet, dialogs, dashboards, graph tokens; in-house Neuron avatars and vault marks (`@dicebear` removed) | ✅ merged | [[superpowers/specs/2026-10-17-identity-redesign-directions]], [[reports/IMPL-REPORT-redesign-final]] |
 
+| Launch prep: inherited records removed, README rewritten around team use, first-launch motion intro, glass avatars, 40-second intro video (`docs/assets/promo/`) | ✅ merged | — |
+| Installers: signed + notarized universal `.dmg` and cross-compiled NSIS `.exe` on one Mac, `latest.json` publishing for in-app updates, password-protected updater key, Actions fallback without Apple secrets | ✅ merged (first publish pending) | [[RELEASE_SIGNING]] |
+
 | Team second brain: PRD v2, A0 authorization design, B0 smart-search spike and first-run mock, kit `ActivityHeatmap` + `ToolCallCard` | ✅ merged (C0 P2P design merged as draft r4, r5 fixes pending) | [[NEXT-TASKS]] |
 
 **Next tasks and handoff (2026-10-16):** [[NEXT-TASKS]]. A1-0 fixes three existing authorization gaps first.
@@ -42,7 +45,7 @@ No hosted server or published release yet.
 - Release macOS build (`pnpm tauri build --bundles app`) launches against a local server.
   Only the welcome screen was observed.
 
-**Not yet verified:** in-app UI flows of the packaged app, real claude.ai / ChatGPT connector
+**Not yet verified:** the Windows installer on a real Windows PC, in-app UI flows of the packaged app, real claude.ai / ChatGPT connector
 connections (needs a public HTTPS server), usability tests with non-developers, Windows/Linux builds.
 
 **Verified (2026-10-17):** independent server run on `ce13dc5`: 1,639 tests passed, 2 failures

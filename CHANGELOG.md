@@ -21,6 +21,14 @@ and this project aims to follow [Semantic Versioning](https://semver.org/spec/v2
 - **Invite links.** Join a vault with a link; no email server needed.
 - **Galaxy graph.** The graph view draws notes as a spiral galaxy (three.js WebGPU, falling back
   to WebGL2 and then 2D).
+- **First-launch intro.** Four motion scenes before the welcome screen: notes as files, live team
+  editing, undoable AI edits and the galaxy. Shown once per device, skippable, still under reduced
+  motion, and out of the way of invite or shared-note sign-in prompts.
+- **Glass avatars.** Every avatar sits under a CSS glass layer (lit rim, glare, shade), tuned for
+  light and dark and kept in proportion from 16px rows to the profile.
+- **Installers.** A Developer ID signed, notarized universal macOS `.dmg` and a Windows NSIS
+  `.exe`, built on one Mac (`scripts/build-installers.sh`) and published with the updater's
+  `latest.json` (`scripts/publish-release.sh`).
 
 #### Fixed
 - **Korean and other non-Latin search.** The server/MCP embedder used to drop every character
@@ -32,4 +40,7 @@ and this project aims to follow [Semantic Versioning](https://semver.org/spec/v2
 - App ID `com.infinitebrain.desktop`, URL scheme `infinitebrain://` (server `DEEP_LINK_SCHEME`
   default too), MCP env var `INFINITE_BRAIN_MCP_TOKEN`.
 - Migrations 056–060 are idempotent; boot re-embedding takes an advisory lock.
+- The updater signing key is now password-protected; the old unprotected key was retired before
+  any release.
+- The release workflow builds ad-hoc signed instead of failing when the Apple secrets are absent.
 

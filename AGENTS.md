@@ -10,7 +10,7 @@ historical implementation details in either document.
 - Product and docs index: `docs/Infinite Brain.md`.
 - Design specs: `docs/specs/00`–`04` and `docs/specs/REQUIREMENTS.md`.
 - Build status: `docs/STATUS.md`; branding: `docs/BRANDING.md`.
-- Contribution rules: `CONTRIBUTING.md`; release process: `docs/RELEASE.md`.
+- Contribution rules: `CONTRIBUTING.md`; release process: `docs/RELEASE.md` (Actions) and `docs/RELEASE_SIGNING.md` (signed installers built on this Mac).
 - Use the current package manifests for commands and dependency versions. Older
   documentation still mentions npm; the repository uses pnpm workspaces.
 

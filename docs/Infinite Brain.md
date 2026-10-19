@@ -103,14 +103,17 @@ round-trip lossless. Full detail: [[03-sync-engine]].
 ## Deployment
 
 Self-hosting and production deployment (Docker, Railway, env vars, the single-port `/sync`
-topology) are covered in [[DEPLOY]]. The managed backend is live at `http://localhost:3010`;
-the desktop app points at it (or at any self-hosted instance) via the server URL in Settings.
+topology) are covered in [[DEPLOY]]. There is no managed backend yet; the desktop app defaults to
+`http://localhost:3010` for development and points at any self-hosted instance via the server URL
+in Settings.
 
 Cutting a desktop release — the `v*` tag flow, updater vs. OS code signing, and the
 macOS notarization setup — is covered in [[RELEASE]]. It also carries the two runbooks
 you want when a release will not go out: what to check when **notarization hangs**
 (and what has already been ruled out), and how to **cut a release from your Mac**
-when CI cannot ship.
+when CI cannot ship. [[RELEASE_SIGNING]] is the scripted version of that local path:
+`scripts/build-installers.sh` builds the signed, notarized `.dmg` and the Windows `.exe`, and
+`scripts/publish-release.sh` publishes them with the updater's `latest.json`.
 
 ---
 

@@ -33,6 +33,7 @@ Write on your own computer, edit together in real time, and let your AI read and
 - **Your notes are files.** Every note is a `.md` file in a normal folder. Open it in any editor, back it up any way you like, and keep it if you ever stop using the app.
 - **Works offline.** You write locally first. Changes sync when you are back online, and edits from different people merge instead of overwriting each other.
 - **Built for teams.** Invite people with a link, choose who can edit or only view each folder, and see who is in a note while you write.
+- **Starts with a short tour.** The first launch plays a four-scene intro before the welcome screen, and it never shows again.
 - **AI that you can undo.** Connect Claude or ChatGPT to a vault. Every change an AI makes is recorded, shown as a diff and can be undone.
 
 ## 📦 Download
@@ -182,7 +183,16 @@ pnpm run dev:desktop
 | Rust tests | `app/apps/desktop/src-tauri` | `cargo test` |
 | Lint | `app` | `pnpm lint` |
 
-**Installers.** Pushing a version bump to `main` runs [`release.yml`](.github/workflows/release.yml), which builds the `.dmg` (Apple Silicon and Intel), Windows `.exe`/`.msi` and Linux packages and publishes them to GitHub Releases. See [`docs/RELEASE.md`](docs/RELEASE.md) for the signing secrets. To build a local macOS app without the updater key:
+**Installers and updates.** There are two ways to ship a version. Both publish a GitHub release with `latest.json`, which installed apps poll to update themselves. The version's section in [`docs/RELEASE_NOTES.md`](docs/RELEASE_NOTES.md) becomes the in-app What's New.
+
+| Path | What it produces | Guide |
+|---|---|---|
+| **This Mac** | `scripts/build-installers.sh` builds a Developer ID signed, notarized universal `.dmg` and a cross-compiled Windows `.exe`. `scripts/publish-release.sh --yes` uploads them with `latest.json` | [`docs/RELEASE_SIGNING.md`](docs/RELEASE_SIGNING.md) |
+| **GitHub Actions** | Pushing a version bump to `main` runs [`release.yml`](.github/workflows/release.yml): `.dmg`, `.exe`/`.msi` and Linux packages. Without the Apple secrets the `.dmg` is ad-hoc signed | [`docs/RELEASE.md`](docs/RELEASE.md) |
+
+When you publish from this Mac, publish first and push the version bump afterwards. The workflow skips a version that already has a release.
+
+To build a local macOS app without the updater key:
 
 ```sh
 cd app/apps/desktop
@@ -193,7 +203,7 @@ Developer notes and the rules that keep data safe are in [`CLAUDE.md`](CLAUDE.md
 
 ## 🤝 Community
 
-[Contributing](CONTRIBUTING.md) · [Security policy](SECURITY.md) · [Code of Conduct](CODE_OF_CONDUCT.md) · [Changelog](CHANGELOG.md)
+[Contributing](CONTRIBUTING.md) · [Security policy](SECURITY.md) · [Code of Conduct](CODE_OF_CONDUCT.md) · [Changelog](CHANGELOG.md) · [Docs index](<docs/Infinite Brain.md>)
 
 ## 📄 License
 
