@@ -41,11 +41,10 @@ Get the latest version from [**Releases**](https://github.com/sangwookp9591/infi
 
 | System | File | Install |
 |---|---|---|
-| macOS (Apple Silicon) | `Infinite.Brain_<version>_aarch64.dmg` | Open the `.dmg` and drag **Infinite Brain** into Applications |
-| macOS (Intel) | `Infinite.Brain_<version>_x64.dmg` | Same as above |
-| Windows 10/11 | `Infinite.Brain_<version>_x64-setup.exe` | Run the installer (a `.msi` is also available) |
+| macOS 10.15+ (Apple Silicon and Intel) | `Infinite-Brain_<version>_universal.dmg` | Open the `.dmg` and drag **Infinite Brain** into Applications |
+| Windows 10/11 | `Infinite-Brain_<version>_x64-setup.exe` | Run the installer. Windows may show SmartScreen the first time: **More info → Run anyway** |
 
-The app checks for updates on its own and asks before installing them.
+The app keeps itself up to date: it installs new versions in the background, restarts at a quiet moment and shows what changed. You can also use **Check for updates** in the account menu.
 
 ## 🚀 Getting started
 

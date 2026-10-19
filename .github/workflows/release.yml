@@ -263,6 +263,13 @@ jobs:
           fi
           echo "notarize=$want" >> "$GITHUB_OUTPUT"
           echo "Notarization: $want"
+          # No Developer ID yet → build ad-hoc signed (macOS) / unsigned (Windows)
+          # instead of failing: an empty APPLE_CERTIFICATE makes tauri try a
+          # keychain import and kills the macOS job. Adding the six Apple secrets
+          # switches this back to the signed paths with no workflow edit.
+          has_apple='${{ secrets.APPLE_CERTIFICATE != '' }}'
+          echo "apple=$has_apple" >> "$GITHUB_OUTPUT"
+          echo "Apple Developer ID secrets present: $has_apple"
 
       # The GitHub release body doubles as the in-app "what's new": the updater
       # feeds it back as latest.json's `notes`, and the desktop shows those
@@ -327,7 +334,7 @@ jobs:
       # An `if:` on the whole step cannot misfire.
 
       - name: Build, sign and notarize
-        if: steps.cfg.outputs.notarize == 'true'
+        if: steps.cfg.outputs.apple == 'true' && steps.cfg.outputs.notarize == 'true'
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -361,7 +368,7 @@ jobs:
       # (it verifies the minisign signature, not Apple's ticket); only fresh
       # downloads prompt, and right-click → Open clears it.
       - name: Build and sign (notarization skipped)
-        if: steps.cfg.outputs.notarize != 'true'
+        if: steps.cfg.outputs.apple == 'true' && steps.cfg.outputs.notarize != 'true'
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -370,6 +377,27 @@ jobs:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        with:
+          projectPath: app/apps/desktop
+          tagName: v__VERSION__
+          releaseName: 'Infinite Brain v__VERSION__'
+          releaseBody: ${{ steps.relnotes.outputs.body }}
+          releaseDraft: false
+          prerelease: false
+          args: ${{ matrix.args }}
+
+      # No Apple Developer ID secrets: the bundle keeps the config's ad-hoc
+      # identity ("-"). The .dmg installs, but a fresh download asks the user to
+      # allow it once (System Settings → Privacy & Security → Open Anyway).
+      # Windows ships the same unsigned .exe/.msi as on the signed path. The
+      # updater still works everywhere: it checks our minisign signature.
+      - name: Build without Apple signing
+        if: steps.cfg.outputs.apple != 'true'
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: app/apps/desktop
           tagName: v__VERSION__
