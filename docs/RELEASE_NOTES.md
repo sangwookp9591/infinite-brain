@@ -20,3 +20,10 @@
     `## <version>` section has points; no section or an empty one ships silently
     (every app still installs it). Ask before each release: silent, or notes?
 -->
+
+## 0.2.0
+
+- Infinite Brain is here: your team's second brain, kept as plain Markdown files on your own computer and edited together in real time.
+- Invite teammates with a link or a join code, choose who can edit or only view each folder, and see who is in a note as they type.
+- Connect Claude or ChatGPT to a vault. Every AI change is shown as a diff and can be undone.
+- Explore your notes as a galaxy, and take the short tour the first time you open the app.

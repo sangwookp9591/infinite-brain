@@ -1,6 +1,6 @@
 [package]
 name = "desktop"
-version = "0.1.83"
+version = "0.2.0"
 description = "Infinite Brain — local-first markdown app"
 authors = ["Infinite Brain"]
 license = "Apache-2.0"

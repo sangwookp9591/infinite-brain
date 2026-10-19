@@ -11,7 +11,7 @@ tags: [infinite-brain, status, roadmap]
 
 ## Status (2026-10-19)
 
-No hosted server or published release yet. The first installers (0.1.83) are built locally; publishing waits on the owner.
+No hosted server or published release yet. The first release is 0.2.0, built and signed on this Mac (docs/RELEASE_SIGNING.md).
 
 | Milestone | State | Report |
 |---|---|---|
