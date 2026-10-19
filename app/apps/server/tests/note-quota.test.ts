@@ -9,7 +9,7 @@ const app = createApp(recordingAppDeps().deps);
 let owner: TestUser; let vault: string;
 const request = (path: string, body: unknown) => app.fetch(new Request(`http://local${path}`, { method: "POST", headers: authHeaders(owner), body: JSON.stringify(body) }));
 beforeEach(async () => {
-  vi.stubEnv("BAALDA_DEPLOYMENT", "cloud");
+  vi.stubEnv("INFINITE_BRAIN_DEPLOYMENT", "cloud");
   await resetDb(); owner = await signUp("owner@note-quota.test");
   const org = (await createOrg(owner, "Quota", "quota")).id;
   vault = await seedVault(org); await seedVaultGrant(org, "edit");
@@ -31,6 +31,6 @@ it("concurrent registrations cannot exceed 20,000, and existing paths still adop
   expect(body.results[1].code).toBe("note_limit_reached");
 });
 it("self-hosted billing does not impose the Cloud note cap", async () => {
-  vi.stubEnv("BAALDA_DEPLOYMENT", "self-hosted"); vi.stubEnv("POLAR_ACCESS_TOKEN", "operator-billing");
+  vi.stubEnv("INFINITE_BRAIN_DEPLOYMENT", "self-hosted"); vi.stubEnv("POLAR_ACCESS_TOKEN", "operator-billing");
   for (const relPath of ["More-one.md", "More-two.md"]) expect((await request("/api/notes", { vaultId: vault, relPath })).status).toBe(201);
 });

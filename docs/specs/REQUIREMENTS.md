@@ -4,7 +4,7 @@ spec: requirements
 product: Infinite Brain
 status: draft-v1
 date: 2026-07-13
-tags: [baalda, spec, requirements, features, mvp]
+tags: [infinite-brain, spec, requirements, features, mvp]
 ---
 
 # Requirements & Feature Map

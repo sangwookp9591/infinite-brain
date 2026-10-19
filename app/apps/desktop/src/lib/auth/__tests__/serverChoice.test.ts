@@ -23,8 +23,8 @@ describe("normalizeServerUrl", () => {
   });
 
   it("strips trailing slashes but keeps a reverse-proxy path prefix", () => {
-    expect(normalizeServerUrl("https://intranet.example.com/baalda/")).toBe(
-      "https://intranet.example.com/baalda",
+    expect(normalizeServerUrl("https://intranet.example.com/infinitebrain/")).toBe(
+      "https://intranet.example.com/infinitebrain",
     );
     expect(normalizeServerUrl("http://localhost:3010///")).toBe("http://localhost:3010");
   });
@@ -65,8 +65,8 @@ describe("serverHost", () => {
   it("names the host, with any path prefix that distinguishes two instances", () => {
     expect(serverHost("http://localhost:3010")).toBe("localhost:3010");
     expect(serverHost("http://localhost:3010")).toBe("localhost:3010");
-    expect(serverHost("https://intranet.example.com/baalda")).toBe(
-      "intranet.example.com/baalda",
+    expect(serverHost("https://intranet.example.com/infinitebrain")).toBe(
+      "intranet.example.com/infinitebrain",
     );
   });
 

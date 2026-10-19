@@ -21,7 +21,7 @@
 
 - 초대 다이얼로그 안에서 초대별 접근 수준과 기존 `join_default`의 New members 기본값을 함께 선택한다. 초대별 기본은 New members 값을 상속하고, 새 기본값 변경은 기존 `GET/PUT access-default` API를 이용한다.
 - 초대 결과에 이메일 발송 여부와 관계없이 HTTPS 초대 링크 및 Copy를 제공한다. 서버 이메일 설정이 비어 있어도 기존 invitation 생성/preview/deep-link 경로로 공유할 수 있다.
-- 앱이 초대 링크를 받은 시점부터 로그인, 수락, vault 착지, 첫 노트 확인까지의 단계명·epoch timestamp·경과 ms를 `localStorage`의 `baalda.onboarding-log.v1`에 기록한다. 사용자/볼트/이메일/초대 ID는 기록하지 않고 네트워크로 전송하지 않는다.
+- 앱이 초대 링크를 받은 시점부터 로그인, 수락, vault 착지, 첫 노트 확인까지의 단계명·epoch timestamp·경과 ms를 `localStorage`의 `infinitebrain.onboarding-log.v1`에 기록한다. 사용자/볼트/이메일/초대 ID는 기록하지 않고 네트워크로 전송하지 않는다.
 
 ## 확인 범위
 

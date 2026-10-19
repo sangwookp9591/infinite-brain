@@ -18,8 +18,8 @@ for (const file of files) {
   assert(Buffer.byteLength(source) < 10 * 1024 * 1024, `${file} exceeds note size limit`);
   const dom = new JSDOM(source);
   const document = dom.window.document;
-  assert.equal(document.querySelector('meta[name="baalda-template"]')?.content, file.slice(0, -5));
-  assert(!document.querySelector('.baalda-template-credit'), `${file} contains a visible import banner`);
+  assert.equal(document.querySelector('meta[name="infinitebrain-template"]')?.content, file.slice(0, -5));
+  assert(!document.querySelector('.infinitebrain-template-credit'), `${file} contains a visible import banner`);
   assert(document.querySelector('meta[http-equiv="Content-Security-Policy"]'));
   for (const style of document.querySelectorAll('style')) { postcss.parse(style.textContent, { from:file }); styles++; }
   for (const script of document.querySelectorAll('script')) {

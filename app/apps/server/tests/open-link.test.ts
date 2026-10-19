@@ -86,11 +86,11 @@ describe("GET /open/connect", () => {
       headers: {
         host: "intranet.example.com",
         "x-forwarded-proto": "https",
-        "x-forwarded-prefix": "/baalda",
+        "x-forwarded-prefix": "/infinitebrain",
       },
     });
     expect(await announced.text()).toContain(
-      `server=${encodeURIComponent("https://intranet.example.com/baalda")}`,
+      `server=${encodeURIComponent("https://intranet.example.com/infinitebrain")}`,
     );
   });
 

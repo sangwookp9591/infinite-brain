@@ -6,7 +6,7 @@
 // Dockerfile build, pre-deploy migration, health check, restart policy, memory
 // cap — so a Railway-hosted server gets them from code instead of the dashboard.
 //
-// Scope. `partial` limits the file to the `baalda-server` service; Postgres,
+// Scope. `partial` limits the file to the `infinitebrain-server` service; Postgres,
 // volumes and domains belong to the Railway project and are never planned,
 // changed or deleted from here. Every environment variable the server reads is
 // listed with `preserve()`, which keeps whatever value the service already has
@@ -25,7 +25,7 @@
 // the file changes — ordinary pushes deploy with whatever was last applied.
 import { defineRailway, github, preserve, project, service } from "railway/iac";
 
-export const partial = "baalda-server";
+export const partial = "infinitebrain-server";
 
 // Server env vars (see apps/server/.env.example and docs/DEPLOY.md). All optional
 // here: `preserve()` keeps an existing value and creates nothing.
@@ -38,7 +38,7 @@ const SERVER_ENV = [
   "RAILWAY_DOCKERFILE_PATH",
   "HOCUSPOCUS_PORT",
   "NODE_ENV",
-  "BAALDA_DEPLOYMENT",
+  "INFINITE_BRAIN_DEPLOYMENT",
   "NODE_OPTIONS",
   "SYNC_TOKEN_TTL_SECONDS",
   "COMPACTION_THRESHOLD",
@@ -152,7 +152,7 @@ export default defineRailway((ctx) => {
   // every other project deploys `main`.
   const branch = ctx.projectName.toLowerCase().includes("staging") ? "staging" : "main";
 
-  const server = service("baalda-server", {
+  const server = service("infinitebrain-server", {
     source: github("sangwookp9591/infinite-brain", { branch }),
     build: {
       builder: "DOCKERFILE",

@@ -1,11 +1,11 @@
 <!doctype html>
 <!-- SPDX-License-Identifier: Apache-2.0
-Orbit — an original Baalda Agentic OS template.
+Orbit — an original Infinite Brain Agentic OS template.
 CUSTOMIZATION: Edit the DEMO object below to replace sample missions, skills,
 reports, memory and metrics. All runs are local demonstrations, not AI calls.
 The HTML is the synced source of truth; interactions last for this visit only.
-For live vault reads/navigation/state, use /__baalda/sdk.js and the permission-
-checked baalda API documented in docs/DASHBOARDS.md. Do not use fetch or storage.
+For live vault reads/navigation/state, use /__infinitebrain/sdk.js and the permission-
+checked infinitebrain API documented in docs/DASHBOARDS.md. Do not use fetch or storage.
 Keep sample data labeled until it is replaced by verified vault information.
 -->
 <!-- Bundled font licenses (retained in saved dashboard copies):
@@ -205,7 +205,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="baalda-template" content="orbit-agentic-os">
+<meta name="infinitebrain-template" content="orbit-agentic-os">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'">
 <title>Orbit · Agentic OS</title>
 <style>
@@ -323,7 +323,7 @@ function showSkill(id){const s=skill(id);openDetail(s.category.toUpperCase()+' /
 function showReport(id){const s=skill(id);openDetail('SAMPLE OUTPUT / '+s.category.toUpperCase(),s.output,paragraphs(s.body));}
 function showDoc(id){const d=DEMO.docs.find(d=>d.id===id);if(!d)return;openDetail(d.type+' / '+d.folder.toUpperCase(),d.title,paragraphs(d.body||skill(d.skill).body));}
 $('close-dialog').onclick=()=>$('detail-dialog').close();$('detail-dialog').addEventListener('click',e=>{if(e.target===$('detail-dialog')){const r=$('detail-dialog').getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)$('detail-dialog').close();}});
-function about(){openDetail('BAALDA ORIGINAL / ORBIT V.01','Make this space yours.','<div class="demo-banner">This is an interactive template. Metrics, schedules, agents, and reports are sample data. Demo actions last for this visit.</div><h3>Start with your world</h3><p>Use Baalda’s Update with Claude or Update with Codex action to replace the examples with your projects, notes, and priorities.</p><h3>Build one useful workflow</h3><p>Choose a task you repeat. Connect its inputs, define the result, then add a review step. Your agent can connect these pages to your vault using Baalda’s existing dashboard API.</p><h3>Keep it personal</h3><p>Switch between light and dark, pause the core, or ask your agent to change the sections and colors. The saved HTML syncs like any other dashboard.</p>');}
+function about(){openDetail('INFINITE BRAIN ORIGINAL / ORBIT V.01','Make this space yours.','<div class="demo-banner">This is an interactive template. Metrics, schedules, agents, and reports are sample data. Demo actions last for this visit.</div><h3>Start with your world</h3><p>Use Infinite Brain’s Update with Claude or Update with Codex action to replace the examples with your projects, notes, and priorities.</p><h3>Build one useful workflow</h3><p>Choose a task you repeat. Connect its inputs, define the result, then add a review step. Your agent can connect these pages to your vault using Infinite Brain’s existing dashboard API.</p><h3>Keep it personal</h3><p>Switch between light and dark, pause the core, or ask your agent to change the sections and colors. The saved HTML syncs like any other dashboard.</p>');}
 $('about-button').onclick=about;$('footer-about').onclick=about;
 $('briefings').innerHTML=DEMO.docs.slice(0,3).map(d=>'<button class="briefing" data-doc="'+d.id+'"><span class="eyebrow '+d.color+'">'+d.type+'</span><h3>'+escape(d.title)+'</h3><p>'+escape(d.description)+'</p><footer><span>'+d.time+' · SAMPLE</span><span class="'+d.color+'">↗</span></footer></button>').join('');$('briefings').querySelectorAll('[data-doc]').forEach(b=>b.onclick=()=>showDoc(b.dataset.doc));
 function renderSkills(){const q=$('skill-search').value.toLowerCase();const found=DEMO.skills.filter(s=>(skillFilter==='All'||s.category===skillFilter)&&(s.name+' '+s.description).toLowerCase().includes(q));$('skill-library').innerHTML=found.map(s=>'<article class="skill-card"><div class="row between"><div class="large-icon '+s.color+'">'+icon(s.icon)+'</div><span class="eyebrow">'+s.category+'</span></div><h3>'+s.name+'</h3><p>'+s.description+'</p><footer><span class="pill '+s.color+'">'+s.time+'</span><button class="outline" data-skill="'+s.id+'" aria-label="Explore '+s.name+'">Explore ↗</button></footer></article>').join('')||'<p class="empty">No matching skills. Try another word.</p>';$('skill-library').querySelectorAll('[data-skill]').forEach(b=>b.onclick=()=>showSkill(b.dataset.skill));}

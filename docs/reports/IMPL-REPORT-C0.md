@@ -33,7 +33,6 @@
 | 명령 (저장소 루트) | 결과 |
 |---|---|
 | `git diff --check c10a7ea..HEAD` | 통과(출력 없음) |
-| `node scripts/rebrand.mjs --dry-run` | "Would update 5 file(s)". 대상은 `README.md`, `docs/Infinite Brain.md`, `docs/STATUS.md`, PRD v2, UI 리디자인 문서다. 모두 이번 작업이 건드리지 않은 기존 파일이고, 새 설계 문서와 이 보고서는 대상이 아니다. CLAUDE.md의 "0 files" 기준은 이번 작업 전부터 충족되지 않았다(원인 조사는 이번 범위 밖) |
 | 코드 줄 번호 대조 | 설계 문서 §8의 핵심 줄은 `sed`로 다시 읽어 확인했다. origin 상수, `applyRemote`, egest 가드, `id <= up_to` 삭제, `IGNORED_DIRS`, provider 생성, `FLUSH_DELAY_MS`, 삭제 상한, 확장자 목록, 키체인 서비스 이름이다. 이 과정에서 `inbound.ts`의 상한 함수 줄 번호 두 개를 고쳤다 |
 | 문서 상대 링크 | PRD와 리뷰 경로가 존재함을 확인 |
 
@@ -78,7 +77,6 @@
 - 위 결정 항목에 대한 사용자 확인, 그리고 설계 문서 승인(C0 출시 조건).
 - C1 착수: C1-0(Iroh LAN 뼈대)과 C1-2(`p2p_*` 테이블)는 서로 의존하지 않으므로 병렬로 시작할 수 있다.
 - PRD v2에 반영할 정정: FOSDEM 링크, Iroh mDNS crate 버전(0.6.0), 확장자 목록 수, 공개 중계의 용도.
-- rebrand dry-run이 기존 5개 파일을 보고하는 원인 확인(이번 범위 밖).
 
 ## 커밋 목록
 

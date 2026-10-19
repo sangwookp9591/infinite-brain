@@ -47,7 +47,7 @@ async function rpc(token: string, method: string, params?: unknown) {
     headers: {
       authorization: `Bearer ${token}`,
       "content-type": "application/json",
-      "user-agent": "baalda-mcp-access-integration-test",
+      "user-agent": "infinitebrain-mcp-access-integration-test",
     },
     body: JSON.stringify({ jsonrpc: "2.0", id: ++rpcId, method, params }),
   });

@@ -24,7 +24,7 @@ const writer = { peekContent, editContent } as unknown as DocWriter;
 const app = createHousekeeperRoutes(writer);
 beforeEach(() => {
   Object.assign(state, { user: true, member: true, plan: "pro", status: "active", deleted: false, permission: "edit", noteQueries: 0 });
-  vi.clearAllMocks(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.stubEnv("POLAR_ACCESS_TOKEN", "test-billing"); vi.stubEnv("BAALDA_DEPLOYMENT", "cloud");
+  vi.clearAllMocks(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.stubEnv("POLAR_ACCESS_TOKEN", "test-billing"); vi.stubEnv("INFINITE_BRAIN_DEPLOYMENT", "cloud");
 });
 const request = (action = "status", body?: unknown, vault = "vault") => app.request(`/vaults/${vault}/housekeeper/${action}`, {
   method: action === "status" ? "GET" : "POST", headers: { "Content-Type": "application/json" },
@@ -145,7 +145,7 @@ it("local rename authorization requires live edit permission without returning n
 });
 
 it.each(["", "operator-billing"])("includes Assistant for self-hosters with billing token %s", async token => {
-  vi.stubEnv("BAALDA_DEPLOYMENT", "self-hosted"); vi.stubEnv("POLAR_ACCESS_TOKEN", token); state.plan = "free";
+  vi.stubEnv("INFINITE_BRAIN_DEPLOYMENT", "self-hosted"); vi.stubEnv("POLAR_ACCESS_TOKEN", token); state.plan = "free";
   expect((await request()).status).toBe(200);
 });
 

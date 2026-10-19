@@ -135,7 +135,7 @@ const lazyRenderer: MermaidRenderer = {
     try {
       // The id must be a unique, valid CSS id: with no container argument
       // mermaid parks a temporary `div#d<id>` on document.body and removes it.
-      const { svg } = await m.render(`baalda-mermaid-${++seq}`, source);
+      const { svg } = await m.render(`infinitebrain-mermaid-${++seq}`, source);
       return sanitizeMermaidSvg(svg);
     } catch (err) {
       throw new MermaidError(`Diagram error: ${shortMessage(err)}`);

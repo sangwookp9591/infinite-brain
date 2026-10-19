@@ -91,7 +91,7 @@ export async function startCapture(onChunk: ChunkSink): Promise<CaptureHandle> {
   };
 
   const source = ctx.createMediaStreamSource(stream);
-  const node = new AudioWorkletNode(ctx, "baalda-recorder");
+  const node = new AudioWorkletNode(ctx, "infinitebrain-recorder");
   let seq = 0;
   let stopped = false;
   let resolveStopped: (() => void) | null = null;

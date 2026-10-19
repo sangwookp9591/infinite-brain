@@ -510,7 +510,7 @@ export class PolarBillingProvider implements BillingProvider {
       name: args.name,
       duration: "forever" as const,
       products: args.productIds,
-      metadata: { source: "baalda-legacy-price" },
+      metadata: { source: "infinitebrain-legacy-price" },
     };
     const body =
       args.type === "fixed"

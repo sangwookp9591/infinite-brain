@@ -31,7 +31,7 @@ a pnpm monorepo and needs the workspace root's `package.json` /
 ### Build
 
 ```bash
-docker build -f app/apps/server/Dockerfile -t baalda-server .
+docker build -f app/apps/server/Dockerfile -t infinitebrain-server .
 ```
 
 ### Run
@@ -41,7 +41,7 @@ docker run -p 3010:3010 \
   -e DATABASE_URL=postgres://context:context@your-postgres-host:5432/context \
   -e JWT_SECRET="$(openssl rand -base64 32)" \
   -e BETTER_AUTH_URL=https://your-domain.example \
-  baalda-server
+  infinitebrain-server
 ```
 
 Run migrations once before (or on) first boot:
@@ -50,7 +50,7 @@ Run migrations once before (or on) first boot:
 docker run --rm \
   -e DATABASE_URL=postgres://context:context@your-postgres-host:5432/context \
   -e JWT_SECRET="$(openssl rand -base64 32)" \
-  baalda-server node dist/db/migrate.js
+  infinitebrain-server node dist/db/migrate.js
 ```
 
 Migrations are idempotent (tracked in a `_migrations` table), so re-running
@@ -70,7 +70,7 @@ services:
       POSTGRES_PASSWORD: context
       POSTGRES_DB: context
     volumes:
-      - baalda-postgres:/var/lib/postgresql/data
+      - infinitebrain-postgres:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U context"]
       interval: 5s
@@ -104,7 +104,7 @@ services:
         condition: service_completed_successfully
 
 volumes:
-  baalda-postgres:
+  infinitebrain-postgres:
 ```
 
 Generate a real `JWT_SECRET` for anything beyond local testing:
@@ -164,15 +164,17 @@ for the first-run step, Settings → Connection, and the invite link.
 
 ### Option B (one-click)
 
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/baalda-server?utm_medium=integration&utm_source=button&utm_campaign=baalda)
+Publish the Railway template from your own Railway account first; the button below points to its published slug.
 
-Template [**`baalda-server`**](https://railway.com/deploy/baalda-server) — two
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/infinitebrain-server?utm_medium=integration&utm_source=button&utm_campaign=infinitebrain)
+
+Template [**`infinitebrain-server`**](https://railway.com/deploy/infinitebrain-server) — two
 services, no manual configuration:
 
 | Service | What the deploy does |
 | --- | --- |
 | `Postgres` | Railway's Postgres, volume at `/var/lib/postgresql/data` |
-| `baalda` | Builds `app/apps/server/Dockerfile` from this repo, gets an HTTPS domain |
+| `infinitebrain` | Builds `app/apps/server/Dockerfile` from this repo, gets an HTTPS domain |
 
 The template must explicitly set `PORT=8080` and its public domain's target port
 to **8080**, and pin `RAILWAY_DOCKERFILE_PATH`. The three instance-specific
@@ -217,7 +219,7 @@ and the Dockerfile builder. A Railpack deployment could therefore listen on
 **8080** while its domain still forwarded to **3010**. This can show as Online
 with a passing healthcheck while the desktop reports it cannot reach the server.
 
-Set `PORT=8080` in the **baalda** service's Variables and change the existing
+Set `PORT=8080` in the **infinitebrain** service's Variables and change the existing
 domain's target port to **8080** under Settings → Networking, then redeploy.
 Keep the existing domain so `BETTER_AUTH_URL` and clients' saved URLs stay valid.
 Confirm `https://<your-domain>/health` responds successfully. An existing setup
@@ -234,7 +236,7 @@ pre-deploy migration, healthcheck) and the Dockerfile. Changing the required env
 editing the template in the dashboard too, or one-click deploys will boot
 misconfigured.
 
-For the `baalda` template service, set
+For the `infinitebrain` template service, set
 `RAILWAY_DOCKERFILE_PATH=app/apps/server/Dockerfile` and keep the build context
 at the repository root. Railway uses this variable to detect the Dockerfile
 ([Railway Dockerfile documentation](https://docs.railway.com/builds/dockerfiles)).
@@ -251,13 +253,13 @@ staged changes. Current Railway CLI versions also support
 service configuration. See [Railway template CLI documentation](https://docs.railway.com/cli/templates).
 
 ⚠️ **Publishing changes the URL.** An unpublished template is reachable at a random
-code (`/deploy/CZ25Mu`); publishing moves it to the vanity slug (`/deploy/baalda-server`)
+code; publishing moves it to the vanity slug (`/deploy/infinitebrain-server`)
 and the old code stops resolving — it silently serves Railway's generic landing page
 rather than 404ing, so a stale button looks fine in Markdown and is dead on click.
 After any republish, re-check the link:
 
 ```bash
-curl -sL https://railway.com/deploy/baalda-server | grep -o '<title>[^<]*</title>'
+curl -sL https://railway.com/deploy/infinitebrain-server | grep -o '<title>[^<]*</title>'
 # expect: <title>Deploy &amp; Host Infinite Brain Server | Railway</title>
 ```
 
@@ -513,7 +515,7 @@ The Compose bundle ships a MinIO service behind a profile, so nothing about
 ```bash
 docker compose --profile minio up -d minio
 docker compose exec minio mc alias set local http://localhost:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
-docker compose exec minio mc mb local/baalda
+docker compose exec minio mc mb local/infinitebrain
 ```
 
 Then uncomment the `S3_*` block in `x-server-env` and restart the server. Read
@@ -798,7 +800,7 @@ unset and the server behaves exactly as before (Postgres only).
 
 ### Self-hosted agent access
 
-Set `BAALDA_DEPLOYMENT=self-hosted` (as in `.env.example`) to enable the Assistant with
+Set `INFINITE_BRAIN_DEPLOYMENT=self-hosted` (as in `.env.example`) to enable the Assistant with
 users’ own model keys, independently of optional billing setup. You can configure
 billing later without changing AI access. The setting defaults to `cloud` when
 omitted: AI requires a paid plan (Pro, or Team under `BILLING_MODEL=team`). Free vaults

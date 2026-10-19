@@ -75,7 +75,7 @@ describe("backendStatus", () => {
     });
   });
 
-  it("does not flag a managed host until this fork has one", () => {
+  it("does not flag a managed host until one exists", () => {
     expect(backendStatus(parseHealth({ ok: true }), "http://localhost:3010").managed).toBe(false);
   });
 });

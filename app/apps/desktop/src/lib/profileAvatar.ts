@@ -16,7 +16,7 @@ export const PROFILE_IMAGE_MAX_CHARS = 96 * 1024;
  * The characters on offer. Fixed seeds, so everyone sees the same gallery and a
  * pick renders the same character on every machine. Append only.
  */
-export const PROFILE_CHARACTER_SEEDS = Array.from({ length: 24 }, (_, i) => `baalda-${i + 1}`);
+export const PROFILE_CHARACTER_SEEDS = Array.from({ length: 24 }, (_, i) => `infinitebrain-${i + 1}`);
 
 /** The character seed an image value names, or null when it isn't one. */
 export function characterSeed(image: string | null | undefined): string | null {

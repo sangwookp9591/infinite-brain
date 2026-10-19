@@ -7,7 +7,6 @@
 ## 검증 결과
 - `NODE_OPTIONS=--no-experimental-webstorage pnpm test src/components/kit`: 12 파일 / 29 테스트 통과 (리뷰 전 11 / 15).
 - `app/`에서 `pnpm lint`: 오류 0 (기존 경고 45건, ToolCallCard 관련 없음). desktop `tsc --noEmit`: 통과.
-- `scripts/rebrand.mjs --dry-run`: 5개 파일이 나오지만 모두 기존 `docs/superpowers/specs/` 문서이고 이번 변경과 무관.
 - 시각 확인은 기존 스크린샷(`docs/assets/ui/kit-tool-call-{light,dark}.png`, Ink·Green)만 봤다. 수정 후 화면은 **재촬영하지 않았다**.
 
 ## (1) 원본 동작 보존 — 코드 대조

@@ -24,8 +24,7 @@ use keyring::credential::CredentialPersistence;
 
 /// Keychain "service" namespace for all Infinite Brain secrets.
 ///
-/// This fork uses a distinct service so it cannot read or overwrite upstream
-/// credentials. Keep this value aligned with the Tauri bundle identifier.
+/// Keep this value aligned with the Tauri bundle identifier.
 pub const SERVICE: &str = "com.infinitebrain.desktop";
 
 /// A minimal secret store, abstracted so tests can swap in an in-memory fake.

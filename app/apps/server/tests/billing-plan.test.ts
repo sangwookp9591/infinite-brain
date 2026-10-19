@@ -23,7 +23,7 @@ function setModel(model: "vault" | "team") {
 }
 function billingOn() {
   vi.stubEnv("POLAR_ACCESS_TOKEN", "test-token");
-  vi.stubEnv("BAALDA_DEPLOYMENT", "cloud");
+  vi.stubEnv("INFINITE_BRAIN_DEPLOYMENT", "cloud");
 }
 
 let n = 0;
@@ -79,10 +79,10 @@ afterAll(async () => {
 
 describe("planEnforced", () => {
   it("is off for self-host and when billing is disabled", () => {
-    vi.stubEnv("BAALDA_DEPLOYMENT", "self-hosted");
+    vi.stubEnv("INFINITE_BRAIN_DEPLOYMENT", "self-hosted");
     vi.stubEnv("POLAR_ACCESS_TOKEN", "t");
     expect(planEnforced()).toBe(false);
-    vi.stubEnv("BAALDA_DEPLOYMENT", "cloud");
+    vi.stubEnv("INFINITE_BRAIN_DEPLOYMENT", "cloud");
     vi.stubEnv("POLAR_ACCESS_TOKEN", "");
     expect(planEnforced()).toBe(false);
     vi.stubEnv("POLAR_ACCESS_TOKEN", "t");
@@ -93,7 +93,7 @@ describe("planEnforced", () => {
 describe("team model, billing not enforced", () => {
   it("returns no limits and every feature", async () => {
     setModel("team");
-    vi.stubEnv("BAALDA_DEPLOYMENT", "self-hosted");
+    vi.stubEnv("INFINITE_BRAIN_DEPLOYMENT", "self-hosted");
     const owner = await seedUser("selfhost@x.com");
     const acct = await account(owner);
     const org = await vaultOn(acct, owner);

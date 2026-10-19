@@ -64,7 +64,7 @@
 # Once you have the real domain (Domains tab on `server`), set
 # BETTER_AUTH_URL to it — https://…, no trailing slash — and redeploy;
 # auth/invitation links are wrong until you do.
-name: baalda
+name: infinitebrain
 
 x-server-image: &server-image
   build:
@@ -73,8 +73,8 @@ x-server-image: &server-image
 
 x-server-env: &server-env
   NODE_ENV: production
-  BAALDA_DEPLOYMENT: self-hosted
-  DATABASE_URL: postgres://infinitebrain:${SERVICE_PASSWORD_64_POSTGRES}@postgres:5432/baalda
+  INFINITE_BRAIN_DEPLOYMENT: self-hosted
+  DATABASE_URL: postgres://infinitebrain:${SERVICE_PASSWORD_64_POSTGRES}@postgres:5432/infinitebrain
   JWT_SECRET: ${SERVICE_REALBASE64_64_JWT}
   BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3010}
   PORT: "3010"
@@ -84,13 +84,13 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: baalda
+      POSTGRES_USER: infinitebrain
       POSTGRES_PASSWORD: ${SERVICE_PASSWORD_64_POSTGRES}
-      POSTGRES_DB: baalda
+      POSTGRES_DB: infinitebrain
     volumes:
-      - baalda_pgdata:/var/lib/postgresql/data
+      - infinitebrain_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U baalda -d baalda"]
+      test: ["CMD-SHELL", "pg_isready -U infinitebrain -d infinitebrain"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -134,4 +134,4 @@ services:
       start_period: 30s
 
 volumes:
-  baalda_pgdata:
+  infinitebrain_pgdata:

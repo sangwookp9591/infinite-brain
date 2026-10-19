@@ -1,7 +1,9 @@
-Infinite Brain is based on Baalda, Copyright 2026 Baalda and the Baalda contributors.
-The Baalda source code is licensed under the Apache License, Version 2.0; see LICENSE.
+Infinite Brain
+Copyright 2026 the Infinite Brain contributors
 
-Infinite Brain is an independent fork and does not use the Baalda name, logo, or wordmark as its product brand. The Baalda trademark policy remains the upstream project's policy; this fork makes no claim to those marks.
+Portions of this software are derived from the Baalda project,
+Copyright 2026 Baalda and the Baalda contributors, licensed under the
+Apache License, Version 2.0. See LICENSE.
 
 This product includes third-party open-source components distributed under their respective licenses. See the package manifests, Cargo metadata, and included license texts for details.
 

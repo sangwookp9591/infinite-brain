@@ -553,12 +553,12 @@ describe("billing", () => {
     });
 
     it("hands back to the allow-listed app scheme, and to this deployment's otherwise", async () => {
-      for (const scheme of ["baalda", "infinitebrain-staging"]) {
+      for (const scheme of ["infinitebrain", "infinitebrain-staging"]) {
         const html = await (await req(app, "GET", `/api/billing/success?app=${scheme}`)).text();
         expect(html).toContain(`href="${scheme}://billing/upgraded"`);
         expect(html).toContain(`location.href = "${scheme}://billing/upgraded"`);
       }
-      for (const bad of ["javascript", "https", "baalda-evil", "%22%3E%3Cscript%3E"]) {
+      for (const bad of ["javascript", "https", "infinitebrain-evil", "%22%3E%3Cscript%3E"]) {
         const html = await (await req(app, "GET", `/api/billing/success?app=${bad}`)).text();
         expect(html).toContain(`href="${config.deepLinkScheme}://billing/upgraded"`);
         expect(html).not.toContain("javascript://");

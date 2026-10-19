@@ -4,7 +4,7 @@ spec: 02-database-architecture
 product: Infinite Brain
 status: draft-v1
 date: 2026-07-13
-tags: [baalda, spec, database, sqlite, postgres, storage]
+tags: [infinite-brain, spec, database, sqlite, postgres, storage]
 ---
 
 # 02 · Database Architecture

@@ -3,12 +3,12 @@
 <html lang="en">
 <head><!--
 Adapted from https://benai-cosmos.vercel.app/ (Ben AI). Original interface attribution retained.
-Template adaptation: Baalda. See deployed-os-NOTICE.txt for provenance and dependency notices.
+Template adaptation: Infinite Brain. See deployed-os-NOTICE.txt for provenance and dependency notices.
 CUSTOMIZATION: Edit window.COSMOS for the sample graph and demoResponse for briefing/radar. The downloaded canvas renderer and interface have been adapted for an offline, opaque-origin HTML note.
 All displayed records are fictional. Demo actions affect only this open page.
 No service credentials, original customer records or remote action endpoints are included.
-Use Baalda permission-checked SDK reads for live vault data; preserve this HTML note identity.
---><meta content="cosmos-agentic-os" name="baalda-template"/><meta content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; font-src data:; img-src data: blob:; media-src data: blob:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'" http-equiv="Content-Security-Policy"/>
+Use Infinite Brain permission-checked SDK reads for live vault data; preserve this HTML note identity.
+--><meta content="cosmos-agentic-os" name="infinitebrain-template"/><meta content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; font-src data:; img-src data: blob:; media-src data: blob:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'" http-equiv="Content-Security-Policy"/>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>Cosmos — Agentic OS</title>
@@ -744,7 +744,7 @@ html[data-theme=light] .result:hover,html[data-theme=light] .result.sel{backgrou
 
 <section class="panel" id="console">
 <div class="panel-head"><h2>COMMAND CONSOLE · DEMO</h2><button aria-label="Close panel" class="panel-close" id="console-x">✕</button></div>
-<div id="console-out"><div class="con-meta">Explore this fictional workspace. Demo commands stay in this page. Use Update with Claude or Codex in Baalda to connect your own workflow.</div></div>
+<div id="console-out"><div class="con-meta">Explore this fictional workspace. Demo commands stay in this page. Use Update with Claude or Codex in Infinite Brain to connect your own workflow.</div></div>
 <div id="console-busy">▮▮▮ PROCESSING — THE CORE BURNS CYAN WHILE JARVIS WORKS ▮▮▮</div>
 <div id="console-in">
 <span class="prompt-sign">❯</span>
@@ -1795,7 +1795,7 @@ function conLine(cls, html) {
 async function runJarvis(prompt) {
  conHistory.push(prompt); histIdx=conHistory.length;
  conLine('con-user',esc(prompt));
- conLine('con-text','DEMO RESPONSE · Your workspace has '+N+' sample notes across '+D.domains.length+' sectors. Try search, select a node, or open the briefing. To personalize this template, use Baalda’s Update with Claude or Codex action. No agent ran and no file was changed.');
+ conLine('con-text','DEMO RESPONSE · Your workspace has '+N+' sample notes across '+D.domains.length+' sectors. Try search, select a node, or open the briefing. To personalize this template, use Infinite Brain’s Update with Claude or Codex action. No agent ran and no file was changed.');
 }
 $('console-x').addEventListener('click', closeConsole);
 conIn.addEventListener('keydown', e => {

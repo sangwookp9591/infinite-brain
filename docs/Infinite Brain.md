@@ -4,15 +4,13 @@ product: Infinite Brain
 brand: Infinite Brain
 status: phases-0-3-complete · phase-4-planned
 date: 2026-07-13
-tags: [baalda, second-brain, spec, build-from-scratch]
+tags: [infinite-brain, second-brain, spec, build-from-scratch]
 ---
 
 # Infinite Brain
 
-> [!note] Fork
-> Infinite Brain is a hard fork of Baalda 0.1.83. Fork status: [[STATUS]] (top section).
-> Design: [[FINAL-report]] · implementation reports: `reports/` · AI change ledger: [[AI-CHANGES]].
-> The rest of this page is the inherited spec index.
+> [!note] Status
+> Build status: [[STATUS]] · implementation reports: `reports/` · AI change ledger: [[AI-CHANGES]].
 
 **Context** is the product an owner buys: the shared, always-current context your team *and* your
 AI both work from. **Infinite Brain** is the brand. This folder is the build spec: what we are building,

@@ -99,7 +99,6 @@
 - 모델(`*.gguf`), `vendor/`(180MB), `target/`(513MB)는 `app/apps/desktop/spikes/b0-llama/.gitignore`로 막혀 있고 추적되지 않는다(`git ls-files`, `git check-ignore` 확인). `matrix.out`과 dump도 저장소 밖에 있다.
 - 커밋된 소스(`Cargo.toml`, `README.md`, `scripts/*.sh`, `src/**/*.rs`)는 모두 Apache-2.0 SPDX 헤더가 있다. `.gitignore`와 `Cargo.lock`은 소스가 아니어서 헤더가 없어도 된다.
 - `src-tauri`와 앱 의존성은 바뀌지 않았다. crate는 `[workspace]`로 독립해 있다.
-- `scripts/rebrand.mjs --dry-run`은 5개 파일을 보고한다(README.md, docs/Infinite Brain.md, docs/STATUS.md, PRD, color-design). 모두 이 브랜치가 건드리지 않은 파일이라 B0-a와 무관하다. 다만 CLAUDE.md의 "0 files" 기준에 어긋나므로 별도로 처리해야 한다.
 - 권장: 측정 원자료(`matrix.out`과 재실행 로그, 각 실행의 load average 포함)를 작은 텍스트로 `docs/reports/` 아래에 남긴다.
 
 ## 8. 보고서 작성자가 고칠 것

@@ -69,12 +69,12 @@ describe("account billing routes (team model)", () => {
     await resetDb();
     fakeProvider.reset();
     process.env.POLAR_ACCESS_TOKEN = "test-polar-access-token";
-    process.env.BAALDA_DEPLOYMENT = "cloud";
+    process.env.INFINITE_BRAIN_DEPLOYMENT = "cloud";
     mutable.billingModel = "team";
   });
   afterEach(() => {
     delete process.env.POLAR_ACCESS_TOKEN;
-    delete process.env.BAALDA_DEPLOYMENT;
+    delete process.env.INFINITE_BRAIN_DEPLOYMENT;
     mutable.billingModel = originalModel;
   });
   afterAll(async () => {

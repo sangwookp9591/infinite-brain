@@ -37,7 +37,7 @@ export function VaultDashboardsTab({ onClose, onNew, resetToken = 0 }: { onClose
         try {
           const html = await readNote(path, epoch);
           if (!alive) return;
-          const id = html.match(/<meta\s+name="baalda-template"\s+content="([^"]+)"/)?.[1]
+          const id = html.match(/<meta\s+name="infinitebrain-template"\s+content="([^"]+)"/)?.[1]
             ?? DASHBOARD_TEMPLATES.find((t) => html.includes(`github.com/`) && (html.includes(`/${t.id}\n`) || html.includes(`>${t.id} · Original template`)))?.id;
           if (id && DASHBOARD_TEMPLATES.some((t) => t.id === id)) result[id] = path;
         } catch { /* A missing preview does not prevent choosing another template. */ }

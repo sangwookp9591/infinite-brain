@@ -4,7 +4,7 @@ spec: 05-vault-sync-engine
 product: Infinite Brain
 status: draft-v1
 date: 2026-07-15
-tags: [baalda, spec, sync, yjs, crdt, hocuspocus, vault, scale, ha]
+tags: [infinite-brain, spec, sync, yjs, crdt, hocuspocus, vault, scale, ha]
 ---
 
 # 05 · Vault Sync Engine (background, vault-wide, always-on)

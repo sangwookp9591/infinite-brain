@@ -174,7 +174,7 @@ mod tests {
     }
 
     #[test]
-    fn root_nests_a_baalda_vaults_folder_under_the_pick() {
+    fn root_nests_a_infinitebrain_vaults_folder_under_the_pick() {
         let h = home();
         assert_eq!(nest_vaults_root(&h.join("Desktop"), None), h.join("Desktop/Infinite Brain Vaults"));
         assert_eq!(nest_vaults_root(&h, None), h.join("Infinite Brain Vaults"));

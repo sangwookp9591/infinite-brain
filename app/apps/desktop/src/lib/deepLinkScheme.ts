@@ -10,7 +10,7 @@
 // whichever app registered the scheme last, which is how clicking a link from
 // the production server opened the Staging app.
 //
-// Parsers accept the three fork schemes regardless of build. Being strict about
+// Parsers accept all three schemes regardless of build. Being strict about
 // the scheme buys nothing (the OS already routed the link here) and would make
 // a link pasted between builds silently do nothing.
 

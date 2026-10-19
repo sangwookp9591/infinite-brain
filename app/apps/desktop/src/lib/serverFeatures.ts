@@ -50,7 +50,7 @@ export function parseHealth(body: unknown): ServerHealth | null {
   return out;
 }
 
-/** This fork has no managed server endpoint yet. */
+/** There is no managed server endpoint yet. */
 export function isManagedServer(_serverUrl: string | null | undefined): boolean {
   return false;
 }

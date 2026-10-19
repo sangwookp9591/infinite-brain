@@ -2,7 +2,7 @@
 
 - 작업 경로: `/Users/iron/Project/psw/ib-wt/m3-ledger`
 - 브랜치: `feat/m3-ledger`
-- 기준 커밋: `ddeb700` (Baalda 0.1.83 가져오기)
+- 기준 커밋: `ddeb700`
 - 서버 코드 커밋: `ce93038`
 - 데스크톱 코드 커밋 / 검증 대상 HEAD: `39f727d`
 - 상태: 구현·관련 회귀 검증 완료, push 없음. 이 보고서는 별도 문서 커밋으로 추가한다.

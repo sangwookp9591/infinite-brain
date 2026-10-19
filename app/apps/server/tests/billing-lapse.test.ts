@@ -25,7 +25,7 @@ const app = createApp(rec.deps);
 function teamOn() {
   mutable.billingModel = "team";
   vi.stubEnv("POLAR_ACCESS_TOKEN", "test-token");
-  vi.stubEnv("BAALDA_DEPLOYMENT", "cloud");
+  vi.stubEnv("INFINITE_BRAIN_DEPLOYMENT", "cloud");
 }
 
 interface Fx {

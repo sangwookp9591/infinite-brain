@@ -19,10 +19,10 @@ import { BlobStoreError } from "../src/blobs/store.js";
  *
  *   docker compose --profile minio up -d minio
  *   docker compose exec minio mc alias set local http://localhost:9000 <user> <password>
- *   docker compose exec minio mc mb local/baalda-test
+ *   docker compose exec minio mc mb local/infinitebrain-test
  *
  *   S3_TEST_ENDPOINT=http://localhost:9000 \
- *   S3_TEST_BUCKET=baalda-test \
+ *   S3_TEST_BUCKET=infinitebrain-test \
  *   S3_TEST_ACCESS_KEY_ID=... \
  *   S3_TEST_SECRET_ACCESS_KEY=... \
  *   pnpm vitest run tests/blob-s3.test.ts
@@ -307,8 +307,8 @@ describe.skipIf(!enabled)("S3BlobStore against a real bucket", () => {
  * faking it would test something the server never runs:
  *
  *   BLOB_STORAGE=s3 S3_ENDPOINT=http://localhost:9000 S3_FORCE_PATH_STYLE=true \
- *   S3_BUCKET=baalda-test S3_ACCESS_KEY_ID=... S3_SECRET_ACCESS_KEY=... \
- *   S3_CHECKSUM_MODE=none S3_TEST_ENDPOINT=http://localhost:9000 S3_TEST_BUCKET=baalda-test \
+ *   S3_BUCKET=infinitebrain-test S3_ACCESS_KEY_ID=... S3_SECRET_ACCESS_KEY=... \
+ *   S3_CHECKSUM_MODE=none S3_TEST_ENDPOINT=http://localhost:9000 S3_TEST_BUCKET=infinitebrain-test \
  *   pnpm vitest run tests/blob-s3.test.ts
  */
 const routesEnabled = enabled && process.env.BLOB_STORAGE === "s3";

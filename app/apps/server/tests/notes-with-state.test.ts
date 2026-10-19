@@ -287,7 +287,7 @@ describe("notes with state", () => {
   });
 
   it("quota refusal (note_limit_reached) writes nothing", async () => {
-    vi.stubEnv("BAALDA_DEPLOYMENT", "cloud");
+    vi.stubEnv("INFINITE_BRAIN_DEPLOYMENT", "cloud");
     await pool.query(
       `INSERT INTO notes (id, vault_id, rel_path, doc_id, created_by)
        SELECT 'q-' || n, $1, 'note-' || n || '.md', 'q-' || n, $2 FROM generate_series(1,20000) n`,

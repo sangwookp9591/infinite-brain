@@ -68,7 +68,7 @@ interface ConfirmedCheckout {
  * started the checkout; anything outside this list is ignored, so the page can
  * never be made to open an arbitrary scheme.
  */
-const APP_SCHEMES: readonly string[] = ["baalda", "infinitebrain-staging", "infinitebrain-dev"];
+const APP_SCHEMES: readonly string[] = ["infinitebrain", "infinitebrain-staging", "infinitebrain-dev"];
 
 /** `v` when it is one of {@link APP_SCHEMES}, else null. */
 export function allowedAppScheme(v: unknown): string | null {

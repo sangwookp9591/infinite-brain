@@ -164,8 +164,8 @@ fn serve(state: &AppState, request: &Request<Vec<u8>>) -> AppResult<Response<Vec
     let mut body = read_resource(&file)?;
     if is_html(rel) {
         if let Ok(html) = std::str::from_utf8(&body) {
-            if html.contains("baalda-template-credit") {
-                body = html.replacen("</head>", "<style>.baalda-template-credit{display:none!important}</style></head>", 1).into_bytes();
+            if html.contains("infinitebrain-template-credit") {
+                body = html.replacen("</head>", "<style>.infinitebrain-template-credit{display:none!important}</style></head>", 1).into_bytes();
             }
         }
     }
@@ -188,12 +188,12 @@ fn serve(state: &AppState, request: &Request<Vec<u8>>) -> AppResult<Response<Vec
 
 // Keep existing saved templates comfortable without rewriting the user's file.
 fn template_spacing(html: &str) -> String {
-    if !html.contains("name=\"baalda-template\"") {
+    if !html.contains("name=\"infinitebrain-template\"") {
         return html.to_owned();
     }
     let css = include_str!("../../public/dashboard-template-spacing.css");
-    let style = format!("<style id=\"baalda-template-spacing\">{css}</style>");
-    if let Some(start) = html.find("<style id=\"baalda-template-spacing\">") {
+    let style = format!("<style id=\"infinitebrain-template-spacing\">{css}</style>");
+    if let Some(start) = html.find("<style id=\"infinitebrain-template-spacing\">") {
         if let Some(end) = html[start..].find("</style>") {
             return format!("{}{}{}", &html[..start], style, &html[start + end + 8..]);
         }
@@ -624,15 +624,15 @@ mod tests {
     fn saved_template_spacing_is_scoped_and_idempotent() {
         let plain = "<html><head></head><body>Custom dashboard</body></html>";
         assert_eq!(template_spacing(plain), plain);
-        let paper = "<head><meta name=\"baalda-template\" content=\"paper-dashboard\"></head>";
+        let paper = "<head><meta name=\"infinitebrain-template\" content=\"paper-dashboard\"></head>";
         let padded = template_spacing(paper);
         assert!(padded.contains("padding-top:24px"));
         assert_eq!(template_spacing(&padded), padded);
-        let older = paper.replace("</head>", "<style id=\"baalda-template-spacing\">old spacing</style></head>");
+        let older = paper.replace("</head>", "<style id=\"infinitebrain-template-spacing\">old spacing</style></head>");
         let refreshed = template_spacing(&older);
         assert!(!refreshed.contains("old spacing"));
         assert!(refreshed.contains("padding-inline:clamp(16px, 2vw, 24px)"));
-        assert_eq!(refreshed.matches("id=\"baalda-template-spacing\"").count(), 1);
+        assert_eq!(refreshed.matches("id=\"infinitebrain-template-spacing\"").count(), 1);
     }
 
     #[test]

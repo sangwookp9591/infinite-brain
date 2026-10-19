@@ -516,10 +516,10 @@ describe("ApiClient.health", () => {
       token: "t",
       fetchImpl: rawFetch(200, JSON.stringify({ ok: true }), seen),
     });
-    await expect(api.health("https://notes.example.com/baalda/")).resolves.toBeUndefined();
+    await expect(api.health("https://notes.example.com/infinitebrain/")).resolves.toBeUndefined();
     // The candidate URL, not the client's current base — and no session token,
     // because the point is to test the address.
-    expect(seen.url).toBe("https://notes.example.com/baalda/health");
+    expect(seen.url).toBe("https://notes.example.com/infinitebrain/health");
     expect(seen.auth).toBeUndefined();
     // Probing must not repoint the client.
     expect(api.getBaseUrl()).toBe("http://localhost:3010");

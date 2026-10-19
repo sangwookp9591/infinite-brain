@@ -5,7 +5,7 @@
 # workspace root's package.json + pnpm-lock.yaml + pnpm-workspace.yaml to
 # resolve its deps):
 #
-#   docker build -f app/apps/server/Dockerfile -t baalda-server .
+#   docker build -f app/apps/server/Dockerfile -t infinitebrain-server .
 #
 # Run (see docs/DEPLOY.md for the full env var reference):
 #
@@ -13,7 +13,7 @@
 #     -e DATABASE_URL=postgres://... \
 #     -e JWT_SECRET=... \
 #     -e BETTER_AUTH_URL=https://your-host \
-#     baalda-server
+#     infinitebrain-server
 
 # ---- build: install workspace deps, compile, prune to a deployable bundle --
 FROM node:22-alpine AS build

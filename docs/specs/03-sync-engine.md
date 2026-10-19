@@ -4,7 +4,7 @@ spec: 03-sync-engine
 product: Infinite Brain
 status: draft-v1
 date: 2026-07-13
-tags: [baalda, spec, sync, yjs, crdt, hocuspocus, bridge]
+tags: [infinite-brain, spec, sync, yjs, crdt, hocuspocus, bridge]
 ---
 
 # 03 · Sync Engine

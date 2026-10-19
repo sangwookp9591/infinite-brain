@@ -1,7 +1,7 @@
 # Infinite Brain 고유 디자인 언어: 방향 시안 3개 + 아바타 시안 (2026-10-17)
 
 - 상태: 방향 결정용 시안 (제품 코드 `src/` 변경 없음)
-- 배경: M6(`2026-10-15-ui-redesign-color-design.md`)에서 zinc/ink 토큰과 kit 컴포넌트 10개를 바꿨지만, 레이아웃·밀도·타이포·아이콘·셸 구조·아바타(`Avatar.tsx`, DiceBear notionists)는 Baalda 그대로다. 사용자 요청: "Baalda 디자인을 완전히 새로운, 우리만의 디자인으로. 아바타도 독창적으로."
+- 배경: M6(`2026-10-15-ui-redesign-color-design.md`)에서 zinc/ink 토큰과 kit 컴포넌트 10개를 바꿨지만, 레이아웃·밀도·타이포·아이콘·셸 구조·아바타(`Avatar.tsx`, DiceBear notionists)는 이전 그대로다. 사용자 요청: "Infinite Brain 디자인을 완전히 새로운, 우리만의 디자인으로. 아바타도 독창적으로."
 - 시안 코드: `app/apps/desktop/dev/design-lab/` (`directions.html`, `avatars.html`). 스크린샷: `/private/tmp/ib-design/<방향>/`, `/private/tmp/ib-design/avatars/`.
 - 실행: `cd app/apps/desktop && npx vite --port 4401` 후 `/dev/design-lab/directions.html?dir=orbit|synapse|folio&screen=welcome|main|settings|share&theme=light|dark`, `/dev/design-lab/avatars.html?theme=light|dark`.
 

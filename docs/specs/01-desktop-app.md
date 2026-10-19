@@ -4,7 +4,7 @@ spec: 01-desktop-app
 product: Infinite Brain
 status: draft-v1
 date: 2026-07-13
-tags: [baalda, spec, desktop, tauri, codemirror]
+tags: [infinite-brain, spec, desktop, tauri, codemirror]
 ---
 
 # 01 · Desktop App

@@ -51,7 +51,7 @@ Infinite Brain을 **팀과 조직이 함께 쓰는 세컨드 브레인**으로 �
 
 경로 약어: `S/` = `app/apps/server/src/`, `D/` = `app/apps/desktop/src/`, `R/` = `app/apps/desktop/src-tauri/src/`.
 
-- **구조:** Baalda에서 물려받은 서버 중심 구조다(Hono + Hocuspocus + Postgres). 한 조직은 여러 vault를 가질 수 있지만, 제품에서 보이는 vault는 Better Auth 조직이다. 한 사용자는 여러 조직에 속할 수 있다.
+- **구조:** 서버 중심 구조다(Hono + Hocuspocus + Postgres). 한 조직은 여러 vault를 가질 수 있지만, 제품에서 보이는 vault는 Better Auth 조직이다. 한 사용자는 여러 조직에 속할 수 있다.
 - **역할:** owner/admin/member뿐이고 게스트가 없다. 초대는 member/admin만 받는다(`S/http/routes/members.ts:425-427`).
 - **공유 [F01, #1]**
   - 권한 요약 API(`/orgs/:orgId/access/summary`)는 다른 조직의 리소스를 "Resource is outside this vault"로 거부하고, 선택한 사람이 멤버인지 검사한다(`S/http/routes/shares.ts:395, 397-404`).
@@ -70,7 +70,7 @@ Infinite Brain을 **팀과 조직이 함께 쓰는 세컨드 브레인**으로 �
 1. 팀·조직이 함께 쓰는 세컨드 브레인
 2. 조직 간 연결과 초대가 간편할 것
 3. 서버 없이도 공유할 것: 운영 부담 없이, 데이터 주권을 지키며, 오프라인과 사내망에서도
-4. Baalda처럼 서버를 띄우는 방식도 계속 지원할 것
+4. 서버를 띄우는 방식도 계속 지원할 것
 
 ## 2. 목표와 비목표
 

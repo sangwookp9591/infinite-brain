@@ -9,9 +9,8 @@
 - **`.main` 헤더 승격(P3/P4 조율 항목)**: 헤더(breadcrumb·탭·컨트롤)를 캔버스 위로 올리고 시트는 `.editor-wrap`(`--radius-sheet`)으로 옮겼다. 버전 패널 등 `.main` 기준 절대 배치는 유지된다.
 - **버튼 위계**: `button.primary.danger`를 전역 정의로 올려 파괴적 확인이 어디서나 danger 색이다(회수 확인이 보라였음).
 - **select**: 대화상자 밖의 기본 `<select>`에 Orbit 웰 스타일.
-- **Baalda/zinc 흔적**: Appearance의 검은 "Ink" 기본 견본을 Orbit 보라 견본("Orbit")으로(저장 값 `ink`는 와이어 계약이라 그대로, 색만 `--accent-default`), 쓰이지 않던 `--brand-green*` 제거와 `--brand-tile/ink`를 Orbit night 값으로, `DESIGN-BRIEF.md`를 Orbit 기준으로 재작성, tokens 주석의 zinc 제거.
+- **이전 시각 언어 흔적**: Appearance의 검은 "Ink" 기본 견본을 Orbit 보라 견본("Orbit")으로(저장 값 `ink`는 와이어 계약이라 그대로, 색만 `--accent-default`), 쓰이지 않던 `--brand-green*` 제거와 `--brand-tile/ink`를 Orbit night 값으로, `DESIGN-BRIEF.md`를 Orbit 기준으로 재작성, tokens 주석의 zinc 제거.
 - **언어 일관성**: AI changes 패널 한국어 20개 문자열과 vault 설정 탭 이름("AI 연결")을 영어로. 이 문자열을 참조하는 테스트는 없다.
-- **rebrand**: `--dry-run`이 0이 되도록 directions 스펙(원 요청 인용문 포함)을 `scripts/rebrand.mjs` 제외 목록과 CLAUDE.md의 설명에 추가했다. `rebrand.test.mjs` 6개 통과. 서버 Dockerfile 머리 주석의 "Baalda server"는 "Infinite Brain server"로 바꿨다.
 
 ## 3. 토큰 승격
 각 영역 보고서의 후보를 `tokens.css`로 올리고 국소 정의를 지웠다.
@@ -40,17 +39,12 @@ CSS는 그래프를 제외하면 **1건**(`.html-frame`의 `background: #fff`)�
 - `components/AuthDialog.tsx` 4: Google 로고 브랜드 색.
 - `App.css` 1: HTML 페이지 뷰의 샌드박스 프레임이 흰 문서를 가정한다.
 
-### 'Baalda' 문자열
-`grep -rniI baalda app`(node_modules·dist·target 제외)을 UI 문구·에셋 관점에서 검토했다. 사용자에게 보이는 문구와 시각 에셋에는 남은 것이 없다. 남은 것은 모두 호환 식별자라 바꾸지 않았다: 와이어 값 `character:baalda-N`(서버 검증·저장된 프로필), 환경 변수 `BAALDA_*`(배포 설정), 딥링크 스킴 `baalda`, 템플릿 메타 `baalda-template`(저장된 대시보드 HTML), localStorage 키 `baalda.onboarding-log.v1`, 워클릿/프로세서 이름, 서비스·이미지 이름 `baalda-server`(Railway/Docker), 테스트 픽스처 URL 경로 `/baalda`. 바꾸려면 마이그레이션이 필요하므로 별도 결정 사항이다.
-
 ## 5. 검증 (`app/apps/desktop`)
 | 명령 | 결과 |
 |---|---|
 | `NODE_OPTIONS=--no-experimental-webstorage npx vitest run --maxWorkers=2` | 341 파일 통과 / 3596 테스트 통과 / 12 skip |
 | `npx tsc --noEmit -p .` | 오류 0 |
 | `npx eslint src` | 오류 0, 경고 40(기존 유형) |
-| `node scripts/rebrand.mjs --dry-run` (저장소 루트) | `Would update 0 file(s).` |
-| `node --test scripts/rebrand.test.mjs` | 6 통과 |
 
 ## 6. 미검증
 - 패키지 앱 빌드·실행, 실제 macOS/Windows 창 크롬(신호등·캡션 버튼)과의 겹침은 확인하지 못했다(simulator는 OS 크롬을 그리지 않음).
@@ -59,7 +53,6 @@ CSS는 그래프를 제외하면 **1건**(`.html-frame`의 `background: #fff`)�
 - Pretendard 한글 글리프 렌더링은 시뮬레이터 화면에 한글이 없어 눈으로 보지 못했다.
 
 ## 7. 남은 일
-- 위 호환 식별자의 `baalda` 이름 정리는 마이그레이션 설계가 필요하다.
 - 활동 패널의 합성 데이터에는 한국어 라벨("미리보기")이 있다. 하네스 데이터이며 앱 문구가 아니다.
 - 그래프 팔레트를 토큰으로 수렴할지(밤하늘 고정 스테이지 vs. 테마 연동)는 시각 결정 사항이다.
 - 오로라 blob은 default accent에서 거의 보이지 않는다(P3 보고서에서 이어진 사안).
@@ -68,6 +61,5 @@ CSS는 그래프를 제외하면 **1건**(`.html-frame`의 `background: #fff`)�
 - fix(desktop): translate leftover Korean AI-change and settings tab strings to English
 - fix(desktop): lift main header onto the canvas, style bare selects and danger pills, promote rail/inner radius tokens
 - docs(desktop): rewrite design brief for Orbit, drop unused brand-green tokens
-- chore: keep the identity-directions spec out of the rebrand map; name the server image header
 - docs: add Orbit final screen audit
 - docs: report redesign final polish

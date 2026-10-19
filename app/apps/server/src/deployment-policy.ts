@@ -3,9 +3,9 @@
  * Default to Cloud restrictions so an omitted setting cannot expose paid features
  * on an existing managed deployment. Self-hosting templates explicitly opt in. */
 export function requiresCloudPlan(): boolean {
-  const deployment = process.env.BAALDA_DEPLOYMENT ?? "cloud";
+  const deployment = process.env.INFINITE_BRAIN_DEPLOYMENT ?? "cloud";
   if (deployment !== "cloud" && deployment !== "self-hosted") {
-    throw new Error("BAALDA_DEPLOYMENT must be cloud or self-hosted");
+    throw new Error("INFINITE_BRAIN_DEPLOYMENT must be cloud or self-hosted");
   }
   return deployment === "cloud";
 }

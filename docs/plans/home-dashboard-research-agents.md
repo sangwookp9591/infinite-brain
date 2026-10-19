@@ -14,9 +14,9 @@ Written to this plan file because plan mode was switched on mid-task and blocks 
 claude -p "<prompt>" \
   --output-format stream-json --verbose \        # NDJSON events; last line is {"type":"result",...}
   --permission-mode acceptEdits \                # or dontAsk for locked-down runs
-  --allowedTools "Read,Edit,Write,Glob,Grep,mcp__baalda__*" \
+  --allowedTools "Read,Edit,Write,Glob,Grep,mcp__infinitebrain__*" \
   --permission-prompts none \                    # unattended: deny anything that would prompt, don't retry (>= v2.1.259)
-  --mcp-config /path/to/0600-baalda-mcp.json --strict-mcp-config \
+  --mcp-config /path/to/0600-infinitebrain-mcp.json --strict-mcp-config \
   --append-system-prompt "<dashboard rules>" \
   --model sonnet --max-budget-usd 1 \
   --add-dir <extra dir>                          # optional
@@ -29,7 +29,7 @@ claude -p "<prompt>" \
 - `--dangerously-skip-permissions` exists, but the docs say to use it only in sandboxes with no internet. Prefer `acceptEdits` or `dontAsk` plus `--allowedTools`.
 - SIGTERM exits with code 143 and kills child Bash trees. SIGINT ends the turn cleanly. Use SIGINT for a "Stop" button.
 - MCP config JSON for a remote HTTP server:
-  `{"mcpServers":{"baalda":{"type":"http","url":"http://localhost:3010/api/mcp","headers":{"Authorization":"Bearer mcp_…"}}}}`.
+  `{"mcpServers":{"infinitebrain":{"type":"http","url":"http://localhost:3010/api/mcp","headers":{"Authorization":"Bearer mcp_…"}}}}`.
   Write it to a 0600 temp file, not argv, because argv is visible in `ps`. `--strict-mcp-config` ignores the user's other servers.
 
 **Auth (the important part):**
@@ -68,15 +68,15 @@ codex exec "<prompt>" \
 - Detect login state with `codex login status`. `~/.codex/auth.json` exists once the user has logged in.
 - **MCP:**
   ```bash
-  codex mcp add baalda --url http://localhost:3010/api/mcp --bearer-token-env-var INFINITE_BRAIN_MCP_TOKEN
+  codex mcp add infinitebrain --url http://localhost:3010/api/mcp --bearer-token-env-var INFINITE_BRAIN_MCP_TOKEN
   ```
-  This writes a `[mcp_servers.baalda]` entry in `~/.codex/config.toml` with `url` and `bearer_token_env_var`. For a per-run setup that leaves the user's config alone, pass it with `-c` instead:
+  This writes a `[mcp_servers.infinitebrain]` entry in `~/.codex/config.toml` with `url` and `bearer_token_env_var`. For a per-run setup that leaves the user's config alone, pass it with `-c` instead:
   `-c 'mcp_servers.infinitebrain.url="…"' -c 'mcp_servers.infinitebrain.bearer_token_env_var="INFINITE_BRAIN_MCP_TOKEN"'`
   and put the token in the child's environment.
 - **Detection:** `codex --version`. On this Mac it lives at `~/.nvm/versions/node/v24.12.0/bin/codex`, which a GUI app will NOT find without the PATH fix. It can also come from Homebrew or the npm `@openai/codex` package.
 
 ### 1.3 Gemini CLI (from local `gemini --help`; docs not checked)
-- The prompt is now positional, because `-p` is deprecated: `gemini "<prompt>" -o json|stream-json --approval-mode auto_edit|yolo --allowed-mcp-server-names baalda --include-directories <dir>`.
+- The prompt is now positional, because `-p` is deprecated: `gemini "<prompt>" -o json|stream-json --approval-mode auto_edit|yolo --allowed-mcp-server-names infinitebrain --include-directories <dir>`.
 - Login is cached Google OAuth, or `GEMINI_API_KEY`. This auth detail was not checked in the docs.
 
 ### 1.4 Spawning from Tauri v2

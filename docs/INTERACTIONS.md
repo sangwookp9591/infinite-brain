@@ -2,7 +2,7 @@
 type: reference
 product: Infinite Brain
 date: 2026-08-07
-tags: [baalda, design, ux, interactions]
+tags: [infinite-brain, design, ux, interactions]
 ---
 
 # Interaction inventory & feedback rules

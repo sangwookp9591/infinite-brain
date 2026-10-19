@@ -126,7 +126,7 @@ openLinkRoutes.get("/open/connect", (c) => {
 
 /** A host header we're willing to put in a URL: no scheme, path, or markup. */
 const HOST_RE = /^[A-Za-z0-9._:[\]-]{1,255}$/;
-/** A proxy path prefix we're willing to keep, e.g. `/baalda`. */
+/** A proxy path prefix we're willing to keep, e.g. `/infinitebrain`. */
 const PREFIX_RE = /^(?:\/[A-Za-z0-9._~-]{1,64})*$/;
 
 /**
@@ -157,11 +157,11 @@ export function publicBaseUrl(c: Context): string {
         : safeProtocol(c.req.url) ?? "http";
     base = `${proto}://${host}`;
   }
-  // A path prefix belongs in the URL — a server behind `example.com/baalda` is
+  // A path prefix belongs in the URL — a server behind `example.com/infinitebrain` is
   // not reachable at `example.com` — but the only place we can learn it is the
   // header, because a proxy that forwards the prefix UNSTRIPPED never reaches
   // this handler at all (Hono matches `/open/connect` exactly, so
-  // `/baalda/open/connect` is a 404 — the same limitation `/open/note` has).
+  // `/infinitebrain/open/connect` is a 404 — the same limitation `/open/note` has).
   const announced = hdr("x-forwarded-prefix");
   const keep = announced && PREFIX_RE.test(announced) ? stripSlash(announced) : "";
   return stripSlash(base) + keep;

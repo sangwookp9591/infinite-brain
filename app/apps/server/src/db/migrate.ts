@@ -27,7 +27,7 @@ export async function runMigrations(
     // the same migrations, so queueing and then finding them all done is exactly
     // right. Released by `client.end()` in the `finally` even if a migration
     // throws.
-    await client.query("SELECT pg_advisory_lock(hashtextextended($1, 0))", ["baalda-migrations"]);
+    await client.query("SELECT pg_advisory_lock(hashtextextended($1, 0))", ["infinitebrain-migrations"]);
     await client.query(`
       CREATE TABLE IF NOT EXISTS _migrations (
         name TEXT PRIMARY KEY,

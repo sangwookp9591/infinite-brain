@@ -289,7 +289,7 @@ export function applyAccent(seed: string): void
 5. **그래프 뷰가 사용자 accent를 따라야 할까?** 현재도 `--accent`를 읽으므로 기본 답은 "따른다"다. 항상-다크 공간에 고정색을 원하면 P7에서 분리한다.
 6. **macOS 10.15 하한**: WKWebView가 `color-mix`를 지원하지 않아 이미 일부 hover 색이 깨지는 상태로 추정된다. `minimumSystemVersion`을 11(Safari 16.2+ 설치 가능)로 올릴까, 10.15 지원을 유지하며 fallback을 둘까?
 7. **브랜드 violet 분리 확인**: `--brand-violet*`(5곳)과 로고는 accent를 따르지 않는 것이 맞는가?
-8. **[결정 2026-10-15: 새 시각 언어. Baalda/Atomize PLUS를 벗어난다. §6]** **P2 이후 시각 언어**: "전체 UI 리디자인"이 현재 Atomize PLUS 언어를 유지하는 정리·일관화(reskin)인가, 새로운 시각 언어(레이아웃·밀도·타이포 변경 포함)인가? `DESIGN-BRIEF.md` hard rule 3("reskin, not refactor")을 계속 유지할지에 따라 P2–P7의 범위와 크기가 크게 달라진다. 새 언어라면 참고 레퍼런스나 무드를 제공해 주면 좋다.
+8. **[결정 2026-10-15: 새 시각 언어. 기존 Atomize PLUS를 벗어난다. §6]** **P2 이후 시각 언어**: "전체 UI 리디자인"이 현재 Atomize PLUS 언어를 유지하는 정리·일관화(reskin)인가, 새로운 시각 언어(레이아웃·밀도·타이포 변경 포함)인가? `DESIGN-BRIEF.md` hard rule 3("reskin, not refactor")을 계속 유지할지에 따라 P2–P7의 범위와 크기가 크게 달라진다. 새 언어라면 참고 레퍼런스나 무드를 제공해 주면 좋다.
 
 ---
 
@@ -299,7 +299,7 @@ export function applyAccent(seed: string): void
 
 | 항목 | 결정 |
 |---|---|
-| 방향 | Baalda/Atomize PLUS 언어를 벗어나 더 세련된 새 언어로 간다. `DESIGN-BRIEF.md` hard rule 3("reskin, not refactor")은 P2–P7에서 폐기하고, 새 brief로 교체한다 |
+| 방향 | 기존 Atomize PLUS 언어를 벗어나 더 세련된 새 언어로 간다. `DESIGN-BRIEF.md` hard rule 3("reskin, not refactor")은 P2–P7에서 폐기하고, 새 brief로 교체한다 |
 | 레퍼런스 | ReactBits micro/components: Folder, Jelly Radio, Swipe Row, Comet Dial, Wake Slider, Code Slots, Lattice Loader, Border Glow, Spring Check, Fuse Button |
 | 기본 테마 | **라이트 우선 유지**. 같은 언어의 다크 테마를 함께 제공하고 System 모드는 그대로 둔다 |
 | 강조색 | **무채색 잉크가 기본**(라이트: 거의 검정, 다크: 거의 흰색). P1의 커스텀 accent로 사용자가 색을 고른다 |

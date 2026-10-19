@@ -31,8 +31,8 @@ describe("parseConnectLink", () => {
 
   it("keeps a reverse-proxy path prefix", () => {
     expect(
-      parseConnectLink("infinitebrain://connect?server=https%3A%2F%2Fintranet.example.com%2Fbaalda"),
-    ).toBe("https://intranet.example.com/baalda");
+      parseConnectLink("infinitebrain://connect?server=https%3A%2F%2Fintranet.example.com%2Finfinitebrain"),
+    ).toBe("https://intranet.example.com/infinitebrain");
   });
 
   it("gives a scheme-less host https rather than refusing it", () => {

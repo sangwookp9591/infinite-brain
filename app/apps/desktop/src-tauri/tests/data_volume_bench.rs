@@ -9,10 +9,10 @@
 //!   cargo test --release --test data_volume_bench -- --ignored --nocapture
 //!
 //! Scale knobs (env vars):
-//!   BAALDA_BENCH_NOTES       total notes to generate         (default 2000)
-//!   BAALDA_BENCH_LINKS       wikilinks emitted per note      (default 8)
-//!   BAALDA_BENCH_LARGE_EVERY every Nth note is a "large" one  (default 50)
-//!   BAALDA_BENCH_LARGE_KB    approx size of a large note (KB) (default 64)
+//!   INFINITE_BRAIN_BENCH_NOTES       total notes to generate         (default 2000)
+//!   INFINITE_BRAIN_BENCH_LINKS       wikilinks emitted per note      (default 8)
+//!   INFINITE_BRAIN_BENCH_LARGE_EVERY every Nth note is a "large" one  (default 50)
+//!   INFINITE_BRAIN_BENCH_LARGE_KB    approx size of a large note (KB) (default 64)
 
 use desktop_lib::index::Index;
 use desktop_lib::notefile;
@@ -160,12 +160,12 @@ fn dir_size(path: &PathBuf) -> u64 {
 #[test]
 #[ignore]
 fn data_volume_bench() {
-    let notes = env_usize("BAALDA_BENCH_NOTES", 2000);
-    let links_per = env_usize("BAALDA_BENCH_LINKS", 8);
-    let large_every = env_usize("BAALDA_BENCH_LARGE_EVERY", 50);
-    let large_kb = env_usize("BAALDA_BENCH_LARGE_KB", 64);
+    let notes = env_usize("INFINITE_BRAIN_BENCH_NOTES", 2000);
+    let links_per = env_usize("INFINITE_BRAIN_BENCH_LINKS", 8);
+    let large_every = env_usize("INFINITE_BRAIN_BENCH_LARGE_EVERY", 50);
+    let large_kb = env_usize("INFINITE_BRAIN_BENCH_LARGE_KB", 64);
 
-    let vault = std::env::temp_dir().join(format!("baalda-bench-{notes}"));
+    let vault = std::env::temp_dir().join(format!("infinitebrain-bench-{notes}"));
 
     println!("\n=== Infinite Brain data-volume benchmark ===");
     println!(
@@ -243,7 +243,7 @@ fn data_volume_bench() {
     // `index_note` per path, and each call re-resolved EVERY link in the vault in
     // its own transaction — O(N × links). `index_notes` does one pass for the
     // batch. Both are timed here so the ratio is visible.
-    let batch_n = env_usize("BAALDA_BENCH_BATCH", 200).min(notes);
+    let batch_n = env_usize("INFINITE_BRAIN_BENCH_BATCH", 200).min(notes);
     let batch: Vec<PathBuf> = (0..batch_n)
         .map(|i| vault.join(format!("{}/{}.md", folder_for(i), note_name(i))))
         .collect();
@@ -266,7 +266,7 @@ fn data_volume_bench() {
     );
 
     // The same work the old way: one call, one transaction, one link pass each.
-    let per_file_n = batch_n.min(env_usize("BAALDA_BENCH_PER_FILE", 50));
+    let per_file_n = batch_n.min(env_usize("INFINITE_BRAIN_BENCH_PER_FILE", 50));
     let t = Instant::now();
     for abs in batch.iter().take(per_file_n) {
         idx.index_note(&vault, abs).unwrap();
@@ -281,7 +281,7 @@ fn data_volume_bench() {
     //
     // "Copy 1000 notes into the vault". Every file is new, so every one is a
     // fresh insert AND (the old way) a whole-vault link pass.
-    let drop_n = env_usize("BAALDA_BENCH_DROP", 1000);
+    let drop_n = env_usize("INFINITE_BRAIN_BENCH_DROP", 1000);
     let mut dropped: Vec<PathBuf> = Vec::with_capacity(drop_n);
     let mut rng = Rng(0xDEADBEEFCAFEF00D);
     for i in 0..drop_n {

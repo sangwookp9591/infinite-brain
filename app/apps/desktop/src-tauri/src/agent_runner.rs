@@ -649,7 +649,7 @@ pub async fn detect_agents(
         .map(|i| i.info.clone())
         .collect())
 }
-const PERMISSION_PROFILE: &str = "baalda_dashboard";
+const PERMISSION_PROFILE: &str = "infinitebrain_dashboard";
 fn permission_args() -> Vec<String> {
     // Static names; narrower private-directory denials override vault writes.
     vec![
@@ -1652,7 +1652,7 @@ mod live_smoke {
         let home_path = if markdown { "Home.md" } else { "Home.html" };
         assert!(safe_dashboard_path(home_path));
         let vault = tempfile::Builder::new()
-            .prefix("baalda-agent-smoke-")
+            .prefix("infinitebrain-agent-smoke-")
             .tempdir_in(std::env::var_os("HOME").unwrap())
             .unwrap();
         assert!(!local_configuration_present(Some(vault.path())));

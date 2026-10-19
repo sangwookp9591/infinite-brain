@@ -42,7 +42,7 @@ it("registers offline templates with no original customer records or service end
   expect(DEPLOYED_OS_TEMPLATES).toHaveLength(3);
   for (const t of DEPLOYED_OS_TEMPLATES) {
     const html = source(t.id), page = new JSDOM(html);
-    expect(page.window.document.querySelector('meta[name="baalda-template"]')?.getAttribute("content")).toBe(t.id);
+    expect(page.window.document.querySelector('meta[name="infinitebrain-template"]')?.getAttribute("content")).toBe(t.id);
     expect(page.window.document.querySelector('script[src],link[rel="stylesheet"],img[src^="http"]')).toBeNull();
     expect(html).not.toMatch(/Naveed Harri|Oskar Johnston|Rob Lucier|cockpitPw|obsidian:\/\/|\/api\/feedback|new EventSource|new WebSocket|\bfetch\(/);
     expect(t.author).toContain("Ben AI"); page.window.close();

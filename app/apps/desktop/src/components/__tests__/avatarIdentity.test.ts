@@ -30,7 +30,7 @@ const presence = (wire: { id?: string; name?: string; image?: string }) =>
 
 // Compare character art, independent of each mounted SVG's resource namespace.
 const svgOf = (html: string) => html.slice(html.indexOf("<svg"), html.lastIndexOf("</svg>") + 6)
-  .replace(/baalda-svg-[A-Za-z0-9_-]+?--/g, "");
+  .replace(/infinitebrain-svg-[A-Za-z0-9_-]+?--/g, "");
 
 afterEach(() => {
   resetAvatarImages();
@@ -43,8 +43,8 @@ describe("one avatar rule on every surface", () => {
       createElement(VaultIconSvg, { icon: "book", color: "purple" }),
       createElement(Avatar, { label: NAME, userId: USER }),
       createElement(FaceSvg, { userId: USER, className: "presence-avatar" }),
-      createElement(Avatar, { label: NAME, image: "character:baalda-3" }),
-      createElement(Avatar, { label: NAME, image: "character:baalda-3" }),
+      createElement(Avatar, { label: NAME, image: "character:infinitebrain-3" }),
+      createElement(Avatar, { label: NAME, image: "character:infinitebrain-3" }),
     ));
     const host = document.createElement("div");
     host.innerHTML = html;
@@ -70,16 +70,16 @@ describe("one avatar rule on every surface", () => {
   });
 
   it("draws a picked character identically in the account bar and the presence row", () => {
-    setSelfAvatarImage(USER, "character:baalda-3");
+    setSelfAvatarImage(USER, "character:infinitebrain-3");
     const wire = presenceUser(USER, NAME);
-    expect(wire.image).toBe("character:baalda-3");
-    expect(svgOf(presence(wire))).toBe(svgOf(accountBar("character:baalda-3")));
-    expect(svgOf(accountBar("character:baalda-3"))).toBe(characterSvg("baalda-3"));
+    expect(wire.image).toBe("character:infinitebrain-3");
+    expect(svgOf(presence(wire))).toBe(svgOf(accountBar("character:infinitebrain-3")));
+    expect(svgOf(accountBar("character:infinitebrain-3"))).toBe(characterSvg("infinitebrain-3"));
   });
 
   it("fills a missing presence picture from the directory", () => {
-    rememberAvatarImage(USER, "character:baalda-7");
-    expect(svgOf(presence({ id: USER, name: NAME }))).toBe(characterSvg("baalda-7"));
+    rememberAvatarImage(USER, "character:infinitebrain-7");
+    expect(svgOf(presence({ id: USER, name: NAME }))).toBe(characterSvg("infinitebrain-7"));
   });
 
   it("lets an uploaded photo win over the generated face", () => {

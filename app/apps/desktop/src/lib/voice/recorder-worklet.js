@@ -59,4 +59,4 @@ class RecorderProcessor extends AudioWorkletProcessor {
   }
 }
 
-registerProcessor("baalda-recorder", RecorderProcessor);
+registerProcessor("infinitebrain-recorder", RecorderProcessor);

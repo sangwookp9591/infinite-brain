@@ -108,7 +108,7 @@ fn full_index_lifecycle_on_disk_vault() {
     // Backlinks: Infinite Brain is linked from Index + Daily → 2 backlinks.
     let infinitebrain = idx.get_note_meta("Projects/Infinite Brain.md").unwrap().unwrap();
     let backlinks = idx.get_backlinks(&infinitebrain.id).unwrap();
-    assert_eq!(backlinks.len(), 2, "baalda backlinks: {:?}", backlinks);
+    assert_eq!(backlinks.len(), 2, "infinitebrain backlinks: {:?}", backlinks);
 
     // Tags surfaced on the daily note.
     let daily = idx.get_note_meta("Daily/2026-07-13.md").unwrap().unwrap();

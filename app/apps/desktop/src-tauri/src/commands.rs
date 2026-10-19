@@ -1000,7 +1000,7 @@ pub async fn get_server_url(
 // only where *new* vault folders are created.
 
 /// User-visible name of the default managed-root folder. Layer-1 brand surface
-/// (spec: rebrand policy) — the one place the default root folder name is set.
+/// — the one place the default root folder name is set.
 const DEFAULT_ROOT_DIR_NAME: &str = crate::folder_safety::ROOT_DIR_NAME;
 
 /// Default managed root: `<home>/Documents/Infinite Brain Vaults`. Lives under Documents

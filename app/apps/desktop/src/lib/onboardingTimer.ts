@@ -3,7 +3,7 @@
 /** Local-only onboarding milestones. Values contain no account or vault identifiers. */
 export type OnboardingStage = "invite_opened" | "signed_in" | "invite_accepted" | "vault_opened" | "first_note_synced";
 
-const KEY = "baalda.onboarding-log.v1";
+const KEY = "infinitebrain.onboarding-log.v1";
 
 export interface OnboardingEvent {
   stage: OnboardingStage;

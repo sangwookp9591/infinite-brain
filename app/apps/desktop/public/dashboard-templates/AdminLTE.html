@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!--Baalda imported dashboard. Original source: https://github.com/ColorlibHQ/AdminLTE
+<!--Infinite Brain imported dashboard. Original source: https://github.com/ColorlibHQ/AdminLTE
 Revision: e13df78a4d0c287e5fa57308e293f63e44e9dd0f
 Source page: dist/index.html
 Source SHA256: 75fe18224bbf443c75d7092ac8c044a163e6b73dd858f1d6e445c94685ccd837
@@ -27,7 +27,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 --><html lang="en">
 <!--begin::Head-->
-<head><meta content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; connect-src 'none'; frame-src 'none'; object-src 'none'; form-action 'none'; base-uri 'none'" http-equiv="Content-Security-Policy"/><meta content="AdminLTE" name="baalda-template"/><script>var baaldaTemplateStorage=(()=>{const m=new Map();return {getItem:k=>m.get(k)??null,setItem:(k,v)=>m.set(k,String(v)),removeItem:k=>m.delete(k),clear:()=>m.clear()}})();</script>
+<head><meta content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; connect-src 'none'; frame-src 'none'; object-src 'none'; form-action 'none'; base-uri 'none'" http-equiv="Content-Security-Policy"/><meta content="AdminLTE" name="infinitebrain-template"/><script>var infiniteBrainTemplateStorage=(()=>{const m=new Map();return {getItem:k=>m.get(k)??null,setItem:(k,v)=>m.set(k,String(v)),removeItem:k=>m.delete(k),clear:()=>m.clear()}})();</script>
 <title>AdminLTE v4 | Dashboard</title>
 <!--begin::Theme Init (prevents flash of incorrect theme on load, #6043)-->
 <script>
@@ -44,9 +44,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         const STORAGE_KEY = 'lte-theme';
         let stored = null;
         try {
-          stored = baaldaTemplateStorage.getItem(STORAGE_KEY);
+          stored = infiniteBrainTemplateStorage.getItem(STORAGE_KEY);
         } catch {
-          // baaldaTemplateStorage may be unavailable (private mode, sandboxed iframe).
+          // infiniteBrainTemplateStorage may be unavailable (private mode, sandboxed iframe).
         }
         // Mirror the precedence in color-mode.ts: the visitor's stored choice
         // wins, then a theme this page declared itself, then the OS preference.
@@ -16244,10 +16244,10 @@ fieldset legend {
 <!--end::Required Plugin(AdminLTE)-->
 <!-- jsvectormap -->
 <style>:root{--jvm-border-color: #E5E6E7;--jvm-box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);--jvm-tooltip-font-size: 0.9rem;--jvm-tooltip-bg-color: #337FFA;--jvm-tooltip-color: #FFF;--jvm-tooltip-padding: 3px 5px;--jvm-tooltip-shadow: var(--jvm-box-shadow);--jvm-tooltip-radius: 3px;--jvm-zoom-btn-bg-color: #292929;--jvm-zoom-btn-color: #FFF;--jvm-zoom-btn-size: 15px;--jvm-zoom-btn-radius: 3px;--jvm-series-container-right: 15px;--jvm-legend-bg-color: #FFF;--jvm-legend-radius: 0.15rem;--jvm-legend-margin-left: 0.75rem;--jvm-legend-padding: 0.6rem;--jvm-legend-title-padding-bottom: 0.5rem;--jvm-legend-title-margin-bottom: 0.575rem;--jvm-legend-tick-margin-top: 0.575rem;--jvm-legend-tick-sample-radius: 0;--jvm-legend-tick-sample-height: 12px;--jvm-legend-tick-sample-width: 30px;--jvm-legend-tick-text-font-size: 12px;--jvm-legend-tick-text-margin-top: 3px}image,text,.jvm-zoom-btn{-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none}.jvm-container{position:relative;height:100%;width:100%}.jvm-tooltip{border-radius:var(--jvm-tooltip-radius);background-color:var(--jvm-tooltip-bg-color);color:var(--jvm-tooltip-color);font-size:var(--jvm-tooltip-font-size);box-shadow:var(--jvm-tooltip-shadow);padding:var(--jvm-tooltip-padding);white-space:nowrap;position:absolute;display:none}.jvm-tooltip.active{display:block}.jvm-zoom-btn{background-color:var(--jvm-zoom-btn-bg-color);color:var(--jvm-zoom-btn-color);border-radius:var(--jvm-zoom-btn-radius);height:var(--jvm-zoom-btn-size);width:var(--jvm-zoom-btn-size);box-sizing:border-box;position:absolute;left:10px;line-height:var(--jvm-zoom-btn-size);text-align:center;cursor:pointer}.jvm-zoom-btn.jvm-zoomin{top:var(--jvm-zoom-btn-size)}.jvm-zoom-btn.jvm-zoomout{top:calc(var(--jvm-zoom-btn-size)*2 + var(--jvm-zoom-btn-size)/3)}.jvm-series-container{position:absolute;right:var(--jvm-series-container-right)}.jvm-series-container.jvm-series-h{bottom:15px}.jvm-series-container.jvm-series-v{display:-ms-flexbox;display:flex;-ms-flex-direction:column;flex-direction:column;gap:.75rem;top:15px}.jvm-legend{background-color:var(--jvm-legend-bg-color);border:1px solid var(--jvm-border-color);margin-left:var(--jvm-legend-margin-left);border-radius:var(--jvm-legend-radius);padding:var(--jvm-legend-padding);box-shadow:var(--jvm-box-shadow)}.jvm-legend-title{line-height:1;border-bottom:1px solid var(--jvm-border-color);padding-bottom:var(--jvm-legend-title-padding-bottom);margin-bottom:var(--jvm-legend-title-margin-bottom);text-align:left}.jvm-legend-tick{display:-ms-flexbox;display:flex;-ms-flex-align:center;align-items:center;min-width:40px}.jvm-legend-tick:not(:first-child){margin-top:var(--jvm-legend-tick-margin-top)}.jvm-legend-tick-sample{border-radius:var(--jvm-legend-tick-sample-radius);margin-right:.45rem;height:var(--jvm-legend-tick-sample-height);width:var(--jvm-legend-tick-sample-width)}.jvm-legend-tick-text{font-size:var(--jvm-legend-tick-text-font-size);text-align:center;line-height:1}.jvm-line[animation=true]{-webkit-animation:jvm-line-animation 10s linear forwards infinite;animation:jvm-line-animation 10s linear forwards infinite}@-webkit-keyframes jvm-line-animation{from{stroke-dashoffset:250}}@keyframes jvm-line-animation{from{stroke-dashoffset:250}}</style>
-<style>/* Baalda embedding: retain the original dashboard body, use the vault's navigation. */
+<style>/* Infinite Brain embedding: retain the original dashboard body, use the vault's navigation. */
 .sidebar,.sidenav,.navbar,.navbar-nav,.fixed-plugin,.buy-now,.sidebar-wrapper,#sidebar,#layoutSidenav_nav,.layout-menu,.sidebar-offcanvas,.navbar-bg,.navbar-header,.upgrade-btn,.sidebar-cta,.purchase-banner,.proBanner,.theme-settings,.theme-settings-panel,.navbar-vertical,header.navbar{display:none!important}
 .main-panel,.main-content,.layout-page,#layoutSidenav_content,.page-wrapper,main.content,.content-wrapper{margin-left:0!important;padding-left:0!important;width:100%!important;max-width:100%!important}.layout-container{padding-left:0!important}.page-body{margin-top:20px}.main-panel>.content{margin-top:0!important}.layout-page{padding-top:0!important}.navbar+.container-fluid{padding-top:20px}.container-scroller{overflow:visible!important}
-html,body{max-width:100%;overflow-x:hidden}body{padding-top:0!important}.baalda-template-credit{font:12px/1.6 system-ui!important;color:#384152!important;background:#f5f6fa!important;padding:10px 20px!important;border-bottom:1px solid #dce0e8!important;position:relative;z-index:10}.baalda-template-credit strong{font-weight:650}a[aria-disabled=true]{cursor:default!important}table{max-width:100%}.table-responsive{overflow:auto} @media(max-width:700px){.container-fluid,.container-xl{padding-left:16px!important;padding-right:16px!important}.main-panel>.content{padding:16px!important}.card{min-width:0}.content-wrapper{padding:16px!important}}</style></head>
+html,body{max-width:100%;overflow-x:hidden}body{padding-top:0!important}.infinitebrain-template-credit{font:12px/1.6 system-ui!important;color:#384152!important;background:#f5f6fa!important;padding:10px 20px!important;border-bottom:1px solid #dce0e8!important;position:relative;z-index:10}.infinitebrain-template-credit strong{font-weight:650}a[aria-disabled=true]{cursor:default!important}table{max-width:100%}.table-responsive{overflow:auto} @media(max-width:700px){.container-fluid,.container-xl{padding-left:16px!important;padding-right:16px!important}.main-panel>.content{padding:16px!important}.card{min-width:0}.content-wrapper{padding:16px!important}}</style></head>
 <!--end::Head-->
 <!--begin::Body-->
 <body class="layout-fixed sidebar-expand-lg bg-body-tertiary">
@@ -18296,21 +18296,21 @@ var OverlayScrollbarsGlobal=function(t){"use strict";const e=(t,e)=>{const{o:n,i
             }
         }
         saveSidebarState(state) {
-            if (globalThis.baaldaTemplateStorage === undefined) {
+            if (globalThis.infiniteBrainTemplateStorage === undefined) {
                 return;
             }
             try {
-                baaldaTemplateStorage.setItem(STORAGE_KEY_SIDEBAR_STATE, state);
+                infiniteBrainTemplateStorage.setItem(STORAGE_KEY_SIDEBAR_STATE, state);
             }
             catch {
             }
         }
         loadSidebarState() {
-            if (globalThis.baaldaTemplateStorage === undefined) {
+            if (globalThis.infiniteBrainTemplateStorage === undefined) {
                 return;
             }
             try {
-                const storedState = baaldaTemplateStorage.getItem(STORAGE_KEY_SIDEBAR_STATE);
+                const storedState = infiniteBrainTemplateStorage.getItem(STORAGE_KEY_SIDEBAR_STATE);
                 if (storedState === CLASS_NAME_SIDEBAR_COLLAPSE) {
                     this.collapse();
                 }
@@ -18326,11 +18326,11 @@ var OverlayScrollbarsGlobal=function(t){"use strict";const e=(t,e)=>{const{o:n,i
             }
         }
         clearSidebarState() {
-            if (globalThis.baaldaTemplateStorage === undefined) {
+            if (globalThis.infiniteBrainTemplateStorage === undefined) {
                 return;
             }
             try {
-                baaldaTemplateStorage.removeItem(STORAGE_KEY_SIDEBAR_STATE);
+                infiniteBrainTemplateStorage.removeItem(STORAGE_KEY_SIDEBAR_STATE);
             }
             catch {
             }
@@ -18437,7 +18437,7 @@ var OverlayScrollbarsGlobal=function(t){"use strict";const e=(t,e)=>{const{o:n,i
     class ColorMode {
         getStoredTheme() {
             try {
-                const stored = baaldaTemplateStorage.getItem(STORAGE_KEY);
+                const stored = infiniteBrainTemplateStorage.getItem(STORAGE_KEY);
                 return stored && isValidTheme(stored) ? stored : null;
             }
             catch {
@@ -18462,7 +18462,7 @@ var OverlayScrollbarsGlobal=function(t){"use strict";const e=(t,e)=>{const{o:n,i
         }
         setTheme(theme) {
             try {
-                baaldaTemplateStorage.setItem(STORAGE_KEY, theme);
+                infiniteBrainTemplateStorage.setItem(STORAGE_KEY, theme);
             }
             catch {
             }

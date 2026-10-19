@@ -36,9 +36,9 @@ describe("parseInviteDeepLink", () => {
   it("keeps a reverse-proxy path prefix on the server", () => {
     expect(
       parseInviteDeepLink(
-        "infinitebrain://invite/inv_1?server=https%3A%2F%2Fintranet.example.com%2Fbaalda",
+        "infinitebrain://invite/inv_1?server=https%3A%2F%2Fintranet.example.com%2Finfinitebrain",
       )?.server,
-    ).toBe("https://intranet.example.com/baalda");
+    ).toBe("https://intranet.example.com/infinitebrain");
   });
 
   it("gives a scheme-less server host https rather than refusing it", () => {
@@ -105,8 +105,8 @@ describe("buildInviteLink", () => {
   });
 
   it("keeps a reverse-proxy path prefix", () => {
-    expect(buildInviteLink("https://intranet.example.com/baalda", "inv_1")).toBe(
-      "https://intranet.example.com/baalda/invite/inv_1",
+    expect(buildInviteLink("https://intranet.example.com/infinitebrain", "inv_1")).toBe(
+      "https://intranet.example.com/infinitebrain/invite/inv_1",
     );
   });
 

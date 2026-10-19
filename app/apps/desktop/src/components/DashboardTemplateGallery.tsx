@@ -35,7 +35,7 @@ export function DashboardTemplatePreview({ template, expanded = false }: { templ
     void templateHtml(template).then((value) => {
       if (!alive) return;
       // Place CSP before every upstream resource. Escaping keeps a trusted attribute literal.
-      setHtml(`<!doctype html><meta http-equiv="Content-Security-Policy" content="${PREVIEW_CSP}"><style>.baalda-template-credit{display:none!important}</style>${value}`);
+      setHtml(`<!doctype html><meta http-equiv="Content-Security-Policy" content="${PREVIEW_CSP}"><style>.infinitebrain-template-credit{display:none!important}</style>${value}`);
     }).catch(() => { if (alive) setError(true); });
     return () => { alive = false; };
   }, [visible, template]);

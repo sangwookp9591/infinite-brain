@@ -5,7 +5,7 @@ describe("isValidProfileImage", () => {
   it("accepts clearing, characters, uploads and provider photos", () => {
     expect(isValidProfileImage(null)).toBe(true);
     expect(isValidProfileImage(undefined)).toBe(true);
-    expect(isValidProfileImage("character:baalda-7")).toBe(true);
+    expect(isValidProfileImage("character:infinitebrain-7")).toBe(true);
     expect(isValidProfileImage("data:image/png;base64,iVBORw0KGgo=")).toBe(true);
     expect(isValidProfileImage("https://lh3.googleusercontent.com/a/abc=s96-c")).toBe(true);
   });

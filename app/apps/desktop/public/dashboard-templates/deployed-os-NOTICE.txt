@@ -2,7 +2,7 @@ Deployment template provenance
 ============================
 
 The Cosmos, Sales OS, and Marketing OS interfaces were supplied by the user
-for adaptation as Baalda templates. Original interfaces: Ben AI.
+for adaptation as Infinite Brain templates. Original interfaces: Ben AI.
 
 Sources:
 - https://benai-cosmos.vercel.app/
@@ -11,7 +11,7 @@ Sources:
 
 Retrieved 2026-10-13. Upstream ownership and attribution are retained; the
 deployments did not include a separate source license. This notice does not
-relicense their interfaces. Baalda-authored adaptations use Apache-2.0.
+relicense their interfaces. Infinite Brain-authored adaptations use Apache-2.0.
 
 All original business records, contact details, portraits, video thumbnails,
 service action handlers, and account-specific links have been removed. The

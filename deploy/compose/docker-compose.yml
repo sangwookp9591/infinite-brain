@@ -11,7 +11,7 @@
 # server ever accepts traffic, and exactly one HTTP port exposed. The Hocuspocus
 # WebSocket rides that same port at /sync, so there is no second port to open and
 # no second hostname to configure.
-name: baalda
+name: infinitebrain
 
 # The server and the migration job are the same image with the same environment;
 # only the command differs. Anchors keep them from drifting apart.
@@ -22,10 +22,10 @@ x-server-image: &server-image
 
 x-server-env: &server-env
   NODE_ENV: production
-  BAALDA_DEPLOYMENT: self-hosted
+  INFINITE_BRAIN_DEPLOYMENT: self-hosted
   # Compose resolves this against the postgres service below, on the internal
   # network — Postgres is never published to the host.
-  DATABASE_URL: postgres://infinitebrain:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/baalda
+  DATABASE_URL: postgres://infinitebrain:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/infinitebrain
   JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env — openssl rand -base64 32}
   BETTER_AUTH_URL: ${BETTER_AUTH_URL:?set BETTER_AUTH_URL in .env — the public https URL clients reach}
   PORT: "3010"
@@ -35,15 +35,15 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: baalda
+      POSTGRES_USER: infinitebrain
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
-      POSTGRES_DB: baalda
+      POSTGRES_DB: infinitebrain
     volumes:
       # Named volume, not a bind mount: this is the durable copy of every note's
       # CRDT history. `docker compose down -v` deletes it. Back it up.
-      - baalda_pgdata:/var/lib/postgresql/data
+      - infinitebrain_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U baalda -d baalda"]
+      test: ["CMD-SHELL", "pg_isready -U infinitebrain -d infinitebrain"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -97,12 +97,12 @@ services:
   # First run, once, to create the bucket:
   #   docker compose --profile minio up -d minio
   #   docker compose exec minio mc alias set local http://localhost:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
-  #   docker compose exec minio mc mb local/baalda
+  #   docker compose exec minio mc mb local/infinitebrain
   #
   # Then add these to x-server-env above (and restart the server):
   #   BLOB_STORAGE: s3
   #   S3_ENDPOINT: http://minio:9000     # the INTERNAL name; see the note below
-  #   S3_BUCKET: baalda
+  #   S3_BUCKET: infinitebrain
   #   S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
   #   S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
   #   S3_FORCE_PATH_STYLE: "true"        # MinIO has no bucket-per-subdomain DNS
@@ -127,7 +127,7 @@ services:
     volumes:
       # Named volume, like the database's: this is where the attachments live
       # once BLOB_STORAGE=s3. `docker compose down -v` deletes it. Back it up.
-      - baalda_minio:/data
+      - infinitebrain_minio:/data
     # Not published by default — the server reaches it on the internal network.
     # Uncomment to expose the API (9000) and the web console (9001) on the host.
     # ports:
@@ -141,5 +141,5 @@ services:
       retries: 10
 
 volumes:
-  baalda_pgdata:
-  baalda_minio:
+  infinitebrain_pgdata:
+  infinitebrain_minio:

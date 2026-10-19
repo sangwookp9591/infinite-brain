@@ -38,8 +38,8 @@ describe("share links", () => {
       "http://localhost:3010/open/note/org_123/d0c-4bcd",
     );
     // A reverse-proxy sub-path prefix on the server URL is preserved.
-    expect(buildNoteLink(target, "https://example.com/baalda/")).toBe(
-      "https://example.com/baalda/open/note/org_123/d0c-4bcd",
+    expect(buildNoteLink(target, "https://example.com/infinitebrain/")).toBe(
+      "https://example.com/infinitebrain/open/note/org_123/d0c-4bcd",
     );
     // A malformed base falls back to the raw scheme rather than a broken link.
     expect(buildNoteLink(target, "not a url")).toBe(`${SHARE_SCHEME}://note/org_123/d0c-4bcd`);

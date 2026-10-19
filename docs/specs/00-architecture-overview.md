@@ -4,7 +4,7 @@ spec: 00-architecture-overview
 product: Infinite Brain
 status: draft-v1
 date: 2026-07-13
-tags: [baalda, spec, architecture]
+tags: [infinite-brain, spec, architecture]
 ---
 
 # 00 · Architecture Overview

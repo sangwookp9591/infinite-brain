@@ -9,14 +9,13 @@
 
 | ID | 처리 | 변경 또는 보류 이유 |
 | --- | --- | --- |
-| H1 | 수정 | 서버 기본값·예제·오류 안내를 `infinitebrain`으로 변경. Railway 설명·배포 문서 정합성, 데스크톱 APP_SCHEME과 실제 import 기반 lockstep 테스트. rebrand의 nullish 기본값 패턴 보강. |
 | M6 | 수정 | 057 CREATE TABLE/INDEX와 058 ADD COLUMN을 IF NOT EXISTS로 변경. 현재 스키마와 `_migrations` 이력을 구 056 파일명으로 바꾸고 현재 실행기를 통과시키는 회귀 테스트. 구 이름 행은 보존하고 새 이름을 추가하므로 이력 재작성은 불필요. |
 | M1 | 수정 | API와 내부 mint 기본값은 read+write. 059로 SQL 기본값도 변경. 생략/명시 모두 회원 역할 검사; manage 승인은 owner/admin만. 호출 시에도 역할 강등 후 manage를 제거. |
 | M2 | 수정 | 토큰/프로토콜은 알려진 scope만 허용. OAuth NULL 또는 비어 있지 않은 OIDC-only 문자열만 read/write/delete 레거시 호환. 빈 문자열·오타·알 수 없는 값은 권한 없음; 레거시에 manage 없음. 명시 manage도 현재 역할 검증. |
 | M3 | 수정 | AI create 되돌리기에서 canDeleteItem을 재사용. 타인 생성 노트는 403 delete_not_creator이며 soft-delete되지 않음을 DB/API 검증. |
 | M4 | 수정 | connection 필터에는 현재 actor_user_id를 함께 요구. 동일 OAuth client를 두 사용자가 공유하는 목록/일괄 undo 회귀 테스트. 필터 없는 vault 활동은 기존 ACL 기반 공유 조회 유지. |
 | M10 | 수정 | main/staging bundle와 keychain SERVICE를 com.infinitebrain.desktop(.staging)으로 변경. dev 설정은 main identifier 상속. mapping과 keychain lockstep 테스트. |
-| M9 | 수정 | 직접 그린 무한 궤도/별 SVG에서 Tauri 아이콘 생성. PNG favicon 새 이름, desktop light/dark SVG 워드마크, callback icon+Infinite Brain 텍스트, 서버 내장 자산 교체. 원 Baalda 이미지와 data URI 파일 제거(최종 검사에서 남은 미참조 glyph JPG도 제거). 원 자산 SHA-256 재유입 검증 및 재생성 문서. |
+| M9 | 수정 | 직접 그린 무한 궤도/별 SVG에서 Tauri 아이콘 생성. PNG favicon 새 이름, desktop light/dark SVG 워드마크, callback icon+Infinite Brain 텍스트, 서버 내장 자산 교체. 이전 이미지와 data URI 파일 제거. |
 | M8 | 수정 | 단일 note 및 폴더 subtree rename의 같은 SQLite 트랜잭션에서 trigram path 변경. 내용 재색인 없이 새 한글 경로로 검색되고 옛 경로는 사라지며 doc_id가 보존됨을 검증. |
 | M5 | 수정 | 기본 90일 원장 행 삭제, AI_CHANGES_RETENTION_DAYS 설정. startup/hourly 정리, 한 배치 5000행 및 회당 20배치. 볼트 평문 기본 64 MiB, AI_CHANGES_MAX_BYTES 설정; 초과 새 행은 본문 대신 해시/메타데이터. 볼트 xact advisory lock과 실제 동시 쓰기 회귀. 정책은 docs/AI-CHANGES.md. 역 diff 저장 및 연결 해제 본문 삭제 옵션은 요청된 최소 수정 범위를 넘어 보류. |
 | M7 | 수정 | session pg_try_advisory_lock으로 backfill 인스턴스 단일화. note/blob 20행 keyset 배치와 event-loop yield. 버전만 오래된 note는 index의 title/content로 벡터만 계산; links/blob refs/Yjs 재생성 없음. 정확한 DB timestamp 문자열로 경쟁 갱신을 거부하고 일반 index upsert에도 read 시각 guard. 경쟁 인스턴스/실시간 vector 덮어쓰기 회귀. |
@@ -43,8 +42,6 @@
 
 | 검사 | 결과 | 근거 |
 | --- | --- | --- |
-| node --test scripts/rebrand.test.mjs | 통과: 5 tests | /tmp/ib-fix-rebrand-test.log |
-| node scripts/rebrand.mjs --dry-run | 통과: Would update 0 file(s) | /tmp/ib-fix-rebrand-dry-run.log, 원본 브랜드 이미지 해시 검사 포함 |
 | server H1 + migration 회귀 | 통과: 2 files / 3 tests | 실제 전용 Postgres |
 | server scope/ledger/access/delete 회귀 | 4 files, 53 passed/1 outdated assertion 후 access 3 tests 재검증 통과 | 더 앞선 scope gate의 오류 기대값 변경 |
 | server ledger retention/quota | 통과: 19 tests | /tmp/ib-fix-ledger.log |

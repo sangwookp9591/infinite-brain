@@ -38,7 +38,7 @@ export type AuthStep = "choose-server" | "confirm-link" | "form";
  * - trailing slashes go, because the URL is concatenated with paths like
  *   `/health` everywhere downstream;
  * - **a path prefix is kept.** Self-hosters put Infinite Brain behind a reverse proxy at
- *   e.g. `https://intranet.example.com/baalda`, and stripping that would point
+ *   e.g. `https://intranet.example.com/infinitebrain`, and stripping that would point
  *   the app at the proxy's root.
  */
 export function normalizeServerUrl(input: string): string | null {

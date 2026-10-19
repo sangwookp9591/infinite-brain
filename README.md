@@ -32,7 +32,7 @@
 
 Notes remain plain Markdown files on disk, while a Yjs bridge lets people and connected AI tools edit together in real time.
 
-This independent fork of Baalda 0.1.83 is licensed under Apache-2.0 (the upstream `ee/` directory is not included). See [`NOTICE`](NOTICE) for attribution.
+Licensed under Apache-2.0. See [`NOTICE`](NOTICE).
 
 <img src="docs/galaxy/macos-20000-dark-v2.png" alt="The galaxy graph view rendering 20,000 notes and 37,996 links as a spiral galaxy" width="100%">
 
@@ -51,20 +51,17 @@ This independent fork of Baalda 0.1.83 is licensed under Apache-2.0 (the upstrea
 
 ## ✨ Features
 
-What this fork adds on top of Baalda 0.1.83:
-
 | Area | What it does | Docs |
 |---|---|---|
-| **AI connection wizard** | Connect your own Claude or ChatGPT to a vault over MCP (OAuth or token). Choose read-only, read+write, or read+write+delete, then review and disconnect connections later. | [`docs/research/W5-mcp-connect.md`](docs/research/W5-mcp-connect.md) |
+| **AI connection wizard** | Connect your own Claude or ChatGPT to a vault over MCP (OAuth or token). Choose read-only, read+write, or read+write+delete, then review and disconnect connections later. | [`docs/reports/IMPL-REPORT-M1.md`](docs/reports/IMPL-REPORT-M1.md) |
 | **Multilingual search** | Server and MCP search handle Korean and other non-Latin text (Unicode + bigram embedder, zero-score cutoff, `embed_version` re-index). Local search adds trigram and filename matches. | [`docs/reports/IMPL-REPORT-M2.md`](docs/reports/IMPL-REPORT-M2.md) |
 | **AI change ledger** | Every AI edit is recorded and can be undone. An undo is refused (409) if a person has edited the note since. | [`docs/AI-CHANGES.md`](docs/AI-CHANGES.md) |
 | **Invite links** | Teammates join with a link, no email server needed. | [`docs/onboarding-audit.md`](docs/onboarding-audit.md) |
 | **Galaxy graph** | The graph view renders notes as a spiral galaxy (three.js WebGPU, with WebGL2 and 2D fallbacks). | [`docs/galaxy/`](docs/galaxy/) |
 | **New visual language** | Zinc surfaces and an ink accent in light and dark, with spring micro-interactions from a twelve-component design kit across the shell, editor, settings, dialogs and dashboards. | [`docs/superpowers/specs/2026-10-15-ui-redesign-color-design.md`](docs/superpowers/specs/2026-10-15-ui-redesign-color-design.md) |
 | **Custom accent** | Pick ink, one of eight presets or any `#rrggbb`, per person or as a vault default. A contrast guard keeps button text at 4.5:1 or better in both themes, and the choice paints from the very first frame. | [`docs/superpowers/plans/2026-10-15-ui-redesign-rollout.md`](docs/superpowers/plans/2026-10-15-ui-redesign-rollout.md) |
-| **Rebrand** | App ID `com.infinitebrain.desktop`, URL scheme `infinitebrain://`, new icon and updater key. Rerun `node scripts/rebrand.mjs --dry-run` to check for leftovers. | [`docs/BRAND-ASSETS.md`](docs/BRAND-ASSETS.md) |
 
-Design and research: [`docs/FINAL-report.md`](docs/FINAL-report.md) (Korean) and [`docs/research/`](docs/research/). Build status: [`docs/STATUS.md`](docs/STATUS.md). Docs index: [`docs/Infinite Brain.md`](<docs/Infinite Brain.md>).
+Build status: [`docs/STATUS.md`](docs/STATUS.md). Docs index: [`docs/Infinite Brain.md`](<docs/Infinite Brain.md>).
 
 ## 🎨 Design
 
@@ -185,7 +182,7 @@ flowchart LR
 | Desktop UI | [`app/apps/desktop/src/`](app/apps/desktop/src/) | React/TypeScript UI, typed Rust IPC, HTTP client, Markdown editor, Yjs bridge, sync client |
 | Server | [`app/apps/server/src/`](app/apps/server/src/) | Hono HTTP API, Hocuspocus sync, Better Auth, Postgres, permissions, blobs, MCP |
 
-Inherited architecture reference: [`docs/UPSTREAM-CLAUDE.md`](docs/UPSTREAM-CLAUDE.md). Developer notes and invariants: [`CLAUDE.md`](CLAUDE.md).
+Architecture reference: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Developer notes and invariants: [`CLAUDE.md`](CLAUDE.md).
 
 ## 🚀 Quick start
 
@@ -258,7 +255,7 @@ Self-hosting guide: [`docs/DEPLOY.md`](docs/DEPLOY.md).
 │   └── turbo.json
 ├── deploy/                     Docker Compose files (compose, coolify)
 ├── docs/                       Specs, research, reports, galaxy screenshots
-├── scripts/                    rebrand.mjs and voice-check
+├── scripts/                    voice-check
 ├── CLAUDE.md                   Developer notes and invariants
 └── NOTICE · LICENSE            Attribution and license
 ```
@@ -268,20 +265,18 @@ Self-hosting guide: [`docs/DEPLOY.md`](docs/DEPLOY.md).
 | Doc | What is in it |
 |---|---|
 | [`docs/Infinite Brain.md`](<docs/Infinite Brain.md>) | Docs index |
-| [`docs/STATUS.md`](docs/STATUS.md) | Fork status and build status |
+| [`docs/STATUS.md`](docs/STATUS.md) | Build status |
 | [`docs/NEXT-TASKS.md`](docs/NEXT-TASKS.md) | Next tasks and handoff notes (Korean) |
 | [`docs/DEPLOY.md`](docs/DEPLOY.md) | Self-hosting guide |
 | [`docs/RELEASE.md`](docs/RELEASE.md) | How a desktop release is cut |
 | [`docs/AI-CHANGES.md`](docs/AI-CHANGES.md) | AI change ledger contract |
-| [`docs/BRAND-ASSETS.md`](docs/BRAND-ASSETS.md) | Rebrand assets and checks |
+| [`docs/BRAND-ASSETS.md`](docs/BRAND-ASSETS.md) | Brand assets |
 | [`docs/superpowers/specs/2026-10-15-team-second-brain-prd.md`](docs/superpowers/specs/2026-10-15-team-second-brain-prd.md) | Team second-brain PRD: hub and P2P modes, smart search, roadmap (Korean) |
 | [`docs/superpowers/specs/2026-10-16-a0-authorization-design.md`](docs/superpowers/specs/2026-10-16-a0-authorization-design.md) | A0 hub authorization design: expected-permission table and test list (Korean) |
 | [`docs/superpowers/specs/`](docs/superpowers/specs/) | All specs, including the UI redesign and colour customization spec |
 | [`docs/superpowers/plans/`](docs/superpowers/plans/) | Rollout plan for the new visual language |
 | [`docs/reports/`](docs/reports/) | Implementation, review and verification reports |
-| [`docs/FINAL-report.md`](docs/FINAL-report.md) | Design and research summary (Korean) |
-| [`docs/research/`](docs/research/) | Research reports |
-| [`docs/UPSTREAM-CLAUDE.md`](docs/UPSTREAM-CLAUDE.md) | Inherited architecture reference |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Architecture reference |
 | [`CHANGELOG.md`](CHANGELOG.md) | Changelog |
 
 ## 🔒 Data compatibility
@@ -290,10 +285,10 @@ The `.context/` vault metadata directory and the internal `context` database/cod
 
 ## 🤝 Community
 
-[Contributing](CONTRIBUTING.md) · [Security policy](SECURITY.md) · [Code of Conduct](CODE_OF_CONDUCT.md) · [Trademark policy](TRADEMARK.md)
+[Contributing](CONTRIBUTING.md) · [Security policy](SECURITY.md) · [Code of Conduct](CODE_OF_CONDUCT.md)
 
 ## 📄 License
 
-Licensed under the [Apache License 2.0](LICENSE). Infinite Brain is an independent fork of Baalda 0.1.83; the upstream `ee/` directory is not included. See [`NOTICE`](NOTICE) for attribution.
+Licensed under the [Apache License 2.0](LICENSE). See [`NOTICE`](NOTICE).
 
 The design kit's interactions are adapted from [React Bits](https://reactbits.dev) by David Haz under the MIT + Commons Clause license, used as part of this application; see [`app/apps/desktop/src/components/kit/LICENSE-react-bits.md`](app/apps/desktop/src/components/kit/LICENSE-react-bits.md).

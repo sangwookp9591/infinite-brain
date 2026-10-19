@@ -4,7 +4,7 @@ spec: 04-team-collaboration
 product: Infinite Brain
 status: draft-v1
 date: 2026-07-13
-tags: [baalda, spec, auth, teams, permissions, presence]
+tags: [infinite-brain, spec, auth, teams, permissions, presence]
 ---
 
 # 04 · Team Collaboration

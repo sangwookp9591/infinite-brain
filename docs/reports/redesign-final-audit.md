@@ -27,5 +27,5 @@
 1. **헤더/시트 경계(P3·P4)**: 헤더와 breadcrumb·탭이 시트 안에 있어 시안(캔버스 위 헤더, 아래 시트)과 달랐다. `.main`을 투명 열로, 시트 스타일을 `.editor-wrap`으로 옮겼다. 배너·공지는 헤더와 시트 사이 캔버스에 놓인다.
 2. **전역 `<select>`**: `.modal`/`.account-popover` 안에서만 스타일돼 활동 패널 등에서는 OS 기본이었다. 기본 select를 Orbit 웰로 통일했다.
 3. **버튼 위계**: `button.primary.danger`가 `.confirm-actions` 안에서만 정의돼 다른 곳의 파괴적 확인이 보라였다. 전역으로 올렸다.
-4. **Baalda/zinc 흔적**: 검은 "Ink" 기본 견본, 쓰이지 않는 `--brand-green` 토큰과 초록 브래킷 로고용 `--brand-tile/ink` 값, `DESIGN-BRIEF.md`의 zinc/ink 서술, tokens 주석의 "zinc".
+4. **이전 시각 언어 흔적**: 검은 "Ink" 기본 견본, 쓰이지 않는 `--brand-green` 토큰과 초록 브래킷 로고용 `--brand-tile/ink` 값, `DESIGN-BRIEF.md`의 zinc/ink 서술, tokens 주석의 "zinc".
 5. **언어 일관성**: 활동 패널(AI changes) 20개 문자열과 vault 설정 탭 이름이 한국어였다(나머지는 영어). 영어로 통일했다. 동작·props는 그대로다.

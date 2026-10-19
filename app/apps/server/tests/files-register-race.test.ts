@@ -21,7 +21,7 @@ describe("files registration", () => {
 
   afterEach(() => vi.unstubAllEnvs());
   beforeEach(async () => {
-    vi.stubEnv("BAALDA_DEPLOYMENT", "self-hosted");
+    vi.stubEnv("INFINITE_BRAIN_DEPLOYMENT", "self-hosted");
     await resetDb();
     owner = await signUp("owner@files-race.test");
     org = (await createOrg(owner, "Files Co", "files-co")).id;

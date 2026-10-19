@@ -38,7 +38,7 @@ export const pool = new pg.Pool({ Client: AuditClient,
   // server that accepts connections and answers nothing.
   connectionTimeoutMillis: 5_000,
   // Shows up in pg_stat_activity, so a runaway query is attributable.
-  application_name: "baalda-server",
+  application_name: "infinitebrain-server",
   // Per-connection statement ceiling. Deliberately set here and NOT in the
   // migration path: `runMigrations` opens its own `pg.Client`, so DDL (an index
   // build over a big table) is never subject to this.

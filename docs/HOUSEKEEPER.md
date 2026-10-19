@@ -137,9 +137,9 @@ arbitrary YAML rewrites and content deduplication are not supported repairs.
 
 ## Deployment policy
 
-Set `BAALDA_DEPLOYMENT=self-hosted` for self-hosted installations (included in
+Set `INFINITE_BRAIN_DEPLOYMENT=self-hosted` for self-hosted installations (included in
 `.env.example`). The Assistant remains available whether billing is absent, configured
 at installation, or added later. Operator billing configuration is independent.
-`BAALDA_DEPLOYMENT=cloud` requires Pro for AI and limits Free vaults to 20,000 synced
+`INFINITE_BRAIN_DEPLOYMENT=cloud` requires Pro for AI and limits Free vaults to 20,000 synced
 notes (under `BILLING_MODEL=team`: Team for AI, and the `ABUSE_MAX_NOTES` ceiling). Omission defaults to `cloud` so existing Cloud deployments remain guarded,
 even if payment credentials are missing. Self-hosters bypass this Cloud note cap.

@@ -2,8 +2,6 @@
 
 작성일: 2026-10-14. 작업 디렉터리: `/Users/iron/Project/psw/ib-wt/m1-connect`.
 브랜치: `feat/m1-connect`. 시작 HEAD: `ddeb7005b465ff5819097ae6696c894082941bfb`.
-기준: `docs/research/W6-design.md` §5.1 F1, `docs/FINAL-report.md` §6 M1.
-지정한 scratchpad FINAL-report와 저장소 사본이 동일함도 확인했다.
 
 ## 구현 결과
 
