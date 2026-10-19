@@ -39,6 +39,21 @@ if [ -n "$dmg" ] && [ "${ALLOW_UNNOTARIZED:-0}" != "1" ]; then
   xcrun stapler validate "$dmg" >/dev/null 2>&1 || die "$dmg is not notarized+stapled (ALLOW_UNNOTARIZED=1 to publish anyway)"
 fi
 
+# A build that raced another build can embed half a frontend and still "succeed":
+# the 0.2.1 Windows installer came out at 18 MB beside 31 MB for 0.2.0. Refuse a
+# file that is far smaller than the same kind in the latest release.
+check_size() {
+  local file="$1" ext="$2" prev new
+  [ -n "$file" ] || return 0
+  prev="$(gh api "repos/$REPO/releases/latest" --jq "[.assets[] | select(.name | endswith(\"$ext\")) | .size] | first // 0" 2>/dev/null || echo 0)"
+  new="$(stat -f %z "$file")"
+  if [ "${prev:-0}" -gt 0 ] && [ "$((new * 100 / prev))" -lt 60 ] && [ "${ALLOW_SIZE_DROP:-0}" != "1" ]; then
+    die "$(basename "$file") is $((new / 1048576)) MB, only $((new * 100 / prev))% of the latest release's $((prev / 1048576)) MB. Rebuild it, or ALLOW_SIZE_DROP=1 if the drop is real."
+  fi
+}
+check_size "$dmg" ".dmg"
+check_size "$exe" "-setup.exe"
+
 # GitHub turns spaces in asset names into dots; stage space-free names so the
 # URLs in latest.json are exactly the uploaded names.
 rm -rf "$STAGE"; mkdir -p "$STAGE"

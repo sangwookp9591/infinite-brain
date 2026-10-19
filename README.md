@@ -248,7 +248,7 @@ scripts/publish-release.sh           # preview: prints latest.json and the files
 scripts/publish-release.sh --yes     # create the GitHub release (goes live at once)
 ```
 
-The script refuses a `.dmg` that is not notarized and stapled, refuses to overwrite a release that exists, renames the files without spaces, builds `latest.json` from the `.sig` files and the version's release notes, and runs `gh release create v<version>`.
+The script refuses a `.dmg` that is not notarized and stapled, refuses an installer under 60% of the size of the same kind in the latest release (a build that raced another one can embed half the frontend and still succeed; `ALLOW_SIZE_DROP=1` overrides), refuses to overwrite a release that exists, renames the files without spaces, builds `latest.json` from the `.sig` files and the version's release notes, and runs `gh release create v<version>`.
 
 **What users get.** Installed apps check `releases/latest/download/latest.json` at launch and every 15 minutes, download the update in the background, verify it against the embedded public key, restart at a quiet moment and show What's New. The **Check for updates** button in the account menu does the same on demand. Auto-update does not depend on notarization, only on the updater signature. The portfolio site's install buttons read `releases/latest` and refresh within ten minutes.
 
