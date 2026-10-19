@@ -24,6 +24,7 @@ import {
 } from "../lib/updater";
 import { isUpdateBusy, updateCheckToast, updateRowHint } from "../lib/updateMenuRow";
 import { toast } from "../lib/toast";
+import { useT } from "../lib/i18n";
 
 /* The settings surface is a whole second app (nine tabs, billing, MCP tokens,
    access) and nothing in it is on the first screen, so all three dialogs load
@@ -55,6 +56,7 @@ function LocalVaultSyncRow({ onTurnOnSync }: { onTurnOnSync: () => void }) {
   const authStatus = useStore((s) => s.authStatus);
   const syncEnabled = useStore((s) => s.syncEnabled);
   const openFolderIsSynced = useStore((s) => s.openFolderIsSynced);
+  const tr = useT();
   if (!vault || authStatus === "unknown" || syncEnabled || openFolderIsSynced !== false) {
     return null;
   }
@@ -73,11 +75,11 @@ function LocalVaultSyncRow({ onTurnOnSync }: { onTurnOnSync: () => void }) {
         <rect x="5" y="5" width="14" height="10" rx="1.5" />
         <path d="M3 19h18" />
       </svg>
-      <span className="local-sync-label" title="This vault lives only on this computer">
-        On this device only
+      <span className="local-sync-label" title={tr("This vault lives only on this computer")}>
+        {tr("On this device only")}
       </span>
       <button type="button" className="link-btn local-sync-btn" onClick={onTurnOnSync}>
-        Turn on sync
+        {tr("Turn on sync")}
       </button>
     </div>
   );
@@ -93,6 +95,7 @@ function LocalVaultSyncRow({ onTurnOnSync }: { onTurnOnSync: () => void }) {
  * sidebar itself stays a file tree, not a settings page.
  */
 export function AccountMenu() {
+  const tr = useT();
   const authStatus = useStore((s) => s.authStatus);
   const session = useStore((s) => s.session);
   // See the guard on this component's own AuthDialog below.
@@ -301,11 +304,11 @@ export function AccountMenu() {
               ? authPending
                 ? vault.name
                 : openFolderSynced
-                  ? `${vault.name} · Synced vault, signed out`
-                  : `${vault.name} · Local`
+                  ? `${vault.name} · ${tr("Synced vault, signed out")}`
+                  : `${vault.name} · ${tr("Local")}`
               : authPending
                 ? ""
-                : "Sign in to sync & collaborate"
+                : tr("Sign in to sync & collaborate")
           }
         >
           <span className="identity-avatar signed-out" aria-hidden="true">
@@ -323,7 +326,7 @@ export function AccountMenu() {
           </span>
           <span className="identity-meta">
             <span className="identity-line1">
-              {vault?.name ?? (authPending ? "" : "Sign in")}
+              {vault?.name ?? (authPending ? "" : tr("Sign in"))}
             </span>
             <span className="identity-line2">
               {authPending
@@ -336,9 +339,9 @@ export function AccountMenu() {
                     ? // A synced vault whose session is gone, not a local one —
                       // edits still merge on the next sign-in, and sign-in (not
                       // "turn on sync") is how it comes back online.
-                      "Synced · signed out"
-                    : "Local · not synced"
-                  : "Sync & collaborate"}
+                      tr("Synced · signed out")
+                    : tr("Local · not synced")
+                  : tr("Sync & collaborate")}
             </span>
           </span>
         </button>
@@ -386,18 +389,18 @@ export function AccountMenu() {
           : "offline";
   const presenceLabel =
     presence === "active"
-      ? "Active"
+      ? tr("Active")
       : presence === "away"
-        ? "Away"
+        ? tr("Away")
         : presence === "busy"
-          ? "Busy"
+          ? tr("Busy")
           : presence === "idle"
-            ? "Idle"
+            ? tr("Idle")
             : presence === "blocked"
-              ? "No access"
+              ? tr("No access")
               : syncEnabled
-                ? "Offline"
-                : "Local only";
+                ? tr("Offline")
+                : tr("Local only");
 
   return (
     <div className="account-menu" ref={rootRef}>
@@ -437,7 +440,7 @@ export function AccountMenu() {
           {hasInvites && (
             <span
               className={`identity-alert${hasNewInvites ? " is-new" : ""}`}
-              aria-label={hasNewInvites ? "New invitation" : "Pending invitation"}
+              aria-label={hasNewInvites ? tr("New invitation") : tr("Pending invitation")}
             />
           )}
         </button>
@@ -445,8 +448,8 @@ export function AccountMenu() {
           <button
             type="button"
             className="icon-btn identity-bug"
-            title="Report a bug"
-            aria-label="Report a bug"
+            title={tr("Report a bug")}
+            aria-label={tr("Report a bug")}
             aria-haspopup="dialog"
             onClick={() => {
               closeMenu();
@@ -534,6 +537,7 @@ function runMenuUpdateCheck(): void {
 }
 
 function UpdateMenuRow({ onClose }: { onClose: () => void }) {
+  const tr = useT();
   const update = useUpdateState();
   const [version, setVersion] = useState<string | null>(menuVersion);
   useEffect(() => {
@@ -561,7 +565,7 @@ function UpdateMenuRow({ onClose }: { onClose: () => void }) {
         <path d="M21 12a9 9 0 1 1-2.64-6.36" />
         <path d="M21 3v6h-6" />
       </MenuIcon>
-      <span className="menu-item-label">Check for updates</span>
+      <span className="menu-item-label">{tr("Check for updates")}</span>
       <span className="menu-hint">{updateRowHint(update, version)}</span>
     </button>
   );
@@ -585,6 +589,7 @@ function AccountPopover({
 }) {
   const session = useStore((s) => s.session);
   const userInvitations = useStore((s) => s.userInvitations);
+  const tr = useT();
   // What was new when the menu opened keeps its glow for this opening; the
   // seen set is written now (so the identity dot settles) and again whenever
   // the list changes while open (so an arrival during it counts as seen, and
@@ -619,8 +624,8 @@ function AccountPopover({
           <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
           <circle cx="12" cy="7" r="4" />
         </MenuIcon>
-        <span className="menu-item-label">Account settings</span>
-        <span className="menu-hint">Profile, status, theme</span>
+        <span className="menu-item-label">{tr("Account settings")}</span>
+        <span className="menu-hint">{tr("Profile, status, theme")}</span>
       </button>
       {/* Shortcuts straight to a page of Account settings, through the same
           request the rest of the app uses (it closes this popover too). */}
@@ -632,8 +637,8 @@ function AccountPopover({
           <circle cx="12" cy="12" r="9" />
           <path d="M12 3a9 9 0 0 0 0 18Z" fill="currentColor" stroke="none" />
         </MenuIcon>
-        <span className="menu-item-label">Appearance</span>
-        <span className="menu-hint">Theme, colours</span>
+        <span className="menu-item-label">{tr("Appearance")}</span>
+        <span className="menu-hint">{tr("Theme, colours")}</span>
       </button>
       <button
         className="menu-item"
@@ -643,8 +648,8 @@ function AccountPopover({
           <circle cx="12" cy="12" r="9" />
           <path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" />
         </MenuIcon>
-        <span className="menu-item-label">Connection</span>
-        <span className="menu-hint">Server URL</span>
+        <span className="menu-item-label">{tr("Connection")}</span>
+        <span className="menu-hint">{tr("Server URL")}</span>
       </button>
       <UpdateMenuRow onClose={onClose} />
 
@@ -660,7 +665,7 @@ function AccountPopover({
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
           <path d="M16 17l5-5-5-5M21 12H9" />
         </MenuIcon>
-        <span className="menu-item-label">Sign out</span>
+        <span className="menu-item-label">{tr("Sign out")}</span>
       </button>
     </div>
   );

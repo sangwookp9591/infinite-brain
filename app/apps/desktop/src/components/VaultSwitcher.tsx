@@ -20,6 +20,7 @@ import {
 } from "../lib/vaultIcon";
 import { useLocalFolderClasses, useLocalVaults, useRecentVaults } from "./useVaultLists";
 import { visibleFolders } from "../lib/vault/vaultList";
+import { t, useT } from "../lib/i18n";
 import { MenuIcon } from "./MenuIcon";
 import { PeopleLimitNotice, peopleLimitKind } from "./PeopleLimitNotice";
 
@@ -165,9 +166,9 @@ export function VaultTile({ identity, name }: { identity: string; name: string }
 }
 
 function rowSubtitle(row: VaultRow): string {
-  if (row.kind === "local") return "Local";
+  if (row.kind === "local") return t("Local");
   // A synced vault with no folder here has never been opened on this device.
-  return row.openedAt ? "Synced" : "Synced · not on this device yet";
+  return row.openedAt ? t("Synced") : t("Synced · not on this device yet");
 }
 
 /**
@@ -192,6 +193,7 @@ export function VaultSwitcherPopover({
   const members = useStore((s) => s.members);
   const pendingInvitations = useStore((s) => s.pendingInvitations);
   const vault = useStore((s) => s.vault);
+  const tr = useT();
   return (
     <div className="vault-popover vault-switcher" role="menu"
       onPointerEnter={onPointerEnter}
@@ -261,12 +263,12 @@ export function VaultSwitcherPopover({
             label="Vault settings"
             hint={
               !signedIn
-                ? "Turn on sync"
+                ? tr("Turn on sync")
                 : activeOrgId
-                  ? `${members.length} member${members.length === 1 ? "" : "s"}${
+                  ? `${members.length === 1 ? tr("{count} member", { count: 1 }) : tr("{count} members", { count: members.length })}${
                       pendingInvitations.length > 0 ? ` +${pendingInvitations.length}` : ""
                     }`
-                  : "Local"
+                  : tr("Local")
             }
             onClick={() => {
               onClose();
@@ -307,11 +309,12 @@ function ActionRow({
   hint?: string;
   onClick: () => void;
 }) {
+  const tr = useT();
   return (
     <button className="menu-item" onClick={onClick}>
       <MenuIcon>{icon}</MenuIcon>
-      <span className="menu-item-label">{label}</span>
-      {hint && <span className="menu-hint">{hint}</span>}
+      <span className="menu-item-label">{tr(label)}</span>
+      {hint && <span className="menu-hint">{tr(hint)}</span>}
     </button>
   );
 }
@@ -332,6 +335,7 @@ function NewVaultItem({ onDone }: { onDone: () => void }) {
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const tr = useT();
 
   const create = async () => {
     const trimmed = name.trim();
@@ -367,7 +371,7 @@ function NewVaultItem({ onDone }: { onDone: () => void }) {
       <div className="menu-create-org">
         <input
           autoFocus
-          placeholder="Vault name"
+          placeholder={tr("Vault name")}
           value={name}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => {
@@ -381,7 +385,7 @@ function NewVaultItem({ onDone }: { onDone: () => void }) {
           }}
         />
         <button className="primary sm" disabled={busy || !name.trim()} onClick={() => void create()}>
-          Create
+          {tr("Create")}
         </button>
       </div>
       {error && <div className="auth-error">{error}</div>}
@@ -396,6 +400,7 @@ function JoinVaultItem({ onDone }: { onDone: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [limitCause, setLimitCause] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
+  const tr = useT();
 
   const join = async () => {
     if (!code.trim()) return;
@@ -428,7 +433,7 @@ function JoinVaultItem({ onDone }: { onDone: () => void }) {
       <div className="menu-create-org">
         <input
           autoFocus
-          placeholder="Join code, e.g. K7MPX2RA"
+          placeholder={tr("Join code, e.g. K7MPX2RA")}
           value={code}
           spellCheck={false}
           onChange={(e) => setCode(e.target.value.toUpperCase())}
@@ -441,7 +446,7 @@ function JoinVaultItem({ onDone }: { onDone: () => void }) {
           }}
         />
         <button className="primary sm" disabled={busy} onClick={() => void join()}>
-          Join
+          {tr("Join")}
         </button>
       </div>
       {error && <div className="auth-error">{error}</div>}

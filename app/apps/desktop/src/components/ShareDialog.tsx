@@ -8,6 +8,7 @@ import {
 } from "../lib/api";
 import { useStore } from "../store";
 import { Avatar } from "./Avatar";
+import { useT } from "../lib/i18n";
 
 export interface ShareTarget {
   resourceType: "folder" | "file";
@@ -21,6 +22,7 @@ export interface ShareTarget {
  * server ACL; revoke force-disconnects live sockets server-side (instant kill).
  */
 export function ShareDialog({ target, onClose }: { target: ShareTarget; onClose: () => void }) {
+  const tr = useT();
   const members = useStore((s) => s.members);
   const session = useStore((s) => s.session);
 
@@ -85,13 +87,16 @@ export function ShareDialog({ target, onClose }: { target: ShareTarget; onClose:
     return m?.user?.name || m?.user?.email || userId;
   };
 
+  // The title is bold, so split the translated sentence around the placeholder.
+  const shareTitle = tr("Share {title}", { title: "\u0001" }).split("\u0001");
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal share-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <span>
-            Share <strong>{target.title}</strong>
-            <span className="muted"> ({target.resourceType})</span>
+            {shareTitle[0]}<strong>{target.title}</strong>{shareTitle[1]}
+            <span className="muted"> ({tr(target.resourceType)})</span>
           </span>
           <button className="icon-btn" onClick={onClose}>
             ✕
@@ -100,7 +105,7 @@ export function ShareDialog({ target, onClose }: { target: ShareTarget; onClose:
 
         <div className="share-add">
           <select value={principalId} onChange={(e) => setPrincipalId(e.target.value)}>
-            {shareableMembers.length === 0 && <option value="">No other members</option>}
+            {shareableMembers.length === 0 && <option value="">{tr("No other members")}</option>}
             {shareableMembers.map((m) => (
               <option key={m.userId} value={m.userId}>
                 {m.user?.name || m.user?.email || m.userId}
@@ -108,23 +113,23 @@ export function ShareDialog({ target, onClose }: { target: ShareTarget; onClose:
             ))}
           </select>
           <select value={permission} onChange={(e) => setPermission(e.target.value as Permission)}>
-            <option value="view">view</option>
-            <option value="edit">edit</option>
+            <option value="view">{tr("view")}</option>
+            <option value="edit">{tr("edit")}</option>
           </select>
           <button
             className="primary"
             disabled={busy || !principalId}
             onClick={() => void addShare()}
           >
-            Share
+            {tr("Share")}
           </button>
         </div>
 
         {error && <div className="auth-error">{error}</div>}
 
-        <div className="subhead">People with access</div>
+        <div className="subhead">{tr("People with access")}</div>
         {shares.length === 0 ? (
-          <div className="muted">Not shared with anyone yet.</div>
+          <div className="muted">{tr("Not shared with anyone yet.")}</div>
         ) : (
           <ul className="share-list">
             {shares.map((s) => {
@@ -134,9 +139,9 @@ export function ShareDialog({ target, onClose }: { target: ShareTarget; onClose:
                 <li key={s.id}>
                   <Avatar label={name} userId={principal} />
                   <span className="member-name">{name}</span>
-                  <span className="member-role">{s.permission}</span>
+                  <span className="member-role">{tr(s.permission)}</span>
                   <button className="link-btn danger" onClick={() => void revoke(s.id)}>
-                    Revoke
+                    {tr("Revoke")}
                   </button>
                 </li>
               );

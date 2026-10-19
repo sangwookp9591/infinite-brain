@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { t } from "../lib/i18n";
 const REFUSALS: Record<string, string> = {
   share_target_not_member: "This person hasn't joined this vault yet. Invite them first.",
   member_not_found: "This person is no longer in this vault. Invite them again to share.",
@@ -12,7 +13,7 @@ export function shareErrorMessage(cause: unknown, fallback?: string): string {
   if (cause instanceof Error && cause.name === "ApiError") {
     const body = (cause as Error & { body?: { error?: string; code?: string } }).body;
     const code = body?.error ?? body?.code ?? cause.message;
-    if (REFUSALS[code]) return REFUSALS[code];
+    if (REFUSALS[code]) return t(REFUSALS[code]);
   }
-  return fallback ?? "Couldn't update sharing. Check your connection and try again.";
+  return fallback ? t(fallback) : t("Couldn't update sharing. Check your connection and try again.");
 }

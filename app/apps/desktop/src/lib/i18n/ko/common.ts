@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-// Korean strings. The key is the exact English text used in the UI; an entry
-// that is missing simply shows in English. Add a screen by wrapping its text in
-// `t()` / `useT()` and adding the pairs here. Keep Korean 존댓말 (해요체), keep
-// product terms (vault → 볼트) consistent across the whole file.
-export const ko: Record<string, string> = {
+// Korean strings shared by several screens, plus settings, About, the star card
+// and the first-launch intro. Screen-specific files sit beside this one.
+export const common: Record<string, string> = {
   // Language setting
   "Language": "언어",
   "System": "시스템",

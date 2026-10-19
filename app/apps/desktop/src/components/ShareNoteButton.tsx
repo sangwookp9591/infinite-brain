@@ -8,6 +8,7 @@ import { buildNoteLink } from "../lib/shareLink";
 import { toast } from "../lib/toast";
 import { useStore } from "../store";
 import { CheckMark } from "./Spinner";
+import { useT } from "../lib/i18n";
 import { Switch } from "./Switch";
 
 /**
@@ -27,6 +28,7 @@ import { Switch } from "./Switch";
  * it; the old URL stops working.
  */
 export function ShareNoteButton({ docId }: { docId: string }) {
+  const tr = useT();
   const isGuest = useStore((state) => state.members.find((member) => member.userId === state.session?.user.id)?.role === "guest");
   const orgId = useStore((s) => s.session?.activeOrganizationId ?? null);
   const [open, setOpen] = useState(false);
@@ -40,8 +42,8 @@ export function ShareNoteButton({ docId }: { docId: string }) {
     <>
       <button
         className={`icon-btn share-btn${open ? " active" : ""}`}
-        title="Share this note"
-        aria-label="Share this note"
+        title={tr("Share this note")}
+        aria-label={tr("Share this note")}
         aria-haspopup="dialog"
         onClick={() => setOpen(true)}
       >
@@ -75,6 +77,7 @@ function ShareNoteDialog({
   orgId: string;
   onClose: () => void;
 }) {
+  const tr = useT();
   const notePath = useStore((s) => s.openNote?.path ?? null);
   // `undefined` while the first fetch is in flight; null = not published.
   const [publicLink, setPublicLink] = useState<PublicLink | null | undefined>(undefined);
@@ -118,7 +121,7 @@ function ShareNoteDialog({
       setCopied(kind);
       return true;
     }
-    toast("Couldn't copy the link", "error");
+    toast(tr("Couldn't copy the link"), "error");
     return false;
   }, []);
 
@@ -138,20 +141,20 @@ function ShareNoteDialog({
         // clipboard refuses, the url is on screen with its own Copy button.
         if (await copyText(link.url)) {
           setCopied("public");
-          toast("Public link created and copied");
+          toast(tr("Public link created and copied"));
         }
       } else {
         await authManager.api.revokePublicLink(docId);
         setPublicLink(null);
-        toast("Public link turned off — the old link no longer works");
+        toast(tr("Public link turned off — the old link no longer works"));
       }
     } catch (e) {
       toast(
         e instanceof ApiError
           ? e.message
           : next
-            ? "Couldn't create the public link"
-            : "Couldn't turn off the public link",
+            ? tr("Couldn't create the public link")
+            : tr("Couldn't turn off the public link"),
         "error",
       );
     } finally {
@@ -166,7 +169,7 @@ function ShareNoteDialog({
     if (publicLink) setLastUrl(publicLink.url);
   }, [publicLink]);
   const shownUrl = publicLink?.url ?? lastUrl;
-  const title = notePath ? noteLabel(notePath) : "this note";
+  const title = notePath ? noteLabel(notePath) : tr("this note");
 
   // Portalled to <body>, like UpgradeDialog: the header row's floating pill is
   // a containing block for anything positioned inside it.
@@ -176,12 +179,12 @@ function ShareNoteDialog({
         className="modal share-dialog"
         role="dialog"
         aria-modal="true"
-        aria-label={`Share ${title}`}
+        aria-label={tr("Share {title}", { title })}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="modal-header">
           <span className="share-dialog-title">
-            Share this note
+            {tr("Share this note")}
             <span className="share-dialog-note">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
@@ -190,7 +193,7 @@ function ShareNoteDialog({
               <span>{title}</span>
             </span>
           </span>
-          <button className="icon-btn" onClick={onClose} aria-label="Close">
+          <button className="icon-btn" onClick={onClose} aria-label={tr("Close")}>
             ✕
           </button>
         </div>
@@ -205,16 +208,16 @@ function ShareNoteDialog({
               </svg>
             </span>
             <span className="share-option-copy">
-              <strong>Team link</strong>
-              <span>Opens for people in this vault who have access.</span>
+              <strong>{tr("Team link")}</strong>
+              <span>{tr("Opens for people in this vault who have access.")}</span>
             </span>
             <button type="button" className="ghost-pill sm share-copy-btn" onClick={copyTeam}>
               {copied === "team" ? (
                 <>
-                  <CheckMark size="xs" /> Copied
+                  <CheckMark size="xs" /> {tr("Copied")}
                 </>
               ) : (
-                "Copy link"
+                tr("Copy link")
               )}
             </button>
           </section>
@@ -227,9 +230,9 @@ function ShareNoteDialog({
               </svg>
             </span>
             <span className="share-option-copy">
-              <strong>Publish to the web</strong>
-              {publicAllowed !== true && <small>{publicAllowed === false ? "This vault does not allow public links. Ask an admin for help." : "Public sharing settings are unavailable. Try again later."}</small>}
-              <span>Anyone with the link can read it in a browser.</span>
+              <strong>{tr("Publish to the web")}</strong>
+              {publicAllowed !== true && <small>{publicAllowed === false ? tr("This vault does not allow public links. Ask an admin for help.") : tr("Public sharing settings are unavailable. Try again later.")}</small>}
+              <span>{tr("Anyone with the link can read it in a browser.")}</span>
             </span>
             {/* The switch stays put while it works (disabled, not swapped for a
                 spinner) so the row never changes width mid-click. */}
@@ -237,7 +240,7 @@ function ShareNoteDialog({
               checked={published}
               disabled={publicLink === undefined || publicBusy || !published && publicAllowed !== true}
               onChange={(next) => void setPublished(next)}
-              ariaLabel="Publish to the web"
+              ariaLabel={tr("Publish to the web")}
             />
             {/* Always mounted and animated open/closed (grid 0fr → 1fr), with
                 the last url kept while it collapses — so publishing slides the
@@ -249,7 +252,7 @@ function ShareNoteDialog({
                   readOnly
                   tabIndex={published ? 0 : -1}
                   value={shownUrl}
-                  aria-label="Public link"
+                  aria-label={tr("Public link")}
                   onFocus={(e) => e.currentTarget.select()}
                 />
                 <button
@@ -260,13 +263,13 @@ function ShareNoteDialog({
                 >
                   {copied === "public" ? (
                     <>
-                      <CheckMark size="xs" /> Copied
+                      <CheckMark size="xs" /> {tr("Copied")}
                     </>
                   ) : (
-                    "Copy"
+                    tr("Copy")
                   )}
                 </button>
-                <p className="share-url-hint">Turn this off to make the link stop working.</p>
+                <p className="share-url-hint">{tr("Turn this off to make the link stop working.")}</p>
               </div>
             </div>
           </section>

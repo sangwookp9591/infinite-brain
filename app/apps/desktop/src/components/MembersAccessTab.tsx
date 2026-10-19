@@ -54,6 +54,13 @@ import { canActOnMember, canSetMemberAccess } from "./memberRoles";
 import { MenuSelect } from "./MenuSelect";
 import { RowActionsMenu, type RowAction } from "./RowActionsMenu";
 import { markSelfAccessChange } from "../lib/sync/selfAccessChanges";
+import { useT } from "../lib/i18n";
+
+/** Render a translated sentence with one bold value; `text` was translated with the placeholder set to \u0001. */
+const boldIn = (text: string, value: string) => {
+  const [before, after] = text.split("\u0001");
+  return <>{before}<strong>{value}</strong>{after}</>;
+};
 
 
 /** How long a burst of per-item ticks settles before the shared side effects run. */
@@ -118,6 +125,7 @@ export function MembersAccessTab({ canManage, onOpenTab, onCloseSettings, resetT
   /** Close the settings dialog, so a note opened from a profile is visible. */
   onCloseSettings?: () => void;
 }) {
+  const tr = useT();
   const session = useStore((s) => s.session);
   const organizations = useStore((s) => s.organizations);
   const presence = useStore((s) => s.vaultPresence);
@@ -125,7 +133,7 @@ export function MembersAccessTab({ canManage, onOpenTab, onCloseSettings, resetT
   const serverUrl = useStore((s) => s.serverUrl);
   const orgId = session?.activeOrganizationId ?? null;
   const myUserId = session?.user.id;
-  const vaultName = organizations.find((o) => o.id === orgId)?.name ?? "this vault";
+  const vaultName = organizations.find((o) => o.id === orgId)?.name ?? tr("this vault");
 
   const [overview, setOverview] = useState<MembersOverview | null>(null);
   const [teamAccess, setTeamAccess] = useState<TeamAccess | null>(null);
@@ -168,7 +176,7 @@ export function MembersAccessTab({ canManage, onOpenTab, onCloseSettings, resetT
       accessDefault: joining ?? prev?.accessDefault ?? null,
     });
     if (!ov || (canManage && (!team || !joining))) {
-      setError("Couldn't load everything on this page. Check your connection and reopen it.");
+      setError(tr("Couldn't load everything on this page. Check your connection and reopen it."));
     }
   }, [orgId, canManage]);
 
@@ -286,13 +294,13 @@ export function MembersAccessTab({ canManage, onOpenTab, onCloseSettings, resetT
     await authManager.api.setTeamAccess(orgId, mode);
     patchRoster((r) => ({ ...r, teamAccess: r.teamAccess ? patchedTeamAccess(r.teamAccess, mode) : r.teamAccess }));
     refreshBehind();
-    toast(`Everyone in ${vaultName}: ${EVERYONE_OPTIONS.find((o) => o.value === mode)?.label}`);
+    toast(tr("Everyone in {vault}: {level}", { vault: vaultName, level: tr(EVERYONE_OPTIONS.find((o) => o.value === mode)?.label ?? "") }));
   });
 
   const chooseEveryone = (mode: TeamAccessMode) => {
     if (!teamAccess) return;
     if (mode === teamAccess.mode && teamAccess.overrides.length === 0 && teamAccess.posture !== "none") return;
-    const label = EVERYONE_OPTIONS.find((o) => o.value === mode)?.label ?? mode;
+    const label = tr(EVERYONE_OPTIONS.find((o) => o.value === mode)?.label ?? mode);
     if (!needsAccessConfirm(teamAccess.posture === "none" ? "private" : teamAccess.mode, mode)) {
       void writeEveryone(mode);
       return;
@@ -300,14 +308,14 @@ export function MembersAccessTab({ canManage, onOpenTab, onCloseSettings, resetT
     if (mode === "open") return;
     const copy = reduceAccessCopy({ kind: "everyone" }, mode);
     setConfirm({
-      title: copy.title,
-      label: copy.button,
+      title: tr(copy.title),
+      label: tr(copy.button),
       tone: mode === "private" ? "danger" : "accent",
       apply: () => writeEveryone(mode),
       body: (
         <>
-          <p>Every member gets <strong>{label}</strong> unless they have their own setting. People set by name keep theirs.</p>
-          <p>{copy.outcome}</p>
+          <p>{boldIn(tr("Every member gets {label} unless they have their own setting. People set by name keep theirs.", { label: "\u0001" }), label)}</p>
+          <p>{tr(copy.outcome)}</p>
         </>
       ),
     });
@@ -319,7 +327,7 @@ export function MembersAccessTab({ canManage, onOpenTab, onCloseSettings, resetT
     const next = await authManager.api.setAccessDefault(orgId, mode);
     setAccessDefault(next);
     patchRoster((r) => ({ ...r, accessDefault: next }));
-    toast(`New members: ${NEW_MEMBER_OPTIONS.find((o) => o.value === next.mode)?.label}`);
+    toast(tr("New members: {level}", { level: tr(NEW_MEMBER_OPTIONS.find((o) => o.value === next.mode)?.label ?? "") }));
   });
 
   // ── One person ──────────────────────────────────────────────────────────
@@ -336,7 +344,7 @@ export function MembersAccessTab({ canManage, onOpenTab, onCloseSettings, resetT
       overview: r.overview ? withMemberLevel(r.overview, m.userId, levelOfMode(mode)) : r.overview,
     }));
     refreshBehind();
-    toast(`${displayName(m)}: ${PERSON_LEVEL_LABEL[mode === "open" ? "edit" : mode === "readonly" ? "view" : "none"]}`);
+    toast(tr("{name}: {level}", { name: displayName(m), level: tr(PERSON_LEVEL_LABEL[mode === "open" ? "edit" : mode === "readonly" ? "view" : "none"]) }));
   });
 
   const choosePerson = (m: MemberOverview, choice: PersonChoice) => {
@@ -355,18 +363,21 @@ export function MembersAccessTab({ canManage, onOpenTab, onCloseSettings, resetT
     if (choice === "open") return;
     const copy = reduceAccessCopy({ kind: "person", name: displayName(m), self: m.userId === myUserId }, choice);
     setConfirm({
-      title: copy.title,
-      label: copy.button,
+      // Titles that name the person are rebuilt here so each has its own key.
+      title: m.userId === myUserId
+        ? tr(copy.title)
+        : tr(choice === "private" ? "Remove {name}'s access to this vault?" : "Make {name} view only across the vault?", { name: displayName(m) }),
+      label: tr(copy.button),
       tone: choice === "private" ? "danger" : "accent",
       apply: () => writePerson(m, choice),
       body: (
         <>
           <p>
             {m.userId === myUserId
-              ? "This replaces your own settings across the vault. Your setting wins over the default setting, and owners and admins are not exempt."
-              : `This replaces ${displayName(m)}'s own settings across the vault. Their setting wins over the default setting.`}
+              ? tr("This replaces your own settings across the vault. Your setting wins over the default setting, and owners and admins are not exempt.")
+              : tr("This replaces {name}'s own settings across the vault. Their setting wins over the default setting.", { name: displayName(m) })}
           </p>
-          <p>{copy.outcome}</p>
+          <p>{tr(copy.outcome)}</p>
         </>
       ),
     });
@@ -375,22 +386,22 @@ export function MembersAccessTab({ canManage, onOpenTab, onCloseSettings, resetT
   const changeRole = (m: MemberOverview, role: "member" | "admin" | "guest"): Promise<void> => {
     const apply = () => run(async () => { await useStore.getState().updateMemberRole(m.userId, role); await reload(); });
     if (role === "guest") {
-      setConfirm({ title: `Change ${displayName(m)} to a guest?`, label: "Change to guest", tone: "danger",
-        body: "They will lose access to the rest of the vault and keep only folders and notes shared directly with them.", apply });
+      setConfirm({ title: tr("Change {name} to a guest?", { name: displayName(m) }), label: tr("Change to guest"), tone: "danger",
+        body: tr("They will lose access to the rest of the vault and keep only folders and notes shared directly with them."), apply });
       return Promise.resolve();
     }
     return apply();
   };
 
   const askRemove = (m: MemberOverview) => setConfirm({
-    title: `Remove ${displayName(m)} from ${vaultName}?`,
-    label: "Remove",
+    title: tr("Remove {name} from {vault}?", { name: displayName(m), vault: vaultName }),
+    label: tr("Remove"),
     tone: "danger",
     apply: () => run(async () => {
       await useStore.getState().removeMember(m.userId);
       await reload();
     }),
-    body: <p>They lose access on all their devices right away. You can invite them again later.</p>,
+    body: <p>{tr("They lose access on all their devices right away. You can invite them again later.")}</p>,
   });
 
   // ── Invitations ─────────────────────────────────────────────────────────
@@ -399,7 +410,7 @@ export function MembersAccessTab({ canManage, onOpenTab, onCloseSettings, resetT
     if (!link) return;
     try {
       await navigator.clipboard.writeText(link);
-      toast("Invite link copied");
+      toast(tr("Invite link copied"));
     } catch { /* clipboard unavailable */ }
   };
 
@@ -414,12 +425,12 @@ export function MembersAccessTab({ canManage, onOpenTab, onCloseSettings, resetT
     const limit = result?.error ? inviteLimitError(result.error) : null;
     if (limit) setLimitCause(limit);
     else if (result?.error) setError(result.error);
-    else toast(result?.emailed ? `Invitation emailed to ${inv.email}` : `Invitation renewed — copy its link for ${inv.email}`);
+    else toast(result?.emailed ? tr("Invitation emailed to {email}", { email: inv.email }) : tr("Invitation renewed — copy its link for {email}", { email: inv.email }));
   });
 
   const askRevoke = (inv: InvitationOverview) => setConfirm({
-    title: `Revoke the invitation to ${inv.email}?`,
-    label: "Revoke",
+    title: tr("Revoke the invitation to {email}?", { email: inv.email }),
+    label: tr("Revoke"),
     tone: "danger",
     apply: () => run(async () => {
       await authManager.api.cancelInvitation(inv.id);
@@ -427,7 +438,7 @@ export function MembersAccessTab({ canManage, onOpenTab, onCloseSettings, resetT
       void reload();
       void useStore.getState().refreshVault();
     }),
-    body: <p>Its link stops working. You can invite them again later.</p>,
+    body: <p>{tr("Its link stops working. You can invite them again later.")}</p>,
   });
 
   // ── Render ──────────────────────────────────────────────────────────────
@@ -498,12 +509,12 @@ export function MembersAccessTab({ canManage, onOpenTab, onCloseSettings, resetT
   return (
     <div className="members-access">
       <div className="members-access-header">
-        <h2 className="settings-section-title">Members and access</h2>
+        <h2 className="settings-section-title">{tr("Members and access")}</h2>
         {manage && (
-          <button className="primary" onClick={() => setInviteOpen(true)}>Invite people</button>
+          <button className="primary" onClick={() => setInviteOpen(true)}>{tr("Invite people")}</button>
         )}
       </div>
-      <p className="members-access-intro">Owners and admins can always manage access.</p>
+      <p className="members-access-intro">{tr("Owners and admins can always manage access.")}</p>
       {error && <div className="auth-error">{error}</div>}
       {limitCause != null && <PeopleLimitNotice error={limitCause} canManageBilling={myRole === "owner"} ownerName={ownerName(members)} freeLimit={seatAccount ? freeLimitOf(seatAccount) : null} />}
 
@@ -514,22 +525,22 @@ export function MembersAccessTab({ canManage, onOpenTab, onCloseSettings, resetT
               <PeopleIcon />
             </span>
             <span className="members-access-row-copy">
-              <span className="members-access-row-title">Everyone in {vaultName}</span>
-              <span className="muted">{everyone?.sub ?? "Default for every member"}</span>
+              <span className="members-access-row-title">{tr("Everyone in {vault}", { vault: vaultName })}</span>
+              <span className="muted">{tr(everyone?.sub ?? "Default for every member")}</span>
             </span>
             {teamAccess ? (
               <MenuSelect
                 value={teamAccess.posture === "none" ? ("none" as TeamAccessMode) : teamAccess.mode}
-                options={EVERYONE_OPTIONS}
+                options={EVERYONE_OPTIONS.map((o) => ({ ...o, label: tr(o.label), hint: tr(o.hint) }))}
                 onSelect={chooseEveryone}
                 disabled={busy}
-                ariaLabel={`Access for everyone in ${vaultName}`}
+                ariaLabel={tr("Access for everyone in {vault}", { vault: vaultName })}
                 triggerClassName={`members-access-trigger is-level ${levelClass(teamAccess.posture === "none" ? "private" : teamAccess.mode)}`}
                 menuClassName="access-menu"
-                triggerContent={everyone?.label}
+                triggerContent={everyone ? tr(everyone.label) : undefined}
               />
             ) : (
-              <PillSkeleton label={`Loading access for everyone in ${vaultName}`} />
+              <PillSkeleton label={tr("Loading access for everyone in {vault}", { vault: vaultName })} />
             )}
           </div>
           <div className="members-access-row">
@@ -537,39 +548,39 @@ export function MembersAccessTab({ canManage, onOpenTab, onCloseSettings, resetT
               <ClockIcon />
             </span>
             <span className="members-access-row-copy">
-              <span className="members-access-row-title">New members</span>
-              <span className="muted">For notes made before they joined</span>
+              <span className="members-access-row-title">{tr("New members")}</span>
+              <span className="muted">{tr("For notes made before they joined")}</span>
             </span>
             {accessDefault ? (
               <MenuSelect
                 value={accessDefault.mode}
-                options={NEW_MEMBER_OPTIONS}
+                options={NEW_MEMBER_OPTIONS.map((o) => ({ ...o, label: tr(o.label), hint: o.hint === undefined ? undefined : tr(o.hint) }))}
                 onSelect={(m) => void chooseDefault(m)}
                 disabled={busy}
-                ariaLabel="Access for new members"
+                ariaLabel={tr("Access for new members")}
                 triggerClassName={`members-access-trigger is-level ${levelClass(accessDefault.mode)}`}
                 menuClassName="access-menu"
               />
             ) : (
-              <PillSkeleton label="Loading access for new members" />
+              <PillSkeleton label={tr("Loading access for new members")} />
             )}
           </div>
         </div>
       )}
 
       <div className="members-access-list-heading">
-        <h3>People</h3>
+        <h3>{tr("People")}</h3>
         <span className="members-access-count muted">
           {overview ? countLine(query, shown.members.length, shown.invitations.length) : <span className="skel-line members-skel-count" aria-hidden="true" />}
         </span>
       </div>
       <label className="members-access-search-field">
-        <span className="members-access-search-label">Search this list</span>
+        <span className="members-access-search-label">{tr("Search this list")}</span>
         <span className="members-access-search">
           <SearchIcon />
           <input
             type="search"
-            placeholder="Name or email"
+            placeholder={tr("Name or email")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
@@ -582,11 +593,11 @@ export function MembersAccessTab({ canManage, onOpenTab, onCloseSettings, resetT
         <table className="members-table">
           <thead>
             <tr>
-              <th>Name</th>
-              <th>Role</th>
-              {manage && <th>Access</th>}
-              <th>Last active</th>
-              {manage && <th aria-label="Actions" />}
+              <th>{tr("Name")}</th>
+              <th>{tr("Role")}</th>
+              {manage && <th>{tr("Access")}</th>}
+              <th>{tr("Last active")}</th>
+              {manage && <th aria-label={tr("Actions")} />}
             </tr>
           </thead>
           <tbody>
@@ -594,16 +605,16 @@ export function MembersAccessTab({ canManage, onOpenTab, onCloseSettings, resetT
               const name = displayName(m);
               const isMe = m.userId === myUserId;
               const actions: RowAction[] = [
-                { key: "profile", label: "View profile", onSelect: () => setProfile({ userId: m.userId, tab: "info" }) },
+                { key: "profile", label: tr("View profile"), onSelect: () => setProfile({ userId: m.userId, tab: "info" }) },
               ];
               if (canSetAccess(m)) {
-                actions.push({ key: "access", label: "Manage access", onSelect: () => setProfile({ userId: m.userId, tab: "access" }) });
+                actions.push({ key: "access", label: tr("Manage access"), onSelect: () => setProfile({ userId: m.userId, tab: "access" }) });
               }
               if (canAct(m)) {
                 actions.push(m.role === "admin"
-                  ? { key: "role", label: "Make member", onSelect: () => changeRole(m, "member") }
-                  : { key: "role", label: "Make admin", onSelect: () => changeRole(m, "admin") });
-                actions.push({ key: "remove", label: `Remove from ${vaultName}`, danger: true, separated: true, onSelect: () => askRemove(m) });
+                  ? { key: "role", label: tr("Make member"), onSelect: () => changeRole(m, "member") }
+                  : { key: "role", label: tr("Make admin"), onSelect: () => changeRole(m, "admin") });
+                actions.push({ key: "remove", label: tr("Remove from {vault}", { vault: vaultName }), danger: true, separated: true, onSelect: () => askRemove(m) });
               }
               return (
                 <tr
@@ -611,7 +622,7 @@ export function MembersAccessTab({ canManage, onOpenTab, onCloseSettings, resetT
                   className="is-clickable"
                   tabIndex={0}
                   role="button"
-                  aria-label={`Open profile of ${name}`}
+                  aria-label={tr("Open profile of {name}", { name })}
                   onClick={(e) => { if (isRowOwnClick(e)) setProfile({ userId: m.userId, tab: "info" }); }}
                   onKeyDown={(e) => {
                     if (e.target !== e.currentTarget || (e.key !== "Enter" && e.key !== " ")) return;
@@ -623,41 +634,41 @@ export function MembersAccessTab({ canManage, onOpenTab, onCloseSettings, resetT
                     <span className="members-table-person">
                       <Avatar label={name} image={m.image} userId={m.userId} />
                       <span className="members-table-names">
-                        <span className="members-table-name">{name}{isMe && <span className="muted"> (you)</span>}</span>
+                        <span className="members-table-name">{name}{isMe && <span className="muted"> {tr("(you)")}</span>}</span>
                         {m.email && m.name && <span className="muted">{m.email}</span>}
                       </span>
                     </span>
                   </td>
-                  <td>{ROLE_LABEL[m.role] ?? m.role}</td>
+                  <td>{tr(ROLE_LABEL[m.role] ?? m.role)}</td>
                   {manage && (
                     <td>
                       {m.access && canSetAccess(m) ? (
                         <MenuSelect<PersonChoice>
                           value={m.access.level === "custom" ? "custom" : LEVEL_TO_MODE[m.access.level]}
                           options={[
-                            { value: "open", label: PERSON_LEVEL_LABEL.edit },
-                            { value: "readonly", label: PERSON_LEVEL_LABEL.view },
-                            { value: "private", label: PERSON_LEVEL_LABEL.none },
-                            { value: "manage", label: "Manage access…" },
+                            { value: "open", label: tr(PERSON_LEVEL_LABEL.edit) },
+                            { value: "readonly", label: tr(PERSON_LEVEL_LABEL.view) },
+                            { value: "private", label: tr(PERSON_LEVEL_LABEL.none) },
+                            { value: "manage", label: tr("Manage access…") },
                           ]}
                           onSelect={(c) => choosePerson(m, c)}
                           disabled={busy}
-                          ariaLabel={`Access for ${name}`}
+                          ariaLabel={tr("Access for {name}", { name })}
                           triggerClassName={`members-access-trigger is-level ${levelClass(m.access.level)}`}
                 menuClassName="access-menu"
-                          triggerContent={PERSON_LEVEL_LABEL[m.access.level]}
+                          triggerContent={tr(PERSON_LEVEL_LABEL[m.access.level])}
                         />
                       ) : m.access ? (
-                        <span>{PERSON_LEVEL_LABEL[m.access.level]}</span>
+                        <span>{tr(PERSON_LEVEL_LABEL[m.access.level])}</span>
                       ) : (
                         <span className="muted">—</span>
                       )}
                     </td>
                   )}
-                  <td>{lastActiveLabel(presentIds.has(m.userId), m.lastActiveAt, now)}</td>
+                  <td>{tr(lastActiveLabel(presentIds.has(m.userId), m.lastActiveAt, now))}</td>
                   {manage && (
                     <td className="members-table-actions">
-                      <RowActionsMenu actions={actions} ariaLabel={`Actions for ${name}`} disabled={busy} />
+                      <RowActionsMenu actions={actions} ariaLabel={tr("Actions for {name}", { name })} disabled={busy} />
                     </td>
                   )}
                 </tr>
@@ -673,23 +684,23 @@ export function MembersAccessTab({ canManage, onOpenTab, onCloseSettings, resetT
                       <span className="members-table-names">
                         <span className="members-table-name">{inv.email}</span>
                         <span className="muted">
-                          {expired ? "Invite expired" : `Invite sent ${shortDate(inv.createdAt)}`}
+                          {expired ? tr("Invite expired") : tr("Invite sent {date}", { date: shortDate(inv.createdAt) })}
                         </span>
                       </span>
                     </span>
                   </td>
-                  <td>Invited</td>
-                  {manage && <td>{invitationAccessLabel(inv.access)}</td>}
-                  <td>Not joined yet</td>
+                  <td>{tr("Invited")}</td>
+                  {manage && <td>{tr(invitationAccessLabel(inv.access))}</td>}
+                  <td>{tr("Not joined yet")}</td>
                   {manage && (
                     <td className="members-table-actions">
                       <RowActionsMenu
-                        ariaLabel={`Actions for the invitation to ${inv.email}`}
+                        ariaLabel={tr("Actions for the invitation to {email}", { email: inv.email })}
                         disabled={busy}
                         actions={[
-                          { key: "resend", label: "Resend", onSelect: () => resend(inv) },
-                          { key: "copy", label: "Copy link", onSelect: () => copyLink(inv) },
-                          { key: "revoke", label: "Revoke", danger: true, separated: true, onSelect: () => askRevoke(inv) },
+                          { key: "resend", label: tr("Resend"), onSelect: () => resend(inv) },
+                          { key: "copy", label: tr("Copy link"), onSelect: () => copyLink(inv) },
+                          { key: "revoke", label: tr("Revoke"), danger: true, separated: true, onSelect: () => askRevoke(inv) },
                         ]}
                       />
                     </td>
@@ -707,8 +718,8 @@ export function MembersAccessTab({ canManage, onOpenTab, onCloseSettings, resetT
         <p className="members-access-mcp-hint">
           <TerminalIcon />
           <span>
-            Tip: you can also manage access by chatting with Claude or ChatGPT through MCP.{" "}
-            <button type="button" className="link-btn" onClick={() => onOpenTab("mcp")}>Set it up →</button>
+            {tr("Tip: you can also manage access by chatting with Claude or ChatGPT through MCP.")}{" "}
+            <button type="button" className="link-btn" onClick={() => onOpenTab("mcp")}>{tr("Set it up →")}</button>
           </span>
         </p>
       )}
@@ -831,15 +842,16 @@ function PillSkeleton({ label }: { label: string }) {
 }
 
 function TableSkeleton({ manage }: { manage: boolean }) {
+  const tr = useT();
   return (
-    <table className="members-table members-table-skeleton" aria-busy="true" aria-label="Loading people">
+    <table className="members-table members-table-skeleton" aria-busy="true" aria-label={tr("Loading people")}>
       <thead>
         <tr>
-          <th>Name</th>
-          <th>Role</th>
-          {manage && <th>Access</th>}
-          <th>Last active</th>
-          {manage && <th aria-label="Actions" />}
+          <th>{tr("Name")}</th>
+          <th>{tr("Role")}</th>
+          {manage && <th>{tr("Access")}</th>}
+          <th>{tr("Last active")}</th>
+          {manage && <th aria-label={tr("Actions")} />}
         </tr>
       </thead>
       <tbody aria-hidden="true">

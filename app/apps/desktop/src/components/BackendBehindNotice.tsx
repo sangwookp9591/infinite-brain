@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useStore } from "../store";
+import { useT } from "../lib/i18n";
 import { authManager } from "../lib/auth/authManager";
 import {
   BACKEND_CHECK_INTERVAL_MS,
@@ -51,16 +52,19 @@ function useBackendStatusPoll(): void {
  * opens Account Settings → About, where version and Check for updates live.
  */
 export function BackendBehindNotice() {
+  const tr = useT();
   useBackendStatusPoll();
   const status = useStore((s) => s.backendStatus);
   const requestAccountSettings = useStore((s) => s.requestAccountSettings);
   if (!status?.outdated) return null;
 
-  const copy = status.managed ? BACKEND_BEHIND_MANAGED : BACKEND_BEHIND_SELF_HOSTED;
+  const copy = tr(status.managed ? BACKEND_BEHIND_MANAGED : BACKEND_BEHIND_SELF_HOSTED);
   const tooltip = [
     copy,
-    `Missing: ${status.missing.join(", ")}`,
-    `Server version: ${status.serverVersion ?? "unknown (older than feature reporting)"}`,
+    tr("Missing: {features}", { features: status.missing.join(", ") }),
+    tr("Server version: {version}", {
+      version: status.serverVersion ?? tr("unknown (older than feature reporting)"),
+    }),
   ].join("\n");
 
   return (

@@ -44,6 +44,7 @@ import { TabBar } from "./components/TabBar";
 import { VirtualTabHost } from "./components/VirtualTabHost";
 import { Toasts } from "./components/Toasts";
 import { toast } from "./lib/toast";
+import { useT, t } from "./lib/i18n";
 import { shouldShowOnboarding } from "./lib/onboardingIntro";
 import { RightPanel } from "./components/RightPanel";
 import { usePendingReviewCount } from "./components/ReviewTab";
@@ -386,7 +387,7 @@ function VaultRootMissingBanner() {
     try {
       await fn();
     } catch (e) {
-      toast(`Couldn't recover the vault folder — ${e instanceof Error ? e.message : String(e)}`, "error");
+      toast(t("Couldn't recover the vault folder — {message}", { message: e instanceof Error ? e.message : String(e) }), "error");
     } finally {
       setBusy(false);
     }
@@ -418,6 +419,7 @@ function VaultRootRestoredBanner() {
   const restored = useStore((s) => s.folderAutoRestored);
   const activeOrg = useStore((s) => s.session?.activeOrganizationId ?? null);
   const show = !!restored && restored.orgId === activeOrg;
+  const tr = useT();
   const dismiss = () => useStore.getState().dismissFolderAutoRestored();
   const visible = useNoticeSlot("root-restored", show, { onFade: dismiss });
   const locate = async () => {
@@ -434,7 +436,7 @@ function VaultRootRestoredBanner() {
         <button className="secondary" onClick={locate}>
           {LOCATE_ORIGINAL}
         </button>
-        <button onClick={dismiss}>Dismiss</button>
+        <button onClick={dismiss}>{tr("Dismiss")}</button>
       </div>
     </Banner>
   );
@@ -447,16 +449,16 @@ function VaultRootRestoredBanner() {
  */
 function ClosedAppChangesBanner() {
   const show = useStore((s) => s.structureNotice.closedAppChanges);
+  const tr = useT();
   const dismiss = () => useStore.getState().dismissClosedAppChanges();
   const visible = useNoticeSlot("closed-app-changes", show, { onFade: dismiss });
   return (
     <Banner show={visible} role="status">
       <span>
-        Files changed while Infinite Brain was closed. Edits were merged; renames, moves and deletes made
-        while closed were not applied. Keep Infinite Brain open when reorganising.
+        {tr("Files changed while Infinite Brain was closed. Edits were merged; renames, moves and deletes made while closed were not applied. Keep Infinite Brain open when reorganising.")}
       </span>
       <div className="banner-actions">
-        <button onClick={dismiss}>Dismiss</button>
+        <button onClick={dismiss}>{tr("Dismiss")}</button>
       </div>
     </Banner>
   );
@@ -468,6 +470,7 @@ function ClosedAppChangesBanner() {
  * The chime is played by the store when the celebration is triggered.
  */
 function MemberJoinedBanner() {
+  const tr = useT();
   const memberJoined = useStore((s) => s.memberJoined);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -485,14 +488,14 @@ function MemberJoinedBanner() {
       )}
       <Banner show={!!memberJoined} className="celebrate-banner" role="status">
         <span>
-          🎉 <strong>{memberJoined?.name}</strong> joined the vault
+          🎉 <strong>{memberJoined?.name}</strong> {tr("joined the vault")}
         </span>
         <div className="banner-actions">
           <button
             className="secondary"
             onClick={() => useStore.getState().dismissMemberJoined()}
           >
-            Dismiss
+            {tr("Dismiss")}
           </button>
         </div>
       </Banner>
@@ -513,20 +516,22 @@ function MemberJoinedBanner() {
  * flashes it.
  */
 function VaultSwitchOverlay() {
+  const tr = useT();
   const switching = useStore((s) => s.switchingVault);
   if (!switching) return null;
+  const [switchingA, switchingB] = tr("Switching to {name}", { name: "\u0000" }).split("\u0000");
   return (
     <div className="vault-switch-overlay" role="status" aria-live="polite">
       <div className="vault-switch-card">
         <Spinner size="md" tone="accent" />
         <div className="vault-switch-text">
           <span className="vault-switch-title">
-            Switching to <strong>{switching.name}</strong>
+            {switchingA}<strong>{switching.name}</strong>{switchingB}
           </span>
           <span className="vault-switch-sub">
             {switching.orgId
-              ? "Opening its folder and catching up on sync…"
-              : "Opening its folder…"}
+              ? tr("Opening its folder and catching up on sync…")
+              : tr("Opening its folder…")}
           </span>
         </div>
       </div>
@@ -540,11 +545,13 @@ function VaultSwitchOverlay() {
  * user to point this vault at its own folder — or start with an empty one.
  */
 function VaultFolderPrompt() {
+  const tr = useT();
   const pending = useStore((s) => s.pendingVaultFolder);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   if (!pending) return null;
+  const [setUpA, setUpB] = tr("Set up {name}", { name: "\u0000" }).split("\u0000");
   // The folder is GONE (#228): same wording and actions as the in-vault banner.
   const missing = pending.reason?.missing === true;
   // macOS refused the Documents folder: explain and offer System Settings.
@@ -570,7 +577,7 @@ function VaultFolderPrompt() {
       spinnerTone="on-accent"
       onClick={run(() => ipc.openExternal(FILES_AND_FOLDERS_SETTINGS_URL))}
     >
-      <span>Open System Settings</span>
+      <span>{tr("Open System Settings")}</span>
     </AsyncButton>
   );
   const retryBtn = (
@@ -580,7 +587,7 @@ function VaultFolderPrompt() {
       disabled={busy}
       onClick={run(() => useStore.getState().startEmptyVault())}
     >
-      <span>Try again</span>
+      <span>{tr("Try again")}</span>
     </AsyncButton>
   );
 
@@ -596,7 +603,7 @@ function VaultFolderPrompt() {
         <path d="M3 7a2 2 0 0 1 2-2h3.6a2 2 0 0 1 1.6.8l.9 1.2a2 2 0 0 0 1.6.8H19a2 2 0 0 1 2 2" />
         <path d="M3 10h16.5a2 2 0 0 1 1.95 2.46l-1.1 5A2 2 0 0 1 18.4 19H5a2 2 0 0 1-2-2z" />
       </svg>
-      <span>{missing ? LOCATE_FOLDER : "Open a folder…"}</span>
+      <span>{missing ? LOCATE_FOLDER : tr("Open a folder…")}</span>
     </AsyncButton>
   );
   const emptyBtn = (
@@ -610,7 +617,7 @@ function VaultFolderPrompt() {
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <path d="M12 5v14M5 12h14" />
       </svg>
-      <span>{missing ? RESTORE_HERE : "Start with an empty folder"}</span>
+      <span>{missing ? RESTORE_HERE : tr("Start with an empty folder")}</span>
     </AsyncButton>
   );
 
@@ -620,7 +627,7 @@ function VaultFolderPrompt() {
         <button
           className="icon-btn wf-close"
           disabled={busy}
-          aria-label="Close"
+          aria-label={tr("Close")}
           onClick={run(() => useStore.getState().cancelVaultFolder())}
         >
           ✕
@@ -631,7 +638,7 @@ function VaultFolderPrompt() {
           </svg>
         </div>
         <h2 className="wf-title">
-          Set up <strong>{pending.orgName}</strong>
+          {setUpA}<strong>{pending.orgName}</strong>{setUpB}
         </h2>
         {/* When there's a reason (folder moved / failed to open) it replaces the
             generic pitch — both at once read as a wall of text. */}
@@ -648,8 +655,7 @@ function VaultFolderPrompt() {
           </div>
         ) : (
           <p className="wf-desc">
-            Choose the local folder this vault syncs to. Each vault keeps its
-            own folder — separate from your other vaults.
+            {tr("Choose the local folder this vault syncs to. Each vault keeps its own folder — separate from your other vaults.")}
           </p>
         )}
         <div className="vault-folder-actions">
@@ -669,7 +675,7 @@ function VaultFolderPrompt() {
             disabled={busy}
             onClick={run(() => useStore.getState().chooseVaultFolder())}
           >
-            Choose another folder…
+            {tr("Choose another folder…")}
           </button>
         )}
         {missing && (
@@ -716,6 +722,7 @@ function VaultFolderPrompt() {
  * if the gate gives up and lets this build open.
  */
 function UpdateGate({ launchVersion = null }: { launchVersion?: string | null }) {
+  const tr = useT();
   const update = useUpdateState();
   // The version the wall is for. `""` is a wall too: the server refused this
   // build (#251) and no newer release could be found to name.
@@ -729,6 +736,7 @@ function UpdateGate({ launchVersion = null }: { launchVersion?: string | null })
   // `required === ""` is still a wall (server refusal, version unknown).
   if (required === null && launchVersion == null) return null;
   const launching = required === null;
+  const [failedA, failedB] = tr("{name} couldn’t install the update to {version}", { name: BRAND_NAME, version: "\u0000" }).split("\u0000");
 
   const pct =
     update.phase === "downloading" && update.total > 0
@@ -771,7 +779,7 @@ function UpdateGate({ launchVersion = null }: { launchVersion?: string | null })
       className="update-gate"
       role="alertdialog"
       aria-modal="true"
-      aria-label={launching ? `Updating ${BRAND_NAME}` : "Update required"}
+      aria-label={launching ? tr("Updating {name}", { name: BRAND_NAME }) : tr("Update required")}
     >
       <div className="update-gate-card">
         <div className="update-gate-badge" aria-hidden="true">
@@ -782,19 +790,21 @@ function UpdateGate({ launchVersion = null }: { launchVersion?: string | null })
           </svg>
         </div>
         <div className="update-gate-heading">
-          <h1>{launching ? `Updating ${BRAND_NAME}` : "Update required"}</h1>
+          <h1>{launching ? tr("Updating {name}", { name: BRAND_NAME }) : tr("Update required")}</h1>
           {version && <span className="update-gate-version">v{version}</span>}
         </div>
         {working && (
           <>
             <p role="status">
               {update.phase === "checking"
-                ? "Checking for the update…"
+                ? tr("Checking for the update…")
                 : update.phase === "available"
-                  ? "Starting the download…"
+                  ? tr("Starting the download…")
                   : update.phase === "downloading"
-                  ? `Downloading v${update.version}${pct != null ? ` — ${pct}%` : "…"}`
-                  : "Installing — the app will restart itself…"}
+                  ? (pct != null
+                      ? tr("Downloading v{version} — {pct}%", { version: update.version, pct })
+                      : tr("Downloading v{version}…", { version: update.version }))
+                  : tr("Installing — the app will restart itself…")}
             </p>
             {/* A determinate bar when the server sent a content length, an
                 indeterminate sweep when it didn't — a bar that fills to an
@@ -818,21 +828,17 @@ function UpdateGate({ launchVersion = null }: { launchVersion?: string | null })
           <>
             {required ? (
               <p>
-                {BRAND_NAME} couldn&rsquo;t install the update to <strong>v{required}</strong>
-                {"message" in update && update.message ? ` — ${update.message}` : ""}. It tried
-                twice on its own. Check your connection and try again — your notes stay right
-                where they are, on your disk.
+                {failedA}<strong>v{required}</strong>{failedB}
+                {"message" in update && update.message ? ` — ${update.message}` : ""}. {tr("It tried twice on its own. Check your connection and try again — your notes stay right where they are, on your disk.")}
               </p>
             ) : (
               <p>
-                Your server needs a newer version of {BRAND_NAME} before this one can sync.
-                Your notes and edits stay right where they are, on your disk, and sync as
-                soon as the update is in.
+                {tr("Your server needs a newer version of {name} before this one can sync. Your notes and edits stay right where they are, on your disk, and sync as soon as the update is in.", { name: BRAND_NAME })}
               </p>
             )}
             <div className="update-gate-actions">
               <AsyncButton className="primary update-gate-cta" onClick={retry}>
-                Try again
+                {tr("Try again")}
               </AsyncButton>
               {/* For when the updater itself cannot install (#251): the same
                   release, fetched by hand. */}
@@ -840,10 +846,10 @@ function UpdateGate({ launchVersion = null }: { launchVersion?: string | null })
                 className="ghost-pill lg"
                 onClick={() => void ipc.openExternal(RELEASES_PAGE_URL).catch(() => {})}
               >
-                Download manually
+                {tr("Download manually")}
               </button>
               <button className="ghost-pill lg" onClick={() => void reload()}>
-                Reload
+                {tr("Reload")}
               </button>
             </div>
           </>
@@ -868,6 +874,7 @@ const loadMemberPictures = createMemberPicturesLoader({
 });
 
 function WhatsNewModal() {
+  const tr = useT();
   const [updated, setUpdated] = useState<{ version: string; notes: string[] } | null>(
     null,
   );
@@ -925,7 +932,7 @@ function WhatsNewModal() {
         <div
           className="modal whats-new"
           role="dialog"
-          aria-label="What's new"
+          aria-label={tr("What's new")}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="whats-new-hero">
@@ -944,11 +951,10 @@ function WhatsNewModal() {
                 <path d="M19 15l.7 1.8L21.5 17.5l-1.8.7L19 20l-.7-1.8-1.8-.7 1.8-.7L19 15z" />
               </svg>
             </div>
-            <h2 className="whats-new-title">What&rsquo;s New</h2>
+            <h2 className="whats-new-title">{tr("What’s New")}</h2>
             <span className="whats-new-version">v{updated.version}</span>
             <p className="whats-new-sub">
-              {BRAND_NAME} updated itself to the latest version — here&rsquo;s what
-              changed.
+              {tr("{name} updated itself to the latest version — here’s what changed.", { name: BRAND_NAME })}
             </p>
           </div>
           {updated.notes.length > 0 && (
@@ -974,7 +980,7 @@ function WhatsNewModal() {
             </ul>
           )}
           <button className="primary whats-new-cta" autoFocus onClick={close}>
-            Nice — let&rsquo;s go
+            {tr("Nice — let’s go")}
           </button>
         </div>
       </div>
@@ -1095,6 +1101,7 @@ function PromptedAuthDialog() {
 }
 
 export default function App() {
+  const tr = useT();
   // Invitations to other vaults appear live, not on the next reload.
   useLiveInvitations();
   const vault = useStore((s) => s.vault);
@@ -1477,7 +1484,7 @@ export default function App() {
         const vault = useStore.getState().vault;
         if (!vault || vault.epoch !== e.epoch) return;
         perf.mark("index-ready");
-        if (!e.ok) toast("Couldn't finish indexing this vault — search and backlinks may be incomplete.", "error");
+        if (!e.ok) toast(t("Couldn't finish indexing this vault — search and backlinks may be incomplete."), "error");
         void useStore.getState().refreshTitles();
         void useStore.getState().refreshBacklinks();
       });
@@ -1611,7 +1618,7 @@ export default function App() {
   // vault is known; keeping the `!vault` conjunct is what stops VaultPicker
   // flashing for the 10–50ms of `getLastVault` + `openVault` on a relaunch.
   if (openingLastVault && !vault) {
-    return <div className="booting">Loading…</div>;
+    return <div className="booting">{tr("Loading…")}</div>;
   }
 
   if (!vault) {
@@ -1623,7 +1630,7 @@ export default function App() {
         <UpdateGate launchVersion={launchUpdating} />
         {/* Reusing `.booting` means the loading→welcome hand-off reads as one
             continuous boot rather than a flash of a second loader. */}
-        <Suspense fallback={<div className="booting">Loading…</div>}>
+        <Suspense fallback={<div className="booting">{tr("Loading…")}</div>}>
           <VaultPicker />
         </Suspense>
         <FirstRunIntro />
@@ -1748,8 +1755,8 @@ export default function App() {
                   its header now). */}
               <button
                 className={`icon-btn panel-btn${rightPanelOpen ? " active" : ""}`}
-                title={pendingReview > 0 ? `Panel (${pendingReview} to review)` : "Panel"}
-                aria-label={pendingReview > 0 ? `Panel, ${pendingReview} changes to review` : "Panel"}
+                title={pendingReview > 0 ? tr("Panel ({count} to review)", { count: pendingReview }) : tr("Panel")}
+                aria-label={pendingReview > 0 ? tr("Panel, {count} changes to review", { count: pendingReview }) : tr("Panel")}
                 aria-pressed={rightPanelOpen}
                 onClick={() => {
                   if (rightPanelOpen) useStore.getState().closeRightPanel();

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, lazy, Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import type { VaultInfo, RecentVault } from "../lib/ipc";
 import * as ipc from "../lib/ipc";
@@ -16,6 +16,15 @@ import { CodeSlots } from "./kit/CodeSlots";
 import { SOFT, useSpring } from "./kit/motion";
 import { useLocalFolderClasses } from "./useVaultLists";
 import { filterRecentsForWelcome } from "../lib/vault/vaultList";
+import { t, useT } from "../lib/i18n";
+
+/** Fill `{name}` slots in a translated sentence with elements, so one sentence stays one key. */
+function fill(text: string, slots: Record<string, ReactNode>): ReactNode[] {
+  return text.split(/(\{\w+\})/).map((part, i) => {
+    const m = /^\{(\w+)\}$/.exec(part);
+    return m && m[1] in slots ? <Fragment key={i}>{slots[m[1]]}</Fragment> : part;
+  });
+}
 
 /* Its own handle on the same chunk every other sign-in mount uses — the
    welcome screen must not drag the auth modal in just by rendering. */
@@ -85,16 +94,16 @@ function auroraDrift(dx: number, dy: number, duration: number) {
 function relativeTime(ms: number): string {
   if (!ms) return "";
   const sec = Math.max(0, Math.floor((Date.now() - ms) / 1000));
-  if (sec < 45) return "just now";
+  if (sec < 45) return t("just now");
   const min = Math.floor(sec / 60);
-  if (min < 60) return `${min}m ago`;
+  if (min < 60) return t("{n}m ago", { n: min });
   const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}h ago`;
+  if (hr < 24) return t("{n}h ago", { n: hr });
   const day = Math.floor(hr / 24);
-  if (day < 30) return `${day}d ago`;
+  if (day < 30) return t("{n}d ago", { n: day });
   const mo = Math.floor(day / 30);
-  if (mo < 12) return `${mo}mo ago`;
-  return `${Math.floor(mo / 12)}y ago`;
+  if (mo < 12) return t("{n}mo ago", { n: mo });
+  return t("{n}y ago", { n: Math.floor(mo / 12) });
 }
 
 /** Collapse a home-prefixed path for display: /Users/x/Notes → ~/Notes. */
@@ -104,6 +113,7 @@ function tidyPath(path: string): string {
 }
 
 export function VaultPicker() {
+  const tr = useT();
   const spring = useSpring(SOFT);
   const focusJoinCode = useCallback((node: HTMLDivElement | null) => {
     node?.querySelector("input")?.focus();
@@ -392,7 +402,9 @@ export function VaultPicker() {
             // the post-auth landing opens exactly it. (The dialog needs the
             // sign-out — it dismisses itself while a session exists.)
             setError(
-              `"${e.name}" was synced under a different account. Sign in with that account to open it.`,
+              tr('"{name}" was synced under a different account. Sign in with that account to open it.', {
+                name: e.name,
+              }),
             );
             await useStore.getState().signOut();
             requestOpenVault(orgId);
@@ -538,15 +550,15 @@ export function VaultPicker() {
               {e.kind === "local" && e.openedAt > 0 && (
                 <span className="recent-time">{relativeTime(e.openedAt)}</span>
               )}
-              <span className={`ws-badge ${synced ? "synced" : "local"}`}>{tag}</span>
+              <span className={`ws-badge ${synced ? "synced" : "local"}`}>{tr(tag)}</span>
             </span>
           )}
           <span className="recent-path">
             {opening === e.key
-              ? "Opening…"
+              ? tr("Opening…")
               : e.path
                 ? tidyPath(e.path)
-                : "Not on this device yet"}
+                : tr("Not on this device yet")}
           </span>
         </button>
         {/* The remove × overlays the row's top-right corner on hover (the tag
@@ -556,8 +568,8 @@ export function VaultPicker() {
         {e.kind === "local" && (
           <button
             className="recent-remove"
-            aria-label={`Remove ${e.name} from recents`}
-            title="Remove from recents"
+            aria-label={tr("Remove {name} from recents", { name: e.name })}
+            title={tr("Remove from recents")}
             disabled={busy}
             onClick={() => forget(e.path)}
           >
@@ -617,7 +629,7 @@ export function VaultPicker() {
               >
                 <Spinner size="sm" tone="accent" />
                 <p className="picker-landing-label" role="status">
-                  Opening your vault…
+                  {tr("Opening your vault…")}
                 </p>
               </motion.div>
             ) : joining ? (
@@ -637,12 +649,12 @@ export function VaultPicker() {
                   void confirmJoin();
                 }}
               >
-                <label className="new-vault-label">Enter your team's join code</label>
+                <label className="new-vault-label">{tr("Enter your team's join code")}</label>
                 <div ref={focusJoinCode} onKeyDown={(e) => { if (e.key === "Escape") cancelJoin(); }}>
                   <CodeSlots value={joinCode} onChange={setJoinCode} disabled={busy} error={joinError ?? undefined} />
                 </div>
                 <p className="new-vault-loc">
-                  Ask a teammate for it — Vault settings → Members and access.
+                  {tr("Ask a teammate for it — Vault settings → Members and access.")}
                 </p>
                 <div className="new-vault-buttons">
                   <button
@@ -651,7 +663,7 @@ export function VaultPicker() {
                     disabled={busy}
                     onClick={cancelJoin}
                   >
-                    Cancel
+                    {tr("Cancel")}
                   </button>
                   <button
                     type="submit"
@@ -662,7 +674,7 @@ export function VaultPicker() {
                     {/* Joining is a round trip plus a full vault switch — folder,
                         registry reconcile, first pull. Seconds, not a blink. */}
                     <span className="async-btn-label">
-                      {busy ? "Joining…" : "Join team"}
+                      {busy ? tr("Joining…") : tr("Join team")}
                     </span>
                     {busy && <Spinner size="xs" tone="on-accent" />}
                   </button>
@@ -685,7 +697,7 @@ export function VaultPicker() {
                   void confirmNewVault();
                 }}
               >
-                <label className="new-vault-label">Name your vault</label>
+                <label className="new-vault-label">{tr("Name your vault")}</label>
                 <input
                   className="new-vault-input"
                   autoFocus
@@ -695,11 +707,11 @@ export function VaultPicker() {
                   onKeyDown={(e) => {
                     if (e.key === "Escape") cancelNewVault();
                   }}
-                  placeholder="Untitled Vault"
+                  placeholder={tr("Untitled Vault")}
                   spellCheck={false}
                 />
                 <p className="new-vault-loc" title={newParent ?? undefined}>
-                  in <code>{tidyPath(newParent ?? "")}</code>
+                  {fill(tr("in {path}"), { path: <code>{tidyPath(newParent ?? "")}</code> })}
                 </p>
                 <div className="new-vault-buttons">
                   <button
@@ -708,7 +720,7 @@ export function VaultPicker() {
                     disabled={busy}
                     onClick={cancelNewVault}
                   >
-                    Cancel
+                    {tr("Cancel")}
                   </button>
                   <button
                     type="submit"
@@ -720,7 +732,7 @@ export function VaultPicker() {
                         ~20 starter notes — comfortably past the point where a
                         static label reads as a stuck button. */}
                     <span className="async-btn-label">
-                      {busy ? "Creating…" : "Create vault"}
+                      {busy ? tr("Creating…") : tr("Create vault")}
                     </span>
                     {busy && <Spinner size="xs" tone="on-accent" />}
                   </button>
@@ -744,7 +756,7 @@ export function VaultPicker() {
                   whileTap={reduceMotion ? undefined : { scale: 0.96 }}
                   transition={spring}
                 >
-                  New vault
+                  {tr("New vault")}
                 </motion.button>
                 <motion.button
                   className={`ghost-pill lg${busy ? " is-busy" : ""}`}
@@ -756,7 +768,7 @@ export function VaultPicker() {
                   transition={spring}
                 >
                   <span className="async-btn-label">
-                    {busy ? "Opening…" : "Open existing"}
+                    {busy ? tr("Opening…") : tr("Open existing")}
                   </span>
                   {busy && <Spinner size="xs" tone="neutral" />}
                 </motion.button>
@@ -777,7 +789,7 @@ export function VaultPicker() {
                   whileTap={reduceMotion ? undefined : { scale: 0.97 }}
                   transition={spring}
                 >
-                  Join a team
+                  {tr("Join a team")}
                 </motion.button>
               </motion.div>
             )}
@@ -795,7 +807,7 @@ export function VaultPicker() {
               reduceMotion ? undefined : revealTransition(REVEAL_DELAY + 0.15)
             }
           >
-            <p className="recent-heading">Recent vaults</p>
+            <p className="recent-heading">{tr("Recent vaults")}</p>
             <div className="recent-scroll">{shownRecents.map((entry) => renderEntry(entry, true))}</div>
             {hiddenRecents > 0 && (
               <button
@@ -803,7 +815,7 @@ export function VaultPicker() {
                 disabled={busy}
                 onClick={() => setShowAllVaults(true)}
               >
-                {`Show all (${entries.length})`}
+                {tr("Show all ({count})", { count: entries.length })}
               </button>
             )}
           </motion.div>
@@ -818,7 +830,7 @@ export function VaultPicker() {
               reduceMotion ? undefined : revealTransition(REVEAL_DELAY + 0.3)
             }
           >
-            A vault is any folder of <code>.md</code> files.{" "}
+            {fill(tr("A vault is any folder of {md} files."), { md: <code>.md</code> })}{" "}
             <button
               type="button"
               className="linkish"
@@ -826,7 +838,7 @@ export function VaultPicker() {
               aria-expanded={pathOpen}
               onClick={() => setPathOpen((v) => !v)}
             >
-              Open by path
+              {tr("Open by path")}
             </button>
           </motion.p>
         )}
@@ -856,7 +868,8 @@ export function VaultPicker() {
               reduceMotion ? undefined : revealTransition(REVEAL_DELAY + 0.36)
             }
           >
-            Have an account?{" "}
+            {fill(tr("Have an account? {signIn} to sync and collaborate."), {
+              signIn: (
             <button
               type="button"
               className="linkish"
@@ -869,9 +882,10 @@ export function VaultPicker() {
                 setSignInOpen(true);
               }}
             >
-              Sign in
-            </button>{" "}
-            to sync and collaborate.
+              {tr("Sign in")}
+            </button>
+              ),
+            })}
           </motion.p>
         )}
       </div>
@@ -894,8 +908,8 @@ export function VaultPicker() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="modal-header">
-              <span>Open by path</span>
-              <button className="icon-btn" aria-label="Close" onClick={closePathOpen}>
+              <span>{tr("Open by path")}</span>
+              <button className="icon-btn" aria-label={tr("Close")} onClick={closePathOpen}>
                 ✕
               </button>
             </div>
@@ -907,9 +921,16 @@ export function VaultPicker() {
               }}
             >
               <p className="open-by-path-hint">
-                Type the full path of a folder of <code>.md</code> files. This
-                also works for a drive root or mounted volume the folder picker
-                can't select, like <code>D:\</code> or <code>/Volumes/Notes</code>.
+                {fill(
+                  tr(
+                    "Type the full path of a folder of {md} files. This also works for a drive root or mounted volume the folder picker can't select, like {win} or {mac}.",
+                  ),
+                  {
+                    md: <code>.md</code>,
+                    win: <code>D:\</code>,
+                    mac: <code>/Volumes/Notes</code>,
+                  },
+                )}
               </p>
               <input
                 autoFocus
@@ -919,7 +940,7 @@ export function VaultPicker() {
                 onKeyDown={(e) => {
                   if (e.key === "Escape") closePathOpen();
                 }}
-                placeholder="Folder path"
+                placeholder={tr("Folder path")}
                 spellCheck={false}
                 autoComplete="off"
               />
@@ -931,7 +952,7 @@ export function VaultPicker() {
                   disabled={busy}
                   onClick={closePathOpen}
                 >
-                  Cancel
+                  {tr("Cancel")}
                 </button>
                 <button
                   type="submit"
@@ -939,7 +960,7 @@ export function VaultPicker() {
                   disabled={busy || !manualPath.trim()}
                   aria-busy={busy || undefined}
                 >
-                  <span className="async-btn-label">{busy ? "Opening…" : "Open"}</span>
+                  <span className="async-btn-label">{busy ? tr("Opening…") : tr("Open")}</span>
                   {busy && <Spinner size="xs" tone="on-accent" />}
                 </button>
               </div>
@@ -955,11 +976,11 @@ export function VaultPicker() {
           >
             <div className="modal-header">
               <span>
-                All vaults <span className="muted">({entries.length})</span>
+                {tr("All vaults")} <span className="muted">({entries.length})</span>
               </span>
               <button
                 className="icon-btn"
-                aria-label="Close"
+                aria-label={tr("Close")}
                 onClick={() => setShowAllVaults(false)}
               >
                 ✕
@@ -968,13 +989,13 @@ export function VaultPicker() {
             <div className="vault-list-scroll">
               {entries.some(isSyncedEntry) && (
                 <>
-                  <p className="vault-list-section">Synced vaults</p>
+                  <p className="vault-list-section">{tr("Synced vaults")}</p>
                   {entries.filter(isSyncedEntry).map((entry) => renderEntry(entry))}
                 </>
               )}
               {entries.some((e) => !isSyncedEntry(e)) && (
                 <>
-                  <p className="vault-list-section">On this device only</p>
+                  <p className="vault-list-section">{tr("On this device only")}</p>
                   {entries.filter((e) => !isSyncedEntry(e)).map((entry) => renderEntry(entry))}
                 </>
               )}

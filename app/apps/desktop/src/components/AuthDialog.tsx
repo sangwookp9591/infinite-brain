@@ -1,5 +1,5 @@
 import { createPortal } from "react-dom";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { DEFAULT_SERVER_URL } from "../lib/api";
 import { authManager } from "../lib/auth/authManager";
 import {
@@ -22,10 +22,19 @@ import { useRememberedPassword } from "../lib/useRememberedPassword";
 import { passwordResetFailureMessage } from "../lib/resetFlow";
 import { signInRetryAfter, throttleMessage } from "../lib/signinThrottle";
 import { useStore } from "../store";
+import { useT } from "../lib/i18n";
 import { AsyncButton } from "./AsyncButton";
 import { serverFailureMessage } from "./serverFailureMessage";
 import { Spinner } from "./Spinner";
 import { Switch } from "./Switch";
+
+/** Fill `{name}` slots in a translated sentence with elements, so one sentence stays one key. */
+function fill(text: string, slots: Record<string, ReactNode>): ReactNode[] {
+  return text.split(/(\{\w+\})/).map((part, i) => {
+    const m = /^\{(\w+)\}$/.exec(part);
+    return m && m[1] in slots ? <Fragment key={i}>{slots[m[1]]}</Fragment> : part;
+  });
+}
 
 /** Google's four-color "G" mark for the OAuth button. */
 function GoogleGlyph() {
@@ -115,6 +124,7 @@ export function AuthDialog({
   onSignedIn?: () => void;
   initialMode?: "sign-in" | "sign-up";
 }) {
+  const tr = useT();
   const authStatus = useStore((s) => s.authStatus);
   const authError = useStore((s) => s.authError);
   const serverUrl = useStore((s) => s.serverUrl);
@@ -254,7 +264,7 @@ export function AuthDialog({
   const connectTo = async (raw: string) => {
     const url = normalizeServerUrl(raw);
     if (!url) {
-      setServerError("That doesn't look like a server address — try https://notes.example.com");
+      setServerError(tr("That doesn't look like a server address — try https://notes.example.com"));
       return;
     }
     setServerError(null);
@@ -316,8 +326,8 @@ export function AuthDialog({
       // Keep the switch available to retry forgetting if the keychain is locked.
       setRememberPassword(!next);
       setRememberError(next
-        ? "Couldn't enable Remember password on this device."
-        : "Couldn't remove the saved password from the OS keychain. Unlock it and try again.");
+        ? tr("Couldn't enable Remember password on this device.")
+        : tr("Couldn't remove the saved password from the OS keychain. Unlock it and try again."));
     }
   };
 
@@ -353,7 +363,7 @@ export function AuthDialog({
       try {
         await saveRememberedPassword(serverUrl, email.trim(), password);
       } catch {
-        setRememberError("You're signed in, but the password couldn't be saved in the OS keychain.");
+        setRememberError(tr("You're signed in, but the password couldn't be saved in the OS keychain."));
       }
       setPassword("");
     } catch {
@@ -426,21 +436,21 @@ export function AuthDialog({
 
   const title =
     step === "choose-server"
-      ? "Where do your notes live?"
+      ? tr("Where do your notes live?")
       : step === "confirm-link"
-        ? `Connect to ${serverHost(pendingServerLink ?? serverUrl)}?`
+        ? tr("Connect to {host}?", { host: serverHost(pendingServerLink ?? serverUrl) })
         : mode === "reset"
-          ? "Reset your password"
+          ? tr("Reset your password")
           : mode === "sign-in"
-            ? "Welcome back"
-            : "Create your account";
+            ? tr("Welcome back")
+            : tr("Create your account");
 
   return createPortal(
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal auth-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <span>{title}</span>
-          <button className="icon-btn" onClick={onClose} aria-label="Close">
+          <button className="icon-btn" onClick={onClose} aria-label={tr("Close")}>
             ✕
           </button>
         </div>
@@ -448,8 +458,7 @@ export function AuthDialog({
         {step === "choose-server" ? (
           <div className="server-choice">
             <p className="server-choice-lede">
-              Your account and your team live on one server. Pick the managed
-              service, or your team's own.
+              {tr("Your account and your team live on one server. Pick the managed service, or your team's own.")}
             </p>
             {/* Two cards, one class: a self-hosting team's members were signing
                 up on the managed service because it was the only option with
@@ -464,9 +473,9 @@ export function AuthDialog({
                   <CloudGlyph />
                 </span>
                 <span className="server-option-text">
-                  <span className="server-option-title">Infinite Brain managed service</span>
+                  <span className="server-option-title">{tr("Infinite Brain managed service")}</span>
                   <span className="server-option-hint">
-                    Hosted for you at {serverHost(DEFAULT_SERVER_URL)}
+                    {tr("Hosted for you at {host}", { host: serverHost(DEFAULT_SERVER_URL) })}
                   </span>
                 </span>
                 <span className="server-option-chevron">
@@ -491,9 +500,9 @@ export function AuthDialog({
                   <ServerGlyph />
                 </span>
                 <span className="server-option-text">
-                  <span className="server-option-title">Your own server</span>
+                  <span className="server-option-title">{tr("Your own server")}</span>
                   <span className="server-option-hint">
-                    Self-hosted — enter the address your team gave you
+                    {tr("Self-hosted — enter the address your team gave you")}
                   </span>
                 </span>
                 <span className="server-option-chevron">
@@ -523,7 +532,7 @@ export function AuthDialog({
                       disabled={urlDraft.trim() === ""}
                       onClick={() => connectTo(urlDraft)}
                     >
-                      Connect
+                      {tr("Connect")}
                     </AsyncButton>
                   </div>
                   {serverError && <div className="auth-error">{serverError}</div>}
@@ -534,7 +543,7 @@ export function AuthDialog({
         ) : step === "confirm-link" ? (
           <div className="server-choice">
             <p className="server-choice-lede">
-              Your account and notes for this device will live on this server.
+              {tr("Your account and notes for this device will live on this server.")}
             </p>
             <code className="server-link-url">{pendingServerLink}</code>
             <div className="row server-connect-row">
@@ -543,7 +552,7 @@ export function AuthDialog({
                 className="primary"
                 onClick={() => connectTo(pendingServerLink ?? "")}
               >
-                Connect
+                {tr("Connect")}
               </AsyncButton>
               <button
                 type="button"
@@ -554,7 +563,7 @@ export function AuthDialog({
                   setStep(stepAfterServer());
                 }}
               >
-                Not now
+                {tr("Not now")}
               </button>
             </div>
             {serverError && <div className="auth-error">{serverError}</div>}
@@ -566,9 +575,16 @@ export function AuthDialog({
                 needs to know — use the invited address — is unsaid. */}
             {invitePrompt && (
               <p className="auth-invite-lede">
-                <strong>{invitePrompt.inviterName ?? "A teammate"}</strong> invited you to
-                join <strong>{invitePrompt.organizationName}</strong>. Sign in — or create an
-                account — with <strong>{invitePrompt.email}</strong> to accept.
+                {fill(
+                  tr(
+                    "{inviter} invited you to join {org}. Sign in — or create an account — with {email} to accept.",
+                  ),
+                  {
+                    inviter: <strong>{invitePrompt.inviterName ?? tr("A teammate")}</strong>,
+                    org: <strong>{invitePrompt.organizationName}</strong>,
+                    email: <strong>{invitePrompt.email}</strong>,
+                  },
+                )}
               </p>
             )}
             {mode !== "reset" && (
@@ -578,14 +594,14 @@ export function AuthDialog({
                   onClick={() => setMode("sign-in")}
                   type="button"
                 >
-                  Sign in
+                  {tr("Sign in")}
                 </button>
                 <button
                   className={mode === "sign-up" ? "active" : ""}
                   onClick={() => setMode("sign-up")}
                   type="button"
                 >
-                  Sign up
+                  {tr("Sign up")}
                 </button>
               </div>
             )}
@@ -601,19 +617,19 @@ export function AuthDialog({
                 >
                   <GoogleGlyph />
                   <span>
-                    {googleBusy ? "Waiting for your browser…" : "Continue with Google"}
+                    {googleBusy ? tr("Waiting for your browser…") : tr("Continue with Google")}
                   </span>
                   {googleBusy && <Spinner size="xs" tone="neutral" />}
                 </button>
                 {googleBusy && (
                   <p className="auth-hint">
                     <button type="button" className="link-btn" onClick={cancelGoogleSignIn}>
-                      Cancel
+                      {tr("Cancel")}
                     </button>
                   </p>
                 )}
                 <div className="auth-divider">
-                  <span>or</span>
+                  <span>{tr("or")}</span>
                 </div>
               </>
             )}
@@ -624,12 +640,15 @@ export function AuthDialog({
                 // message, so this sentence is a fact rather than a hope.
                 <div className="auth-reset-done">
                   <p>
-                    Reset link sent to <strong>{resetSent}</strong>. Check your inbox (and
-                    spam) — the link is valid for one hour. Setting a new password there
-                    brings you back here to sign in.
+                    {fill(
+                      tr(
+                        "Reset link sent to {email}. Check your inbox (and spam) — the link is valid for one hour. Setting a new password there brings you back here to sign in.",
+                      ),
+                      { email: <strong>{resetSent}</strong> },
+                    )}
                   </p>
                   <button type="button" className="link-btn" onClick={backToSignIn}>
-                    Back to sign in
+                    {tr("Back to sign in")}
                   </button>
                 </div>
               ) : (
@@ -641,11 +660,11 @@ export function AuthDialog({
                   }}
                 >
                   <p className="auth-reset-lede">
-                    Enter your email and we'll send a link to choose a new password.
+                    {tr("Enter your email and we'll send a link to choose a new password.")}
                   </p>
                   <input
                     type="email"
-                    placeholder="Email"
+                    placeholder={tr("Email")}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     autoComplete="email"
@@ -662,10 +681,10 @@ export function AuthDialog({
                     disabled={email.trim() === ""}
                     onClick={requestReset}
                   >
-                    Email me a reset link
+                    {tr("Email me a reset link")}
                   </AsyncButton>
                   <button type="button" className="link-btn" onClick={backToSignIn}>
-                    Back to sign in
+                    {tr("Back to sign in")}
                   </button>
                 </form>
               )
@@ -673,7 +692,7 @@ export function AuthDialog({
               <form onSubmit={submit} className="auth-form">
                 {mode === "sign-up" && (
                   <input
-                    placeholder="Name"
+                    placeholder={tr("Name")}
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     autoComplete="name"
@@ -682,7 +701,7 @@ export function AuthDialog({
                 )}
                 <input
                   type="email"
-                  placeholder="Email"
+                  placeholder={tr("Email")}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   autoComplete="email"
@@ -691,7 +710,7 @@ export function AuthDialog({
                 />
                 <input
                   type="password"
-                  placeholder="Password"
+                  placeholder={tr("Password")}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete={mode === "sign-in" ? "current-password" : "new-password"}
@@ -711,10 +730,10 @@ export function AuthDialog({
                   <label className="auth-remember">
                     <Switch
                       checked={rememberPassword}
-                      ariaLabel="Remember password"
+                      ariaLabel={tr("Remember password")}
                       onChange={(next) => void toggleRememberPassword(next)}
                     />
-                    <span>Remember password</span>
+                    <span>{tr("Remember password")}</span>
                   </label>
                   {mode === "sign-in" && resetAvailable && (
                     <button
@@ -726,7 +745,7 @@ export function AuthDialog({
                         setMode("reset");
                       }}
                     >
-                      Forgot password?
+                      {tr("Forgot password?")}
                     </button>
                   )}
                 </div>
@@ -737,7 +756,7 @@ export function AuthDialog({
                   aria-busy={busy || undefined}
                 >
                   <span className="async-btn-label">
-                    {mode === "sign-in" ? "Sign in" : "Create account"}
+                    {mode === "sign-in" ? tr("Sign in") : tr("Create account")}
                   </span>
                   {busy && <Spinner size="xs" tone="on-accent" />}
                 </button>
@@ -752,8 +771,9 @@ export function AuthDialog({
               email.trim() !== "" &&
               email.trim().toLowerCase() !== invitePrompt.email.toLowerCase() && (
                 <p className="auth-hint">
-                  This invitation was sent to {invitePrompt.email}. Use that address, or it
-                  can't be accepted.
+                  {tr("This invitation was sent to {email}. Use that address, or it can't be accepted.", {
+                    email: invitePrompt.email,
+                  })}
                 </p>
               )}
 
@@ -766,7 +786,7 @@ export function AuthDialog({
                 {rememberError}
                 {authStatus === "signed-in" && (
                   <button type="button" className="linkish" onClick={() => setRememberError(null)}>
-                    Continue
+                    {tr("Continue")}
                   </button>
                 )}
               </div>
@@ -780,8 +800,8 @@ export function AuthDialog({
                 : { message: authError, hint: null };
               return (
                 <div className="auth-error" role="alert">
-                  {copy.message}
-                  {copy.hint && <span className="auth-error-hint">{copy.hint}</span>}
+                  {tr(copy.message)}
+                  {copy.hint && <span className="auth-error-hint">{tr(copy.hint)}</span>}
                 </div>
               );
             })()}
@@ -790,7 +810,14 @@ export function AuthDialog({
                 leaves the person retyping. Offer the two exits. */}
             {authError != null && mode === "sign-up" && /already exists/i.test(authError) && (
               <p className="auth-hint">
-                An account with this email already exists.{" "}
+                {fill(
+                  tr(
+                    resetAvailable
+                      ? "An account with this email already exists. {signIn} or {reset}."
+                      : "An account with this email already exists. {signIn}.",
+                  ),
+                  {
+                    signIn: (
                 <button
                   type="button"
                   className="linkish"
@@ -799,12 +826,10 @@ export function AuthDialog({
                     setMode("sign-in");
                   }}
                 >
-                  Sign in instead
+                  {tr("Sign in instead")}
                 </button>
-                {resetAvailable && (
-                  <>
-                    {" "}
-                    or{" "}
+                    ),
+                    reset: (
                     <button
                       type="button"
                       className="linkish"
@@ -815,11 +840,11 @@ export function AuthDialog({
                         setMode("reset");
                       }}
                     >
-                      reset your password
+                      {tr("reset your password")}
                     </button>
-                  </>
+                    ),
+                  },
                 )}
-                .
               </p>
             )}
             {/* Which server this form is about to post to. An account is
@@ -828,12 +853,16 @@ export function AuthDialog({
                 vault on someone else's instance. */}
             <p className="auth-server-note">
               <span>
-                {mode === "reset"
-                  ? "Resetting your password on "
-                  : mode === "sign-in"
-                    ? "Signing in to "
-                    : "Creating your account on "}
-                <strong>{serverHost(serverUrl)}</strong>
+                {fill(
+                  tr(
+                    mode === "reset"
+                      ? "Resetting your password on {host}"
+                      : mode === "sign-in"
+                        ? "Signing in to {host}"
+                        : "Creating your account on {host}",
+                  ),
+                  { host: <strong>{serverHost(serverUrl)}</strong> },
+                )}
               </span>
               <button
                 type="button"
@@ -848,8 +877,8 @@ export function AuthDialog({
                 {/* On the build's default (managed) server, name the escape
                     hatch outright: a fresh install no longer asks first (#305). */}
                 {normalizeServerUrl(serverUrl) === normalizeServerUrl(DEFAULT_SERVER_URL)
-                  ? "Use a self-hosted server"
-                  : "Change"}
+                  ? tr("Use a self-hosted server")
+                  : tr("Change")}
               </button>
             </p>
           </>

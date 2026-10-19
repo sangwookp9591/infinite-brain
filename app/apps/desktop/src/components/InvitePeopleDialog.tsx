@@ -6,6 +6,7 @@ import { classifyLimitError, freeLimitOf, invitePrewarning, limitFromError, peop
 import { buildInviteLink } from "../lib/inviteLink";
 import { isValidEmail, splitEmails } from "../lib/membersAccess";
 import { useStore } from "../store";
+import { useT } from "../lib/i18n";
 import { AsyncButton } from "./AsyncButton";
 import { LimitNudge } from "./LimitNudge";
 import { PeopleLimitNotice, inviteLimitError, peopleLimitKind } from "./PeopleLimitNotice";
@@ -51,6 +52,7 @@ export function InvitePeopleDialog({ orgId, canManageBilling = false, seatAccoun
   /** Called with the per-address results so the roster can add rows at once. */
   onInvited: (results: InviteManyResult[], sent: { role: string; access: TeamAccessMode | null }) => void;
 }) {
+  const tr = useT();
   const serverUrl = useStore((s) => s.serverUrl);
   const [chips, setChips] = useState<string[]>([]);
   const [draft, setDraft] = useState("");
@@ -87,7 +89,7 @@ export function InvitePeopleDialog({ orgId, canManageBilling = false, seatAccoun
           ...tree.notes.map((note) => ({ resourceType: "file" as const, resourceId: note.id, label: note.relPath }))];
       }));
       if (live) setGuestItems(items.flat());
-    }).catch(() => { if (live) setError("Couldn't load shared items. Check your connection and try again."); });
+    }).catch(() => { if (live) setError(tr("Couldn't load shared items. Check your connection and try again.")); });
     return () => { live = false; };
   }, [role, orgId]);
 
@@ -145,21 +147,21 @@ export function InvitePeopleDialog({ orgId, canManageBilling = false, seatAccoun
 
   return createPortal(
     <div className="modal-backdrop" onClick={(e) => { e.stopPropagation(); onClose(); }}>
-      <div className="modal invite-people" role="dialog" aria-modal="true" aria-label="Invite people" onClick={(e) => e.stopPropagation()}>
-        <h2 className="confirm-title">Invite people</h2>
+      <div className="modal invite-people" role="dialog" aria-modal="true" aria-label={tr("Invite people")} onClick={(e) => e.stopPropagation()}>
+        <h2 className="confirm-title">{tr("Invite people")}</h2>
         <div className="invite-chips" onClick={(e) => (e.currentTarget.querySelector("input") as HTMLInputElement | null)?.focus()}>
           {chips.map((c) => (
             <span key={c} className={`invite-chip${isValidEmail(c) ? "" : " is-invalid"}`}>
               {c}
-              <button type="button" aria-label={`Remove ${c}`} onClick={() => setChips((cs) => cs.filter((x) => x !== c))}>×</button>
+              <button type="button" aria-label={tr("Remove {email}", { email: c })} onClick={() => setChips((cs) => cs.filter((x) => x !== c))}>×</button>
             </span>
           ))}
           <input
             type="text"
             autoFocus
             value={draft}
-            placeholder={chips.length ? "" : "Emails, separated by commas"}
-            aria-label="Email addresses"
+            placeholder={chips.length ? "" : tr("Emails, separated by commas")}
+            aria-label={tr("Email addresses")}
             onChange={(e) => {
               const v = e.target.value;
               if (/[\s,;]$/.test(v)) { setChips((c) => addChips(c, v)); setDraft(""); }
@@ -180,14 +182,14 @@ export function InvitePeopleDialog({ orgId, canManageBilling = false, seatAccoun
           />
         </div>
         {invalid.length > 0 && (
-          <div className="auth-error">{invalid.length === 1 ? `“${invalid[0]}” isn't an email address.` : `${invalid.length} entries aren't email addresses.`}</div>
+          <div className="auth-error">{invalid.length === 1 ? tr("“{email}” isn't an email address.", { email: invalid[0] }) : tr("{count} entries aren't email addresses.", { count: invalid.length })}</div>
         )}
         {role !== "guest" && (<div className="invite-people-fields">
           <label className="invite-field invite-field-default">
-            <span className="invite-field-label">New members</span>
+            <span className="invite-field-label">{tr("New members")}</span>
             <MenuSelect
               value={newMemberDefault?.mode ?? "private"}
-              options={[{ value: "open", label: "Can edit" }, { value: "readonly", label: "Can view" }, { value: "private", label: "No access" }]}
+              options={[{ value: "open", label: tr("Can edit") }, { value: "readonly", label: tr("Can view") }, { value: "private", label: tr("No access") }]}
               onSelect={(mode) => {
                 setSavingDefault(true);
                 void authManager.api.setAccessDefault(orgId, mode as TeamAccessMode)
@@ -195,7 +197,7 @@ export function InvitePeopleDialog({ orgId, canManageBilling = false, seatAccoun
                   .catch((e) => setError(e instanceof Error ? e.message : String(e)))
                   .finally(() => setSavingDefault(false));
               }}
-              ariaLabel="New members access"
+              ariaLabel={tr("New members access")}
               triggerClassName="invite-field-trigger"
               menuClassName="access-menu"
               disabled={!newMemberDefault || savingDefault}
@@ -204,46 +206,46 @@ export function InvitePeopleDialog({ orgId, canManageBilling = false, seatAccoun
         </div>)}
         <div className="invite-people-fields">
           <label className="invite-field">
-            <span className="invite-field-label">Role</span>
+            <span className="invite-field-label">{tr("Role")}</span>
             <MenuSelect
               value={role}
-              options={[{ value: "member", label: "Member" }, { value: "admin", label: "Admin", hint: "Can manage people and access" }, { value: "guest", label: "Guest", hint: "Only selected folders and notes" }]}
+              options={[{ value: "member", label: tr("Member") }, { value: "admin", label: tr("Admin"), hint: tr("Can manage people and access") }, { value: "guest", label: tr("Guest"), hint: tr("Only selected folders and notes") }]}
               onSelect={setRole}
-              ariaLabel="Role"
+              ariaLabel={tr("Role")}
               triggerClassName="invite-field-trigger"
               menuClassName="access-menu"
             />
           </label>
           {role !== "guest" && (<label className="invite-field">
-            <span className="invite-field-label">Access</span>
+            <span className="invite-field-label">{tr("Access")}</span>
             <MenuSelect
               value={access}
-              options={ACCESS_OPTIONS}
+              options={ACCESS_OPTIONS.map((o) => ({ ...o, label: tr(o.label), hint: o.hint === undefined ? undefined : tr(o.hint) }))}
               onSelect={setAccess}
-              ariaLabel="Access"
+              ariaLabel={tr("Access")}
               triggerClassName="invite-field-trigger"
               menuClassName="access-menu"
               disabled={role === "admin"}
             />
           </label>)}
         </div>
-        {role === "guest" && <fieldset className="invite-guest-targets"><legend>Share with this guest</legend>
-          <p>Choose folders or notes. Everything else stays private.</p>
-          <select aria-label="Guest can" value={guestPermission} onChange={(event) => setGuestPermission(event.target.value as "view" | "edit")}><option value="view">Can view</option><option value="edit">Can edit</option></select>
+        {role === "guest" && <fieldset className="invite-guest-targets"><legend>{tr("Share with this guest")}</legend>
+          <p>{tr("Choose folders or notes. Everything else stays private.")}</p>
+          <select aria-label={tr("Guest can")} value={guestPermission} onChange={(event) => setGuestPermission(event.target.value as "view" | "edit")}><option value="view">{tr("Can view")}</option><option value="edit">{tr("Can edit")}</option></select>
           <div className="invite-guest-items">{guestItems.map((item) => <label key={item.resourceId} className="invite-guest-item"><input type="checkbox" checked={guestTargets.includes(item.resourceId)} onChange={(event) => setGuestTargets((old) => event.target.checked ? [...old, item.resourceId] : old.filter((id) => id !== item.resourceId))} /> <span>{item.label}</span></label>)}</div>
         </fieldset>}
         {code && role !== "guest" && (
           <div className="invite-people-code">
-            <span className="muted">Or share the join code</span>
+            <span className="muted">{tr("Or share the join code")}</span>
             <code className="invite-people-code-value">{code}</code>
-            {expiresAt && <span className="muted">Expires {new Date(expiresAt).toLocaleDateString()}</span>}
-            <button type="button" className="link-btn" title="The previous code will stop working" disabled={rotating} onClick={async () => {
+            {expiresAt && <span className="muted">{tr("Expires {date}", { date: new Date(expiresAt).toLocaleDateString() })}</span>}
+            <button type="button" className="link-btn" title={tr("The previous code will stop working")} disabled={rotating} onClick={async () => {
               setRotating(true);
               try { const next = await authManager.api.rotateJoinCode(); setCode(next.code); setExpiresAt(next.expiresAt); }
-              catch { setError("Couldn't create a new code. Check your connection and try again."); }
+              catch { setError(tr("Couldn't create a new code. Check your connection and try again.")); }
               finally { setRotating(false); }
-            }}>Create new code</button>
-            <button type="button" className="link-btn invite-people-copy" aria-label="Copy join code" onClick={() => void copy(code)}>Copy</button>
+            }}>{tr("Create new code")}</button>
+            <button type="button" className="link-btn invite-people-copy" aria-label={tr("Copy join code")} onClick={() => void copy(code)}>{tr("Copy")}</button>
           </div>
         )}
         {error && <div className="auth-error">{error}</div>}
@@ -252,7 +254,7 @@ export function InvitePeopleDialog({ orgId, canManageBilling = false, seatAccoun
             <span>{prewarning.text}</span>
             {prewarning.action === "add-seats" && (
               <button type="button" className="link-btn" onClick={() => useStore.getState().requestAccountSettings("plan")}>
-                Add seats
+                {tr("Add seats")}
               </button>
             )}
             {prewarning.action === "upgrade" && (
@@ -261,7 +263,7 @@ export function InvitePeopleDialog({ orgId, canManageBilling = false, seatAccoun
                 className="link-btn"
                 onClick={() => useStore.getState().requestUpgradeDialog({ reason: peopleLimitReason(seatAccount ? freeLimitOf(seatAccount) : null) })}
               >
-                Upgrade →
+                {tr("Upgrade →")}
               </button>
             )}
           </div>
@@ -273,20 +275,20 @@ export function InvitePeopleDialog({ orgId, canManageBilling = false, seatAccoun
           return (
             <div key={r.email} className={`invite-notice${r.error ? " is-warning" : ""}`}>
               {!r.invitationId ? (
-                <span>Couldn't invite {r.email}{r.error && !inviteLimitError(r.error) ? ` (${r.error})` : ""}.</span>
+                <span>{r.error && !inviteLimitError(r.error) ? tr("Couldn't invite {email} ({error}).", { email: r.email, error: r.error }) : tr("Couldn't invite {email}.", { email: r.email })}</span>
               ) : (
                 <>
                   <span>
                     {r.emailed
-                      ? `Invitation emailed to ${r.email}. You can also share this link:`
+                      ? tr("Invitation emailed to {email}. You can also share this link:", { email: r.email })
                       : r.error
-                        ? `Invitation created, but the email to ${r.email} couldn't be sent (${r.error}). Share this link instead:`
-                        : role === "guest" ? `This server does not send email. Send this link privately to ${r.email}. Anyone with the link can join using that address:` : `Invitation created. Share this link with ${r.email}:`}
+                        ? tr("Invitation created, but the email to {email} couldn't be sent ({error}). Share this link instead:", { email: r.email, error: r.error })
+                        : role === "guest" ? tr("This server does not send email. Send this link privately to {email}. Anyone with the link can join using that address:", { email: r.email }) : tr("Invitation created. Share this link with {email}:", { email: r.email })}
                   </span>
                   {link && (
                     <div className="invite-notice-link">
                       <code>{link}</code>
-                      <button className="link-btn" aria-label={`Copy invitation link for ${r.email}`} onClick={() => void copy(link)}>Copy</button>
+                      <button className="link-btn" aria-label={tr("Copy invitation link for {email}", { email: r.email })} onClick={() => void copy(link)}>{tr("Copy")}</button>
                     </div>
                   )}
                 </>
@@ -295,14 +297,14 @@ export function InvitePeopleDialog({ orgId, canManageBilling = false, seatAccoun
           );
         })}
         <div className="confirm-actions invite-people-actions">
-          <button type="button" className="ghost-pill" onClick={onClose}>{results ? "Done" : "Cancel"}</button>
+          <button type="button" className="ghost-pill" onClick={onClose}>{results ? tr("Done") : tr("Cancel")}</button>
           <AsyncButton
             className="primary"
             spinnerTone="on-accent"
             disabled={all.length === 0 || invalid.length > 0 || role === "guest" && guestTargets.length === 0}
             onClick={send}
           >
-            {all.length >= 2 ? "Send invites" : "Send invite"}
+            {all.length >= 2 ? tr("Send invites") : tr("Send invite")}
           </AsyncButton>
         </div>
         {upgradeOpen && <UpgradeDialog onClose={() => setUpgradeOpen(false)} />}

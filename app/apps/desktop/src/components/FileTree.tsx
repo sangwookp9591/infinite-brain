@@ -57,6 +57,7 @@ import { embedDroppedFile } from "../lib/attachments";
 import { isNoteExt, isOpenable } from "../lib/formats";
 import { iconKeyForPath, type TreeIconKey } from "../lib/treeIcons";
 import { toast } from "../lib/toast";
+import { useT } from "../lib/i18n";
 import { deletePaths } from "../lib/vault/mutatePaths";
 import { AsyncButton } from "./AsyncButton";
 import { OpeningGlyph } from "./OpeningGlyph";
@@ -233,6 +234,11 @@ const ICON_TRASH = (
 );
 
 export function FileTree() {
+  const tr = useT();
+  const sortLabel = (id: string | undefined) => {
+    const l = TREE_SORTS.find((x) => x.id === id)?.label;
+    return l ? tr(l) : undefined;
+  };
   const tree = useStore((s) => s.tree);
   const emptyView = useEmptyVaultView();
   const openNote = useStore((s) => s.openNote);
@@ -673,12 +679,12 @@ export function FileTree() {
     // A refused delete (offline, or no permission on the server) leaves the item
     // in place everywhere — silence here is what used to read as "it came back".
     if (failed.length > 0 && failed.every((f) => isNotCreatorReason(f.reason))) {
-      toast(NOT_CREATOR_MESSAGE, "error");
+      toast(tr(NOT_CREATOR_MESSAGE), "error");
     } else if (failed.length > 0) {
       toast(
         failed.length === 1
-          ? `Couldn't delete "${failed[0].path}" — ${failed[0].reason}`
-          : `Couldn't delete ${failed.length} items — ${failed[0].reason}`,
+          ? tr("Couldn't delete \"{path}\" — {reason}", { path: failed[0].path, reason: failed[0].reason })
+          : tr("Couldn't delete {count} items — {reason}", { count: failed.length, reason: failed[0].reason }),
         "error",
       );
     }
@@ -819,9 +825,11 @@ export function FileTree() {
   function announceImport(s: ipc.ImportSummary) {
     const files =
       s.files > 0
-        ? `Imported ${s.files} file${s.files === 1 ? "" : "s"}`
-        : "Nothing imported";
-    const text = s.skipped > 0 ? `${files} · ${s.skipped} skipped` : files;
+        ? s.files === 1
+          ? tr("Imported {count} file", { count: 1 })
+          : tr("Imported {count} files", { count: s.files })
+        : tr("Nothing imported");
+    const text = s.skipped > 0 ? tr("{files} · {count} skipped", { files, count: s.skipped }) : files;
     flashStatus(text, s.files > 0 ? "success" : "neutral");
   }
 
@@ -914,7 +922,7 @@ export function FileTree() {
             // The size gate speaks for itself; only say something when the
             // failure had no voice of its own.
             if (failed > 0 && embeds.length === 0) {
-              flashStatus("Couldn't attach file", "error");
+              flashStatus(tr("Couldn't attach file"), "error");
             }
             return;
           }
@@ -941,7 +949,7 @@ export function FileTree() {
             }
           } catch (e) {
             console.error("import (drop) failed", e);
-            flashStatus("Import failed", "error");
+            flashStatus(tr("Import failed"), "error");
           }
         }
       });
@@ -971,7 +979,7 @@ export function FileTree() {
       announceImport(summary);
     } catch (e) {
       console.error("import files failed", e);
-      flashStatus("Import failed", "error");
+      flashStatus(tr("Import failed"), "error");
     }
   }
 
@@ -989,7 +997,7 @@ export function FileTree() {
       announceImport(summary);
     } catch (e) {
       console.error("import folder failed", e);
-      flashStatus("Import failed", "error");
+      flashStatus(tr("Import failed"), "error");
     }
   }
 
@@ -1009,7 +1017,7 @@ export function FileTree() {
       await ipc.revealInFileManager(`${root}/${node.data.path}`);
     } catch (e) {
       console.error("reveal failed", e);
-      toast("Couldn't open that in the file manager", "error");
+      toast(tr("Couldn't open that in the file manager"), "error");
     }
   }
 
@@ -1031,7 +1039,7 @@ export function FileTree() {
       await ipc.openInFileManager(root);
     } catch (e) {
       console.error("open vault failed", e);
-      toast("Couldn't open that in the file manager", "error");
+      toast(tr("Couldn't open that in the file manager"), "error");
     }
   }
 
@@ -1050,10 +1058,10 @@ export function FileTree() {
       // Export writes outside the vault, so nothing in the app changes to show it
       // worked. Silence here read as "the menu item is broken"; a whole folder
       // export can also take a while, and this is the only sign it finished.
-      flashStatus(`Exported ${basename(node.data.path)}`);
+      flashStatus(tr("Exported {name}", { name: basename(node.data.path) }));
     } catch (e) {
       console.error("export failed", e);
-      flashStatus("Export failed", "error");
+      flashStatus(tr("Export failed"), "error");
     }
   }
 
@@ -1084,7 +1092,7 @@ export function FileTree() {
     name: string;
     node: NodeApi<TreeNode>;
   }) => {
-    if(isGuest){toast("Ask an admin to rename this item.","error");return;}
+    if(isGuest){toast(tr("Ask an admin to rename this item."),"error");return;}
     const oldPath = node.data.path;
     const dir = parentDir(oldPath);
     let newName = name.trim();
@@ -1133,7 +1141,7 @@ export function FileTree() {
     destDir: string,
     index: number,
   ) => {
-    if(isGuest){toast("Ask an admin to move folders or notes.","error");return;}
+    if(isGuest){toast(tr("Ask an admin to move folders or notes."),"error");return;}
     // dragIds are node ids === current paths. Their paths after the drop only
     // change when the parent folder changes (a reorder keeps the same path).
     const from = dragIds;
@@ -1141,7 +1149,7 @@ export function FileTree() {
     // Reordering things already at the root is fine — the shape doesn't change.
     if (destDir === "" && rootFrozen && dragIds.some((p) => p.includes("/"))) {
       toast(
-        "This vault's root is frozen — drop this inside a folder.",
+        tr("This vault's root is frozen — drop this inside a folder."),
         "error",
       );
       return;
@@ -1550,14 +1558,14 @@ export function FileTree() {
   function rootBlocked(dir: string): boolean {
     if (dir !== "" || !rootFrozen) return false;
     toast(
-      "This vault's root is frozen — create this inside a folder instead.",
+      tr("This vault's root is frozen — create this inside a folder instead."),
       "error",
     );
     return true;
   }
 
   async function createUniqueFolder(dir: string) {
-    if(isGuest){toast("Ask an admin to add a folder.","error");return;}
+    if(isGuest){toast(tr("Ask an admin to add a folder."),"error");return;}
     if (rootBlocked(dir)) return;
     const name = "New Folder";
     for (let i = 0; i < 50; i++) {
@@ -1594,10 +1602,10 @@ export function FileTree() {
       unregister: (p) => syncManager.registry.deletePath(p),
     });
     if (failed.length > 0 && isNotCreatorReason(failed[0].reason)) {
-      toast(NOT_CREATOR_MESSAGE, "error");
+      toast(tr(NOT_CREATOR_MESSAGE), "error");
     } else if (failed.length > 0) {
       toast(
-        `Couldn't delete "${failed[0].path}" — ${failed[0].reason}`,
+        tr("Couldn't delete \"{path}\" — {reason}", { path: failed[0].path, reason: failed[0].reason }),
         "error",
       );
     }
@@ -1746,7 +1754,7 @@ export function FileTree() {
       }}
     >
       <div className="filetree-head">
-        <span className="section-label">Notes</span>
+        <span className="section-label">{tr("Notes")}</span>
         <div className="filetree-actions">
           {/* Dimmed but NOT `disabled` while the root is frozen: a disabled
               button swallows the click, so the only explanation was a tooltip
@@ -1754,8 +1762,8 @@ export function FileTree() {
               `rootBlocked("")`, which toasts the reason immediately. */}
           <button
             className={`tree-tool${rootFrozen ? " blocked" : ""}`}
-            title={rootFrozen ? ROOT_FROZEN_HINT : "New note"}
-            aria-label="New note"
+            title={rootFrozen ? tr(ROOT_FROZEN_HINT) : tr("New note")}
+            aria-label={tr("New note")}
             aria-disabled={rootFrozen || isGuest}
             onClick={() => void useStore.getState().createNoteIn("")}
           >
@@ -1763,10 +1771,10 @@ export function FileTree() {
           </button>
           <button
             className={`tree-tool${rootFrozen ? " blocked" : ""}`}
-            title={rootFrozen ? ROOT_FROZEN_HINT : "New folder"}
-            aria-label="New folder"
+            title={rootFrozen ? tr(ROOT_FROZEN_HINT) : tr("New folder")}
+            aria-label={tr("New folder")}
             aria-disabled={rootFrozen || isGuest}
-            onClick={() => isGuest ? toast("Ask an admin to add a folder.", "error") : createUniqueFolder("")}
+            onClick={() => isGuest ? toast(tr("Ask an admin to add a folder."), "error") : createUniqueFolder("")}
           >
             {ICON_NEW_FOLDER}
           </button>
@@ -1776,10 +1784,10 @@ export function FileTree() {
           <button
             className={`tree-tool tree-fold-toggle${treeCollapsed ? " collapsed" : ""}`}
             title={
-              treeCollapsed ? "Expand all folders" : "Collapse all folders"
+              treeCollapsed ? tr("Expand all folders") : tr("Collapse all folders")
             }
             aria-label={
-              treeCollapsed ? "Expand all folders" : "Collapse all folders"
+              treeCollapsed ? tr("Expand all folders") : tr("Collapse all folders")
             }
             onClick={() => {
               // Decide from the tree, not from our flag: if anything is open,
@@ -1805,8 +1813,8 @@ export function FileTree() {
           <div className="tree-sort-wrap" onClick={(e) => e.stopPropagation()}>
             <button
               className={`tree-tool${sortOpen ? " on" : ""}`}
-              title={`Sort: ${TREE_SORTS.find((s) => s.id === treeSort)?.label}`}
-              aria-label="Sort notes"
+              title={tr("Sort: {name}", { name: sortLabel(treeSort) ?? "" })}
+              aria-label={tr("Sort notes")}
               aria-haspopup="menu"
               aria-expanded={sortOpen}
               // The wrapper swallows this click so the window-level dismiss
@@ -1821,14 +1829,14 @@ export function FileTree() {
             </button>
             {sortOpen && (
               <ul className="context-menu tree-sort-menu" role="menu">
-                <li className="menu-heading">Sort notes by</li>
+                <li className="menu-heading">{tr("Sort notes by")}</li>
                 {TREE_SORTS.map((s) => (
                   <li
                     key={s.id}
                     role="menuitemradio"
                     aria-checked={treeSort === s.id}
                     className={treeSort === s.id ? "is-on" : undefined}
-                    title={s.hint}
+                    title={tr(s.hint)}
                     onClick={() => {
                       useStore.getState().setTreeSort(s.id);
                       setSortOpen(false);
@@ -1837,15 +1845,14 @@ export function FileTree() {
                     <span className="menu-tick" aria-hidden="true">
                       {treeSort === s.id ? "✓" : ""}
                     </span>
-                    {s.label}
+                    {tr(s.label)}
                   </li>
                 ))}
                 {/* Says out loud what the two layers do, because the rule is
                     invisible otherwise: someone who has dragged rows around
                     needs to know this button won't undo that. */}
                 <li className="menu-note">
-                  Folders and notes you've dragged into place keep their
-                  position.
+                  {tr("Folders and notes you've dragged into place keep their position.")}
                 </li>
               </ul>
             )}
@@ -1853,8 +1860,8 @@ export function FileTree() {
           <span className="tool-divider" aria-hidden="true" />
           <button
             className={`tree-tool${selectMode ? " on" : ""}`}
-            title={selectMode ? "Exit selection" : "Select items"}
-            aria-label={selectMode ? "Exit selection" : "Select items"}
+            title={selectMode ? tr("Exit selection") : tr("Select items")}
+            aria-label={selectMode ? tr("Exit selection") : tr("Select items")}
             aria-pressed={selectMode}
             onClick={() => (selectMode ? exitSelect() : setSelectMode(true))}
           >
@@ -1865,7 +1872,7 @@ export function FileTree() {
       {selectMode && bulkProgress ? (
         <div className="filetree-selectbar deleting">
           <span className="selbar-count">
-            Deleting {bulkProgress.done} of {bulkProgress.total}…
+            {tr("Deleting {done} of {total}…", { done: bulkProgress.done, total: bulkProgress.total })}
           </span>
           <div
             className="selbar-progress"
@@ -1886,15 +1893,15 @@ export function FileTree() {
         <div className="filetree-selectbar">
           <button
             className={`selbar-check${allSelected ? " on" : ""}`}
-            title={allSelected ? "Clear selection" : "Select all"}
-            aria-label={allSelected ? "Clear selection" : "Select all"}
+            title={allSelected ? tr("Clear selection") : tr("Select all")}
+            aria-label={allSelected ? tr("Clear selection") : tr("Select all")}
             aria-checked={allSelected}
             role="checkbox"
             onClick={toggleSelectAll}
           >
             {allSelected && ICON_CHECK}
           </button>
-          <span className="selbar-count">{selected.size} selected</span>
+          <span className="selbar-count">{tr("{count} selected", { count: selected.size })}</span>
           {selected.size > 0 && (
             <div className="selbar-actions">
               {canManage && syncEnabled && bulkUnlockUseful && (
@@ -1907,8 +1914,8 @@ export function FileTree() {
                   className="selbar-icon"
                   onClick={bulkUnlock}
                   replaceLabel
-                  title="Unlock selected"
-                  aria-label="Unlock selected"
+                  title={tr("Unlock selected")}
+                  aria-label={tr("Unlock selected")}
                 >
                   {ICON_UNLOCK}
                 </AsyncButton>
@@ -1921,13 +1928,13 @@ export function FileTree() {
                 }
                 title={
                   !bulkDeleteAllowed
-                    ? NOT_CREATOR_MESSAGE
+                    ? tr(NOT_CREATOR_MESSAGE)
                     : confirmDelete
-                      ? `Delete ${selected.size}? Click to confirm`
-                      : "Delete selected"
+                      ? tr("Delete {count}? Click to confirm", { count: selected.size })
+                      : tr("Delete selected")
                 }
                 aria-label={
-                  confirmDelete ? "Confirm delete" : "Delete selected"
+                  confirmDelete ? tr("Confirm delete") : tr("Delete selected")
                 }
               >
                 {ICON_TRASH}
@@ -1938,10 +1945,10 @@ export function FileTree() {
       ) : null}
       {data.length === 0 ? (
         <div className="filetree-empty">
-          {isGuest ? "Nothing shared with you yet. Ask an admin to share a folder or note." : emptyView.state === "nothing-shared" ? (
+          {isGuest ? tr("Nothing shared with you yet. Ask an admin to share a folder or note.") : emptyView.state === "nothing-shared" ? (
             <NothingShared ownerName={emptyView.ownerName} vaultName={emptyView.vaultName} />
           ) : (
-            "No notes yet"
+            tr("No notes yet")
           )}
         </div>
       ) : (
@@ -2006,17 +2013,17 @@ export function FileTree() {
               the refusal toast can say why, but they read as unavailable. */}
           <li
             className={menuCreateBlocked ? "disabled" : undefined}
-            title={menuCreateBlocked ? ROOT_FROZEN_HINT : undefined}
+            title={menuCreateBlocked ? tr(ROOT_FROZEN_HINT) : undefined}
             onClick={() => void useStore.getState().createNoteIn(menuDir)}
           >
-            New note
+            {tr("New note")}
           </li>
           <li
             className={menuCreateBlocked ? "disabled" : undefined}
-            title={menuCreateBlocked ? ROOT_FROZEN_HINT : undefined}
-            onClick={() => isGuest ? toast("Ask an admin to add a folder.", "error") : createUniqueFolder(menuDir)}
+            title={menuCreateBlocked ? tr(ROOT_FROZEN_HINT) : undefined}
+            onClick={() => isGuest ? toast(tr("Ask an admin to add a folder."), "error") : createUniqueFolder(menuDir)}
           >
-            New folder
+            {tr("New folder")}
           </li>
           {navigationGroups.map((kind) => (
             <li key={kind} role="menuitem" tabIndex={0}
@@ -2025,7 +2032,7 @@ export function FileTree() {
               onMouseEnter={(event) => openSub(kind, event.currentTarget)}
               onMouseLeave={closeSubSoon}
               onClick={(event) => { event.stopPropagation(); openSub(kind, event.currentTarget); }}>
-              <span className="menu-sub-label">{kind === "dashboard" ? "Dashboard" : kind === "pin" ? "Pin" : "Home"}</span>
+              <span className="menu-sub-label">{kind === "dashboard" ? tr("Dashboard") : kind === "pin" ? tr("Pin") : tr("Home")}</span>
               <span className="menu-sub-chevron" aria-hidden="true">›</span>
             </li>
           ))}
@@ -2033,17 +2040,17 @@ export function FileTree() {
             className={
               menuCreateBlocked ? "menu-sep-item disabled" : "menu-sep-item"
             }
-            title={menuCreateBlocked ? ROOT_FROZEN_HINT : undefined}
+            title={menuCreateBlocked ? tr(ROOT_FROZEN_HINT) : undefined}
             onClick={() => void importFilesInto(menuDir)}
           >
-            Import files…
+            {tr("Import files…")}
           </li>
           <li
             className={menuCreateBlocked ? "disabled" : undefined}
-            title={menuCreateBlocked ? ROOT_FROZEN_HINT : undefined}
+            title={menuCreateBlocked ? tr(ROOT_FROZEN_HINT) : undefined}
             onClick={() => void importFolderInto(menuDir)}
           >
-            Import folder…
+            {tr("Import folder…")}
           </li>
           {/* Root menu only, and it sits where a row's reveal item sits, so the
               "get me to this on disk" action is always in the same place. */}
@@ -2053,14 +2060,14 @@ export function FileTree() {
             </li>
           )}
           {menu.node && (
-            <li onClick={() => void exportNode(menu.node!)}>Export…</li>
+            <li onClick={() => void exportNode(menu.node!)}>{tr("Export…")}</li>
           )}
           {menu.node && (
             <li onClick={() => void revealNode(menu.node!)}>
               {ipc.revealLabel()}
             </li>
           )}
-          {!isGuest && menu.node && <li onClick={() => menu.node!.edit()}>Rename</li>}
+          {!isGuest && menu.node && <li onClick={() => menu.node!.edit()}>{tr("Rename")}</li>}
           {/* At the vault root this is the vault-wide sort (the same setting
               as the header button). Inside a folder it is THAT folder's sort:
               it replaces the vault-wide one for the folder and everything under
@@ -2071,7 +2078,7 @@ export function FileTree() {
             className={`menu-sub-row menu-sep-item${sub?.kind === "sort" ? " open" : ""}`}
             aria-haspopup="menu"
             aria-expanded={sub?.kind === "sort"}
-            title={menuDir === "" ? "How the whole vault is sorted" : "How this folder is sorted"}
+            title={menuDir === "" ? tr("How the whole vault is sorted") : tr("How this folder is sorted")}
             onMouseEnter={(e) => openSub("sort", e.currentTarget)}
             onMouseLeave={closeSubSoon}
             onClick={(e) => {
@@ -2079,13 +2086,13 @@ export function FileTree() {
               openSub("sort", e.currentTarget);
             }}
           >
-            <span className="menu-sub-label">Sort by</span>
+            <span className="menu-sub-label">{tr("Sort by")}</span>
             <span className="menu-sub-value">
               {menuDir === ""
-                ? TREE_SORTS.find((t) => t.id === treeSort)?.label
+                ? sortLabel(treeSort)
                 : folderSorts[menuDir]
-                  ? TREE_SORTS.find((t) => t.id === folderSorts[menuDir])?.label
-                  : "Vault default"}
+                  ? sortLabel(folderSorts[menuDir])
+                  : tr("Vault default")}
             </span>
             <span className="menu-sub-chevron" aria-hidden="true">
               ›
@@ -2099,8 +2106,8 @@ export function FileTree() {
               className="menu-sep-item"
               title={
                 menu.node?.data.isDir
-                  ? "Forget the drag-and-drop arrangement inside this folder"
-                  : "Forget the drag-and-drop arrangement in this folder"
+                  ? tr("Forget the drag-and-drop arrangement inside this folder")
+                  : tr("Forget the drag-and-drop arrangement in this folder")
               }
               onClick={() =>
                 useStore
@@ -2108,17 +2115,17 @@ export function FileTree() {
                   .setItemOrder(clearOrderAt(itemOrder, menuDir))
               }
             >
-              Reset manual order
+              {tr("Reset manual order")}
             </li>
           )}
           {!isGuest && SHOW_SHARE_ITEM && menu.node && menuTarget && (
-            <li onClick={() => setShareTarget(menuTarget)}>Share…</li>
+            <li onClick={() => setShareTarget(menuTarget)}>{tr("Share…")}</li>
           )}
           {menu.node &&
             menuTarget &&
             canManage &&
             (menuLock ? (
-              <li onClick={() => void unlockFromMenu(menuLock.id)}>Unlock</li>
+              <li onClick={() => void unlockFromMenu(menuLock.id)}>{tr("Unlock")}</li>
             ) : menuVaultLockedOnly ? (
               // The row shows a padlock but has no row of its own to unlock,
               // and locking it would change nothing. Shown disabled rather than
@@ -2127,10 +2134,10 @@ export function FileTree() {
               <li
                 className="disabled"
                 aria-disabled="true"
-                title="Everyone can only view this vault — change it in Members and access"
+                title={tr("Everyone can only view this vault — change it in Members and access")}
                 onClick={(e) => e.stopPropagation()}
               >
-                Locked by the vault
+                {tr("Locked by the vault")}
               </li>
             ) : null)}
           {menu.node && (() => {
@@ -2151,18 +2158,18 @@ export function FileTree() {
                   openSub("color", e.currentTarget);
                 }}
               >
-                <span className="menu-sub-label">Color</span>
+                <span className="menu-sub-label">{tr("Color")}</span>
                 <span className="menu-sub-value">
                   {currentColor ? (
                     <>
-                      {auto && <span className="menu-sub-auto">Auto</span>}
+                      {auto && <span className="menu-sub-auto">{tr("Auto")}</span>}
                       <span
                         className="swatch"
                         style={{ backgroundColor: currentColor.fill, boxShadow: `inset 0 0 0 1.5px ${currentColor.value}` }}
                       />
                     </>
                   ) : (
-                    "None"
+                    tr("None")
                   )}
                 </span>
                 <span className="menu-sub-chevron" aria-hidden="true">
@@ -2174,15 +2181,15 @@ export function FileTree() {
           {menu.node &&
             (canDeletePath(menu.node.data.path, menu.node.data.isDir) ? (
               <li className="danger" onClick={() => handleDelete(menu.node!)}>
-                Delete
+                {tr("Delete")}
               </li>
             ) : (
               <li
                 className="disabled"
                 aria-disabled="true"
-                title={NOT_CREATOR_MESSAGE}
+                title={tr(NOT_CREATOR_MESSAGE)}
               >
-                Delete
+                {tr("Delete")}
               </li>
             ))}
         </ul>
@@ -2206,7 +2213,7 @@ export function FileTree() {
               className={`menu-navigation-option${action.checked ? " is-on" : ""}`}
               tabIndex={0}
               onClick={() => { action.run(); setMenu(null); }}>
-              <span>{action.label}</span>
+              <span>{tr(action.label)}</span>
               {action.checked && <span className="menu-tick" aria-hidden="true">✓</span>}
             </li>)
           ) : sub.kind === "sort" ? (
@@ -2216,7 +2223,7 @@ export function FileTree() {
                   role="menuitemradio"
                   aria-checked={!folderSorts[menuDir]}
                   className={!folderSorts[menuDir] ? "is-on" : undefined}
-                  title="Follow the vault-wide sort (header button)"
+                  title={tr("Follow the vault-wide sort (header button)")}
                   onClick={() => {
                     useStore.getState().setFolderSort(menuDir, null);
                     setMenu(null);
@@ -2225,7 +2232,7 @@ export function FileTree() {
                   <span className="menu-tick" aria-hidden="true">
                     {!folderSorts[menuDir] ? "✓" : ""}
                   </span>
-                  Vault default
+                  {tr("Vault default")}
                 </li>
               )}
               {TREE_SORTS.map((t) => {
@@ -2236,7 +2243,7 @@ export function FileTree() {
                     role="menuitemradio"
                     aria-checked={on}
                     className={on ? "is-on" : undefined}
-                    title={t.hint}
+                    title={tr(t.hint)}
                     onClick={() => {
                       if (menuDir === "") useStore.getState().setTreeSort(t.id);
                       else useStore.getState().setFolderSort(menuDir, t.id);
@@ -2246,7 +2253,7 @@ export function FileTree() {
                     <span className="menu-tick" aria-hidden="true">
                       {on ? "✓" : ""}
                     </span>
-                    {t.label}
+                    {tr(t.label)}
                   </li>
                 );
               })}
@@ -2261,7 +2268,7 @@ export function FileTree() {
               <li className="menu-swatches">
                 <span
                   className={`swatch clear${effective == null ? " on" : ""}`}
-                  title={hasAuto ? "Reset to automatic" : "No colour"}
+                  title={hasAuto ? tr("Reset to automatic") : tr("No colour")}
                   onClick={() => {
                     useStore.getState().setItemColor(path, null);
                     setMenu(null);
@@ -2272,7 +2279,7 @@ export function FileTree() {
                     key={c.id}
                     className={`swatch${effective === c.id ? " on" : ""}`}
                     style={{ backgroundColor: c.fill, boxShadow: `inset 0 0 0 1.5px ${c.value}` }}
-                    title={c.label}
+                    title={tr(c.label)}
                     onClick={() => {
                       useStore.getState().setItemColor(path, c.id);
                       setMenu(null);
@@ -2605,13 +2612,14 @@ function TreeSyncMark({
   node: NodeApi<TreeNode>;
   index: TreeSyncIndex;
 }) {
+  const tr = useT();
   const mark = rowSyncMark(node.data, index);
   if (!mark) return <span className="tree-sync" aria-hidden="true" />;
   return (
     <span
       className={`tree-sync ${mark.state}`}
-      title={mark.title}
-      aria-label={mark.title}
+      title={tr(mark.title)}
+      aria-label={tr(mark.title)}
     >
       {mark.progress != null ? (
         <span className="tree-sync-pct">
@@ -2646,6 +2654,7 @@ function SidebarAvatar({ peer }: { peer: VaultPeer }) {
 
 /** The overlapping avatar cluster shown after a row's label, before its badges. */
 export function SidebarPresence({ peers }: { peers: VaultPeer[] }) {
+  const tr = useT();
   if (peers.length === 0) return null;
   const shown =
     peers.length > MAX_ROW_AVATARS
@@ -2657,7 +2666,7 @@ export function SidebarPresence({ peers }: { peers: VaultPeer[] }) {
     <span
       className="tree-presence"
       title={names}
-      aria-label={`Viewing: ${names}`}
+      aria-label={tr("Viewing: {names}", { names })}
     >
       {shown.map((p) => (
         <SidebarAvatar key={p.userId} peer={p} />
@@ -2694,6 +2703,7 @@ function Node({
   dragging,
   dropInto,
 }: NodeRendererProps<TreeNode> & NodeExtra) {
+  const tr = useT();
   const isDir = node.data.isDir;
   // Only a folder we have actually listed can be called empty. An unexpanded one
   // also carries `children: []`, and claiming "empty" for it is a flat lie about
@@ -2784,7 +2794,7 @@ function Node({
           className={`tree-check${checked ? " on" : ""}`}
           role="checkbox"
           aria-checked={checked}
-          aria-label={checked ? "Deselect" : "Select"}
+          aria-label={checked ? tr("Deselect") : tr("Select")}
           onClick={(e) => {
             e.stopPropagation();
             onToggleCheck(node.data.path);
@@ -2846,13 +2856,13 @@ function Node({
               would cost the whole vault a signal to spare a collision that is
               no longer rare. An item's own lock still wins the space. */}
           {isEmpty && (!lock || lock === "vault") && (
-            <span className="tree-hint">empty</span>
+            <span className="tree-hint">{tr("empty")}</span>
           )}
           {lock && (
             <span
               className={`tree-lock ${lock}`}
-              title={LOCK_TITLES[lock]}
-              aria-label={LOCK_TITLES[lock]}
+              title={tr(LOCK_TITLES[lock])}
+              aria-label={tr(LOCK_TITLES[lock])}
             >
               {ICON_LOCK}
             </span>
@@ -2861,8 +2871,8 @@ function Node({
           {!selectMode && (
             <button
               className="tree-more"
-              title="More actions"
-              aria-label={`Actions for ${displayName(node.data.name, isDir)}`}
+              title={tr("More actions")}
+              aria-label={tr("Actions for {name}", { name: displayName(node.data.name, isDir) })}
               onClick={(e) => {
                 e.stopPropagation();
                 const r = e.currentTarget.getBoundingClientRect();
