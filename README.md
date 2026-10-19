@@ -239,6 +239,8 @@ It writes to `dist/<version>/` (git-ignored):
 
 `SKIP_NOTARIZE=1` builds a signed `.dmg` without notarizing; fresh downloads then get a Gatekeeper warning.
 
+Run the macOS and Windows builds **one after the other**, never at the same time (`all` already does): both rebuild the same `app/apps/desktop/dist` folder and the second one fails with `ENOTEMPTY`.
+
 ### 4. Publish
 
 ```sh

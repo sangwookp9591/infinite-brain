@@ -123,6 +123,7 @@ scripts/publish-release.sh --yes    # GitHub Release v<버전> 생성 (즉시 �
 | 공증 `Invalid` | hardened runtime 없이 서명했거나 서명 뒤에 파일이 바뀜 | `xcrun notarytool log <ID> --keychain-profile axdb-notary`로 원인을 확인한다 |
 | `notarytool` 401 | 프로필의 API 키가 취소됨 | 2단계를 새 키로 다시 한다 |
 | 내려받은 `.dmg`가 "손상됨" | 스테이플이 빠졌거나 서명 뒤에 수정됨 | 6단계를 처음부터 다시 실행한다 |
+| `vite:prepare-out-dir ENOTEMPTY` 로 빌드가 멈춘다 | mac과 win 빌드를 동시에 돌려 같은 `app/apps/desktop/dist`를 서로 지움 | 하나가 끝난 뒤에 다른 하나를 돌린다(`all`은 순서대로 돈다) |
 | Windows 빌드가 링크 단계에서 실패 | llvm 경로가 없음 | `brew install llvm`. 스크립트가 `$(brew --prefix llvm)/bin`을 `PATH`에 넣는다 |
 | 앱이 키체인 접근 허용을 계속 묻는다 | ad-hoc 서명 빌드라 실행할 때마다 코드 식별자가 바뀜 | Developer ID로 서명한 빌드를 쓴다 |
 
