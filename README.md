@@ -4,123 +4,133 @@
 
 # Infinite Brain
 
-**A universe of ideas** — a local-first, collaborative Markdown knowledge app,<br>growing into a shared second brain for teams, with a calm ink-on-paper interface you can tint to your own colour.
+**Your team's second brain, as plain Markdown files.**<br>
+Write on your own computer, edit together in real time, and let your AI read and update the same notes.
 
 [![CI](https://github.com/sangwookp9591/infinite-brain/actions/workflows/ci.yml/badge.svg)](https://github.com/sangwookp9591/infinite-brain/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
-![Version 0.1.83](https://img.shields.io/badge/version-0.1.83-informational)
 ![Platform: macOS | Windows](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-lightgrey)
-![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8D8?logo=tauri&logoColor=white)
-![React 19](https://img.shields.io/badge/React-19-087ea4?logo=react&logoColor=white)
-![Node >=22](https://img.shields.io/badge/node-%3E%3D22-339933?logo=node.js&logoColor=white)
-![Local-first](https://img.shields.io/badge/local--first-yes-success)
 
-[Features](#-features) · [Design](#-design) · [Roadmap](#-roadmap) · [How it works](#-how-it-works) · [Quick start](#-quick-start) · [Architecture](#-architecture) · [Docs](#-docs)
+[Download](#-download) · [Getting started](#-getting-started) · [Working as a team](#-working-as-a-team) · [What your team sees](#-what-your-team-sees) · [AI](#-connect-your-ai) · [Self-hosting](#-run-your-own-server) · [Development](#-development)
 
 <br>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/ui/main-dark.png">
-  <img src="docs/assets/ui/main-light.png" alt="The Infinite Brain main window: a file tree sidebar and a Markdown note, in the zinc and ink interface" width="900">
+  <img src="docs/assets/ui/main-light.png" alt="The Infinite Brain main window: an icon rail, a floating sidebar with the vault's notes, and a note open in the editor sheet" width="900">
 </picture>
-
-<sub>The main window follows your system theme: zinc surfaces, ink accents, nothing louder than your notes.</sub>
 
 </div>
 
-<br>
+## Why Infinite Brain
 
-Notes remain plain Markdown files on disk, while a Yjs bridge lets people and connected AI tools edit together in real time.
+- **Your notes are files.** Every note is a `.md` file in a normal folder. Open it in any editor, back it up any way you like, and keep it if you ever stop using the app.
+- **Works offline.** You write locally first. Changes sync when you are back online, and edits from different people merge instead of overwriting each other.
+- **Built for teams.** Invite people with a link, choose who can edit or only view each folder, and see who is in a note while you write.
+- **AI that you can undo.** Connect Claude or ChatGPT to a vault. Every change an AI makes is recorded, shown as a diff and can be undone.
 
-Licensed under Apache-2.0. See [`NOTICE`](NOTICE).
+## 📦 Download
 
-<img src="docs/galaxy/macos-20000-dark-v2.png" alt="The galaxy graph view rendering 20,000 notes and 37,996 links as a spiral galaxy" width="100%">
+Get the latest version from [**Releases**](https://github.com/sangwookp9591/infinite-brain/releases/latest).
 
-<p align="center"><sub>The galaxy graph view with 20,000 generated notes and 37,996 links, rendered with WebGPU. Only notes glow; opening one dives into it.</sub></p>
-
-<table>
-  <tr>
-    <td width="50%"><img src="docs/galaxy/selected-star-v2.png" alt="Hovering a star in the galaxy graph shows the note title and its links"></td>
-    <td width="50%"><img src="docs/galaxy/search-filter-v2.png" alt="The graph settings panel with force sliders, a text filter and a folder legend"></td>
-  </tr>
-  <tr>
-    <td align="center"><sub>Pick a star to see its note and links.</sub></td>
-    <td align="center"><sub>Tune forces, filter by text, and color by folder.</sub></td>
-  </tr>
-</table>
-
-## ✨ Features
-
-| Area | What it does | Docs |
+| System | File | Install |
 |---|---|---|
-| **AI connection wizard** | Connect your own Claude or ChatGPT to a vault over MCP (OAuth or token). Choose read-only, read+write, or read+write+delete, then review and disconnect connections later. | [`docs/reports/IMPL-REPORT-M1.md`](docs/reports/IMPL-REPORT-M1.md) |
-| **Multilingual search** | Server and MCP search handle Korean and other non-Latin text (Unicode + bigram embedder, zero-score cutoff, `embed_version` re-index). Local search adds trigram and filename matches. | [`docs/reports/IMPL-REPORT-M2.md`](docs/reports/IMPL-REPORT-M2.md) |
-| **AI change ledger** | Every AI edit is recorded and can be undone. An undo is refused (409) if a person has edited the note since. | [`docs/AI-CHANGES.md`](docs/AI-CHANGES.md) |
-| **Invite links** | Teammates join with a link, no email server needed. | [`docs/onboarding-audit.md`](docs/onboarding-audit.md) |
-| **Galaxy graph** | The graph view renders notes as a spiral galaxy (three.js WebGPU, with WebGL2 and 2D fallbacks). | [`docs/galaxy/`](docs/galaxy/) |
-| **New visual language** | Zinc surfaces and an ink accent in light and dark, with spring micro-interactions from a twelve-component design kit across the shell, editor, settings, dialogs and dashboards. | [`docs/superpowers/specs/2026-10-15-ui-redesign-color-design.md`](docs/superpowers/specs/2026-10-15-ui-redesign-color-design.md) |
-| **Custom accent** | Pick ink, one of eight presets or any `#rrggbb`, per person or as a vault default. A contrast guard keeps button text at 4.5:1 or better in both themes, and the choice paints from the very first frame. | [`docs/superpowers/plans/2026-10-15-ui-redesign-rollout.md`](docs/superpowers/plans/2026-10-15-ui-redesign-rollout.md) |
+| macOS (Apple Silicon) | `Infinite.Brain_<version>_aarch64.dmg` | Open the `.dmg` and drag **Infinite Brain** into Applications |
+| macOS (Intel) | `Infinite.Brain_<version>_x64.dmg` | Same as above |
+| Windows 10/11 | `Infinite.Brain_<version>_x64-setup.exe` | Run the installer (a `.msi` is also available) |
 
-Build status: [`docs/STATUS.md`](docs/STATUS.md). Docs index: [`docs/Infinite Brain.md`](<docs/Infinite Brain.md>).
+The app checks for updates on its own and asks before installing them.
 
-## 🎨 Design
+## 🚀 Getting started
 
-The interface is ink on paper: neutral zinc layers carry the structure, and colour is kept for state (synced, failed, needs attention) and for the accent you choose. Motion uses two springs and switches off under reduced motion.
+1. **Open the app and pick a vault.** A vault is a folder of notes. Create a new one, or open a folder of Markdown files you already have.
+2. **Write.** Press **⌘N** (Ctrl+N on Windows) for a new note. Notes save automatically. Link notes with `[[Note name]]`; links and backlinks update when you rename a note.
+3. **Find things.** Use search from the icon rail. It matches note titles and content, including Korean and other languages.
+4. **See the shape of your notes.** The graph view draws your notes as a galaxy: each star is a note, and lines are links between notes.
 
-<table>
-  <tr>
-    <td width="50%"><img src="docs/assets/ui/appearance-accent.png" alt="Account Settings, Appearance: theme chips, accent swatches with a custom colour, and bar sliders for content width"></td>
-    <td width="50%"><img src="docs/assets/ui/design-kit-dark.png" alt="The design lab in dark mode showing the ten kit components"></td>
-  </tr>
-  <tr>
-    <td align="center"><sub>Appearance settings with a blue accent: theme chips, swatches, bar sliders.</sub></td>
-    <td align="center"><sub>The design kit in the design lab, dark theme.</sub></td>
-  </tr>
-  <tr>
-    <td width="50%"><img src="docs/assets/ui/kit-activity-heatmap-dark.png" alt="ActivityHeatmap in dark mode: a year of note edits as a grid of squares, with a tooltip on one day and a less-to-more legend"></td>
-    <td width="50%"><img src="docs/assets/ui/kit-tool-call-light.png" alt="ToolCallCard showing search_notes running, read_note finished and update_note failed with a retry button, plus a folded group of three calls"></td>
-  </tr>
-  <tr>
-    <td align="center"><sub><code>ActivityHeatmap</code>: a year of note edits, with keyboard navigation and a gliding tooltip.</sub></td>
-    <td align="center"><sub><code>ToolCallCard</code>: one AI tool call with its input, result, timing and retry.</sub></td>
-  </tr>
-</table>
+Working alone needs no account and no server. Sign in only when you want to work with others.
+
+<img src="docs/galaxy/macos-20000-dark-v2.png" alt="The galaxy graph view rendering 20,000 notes and their links as a spiral galaxy" width="100%">
+
+## 👥 Working as a team
+
+A team shares one **vault** on a server. Everyone keeps a full copy on their own computer, so it stays fast and works offline.
+
+### 1. Create the team vault
+
+Sign in (email and password, or Google if your server has it set up), then create a vault from the vault switcher at the top of the sidebar. If you already have a local vault, you can turn it into a team vault.
+
+### 2. Invite people
+
+Open **Invite people** from the vault menu. You can do it in either of two ways:
+
+- **Invite link.** Enter email addresses and choose each person's role and access. If the server can send email, they get the link by email. If not, copy the link and send it yourself in chat. Opening the link takes them into the app, and they join after they sign in.
+- **Join code.** Share the vault's join code. Teammates choose **Join with code** in the app. Codes expire, and an admin can create a new one at any time.
+
+### 3. Decide who can see what
+
+**Vault Settings → Members and access** controls access in plain words:
+
+| Setting | What it means |
+|---|---|
+| **Everyone in the vault** | Can edit / Can view / No access, for every member by default |
+| **New members** | What people who join later get for notes made before they joined |
+| **Each person** | Can edit everything / Can view everything / No access / Custom (folder by folder) |
+
+You can also share a single folder or note from **Share…** in the sidebar, or lock a note so it cannot be edited. Roles are **Owner**, **Admin** and **Member**. **Guests** see only the folders shared with them by name, and none of the rest of the vault. Admins can turn external sharing off and revoke all guest access in one step.
+
+### 4. Share a note
+
+From a note's share button:
+
+- **Team link** opens the note for people in the vault who have access.
+- **Publish to the web** gives a link anyone can read in a browser. Turn it off and the link stops working.
+
+## 👀 What your team sees
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/ui/b0-first-run-dark.png">
-  <img src="docs/assets/ui/b0-first-run-light.png" alt="Design lab mock of the first-run smart search prompt: the opening question, downloading, not-enough-space notice, the settings panel and the hint beside the search box" width="900">
+  <img src="docs/assets/ui/home-light.png" alt="A vault Home dashboard with today's priorities and a schedule, next to the sidebar" width="900">
 </picture>
 
-<p align="center"><sub>Mock of the first-run "smart search" prompt (on-device semantic search): ask once, download about 310 MB (180 MB on low-spec devices), notes never leave the device. Plain words only, no setup.</sub></p>
-
-| Kit component | Where you meet it |
+| When… | You see |
 |---|---|
-| `SegmentedChips` | Theme, note properties and graph colour mode |
-| `BarSlider` | Content width, text size and graph forces |
-| `SpringCheck` | Settings checkboxes and the Markdown task look |
-| `CodeSlots` | Joining a team with a code |
-| `FuseButton` | Undoing an AI change, with a burning-fuse cancel window |
-| `ActivityLattice` | Sync status and dashboard agent runs |
-| `ProgressDial` | Sync progress when a percentage is known |
-| `GlowCard` · `FolderCard` | Dashboard templates and recent vaults on the welcome screen |
-| `SwipeRow` | In the kit and the design lab; not wired into app lists yet |
-| `ActivityHeatmap` | In the kit and the design lab; planned for vault activity |
-| `ToolCallCard` · `ToolCallGroup` | In the kit and the design lab; planned for the AI change log |
+| Someone is in the same note | Their avatar at the top of the note, and their cursor and selection moving in the text as they type |
+| Someone edits a note you have open | The text changes in place, live. You don't need to reload and nothing gets overwritten |
+| Someone edits a note's properties while you are typing | "Changed by someone else while you were typing." under that property |
+| Your changes are saved | **Synced · just now** at the top right, and a green dot beside each note in the sidebar |
+| You are offline | Your edits are kept on your computer and sent when you reconnect |
+| Notes are added, deleted or moved, or your access changes | A line in the **Activity** panel saying what happened, where, and when |
+| You want an earlier version | **Version history** on the note. Pick a version and choose **Restore version**, which puts it back for everyone |
+| You want someone's attention | **Ping** them from their avatar. They get a notification |
+| An AI changed a note | An entry in **Activity → AI changes** with a before/after diff and an Undo button |
 
-Try every component in both themes and with any accent in the design lab: from `app/apps/desktop`, run `pnpm exec vite --mode simulator` and open `/dev/design-lab/`. The kit lives in [`app/apps/desktop/src/components/kit/`](app/apps/desktop/src/components/kit/) and the rules in [`app/apps/desktop/src/styles/DESIGN-BRIEF.md`](app/apps/desktop/src/styles/DESIGN-BRIEF.md).
+Deleted notes go to the system Trash on each computer instead of disappearing, and the app keeps recovery copies when a sync could lose text.
 
-## 🗺 Roadmap
+## 🤖 Connect your AI
 
-Infinite Brain is becoming a **second brain the whole team shares**, usable by people who have never touched a terminal: no command line, no extra installs, no jargon on screen. The plan is in the [team second-brain PRD](docs/superpowers/specs/2026-10-15-team-second-brain-prd.md) (Korean).
+Open the AI section of **Vault Settings** and follow the wizard to connect Claude or ChatGPT over MCP. Choose what it may do:
 
-| Track | Goal | Status |
-|---|---|---|
-| **A · Hub teams** | Guests, join codes that expire, external-sharing policy, audit log, approval queue, domain auto-join, on the existing server | A0 design [merged](docs/superpowers/specs/2026-10-16-a0-authorization-design.md) and verified. It found three existing authorization gaps; fixing them (A1-0) comes first |
-| **B · Smart search** | On-device semantic search with EmbeddingGemma 2 running inside the app (llama.cpp, GGUF), offered with one "turn on?" prompt | First-run mock [merged](docs/reports/B0-FIRST-RUN-MOCK.md). The [llama.cpp spike](docs/reports/B0-LLAMA-SPIKE.md) runs it in-app on Apple Silicon (about 15 ms per paragraph on Metal); B1 starts from a llama.cpp fork |
-| **C · Share without a server** | Peer-to-peer vaults over Iroh with end-to-end encryption, working on an offline LAN | [C0 design](docs/superpowers/specs/2026-10-16-c0-p2p-design.md) merged as draft r4; four independent checks so far, one more round of rule fixes before the C1 LAN experiment |
-| **D–F** | Storage node, attachments, local MCP, connected vaults, moving a P2P vault to a hub | After A–C |
+- **Read only**: search and read notes
+- **Read and write**: also create and edit notes
+- **Read, write and delete**
 
-Both modes will live side by side: run your own server as today (hub), or share a vault with no server at all (P2P).
+Every AI edit is listed in **Activity → AI changes** with a diff. **Undo** restores the earlier text. If a person has edited the note since then, Undo stops instead of overwriting their work. You can see and disconnect every connection at any time.
+
+AI tools on your own computer (Claude Code, Codex and others) can also edit the Markdown files directly. Their edits show up in the app and sync to your team like any other change.
+
+## 🖥 Run your own server
+
+Your team's notes sync through a server you control. You can run it with Docker Compose on any machine, or on Railway or Coolify.
+
+```sh
+cd deploy/compose
+cp .env.example .env      # set POSTGRES_PASSWORD, JWT_SECRET and BETTER_AUTH_URL
+docker compose up -d
+```
+
+Then, in the app, choose **your own server** when you sign in (or go to **Settings → Connection**) and enter its URL. Send teammates `https://<your server>/open/connect` and the app connects to the server on its own.
+
+The full guide, covering HTTPS, email, file storage and backups, is in [`docs/DEPLOY.md`](docs/DEPLOY.md).
 
 ## 🧠 How it works
 
@@ -129,166 +139,57 @@ Both modes will live side by side: run your own server as today (hub), or share 
   <img src="docs/assets/bridge-light.svg" alt="Markdown on disk and a live Yjs CRDT kept in sync by a two-way bridge" width="900">
 </picture>
 
-- **Stable identity.** Every note has a `doc_id` that is the same across files, SQLite, Yjs, and Postgres. Renames and moves keep the same identity.
-- **Markdown on disk is durable truth.** Rust performs atomic writes; the UI never touches the filesystem directly and uses typed IPC.
-- **Yjs `Y.Text("content")` is live truth.** The editor edits the CRDT, and the bridge writes it back to disk (egest, about 300 ms) or ingests external file changes (about 150 ms). Echo guards stop the two sides from looping.
-- **Binary updates over sync.** Devices and the server exchange binary Yjs updates only. Markdown is never sent over the note sync protocol.
+- **Markdown on disk is the durable copy.** The desktop app (Rust) writes files atomically and watches for edits made by other programs.
+- **A CRDT is the live copy.** Each open note is a Yjs document. Edits from people and AI tools merge without conflicts, and the bridge writes the result back to the file.
+- **Stable identity.** Every note has a `doc_id` that survives renames and moves, so links, history and sharing follow the note.
+- **The server stores what teams share.** It runs Hono, Hocuspocus and Postgres. It checks permissions on every request and sync connection, so the server enforces access, not the app.
 
-## 🏗 Architecture
-
-```mermaid
-flowchart LR
-  subgraph Desktop["Desktop app (Tauri 2)"]
-    direction TB
-    subgraph Rust["Rust core"]
-      FS["Filesystem and atomic writes"]
-      WATCH["File watcher"]
-      IDX[("SQLite index")]
-      KEY["OS keychain"]
-    end
-    subgraph UI["React UI"]
-      ED["Markdown editor"]
-      BR["Yjs bridge"]
-      SC["Sync client"]
-    end
-    UI <-->|"typed IPC"| Rust
-  end
-
-  subgraph Server["Server"]
-    direction TB
-    API["Hono HTTP API"]
-    SYNC["Hocuspocus sync"]
-    AUTH["Better Auth"]
-    BLOB["Blobs"]
-    MCP["MCP"]
-    PG[("Postgres")]
-    API --- PG
-    SYNC --- PG
-    AUTH --- PG
-    BLOB --- PG
-    MCP --- PG
-  end
-
-  AI["AI clients<br/>Claude, ChatGPT"]
-
-  SC <-->|"binary Yjs updates"| SYNC
-  UI <-->|"HTTP"| API
-  AI <-->|"MCP, OAuth or token"| MCP
-```
-
-| Part | Path | Owns |
+| Part | Path | Stack |
 |---|---|---|
-| Desktop shell | [`app/apps/desktop/src-tauri/`](app/apps/desktop/src-tauri/) | Filesystem access, atomic writes, the filesystem watcher, SQLite index, OS keychain |
-| Desktop UI | [`app/apps/desktop/src/`](app/apps/desktop/src/) | React/TypeScript UI, typed Rust IPC, HTTP client, Markdown editor, Yjs bridge, sync client |
-| Server | [`app/apps/server/src/`](app/apps/server/src/) | Hono HTTP API, Hocuspocus sync, Better Auth, Postgres, permissions, blobs, MCP |
+| Desktop app | [`app/apps/desktop/`](app/apps/desktop/) | Tauri 2, Rust, React 19, CodeMirror 6, Yjs, SQLite |
+| Server | [`app/apps/server/`](app/apps/server/) | Node 22, Hono, Hocuspocus, Better Auth, Postgres, MCP |
 
-Architecture reference: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Developer notes and invariants: [`CLAUDE.md`](CLAUDE.md).
+More detail is in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and [`docs/specs/`](docs/specs/).
 
-## 🚀 Quick start
+## 🛠 Development
 
-Requirements: Node.js 22 or newer, pnpm (via Corepack), Rust/Cargo, and Docker (for Postgres).
+Requirements: Node.js 22 or newer, pnpm (via Corepack), Rust, and Docker for Postgres.
 
 ```sh
 cd app
 pnpm install
 
-# Server (HTTP :3010, sync WebSocket on the same port at /sync)
+# Server on http://localhost:3010
 cd apps/server
 cp .env.example .env        # set a random JWT_SECRET
-pnpm run db:up              # Postgres 16 on host port 5439
+pnpm run db:up              # Postgres on port 5439
 pnpm run migrate
 pnpm run dev
-```
 
-Then, from `app/` in another terminal:
-
-```sh
+# Desktop app, in another terminal from app/
 pnpm run dev:desktop
 ```
 
-The desktop defaults to `http://localhost:3010`. You can choose another server in Settings → Connection.
+| Check | Where | Command |
+|---|---|---|
+| Server tests (they wipe the configured database, so use a disposable one) | `app/apps/server` | `pnpm test` |
+| Desktop tests | `app/apps/desktop` | `pnpm test` (on Node 25: `NODE_OPTIONS=--no-experimental-webstorage`) |
+| Rust tests | `app/apps/desktop/src-tauri` | `cargo test` |
+| Lint | `app` | `pnpm lint` |
 
-<details>
-<summary><b>Build the macOS app locally</b></summary>
-
-<br>
+**Installers.** Pushing a version bump to `main` runs [`release.yml`](.github/workflows/release.yml), which builds the `.dmg` (Apple Silicon and Intel), Windows `.exe`/`.msi` and Linux packages and publishes them to GitHub Releases. See [`docs/RELEASE.md`](docs/RELEASE.md) for the signing secrets. To build a local macOS app without the updater key:
 
 ```sh
 cd app/apps/desktop
 pnpm tauri build --bundles app --config '{"bundle":{"createUpdaterArtifacts":false}}'
-open "src-tauri/target/release/bundle/macos/Infinite Brain.app"
 ```
 
-Turning off `createUpdaterArtifacts` lets you build without the updater signing key. A local build is ad-hoc signed and not notarized. A release build needs about 4 GB of free disk space.
-
-</details>
-
-Self-hosting guide: [`docs/DEPLOY.md`](docs/DEPLOY.md).
-
-## 🛠 Development
-
-| Where | Test | Lint |
-|---|---|---|
-| Server, `app/apps/server` | `pnpm test` | n/a |
-| Desktop TS, `app/apps/desktop` | `pnpm test` | `pnpm lint` |
-| Desktop Rust, `app/apps/desktop/src-tauri` | `cargo test` | n/a |
-| Whole workspace, `app` | `pnpm test` (via Turbo) | `pnpm lint` (via Turbo) |
-
-- The server tests wipe the configured database, so point `DATABASE_URL` at a disposable one.
-- On Node 25, run the desktop tests with `NODE_OPTIONS=--no-experimental-webstorage`.
-- Lint uses an ESLint 9 flat config ([`app/apps/desktop/eslint.config.js`](app/apps/desktop/eslint.config.js)); details are in [`docs/reports/IMPL-REPORT-ESLINT.md`](docs/reports/IMPL-REPORT-ESLINT.md).
-
-## 🗂 Project layout
-
-```text
-.
-├── app/
-│   ├── apps/
-│   │   ├── desktop/            Tauri desktop app (React UI)
-│   │   │   ├── src/            UI, editor, Yjs bridge, sync client
-│   │   │   ├── src-tauri/      Rust: filesystem, watcher, SQLite index, keychain
-│   │   │   ├── src/components/kit/  Design kit (spring micro-interactions)
-│   │   │   ├── dev/            Design lab, galaxy lab and window simulator (WebMCP-enabled)
-│   │   │   └── spikes/         Throwaway experiments (not part of the app build)
-│   │   └── server/             Hono API, Hocuspocus sync, Better Auth, MCP, migrations
-│   ├── package.json            pnpm workspace and Turbo tasks
-│   └── turbo.json
-├── deploy/                     Docker Compose files (compose, coolify)
-├── docs/                       Specs, research, reports, galaxy screenshots
-├── scripts/                    voice-check
-├── CLAUDE.md                   Developer notes and invariants
-└── NOTICE · LICENSE            Attribution and license
-```
-
-## 📚 Docs
-
-| Doc | What is in it |
-|---|---|
-| [`docs/Infinite Brain.md`](<docs/Infinite Brain.md>) | Docs index |
-| [`docs/STATUS.md`](docs/STATUS.md) | Build status |
-| [`docs/NEXT-TASKS.md`](docs/NEXT-TASKS.md) | Next tasks and handoff notes (Korean) |
-| [`docs/DEPLOY.md`](docs/DEPLOY.md) | Self-hosting guide |
-| [`docs/RELEASE.md`](docs/RELEASE.md) | How a desktop release is cut |
-| [`docs/AI-CHANGES.md`](docs/AI-CHANGES.md) | AI change ledger contract |
-| [`docs/BRAND-ASSETS.md`](docs/BRAND-ASSETS.md) | Brand assets |
-| [`docs/superpowers/specs/2026-10-15-team-second-brain-prd.md`](docs/superpowers/specs/2026-10-15-team-second-brain-prd.md) | Team second-brain PRD: hub and P2P modes, smart search, roadmap (Korean) |
-| [`docs/superpowers/specs/2026-10-16-a0-authorization-design.md`](docs/superpowers/specs/2026-10-16-a0-authorization-design.md) | A0 hub authorization design: expected-permission table and test list (Korean) |
-| [`docs/superpowers/specs/`](docs/superpowers/specs/) | All specs, including the UI redesign and colour customization spec |
-| [`docs/superpowers/plans/`](docs/superpowers/plans/) | Rollout plan for the new visual language |
-| [`docs/reports/`](docs/reports/) | Implementation, review and verification reports |
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Architecture reference |
-| [`CHANGELOG.md`](CHANGELOG.md) | Changelog |
-
-## 🔒 Data compatibility
-
-The `.context/` vault metadata directory and the internal `context` database/code name stay unchanged to preserve existing data formats. Their future names are undecided.
+Developer notes and the rules that keep data safe are in [`CLAUDE.md`](CLAUDE.md) and [`AGENTS.md`](AGENTS.md). Build status is in [`docs/STATUS.md`](docs/STATUS.md).
 
 ## 🤝 Community
 
-[Contributing](CONTRIBUTING.md) · [Security policy](SECURITY.md) · [Code of Conduct](CODE_OF_CONDUCT.md)
+[Contributing](CONTRIBUTING.md) · [Security policy](SECURITY.md) · [Code of Conduct](CODE_OF_CONDUCT.md) · [Changelog](CHANGELOG.md)
 
 ## 📄 License
 
-Licensed under the [Apache License 2.0](LICENSE). See [`NOTICE`](NOTICE).
-
-The design kit's interactions are adapted from [React Bits](https://reactbits.dev) by David Haz under the MIT + Commons Clause license, used as part of this application; see [`app/apps/desktop/src/components/kit/LICENSE-react-bits.md`](app/apps/desktop/src/components/kit/LICENSE-react-bits.md).
+[Apache License 2.0](LICENSE). See [`NOTICE`](NOTICE) for attributions. The design kit's interactions are adapted from [React Bits](https://reactbits.dev) under the MIT + Commons Clause license; see [`app/apps/desktop/src/components/kit/LICENSE-react-bits.md`](app/apps/desktop/src/components/kit/LICENSE-react-bits.md).
