@@ -1,3 +1,4 @@
+import { shareErrorMessage } from "./shareErrorMessage";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 // The `.skel-line` shimmer lives with the editor skeleton (as ContentWidthPreview does).
 import "./editor.css";
@@ -272,7 +273,7 @@ export function MembersAccessTab({ canManage, onOpenTab, onCloseSettings, resetT
       await work();
     } catch (cause) {
       if (peopleLimitKind(cause)) { setLimitCause(cause); return; }
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(shareErrorMessage(cause));
     } finally {
       setBusy(false);
     }
@@ -371,10 +372,15 @@ export function MembersAccessTab({ canManage, onOpenTab, onCloseSettings, resetT
     });
   };
 
-  const changeRole = (m: MemberOverview, role: "member" | "admin") => run(async () => {
-    await useStore.getState().updateMemberRole(m.userId, role);
-    await reload();
-  });
+  const changeRole = (m: MemberOverview, role: "member" | "admin" | "guest"): Promise<void> => {
+    const apply = () => run(async () => { await useStore.getState().updateMemberRole(m.userId, role); await reload(); });
+    if (role === "guest") {
+      setConfirm({ title: `Change ${displayName(m)} to a guest?`, label: "Change to guest", tone: "danger",
+        body: "They will lose access to the rest of the vault and keep only folders and notes shared directly with them.", apply });
+      return Promise.resolve();
+    }
+    return apply();
+  };
 
   const askRemove = (m: MemberOverview) => setConfirm({
     title: `Remove ${displayName(m)} from ${vaultName}?`,

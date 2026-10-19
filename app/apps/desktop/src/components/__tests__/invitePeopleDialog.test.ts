@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { InvitePeopleDialog } from "../InvitePeopleDialog";
 import { useStore } from "../../store";
 
-const api = vi.hoisted(() => ({ getJoinCode: vi.fn(), getAccessDefault: vi.fn(), setAccessDefault: vi.fn(), inviteMany: vi.fn() }));
+const api = vi.hoisted(() => ({ listVaults:vi.fn(),listAccessTree:vi.fn(),getJoinCodeDetails: vi.fn(), rotateJoinCode: vi.fn(), getAccessDefault: vi.fn(), setAccessDefault: vi.fn(), inviteMany: vi.fn() }));
 vi.mock("../../lib/auth/authManager", () => ({ authManager: { api, getServerUrl: () => "http://test.invalid" } }));
 vi.mock("../../store", async () => {
   const { create } = await import("zustand");
@@ -24,7 +24,8 @@ describe("Invite people dialog", () => {
     (useStore as unknown as { setState: (s: Record<string, unknown>) => void }).setState({
       serverUrl: "http://test.invalid", refreshVault: vi.fn().mockResolvedValue(undefined),
     });
-    api.getJoinCode.mockResolvedValue("2TG7KNEA");
+    api.getJoinCodeDetails.mockResolvedValue({ code: "2TG7KNEA", expiresAt: "2026-11-01T00:00:00Z" });
+    api.rotateJoinCode.mockResolvedValue({ code: "NEWCODEA", expiresAt: "2026-11-08T00:00:00Z" });
     api.getAccessDefault.mockResolvedValue({ mode: "readonly" });
     api.setAccessDefault.mockImplementation(async (_org: string, mode: string) => ({ mode }));
     api.inviteMany.mockResolvedValue([]);
@@ -46,6 +47,29 @@ describe("Invite people dialog", () => {
       input.dispatchEvent(new Event("input", { bubbles: true }));
     });
   };
+
+  it("guest invitations require explicit selected items and hide whole-vault access",async()=>{
+    api.listVaults.mockResolvedValue([{id:"v",organizationId:"org-1"}]);
+    api.listAccessTree.mockResolvedValue({folders:[{id:"folder-1",path:"Shared"}],notes:[]});
+    await act(async()=>root.render(createElement(InvitePeopleDialog,{orgId:"org-1",onClose:vi.fn(),onInvited:vi.fn()})));
+    await act(async()=>document.body.querySelector<HTMLButtonElement>('button[aria-label="Role"]')!.click());
+    const guest=[...document.body.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]')].find(b=>b.textContent?.includes("Guest"))!;
+    await act(async()=>guest.click());await type("outside@example.com");
+    expect(send().disabled).toBe(true);expect(document.body.querySelector('button[aria-label="Access"]')).toBeNull();
+    expect(document.body.querySelector(".invite-people-code")).toBeNull();
+    await act(async()=>document.body.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click());
+    expect(send().disabled).toBe(false);await act(async()=>send().click());
+    expect(api.inviteMany).toHaveBeenCalledWith("org-1",{emails:["outside@example.com"],role:"guest",access:null,targets:[{resourceType:"folder",resourceId:"folder-1",permission:"view"}]});
+  });
+
+  it("shows code expiry and regenerates the code", async () => {
+    await act(async () => root.render(createElement(InvitePeopleDialog, { orgId: "org-1", onClose: vi.fn(), onInvited: vi.fn() })));
+    expect(document.body.textContent).toContain("Expires");
+    const rotate = [...document.body.querySelectorAll("button")].find((b) => b.textContent === "Create new code")!;
+    await act(async () => rotate.click());
+    expect(api.rotateJoinCode).toHaveBeenCalledOnce();
+    expect(document.body.querySelector(".invite-people-code-value")?.textContent).toBe("NEWCODEA");
+  });
 
   it("lays out Role and Access as labelled boxes and pluralises Send", async () => {
     await act(async () => root.render(createElement(InvitePeopleDialog, { orgId: "org-1", onClose: vi.fn(), onInvited: vi.fn() })));

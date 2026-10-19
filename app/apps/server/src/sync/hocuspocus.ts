@@ -1,3 +1,5 @@
+import { hideGuestAwareness } from "./guest-awareness.js";
+import { orgRole, vaultOrg } from "../permissions/lookup.js";
 import { Server } from "@hocuspocus/server";
 import * as Y from "yjs";
 import { config } from "../config.js";
@@ -59,6 +61,7 @@ class NoteTooLargeError extends Error {
 }
 
 export interface SyncContext {
+  guestDocuments?: Set<string>;
   docId: string;
   vaultId: string;
   readOnly: boolean;
@@ -162,7 +165,7 @@ export function createSyncServer(
   onDocEdited?: DocEditedHook,
   onRejected?: RejectedHook,
 ): Server<SyncContext> {
-  return new Server<SyncContext>({
+  const server = new Server<SyncContext>({
     name: "context-sync",
     port,
     quiet: true,
@@ -309,7 +312,11 @@ export function createSyncServer(
         data.connectionConfig.readOnly = true;
       }
 
+      const org = claims.userId ? await vaultOrg(parsed.vaultId) : null;
+      if (org && claims.userId && (await orgRole(org, claims.userId)) === "guest") data.context.guestDocuments?.add(data.documentName);
+      else data.context.guestDocuments?.delete(data.documentName);
       const context: SyncContext = {
+        guestDocuments: data.context.guestDocuments,
         docId: parsed.docId,
         vaultId: parsed.vaultId,
         readOnly: readOnly || shrinkHeld,
@@ -431,6 +438,17 @@ export function createSyncServer(
       }
     },
   });
+  const connect = server.hocuspocus.handleConnection.bind(server.hocuspocus);
+  server.hocuspocus.handleConnection = (socket, request, defaultContext) => {
+    const guestDocuments = new Set<string>();
+    const send = socket.send.bind(socket);
+    socket.send = (message: any, ...args: any[]) => {
+      if (hideGuestAwareness(message, guestDocuments)) return;
+      return (send as any)(message, ...args);
+    };
+    return connect(socket, request, { ...defaultContext, guestDocuments } as SyncContext);
+  };
+  return server;
 }
 
 /**

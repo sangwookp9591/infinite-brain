@@ -1,4 +1,6 @@
-import { randomBytes, randomUUID } from "node:crypto";
+import type pg from "pg";
+import { claimJoinAttempt, getOrRotateJoinCode } from "../../join-codes/service.js";
+import { randomUUID } from "node:crypto";
 import { Hono } from "hono";
 import { pool } from "../../db/pool.js";
 import { orgRole } from "../../permissions/lookup.js";
@@ -94,18 +96,7 @@ export interface OrgDeps {
 export const MEMBERSHIP_CHECK_MAX = 200;
 
 // Crockford-style base32 alphabet: no ambiguous 0/O/1/I. 32 symbols.
-const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-const CODE_LEN = 8;
 
-/** An 8-char uppercase code from crypto-random bytes (no ambiguous chars). */
-function generateCode(): string {
-  const bytes = randomBytes(CODE_LEN);
-  let out = "";
-  for (let i = 0; i < CODE_LEN; i++) {
-    out += ALPHABET[bytes[i] % ALPHABET.length];
-  }
-  return out;
-}
 
 /**
  * The vault this user is acting in: the session's active org, else their
@@ -139,12 +130,13 @@ async function resolveActiveOrg(
  * Shares the user *created for others* (`created_by`) are untouched — only
  * grants TO this user (`principal_id`) go.
  */
-async function revokeMembership(
+export async function revokeMembership(
   deps: OrgDeps,
   orgId: string,
   userId: string,
   reason: "removed" | "left",
-): Promise<void> {
+  options?: { expectedRole?: string; beforeCommit?: (client: pg.PoolClient) => Promise<void> },
+): Promise<boolean> {
   // Snapshot the org's docs so we can kill any live sockets the departing
   // member holds. closeConnections on a doc with no live socket is a cheap
   // no-op, so covering every doc in the org is fine (this is rare).
@@ -165,6 +157,10 @@ async function revokeMembership(
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    if(options?.expectedRole){
+      const membership=(await client.query<{role:string}>('SELECT role FROM member WHERE "organizationId"=$1 AND "userId"=$2 FOR UPDATE',[orgId,userId])).rows[0];
+      if(membership?.role!==options.expectedRole){await client.query("ROLLBACK");return false;}
+    }
     await client.query(`DELETE FROM member WHERE "organizationId" = $1 AND "userId" = $2`, [
       orgId,
       userId,
@@ -179,6 +175,7 @@ async function revokeMembership(
         WHERE "userId" = $1 AND "activeOrganizationId" = $2`,
       [userId, orgId],
     );
+    await options?.beforeCommit?.(client);
     await client.query("COMMIT");
   } catch (err) {
     await client.query("ROLLBACK");
@@ -199,6 +196,7 @@ async function revokeMembership(
   // client that understands it why (`member-removed`), so vault-wide frames
   // (voice, joins) stop now rather than at token expiry.
   await announceMemberRemoved(orgId, userId, reason);
+  return true;
 }
 
 /**
@@ -488,35 +486,17 @@ export function createOrgRoutes(deps: OrgDeps): Hono {
       return c.json({ error: "Only vault owner/admin can view the join code" }, 403);
     }
 
-    const existing = await pool.query<{ code: string }>(
-      "SELECT code FROM org_join_codes WHERE organization_id = $1",
-      [org],
-    );
-    if (existing.rows[0]) return c.json({ code: existing.rows[0].code });
+    return c.json(await getOrRotateJoinCode(org, session.userId));
+  });
 
-    // Lazily generate + persist. Retry on the (unlikely) unique-code collision.
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const code = generateCode();
-      try {
-        const { rows } = await pool.query<{ code: string }>(
-          `INSERT INTO org_join_codes (organization_id, code) VALUES ($1, $2)
-           ON CONFLICT (organization_id) DO NOTHING
-           RETURNING code`,
-          [org, code],
-        );
-        if (rows[0]) return c.json({ code: rows[0].code });
-        // Another request generated the code first — read it back.
-        const raced = await pool.query<{ code: string }>(
-          "SELECT code FROM org_join_codes WHERE organization_id = $1",
-          [org],
-        );
-        if (raced.rows[0]) return c.json({ code: raced.rows[0].code });
-      } catch (err) {
-        // Unique violation on `code` (23505): loop and try a fresh code.
-        if ((err as { code?: string }).code !== "23505") throw err;
-      }
-    }
-    return c.json({ error: "Could not generate a join code" }, 500);
+  orgRoutes.post("/orgs/join-code/rotate", async (c) => {
+    const session = await getSession(c);
+    if (!session) return c.json({ error: "Authentication required" }, 401);
+    const org = await resolveActiveOrg(session.userId, session.activeOrganizationId);
+    if (!org) return c.json({ error: "No active vault" }, 400);
+    const role = await orgRole(org, session.userId);
+    if (role !== "owner" && role !== "admin") return c.json({ error: "access_manager_required" }, 403);
+    return c.json(await getOrRotateJoinCode(org, session.userId, true));
   });
 
   // Redeem a join code: join the vault as a 'member' (idempotent).
@@ -524,12 +504,14 @@ export function createOrgRoutes(deps: OrgDeps): Hono {
     const session = await getSession(c);
     if (!session) return c.json({ error: "Authentication required" }, 401);
 
+    const attemptId = await claimJoinAttempt(session.userId);
+    if (!attemptId) return c.json({ error: "join_code_rate_limited", message: "Too many tries. Wait 15 minutes before trying another code." }, 429);
     const body = await c.req.json().catch(() => ({}));
     const code = typeof body.code === "string" ? body.code.trim().toUpperCase() : "";
     if (!code) return c.json({ error: "code is required" }, 400);
 
-    const { rows } = await pool.query<{ organization_id: string; name: string }>(
-      `SELECT j.organization_id, o.name
+    const { rows } = await pool.query<{ organization_id: string; name: string; expired: boolean }>(
+      `SELECT j.organization_id, o.name, j.expires_at <= now() AS expired
          FROM org_join_codes j JOIN organization o ON o.id = j.organization_id
         WHERE j.code = $1`,
       [code],
@@ -537,6 +519,7 @@ export function createOrgRoutes(deps: OrgDeps): Hono {
     const target = rows[0];
     if (!target) return c.json({ error: "Unknown join code" }, 404);
 
+    if (target.expired) return c.json({ error: "join_code_expired", message: "This code has expired. Ask an admin for a new code." }, 410);
     const organizationId = target.organization_id;
     if (await orgRole(organizationId, session.userId)) {
       return c.json({ organizationId, name: target.name, alreadyMember: true });
@@ -557,6 +540,7 @@ export function createOrgRoutes(deps: OrgDeps): Hono {
       [organizationId, session.email],
     );
     const liveInvite = invited.rows.find((r) => r.live);
+    if (liveInvite?.role === "guest") return c.json({ error: "guest_invite_pending", message: "Use your invitation link to join this vault as a guest." }, 409);
     const role = liveInvite?.role === "admin" ? "admin" : "member";
 
     if (teamModel()) {
@@ -577,6 +561,9 @@ export function createOrgRoutes(deps: OrgDeps): Hono {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
+      const currentCode = await client.query("SELECT 1 FROM org_join_codes WHERE organization_id = $1 AND code = $2 AND expires_at > now() FOR SHARE", [organizationId, code]);
+      if (!currentCode.rowCount) { await client.query("ROLLBACK"); return c.json({ error: "join_code_expired", message: "Ask an admin for a new code." }, 410); }
+      await client.query("UPDATE join_code_attempts SET ok = true WHERE id = $1", [attemptId]);
       await client.query(
         `INSERT INTO member (id, "organizationId", "userId", role, "createdAt")
          VALUES ($1, $2, $3, $4, now())`,
@@ -953,8 +940,8 @@ export function createOrgRoutes(deps: OrgDeps): Hono {
 
     const body = await c.req.json().catch(() => null);
     const role = body && typeof body.role === "string" ? body.role : null;
-    if (role !== "member" && role !== "admin") {
-      return c.json({ error: "Role must be 'member' or 'admin'" }, 400);
+    if (role !== "member" && role !== "admin" && role !== "guest") {
+      return c.json({ error: "Choose member, admin or guest" }, 400);
     }
     // No-op guard before any side effects, so repeated clicks don't churn
     // sockets for a change that changes nothing.
@@ -976,11 +963,20 @@ export function createOrgRoutes(deps: OrgDeps): Hono {
         )
       : { rows: [] as Array<{ id: string; vault_id: string }> };
 
-    await pool.query(`UPDATE member SET role = $1 WHERE "organizationId" = $2 AND "userId" = $3`, [
-      role,
-      orgId,
-      targetUserId,
-    ]);
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(`UPDATE member SET role = $1 WHERE "organizationId" = $2 AND "userId" = $3`, [role, orgId, targetUserId]);
+      if (role === "guest") {
+        await client.query("DELETE FROM member_access_snapshots WHERE organization_id=$1 AND user_id=$2", [orgId, targetUserId]);
+        await client.query("DELETE FROM shares WHERE resource_type='vault' AND org_id=$1 AND principal_type='user' AND principal_id=$2", [orgId, targetUserId]);
+        await client.query("DELETE FROM mcp_tokens WHERE organization_id=$1 AND user_id=$2", [orgId, targetUserId]);
+        await client.query("DELETE FROM mcp_oauth_vault WHERE organization_id=$1 AND user_id=$2", [orgId, targetUserId]);
+        await client.query("DELETE FROM bootstrap_sessions WHERE user_id=$1 AND vault_id=ANY($2::text[])", [targetUserId, vaultIds]);
+      }
+      await client.query("COMMIT");
+    } catch (error) { await client.query("ROLLBACK"); throw error; }
+    finally { client.release(); }
 
     // A role change flips effective permissions in BOTH directions, but the
     // `readOnly` flag is baked into the sync token and only checked at connect

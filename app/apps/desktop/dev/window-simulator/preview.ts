@@ -13,6 +13,7 @@ import { registerDevTools } from "../webmcp";
 import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import dailyDashboard from "../../src/dashboards/templates/daily-home.html?raw";
 const params = new URLSearchParams(location.search);
+const surface = params.get("surface");
 document.documentElement.dataset.platform = params.get("platform") === "macos" ? "macos" : "windows";
 notes.push({ ...notes[0], id: "preview-home", docId: "preview-home", relPath: "Home.html", title: "Home", folderId: null });
 notes.push({ ...notes[0], id: "preview-link", docId: "preview-link", relPath: "Artifact.url", title: "Artifact", folderId: null });
@@ -41,7 +42,7 @@ localStorage.setItem(`context.pins:${vault.path}`, JSON.stringify([{ kind: "note
 localStorage.setItem(`context.home:${vault.path}`, "preview-home");
 localStorage.setItem(
   "context.orgVaults",
-  JSON.stringify({ "preview-org": vault.path }),
+  JSON.stringify(params.get("welcome") === "1" ? {} : { "preview-org": vault.path }),
 );
 const note =
   "Three bets this quarter: a simpler Share dialog, a calmer sidebar, and faster sync. Each one has an owner and a date. See [Pricing experiments](Specs/Pricing%20experiments.md) for the numbers behind the second.\n\n## Getting started\n\n- [How Infinite Brain works](https://github.com/sangwookp9591/infinite-brain)\n- [Keyboard shortcuts](https://github.com/sangwookp9591/infinite-brain)\n- [Collaborating with your team](https://github.com/sangwookp9591/infinite-brain)\n";
@@ -97,10 +98,12 @@ mockIPC(
     if (fixture.handled) return fixture.value;
     switch (cmd) {
       case "get_last_vault":
+        // `?welcome=1` previews the vault picker (nothing to reopen).
+        return params.get("welcome") === "1" ? null : vault;
       case "open_vault":
         return vault;
       case "get_recent_vaults":
-        return [{ ...vault, openedAt: Date.now() }];
+        return params.get("welcome") === "1" ? [] : [{ ...vault, openedAt: Date.now() }];
       case "get_vaults_root":
         return params.get("platform") === "macos"
           ? "/Users/kamil/Infinite Brain"
@@ -284,10 +287,15 @@ useStore.setState({
   refreshVault: async () => {
     useStore.setState({ ...initialStore });
   },
-  vault,
+  // `?welcome=1`: no open vault, so the vault picker renders.
+  vault: params.get("welcome") === "1" ? null : vault,
   tree,
-  openNote: { path: "Q3 plan.md", id: "preview-note", title: "Q3 plan" },
-  openTabs: ["Q3 plan.md"],
+  openNote: params.get("welcome") === "1"
+    ? null
+    : surface === "home"
+      ? { path: "Home.html", id: "preview-home", title: "Home" }
+      : { path: "Q3 plan.md", id: "preview-note", title: "Q3 plan" },
+  openTabs: params.get("welcome") === "1" ? [] : [surface === "home" ? "Home.html" : "Q3 plan.md"],
   authStatus: "signed-in",
 
   syncEnabled: true,
@@ -301,7 +309,34 @@ useStore.setState({
 });
 (window as any).previewStore = useStore;
 (window as any).previewUnknownRequests = unknownRequests;
-await import("/src/main.tsx");
+if (surface === "health" || surface === "housekeeper") {
+  await import("/src/assets/fonts/fonts.css");
+  await import("/src/styles/tokens.css");
+  await import("/src/App.css");
+  const { initTheme } = await import("/src/lib/theme.ts");
+  initTheme();
+  if (surface === "housekeeper") {
+    Object.defineProperty(authManager.api, "housekeeperStatus", {
+      configurable: true,
+      value: async () => ({ available: true, provider: "Preview", model: "Preview model", requiresTeam: false }),
+    });
+    Object.defineProperty(authManager.api, "housekeeperDiagnose", {
+      configurable: true,
+      value: async () => ({ checked: 12, model: "Preview model", findings: [] }),
+    });
+  }
+  const React = await import("react");
+  const { createRoot } = await import("react-dom/client");
+  const { SurfacePreview } = await import("./surfacePreview");
+  createRoot(document.getElementById("root")!).render(React.createElement(SurfacePreview, { surface }));
+} else {
+  await import("/src/main.tsx");
+  if (surface === "dashboard-dialog") {
+    window.setTimeout(() => window.dispatchEvent(new CustomEvent("infinitebrain:new-dashboard", { detail: { templateId: "daily" } })), 100);
+  } else if (surface === "dashboard-manage") {
+    window.setTimeout(() => window.dispatchEvent(new CustomEvent("infinitebrain:new-dashboard", { detail: { manage: true } })), 100);
+  }
+}
 requestAnimationFrame(() => registerDevTools([
   {
     name: "app_state",

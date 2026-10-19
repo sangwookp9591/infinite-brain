@@ -24,12 +24,19 @@ Read this file and the relevant tests before changing code. See [`docs/UPSTREAM-
 ## Fork additions (where to look)
 
 - MCP scopes and connections: `app/apps/server/src/mcp/scopes.ts`, `mcp/oauth.ts`, `mcp/tokens.ts`, `http/routes/oauth-connect.ts`; desktop wizard `src/lib/aiConnection.ts`, `src/lib/connectLink.ts`. Scope checks fail closed.
+- MCP OAuth audience/CIMD: `mcp/resource.ts`, `mcp/oauth-exchange.ts`, `mcp/cimd.ts`, migration 061. `BETTER_AUTH_URL` is an explicit HTTPS public origin (HTTP loopback for development); only its `/api/mcp` resource is allowed. OAuth grant/token resource and random connection generation must match the current binding. Consent/exchange/revoke serialize under a per-connection PostgreSQL advisory lock. Legacy unbound OAuth tokens require reconnect; manual legacy tokens remain local credentials. CIMD public clients use pinned public-IP HTTPS fetches and exact redirect matching; `MCP_CIMD_ALLOW_PRIVATE_IPS=true` is development-only.
 - AI change ledger: `app/apps/server/src/ai-changes/` + `http/routes/ai-changes.ts`, migration 057; contract in `docs/AI-CHANGES.md`. Ledger rows commit in the same transaction as the Yjs update.
 - Search: server `src/index/embedder.ts` (Unicode + bigram, `embed_version`, migration 056); desktop trigram/filename search in `src-tauri/src/index.rs`.
 - Invite links: `components/InvitePeopleDialog.tsx` builds the link on the existing join-code/invite flow (`src/lib/inviteLink.ts`); onboarding timing in `src/lib/onboardingTimer.ts`.
 - Galaxy graph: `src/lib/graph/galaxyLayout.ts`, `galaxyRenderer.ts`, mounted by `components/GraphView.tsx`; preview harness `apps/desktop/dev/graph-galaxy/`.
-- Rebrand map: `scripts/rebrand.mjs` (idempotent; `--dry-run` must report 0 files). It skips historical records: `docs/research/`, `docs/reports/`, `docs/FINAL-report.md`, `docs/UPSTREAM-CLAUDE.md`.
+- Rebrand map: `scripts/rebrand.mjs` (idempotent; `--dry-run` must report 0 files). It skips historical records: `docs/research/`, `docs/reports/`, `docs/FINAL-report.md`, `docs/UPSTREAM-CLAUDE.md`, and the 2026-10-17 identity-directions spec (it quotes the original request).
 - Implementation reports live in `docs/reports/`; fork status in `docs/STATUS.md` (top section).
+
+- Security audit: migration 062 installs row triggers on access/membership/invitation/link/connection tables. Both application and Better Auth pools use `audit/client.ts` to bind AsyncLocalStorage actor/request identity with transaction-local `set_config`. A mutation and its audit row commit or roll back together; missing identity is system/unknown. Never use session-wide SET for request identity, bypass these pools for authorization writes, or log note content/credentials. Explicit `recordAudit(client, entry)` uses the same transaction; refused writes are recorded after rollback. Retention is 365 days by default.
+
+- Guest boundaries: guest grants come only from user folder/file rows. `permissions/guest-http.ts` runs inside response compression and projects canonical paths into shared roots while removing other people metadata; path cursors are authenticated opaque values. Stable document IDs remain identity. Single-item creates map a chosen editable folder ID back to its canonical parent; note/file registration batches reverse projected paths only inside existing editable shared folders (existing readable IDs may be adopted without moving); rename/move and folder writes are refused for guests until the full Q3 path contract is implemented. Bootstrap rechecks access on every page. Raw editor awareness is suppressed for guests; vault presence is scoped and anonymized.
+
+- External revocation: migration 066 stores per-operation counts/errors. Guest acceptance and external grant creation serialize on `external-access:<organizationId>`; each removal and progress/audit update share a transaction. `sync/doc-revocations.ts` mirrors document socket closes over the configured pubsub after commit, in addition to existing ACL/member frames.
 
 ## Local gotchas
 

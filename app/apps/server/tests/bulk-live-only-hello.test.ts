@@ -51,6 +51,7 @@ function channel(empty: string[] = []) {
   pubsubs.push(pubsub);
   const backfilled: string[] = [];
   const ch = new VaultChannel({
+    roleForUser: async () => "team",
     pubsub,
     verifyToken: async () => ({ userId: "u1", vaultId: "v1" }),
     listReadableDocs: async () => new Set(["A", "B"]),

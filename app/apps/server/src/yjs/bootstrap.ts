@@ -1,3 +1,5 @@
+import { guestView } from "../permissions/guest-view.js";
+import { orgRole, vaultOrg } from "../permissions/lookup.js";
 import { randomUUID } from "node:crypto";
 import { gzip } from "node:zlib";
 import { promisify } from "node:util";
@@ -249,12 +251,14 @@ async function loadPageLocked(input: LoadPageInput): Promise<BootstrapPageResult
     // existence of someone else's session id.
     if (!session[0] || session[0].expired) throw new SessionExpiredError("session_expired");
 
+    // Re-evaluate inside this page's snapshot; a saved plan never authorizes reads.
+    const readable = await listReadableDocsInVault(input.userId, input.vaultId, client);
     const planned = await q<{ seq: number; doc_id: string; bytes: number }>(
       `SELECT seq, doc_id, bytes FROM bootstrap_session_docs
-        WHERE session_id = $1 AND seq > $2
+        WHERE session_id = $1 AND seq > $2 AND doc_id = ANY($4::text[])
         ORDER BY seq
         LIMIT $3`,
-      [input.sessionId, input.cursor, config.bootstrapMaxPageDocs],
+      [input.sessionId, input.cursor, config.bootstrapMaxPageDocs, [...readable]],
     );
 
     // Pack to the byte budget. A doc bigger than a whole page ships ALONE rather
@@ -289,6 +293,9 @@ async function loadPageLocked(input: LoadPageInput): Promise<BootstrapPageResult
         [ids],
       ),
     ];
+    const org = await vaultOrg(input.vaultId, client);
+    const guest = org && (await orgRole(org, input.userId, client)) === "guest";
+    const view = guest ? await guestView(input.userId, input.vaultId, client) : null;
     await client.query("COMMIT");
 
     const snapById = new Map(snapshots.map((r) => [r.doc_id, r.snapshot]));
@@ -311,7 +318,7 @@ async function loadPageLocked(input: LoadPageInput): Promise<BootstrapPageResult
       // `Y.mergeUpdates`, never `new Y.Doc()`: building a doc costs the full
       // struct graph of the note in heap, and this runs 256 times per page.
       const update = parts.length === 1 ? parts[0] : Y.mergeUpdates(parts);
-      const doc: BootstrapDoc = { docId: doc_id, relPath: pathById.get(doc_id) ?? "", update };
+      const doc: BootstrapDoc = { docId: doc_id, relPath: view ? view.projectPath(pathById.get(doc_id) ?? "") : pathById.get(doc_id) ?? "", update };
       docs.push(doc);
       bytes += encodedDocBytes(doc);
     }

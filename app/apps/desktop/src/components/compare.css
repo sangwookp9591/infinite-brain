@@ -32,12 +32,13 @@
   height: 100%;
   min-height: 0;
   background: var(--bg-surface);
+  min-width: 0;
 }
 .vtab-header {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 8px 16px;
+  padding: var(--sp-3) var(--sp-4);
   border-bottom: 1px solid var(--border);
   font-size: var(--fs-sm);
   color: var(--text-secondary);
@@ -183,7 +184,7 @@
   border-top: 1px solid var(--border);
 }
 .review-list {
-  width: 300px;
+  width: min(300px, 34vw);
   flex-shrink: 0;
   border-left: 1px solid var(--border);
   overflow: auto;

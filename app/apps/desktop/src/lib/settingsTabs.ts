@@ -9,6 +9,7 @@
 // The dialog re-exports this type, so its existing importers are unchanged.
 
 export type SettingsTab =
+  | "security"
   | "general"
   | "ai"
   | "dashboards"

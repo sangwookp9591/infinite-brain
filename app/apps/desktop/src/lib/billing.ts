@@ -469,7 +469,7 @@ export function vaultPlanLine(input: {
  *  so the helper doesn't drag the API types into its tests. */
 export interface TransferCandidate {
   orgId: string;
-  role: "owner" | "admin" | "member";
+  role: "owner" | "admin" | "member" | "guest";
   plan: "free" | "pro" | "team";
   status: SubscriptionFacts["status"];
 }

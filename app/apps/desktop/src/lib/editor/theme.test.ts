@@ -164,6 +164,21 @@ describe("dark palette contrast", () => {
   });
 });
 
+describe("editor body contrast", () => {
+  const light = tokensCss.match(/:root \{([\s\S]*?)\n\}/)?.[1] ?? "";
+  const dark = explicitDark;
+  const colorIn = (block: string, name: string) => rgb(tokenValue(block, name)!);
+
+  it("keeps body text and links at 4.5:1 on the editor sheet in light and dark", () => {
+    for (const palette of [light, dark]) {
+      const surface = colorIn(palette, "--bg-surface");
+      for (const foreground of ["--text-primary", "--text-secondary", "--link"]) {
+        expect(contrast(colorIn(palette, foreground), surface), `${foreground} on editor sheet`).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+  });
+});
+
 describe("editor theme tiers", () => {
   it("uses distinct active and inactive drawSelection tokens", () => {
     expect(

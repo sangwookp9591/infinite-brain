@@ -1,3 +1,4 @@
+import { isManagerRole, isTeamRole } from "./roles.js";
 import type pg from "pg";
 import { pool as defaultPool } from "../db/pool.js";
 import { orgRole, vaultOrg } from "./lookup.js";
@@ -136,6 +137,10 @@ export async function canEditFolder(
     ? await cache.role(db, row.organization_id, userId)
     : await orgRole(row.organization_id, userId, db);
   if (role === null) return false; // not a member of the vault
+  if (!isTeamRole(role)) {
+    const context = await buildAccessContext("folder", folderId, db, cache);
+    return !!context && (await resolveAccessForUser(context, userId, role, db, cache)).permission === "edit";
+  }
 
   // Overlays first — they outrank the role below, because what the Access panel
   // sets applies to whoever set it.
@@ -433,6 +438,8 @@ export async function vaultRootWritable(
   db: Queryable = defaultPool,
   cache?: ResolverCache,
 ): Promise<boolean> {
+  const role = cache ? await cache.role(db, organizationId, userId) : await orgRole(organizationId, userId, db);
+  if (!isTeamRole(role)) return false;
   // Billing lapse caps everyone, ahead of the person's own level.
   if (await isAccountReadOnly(db, organizationId, cache)) return false;
   // A person's own vault level decides for them, whatever the posture.
@@ -482,6 +489,7 @@ export async function canWriteAttachment(
 ): Promise<boolean> {
   const access = await vaultAccess(db, userId, vaultId);
   if (!access || access.role === null) return false; // unknown vault or not a member
+  if (!isTeamRole(access.role)) return false;
   if (await vaultRootWritable(userId, access.organizationId, db)) return true;
   // Under Can view / No access the root is closed, but a person may still edit
   // notes through a folder or note grant, and pasting an image into one of
@@ -564,6 +572,16 @@ export async function canWriteBlob(
 ): Promise<boolean> {
   const vaultId = blob.vault_id;
   if (!vaultId) return false; // a legacy row with no collection has no folder and no posture
+  const organizationId = await vaultOrg(vaultId, db);
+  if (organizationId && (await orgRole(organizationId, userId, db)) === "guest") {
+    if (blob.doc_id && await fileDoc(db,vaultId,blob.doc_id)) return canEditDoc(userId,blob.doc_id,db);
+    const candidates = await db.query<{ id: string }>(`SELECT id FROM notes WHERE vault_id=$1 AND deleted_at IS NULL AND
+      (id=$2::text OR id IN (SELECT doc_id FROM note_index WHERE vault_id=$1 AND $3::text IS NOT NULL AND content LIKE '%' || $3 || '%' ESCAPE '\\'))`,
+      [vaultId, blob.doc_id ?? null, blob.rel_path ? likeEscape(blob.rel_path) : null]);
+    for (const row of candidates.rows) if ((await effectivePermission(userId, row.id, db)) === "edit") return true;
+    // Tree files still use their own resolver and parent checks below.
+    if (!blob.doc_id || !(await fileDoc(db, vaultId, blob.doc_id))) return false;
+  }
   if (blob.doc_id) {
     const file = await fileDoc(db, vaultId, blob.doc_id);
     if (file) {
@@ -592,14 +610,6 @@ export async function canWriteBlob(
 export type DeleteRefusalCode = "delete_not_creator" | "folder_has_others_items" | "account_read_only";
 export type DeleteGate = { ok: true } | { ok: false; code: DeleteRefusalCode };
 
-/** True when a Better Auth role string (possibly comma-joined) names owner or admin. */
-function isManagerRole(role: string | null | undefined): boolean {
-  if (!role) return false;
-  return role.split(",").some((r) => {
-    const t = r.trim();
-    return t === "owner" || t === "admin";
-  });
-}
 
 /**
  * The deletion rule: an owner or admin may delete anything; a plain member may
@@ -629,6 +639,9 @@ export async function canDeleteItem(
     input.orgRole !== undefined ? input.orgRole : await orgRole(input.orgId, input.userId, db);
   if (isManagerRole(role)) return { ok: true };
   const notCreator: DeleteGate = { ok: false, code: "delete_not_creator" };
+  if (!isTeamRole(role)) {
+    if (input.kind === "folder" || (await effectivePermission(input.userId, input.id, db)) !== "edit") return notCreator;
+  }
 
   if (input.kind === "note" || input.kind === "file") {
     const table = input.kind === "note" ? "notes" : "files";

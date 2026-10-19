@@ -1,3 +1,4 @@
+import { isManagerRole, isTeamRole } from "../../permissions/roles.js";
 import { randomUUID } from "node:crypto";
 import { isAccountReadOnly } from "../../billing/lapse.js";
 import { Hono } from "hono";
@@ -29,6 +30,7 @@ import {
   canManageMemberAccess,
   getJoinDefault,
   nextAccessRevision,
+  validateShareTargets,
   setJoinDefault,
   type AccessAudience,
   type AccessMode,
@@ -257,11 +259,12 @@ export function createShareRoutes(deps: ShareDeps): Hono {
     const info = await resolveResource(resourceType, resourceId);
     if (!info) return { ok: false, status: 404, error: "Unknown resource" };
     const role = await orgRole(info.organizationId, userId);
-    const isAdmin = role === "owner" || role === "admin";
+    const isAdmin = isManagerRole(role);
     // Vault posture (Open/Read-only/Private) is an owner/admin decision;
     // the per-resource "creator can manage" escape hatch doesn't apply.
     const isCreator =
       resourceType !== "vault" &&
+      isTeamRole(role) &&
       info.createdBy !== null &&
       info.createdBy === userId;
     if (!isAdmin && !isCreator) {
@@ -526,82 +529,87 @@ export function createShareRoutes(deps: ShareDeps): Hono {
     if (typeof principalId !== "string" || !principalId) {
       return c.json({ error: "principalId required for user shares" }, 400);
     }
-    if (principalType === "user") {
-      // A per-person row is that person's access: an admin may set it for
-      // anyone but the owner (`canManageMemberAccess`). Creators sharing
-      // their own item keep the older rule.
-      const actorRole = await orgRole(gate.organizationId!, session.userId);
-      if (actorRole === "admin") {
-        const targetRole = await orgRole(gate.organizationId!, principalId);
-        if (targetRole && !canManageMemberAccess(actorRole, targetRole, principalId === session.userId)) {
-          return c.json({ error: "access_manager_required", message: "An admin can only change the access of members or themselves" }, 403);
+    const client = await pool.connect();
+    let rows: Array<{ id: string }>;
+    try {
+      await client.query("BEGIN");
+      if (principalType === "user") {
+        await validateShareTargets(client, gate.organizationId!, [principalId], session.userId, [{ resourceType, resourceId }], true);
+      }
+
+      // Locks are subsumption-aware: an Everyone/org lock on a resource makes any
+      // per-user lock on the SAME resource redundant. Without this, a resource can
+      // carry both an org lock and a user lock, and Unlock becomes misleading —
+      // removing one leaves the resource locked by the other, so unlock appears to
+      // do nothing. We keep a single authoritative lock per resource instead.
+      if (permission === "locked" && principalType === "user") {
+        // An org lock already covers everyone here — the per-user lock adds
+        // nothing. No-op and report the effective (org) lock.
+        const { rows: orgLock } = await client.query<{ id: string }>(
+          `SELECT id FROM shares
+            WHERE resource_type = $1 AND resource_id = $2
+              AND principal_type = 'org' AND permission = 'locked'
+            LIMIT 1`,
+          [resourceType, resourceId],
+        );
+        if (orgLock[0]) {
+          await client.query("COMMIT");
+          return c.json(
+            {
+              id: orgLock[0].id,
+              resourceType,
+              resourceId,
+              principalType: "org",
+              principalId: gate.organizationId,
+              permission: "locked",
+              subsumed: true,
+            },
+            200,
+          );
         }
       }
-    }
 
-    // Locks are subsumption-aware: an Everyone/org lock on a resource makes any
-    // per-user lock on the SAME resource redundant. Without this, a resource can
-    // carry both an org lock and a user lock, and Unlock becomes misleading —
-    // removing one leaves the resource locked by the other, so unlock appears to
-    // do nothing. We keep a single authoritative lock per resource instead.
-    if (permission === "locked" && principalType === "user") {
-      // An org lock already covers everyone here — the per-user lock adds
-      // nothing. No-op and report the effective (org) lock.
-      const { rows: orgLock } = await pool.query<{ id: string }>(
-        `SELECT id FROM shares
-          WHERE resource_type = $1 AND resource_id = $2
-            AND principal_type = 'org' AND permission = 'locked'
-          LIMIT 1`,
-        [resourceType, resourceId],
+      const id = randomUUID();
+      const accessRevision = await nextAccessRevision(client, gate.organizationId!);
+      const result = await client.query<{ id: string }>(
+        `INSERT INTO shares
+           (id, org_id, resource_type, resource_id, principal_type, principal_id, permission, created_by, access_revision)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         ON CONFLICT (resource_type, resource_id, principal_type, principal_id)
+         DO UPDATE SET permission = EXCLUDED.permission, access_revision = EXCLUDED.access_revision
+         RETURNING id`,
+        [
+          id,
+          gate.organizationId,
+          resourceType,
+          resourceId,
+          principalType,
+          principalId,
+          permission,
+          session.userId,
+          accessRevision,
+        ],
       );
-      if (orgLock[0]) {
-        return c.json(
-          {
-            id: orgLock[0].id,
-            resourceType,
-            resourceId,
-            principalType: "org",
-            principalId: gate.organizationId,
-            permission: "locked",
-            subsumed: true,
-          },
-          200,
+
+      // An Everyone/org lock subsumes any per-user locks on the same resource —
+      // drop them so a single Unlock actually unlocks. (Those users stay locked by
+      // the org lock, so no access change and no socket kick is needed.)
+      if (permission === "locked" && principalType === "org") {
+        await client.query(
+          `DELETE FROM shares
+            WHERE resource_type = $1 AND resource_id = $2
+              AND principal_type = 'user' AND permission = 'locked'`,
+          [resourceType, resourceId],
         );
       }
-    }
 
-    const id = randomUUID();
-    const accessRevision = await nextAccessRevision(pool, gate.organizationId!);
-    const { rows } = await pool.query<{ id: string }>(
-      `INSERT INTO shares
-         (id, org_id, resource_type, resource_id, principal_type, principal_id, permission, created_by, access_revision)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-       ON CONFLICT (resource_type, resource_id, principal_type, principal_id)
-       DO UPDATE SET permission = EXCLUDED.permission, access_revision = EXCLUDED.access_revision
-       RETURNING id`,
-      [
-        id,
-        gate.organizationId,
-        resourceType,
-        resourceId,
-        principalType,
-        principalId,
-        permission,
-        session.userId,
-        accessRevision,
-      ],
-    );
-
-    // An Everyone/org lock subsumes any per-user locks on the same resource —
-    // drop them so a single Unlock actually unlocks. (Those users stay locked by
-    // the org lock, so no access change and no socket kick is needed.)
-    if (permission === "locked" && principalType === "org") {
-      await pool.query(
-        `DELETE FROM shares
-          WHERE resource_type = $1 AND resource_id = $2
-            AND principal_type = 'user' AND permission = 'locked'`,
-        [resourceType, resourceId],
-      );
+      rows = result.rows;
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      return accessError(c, error);
+    } finally {
+      client.release();
     }
 
     // Any downgrade to read-only must reach live editors immediately — force

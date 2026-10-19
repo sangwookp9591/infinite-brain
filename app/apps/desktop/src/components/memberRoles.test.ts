@@ -17,7 +17,7 @@ describe("canActOnMember / assignableRoles", () => {
   it("owner may act on admins and members", () => {
     expect(canActOnMember(args("owner", "member"))).toBe(true);
     expect(canActOnMember(args("owner", "admin"))).toBe(true);
-    expect(assignableRoles(args("owner", "admin"))).toEqual(["member", "admin"]);
+    expect(assignableRoles(args("owner", "admin"))).toEqual(["member", "admin", "guest"]);
   });
 
   it("nobody acts on the owner or on themselves", () => {
@@ -29,7 +29,7 @@ describe("canActOnMember / assignableRoles", () => {
 
   it("admin may act on plain members only (promote allowed, admins off-limits)", () => {
     expect(canActOnMember(args("admin", "member"))).toBe(true);
-    expect(assignableRoles(args("admin", "member"))).toEqual(["member", "admin"]);
+    expect(assignableRoles(args("admin", "member"))).toEqual(["member", "admin", "guest"]);
     expect(canActOnMember(args("admin", "admin"))).toBe(false);
     expect(assignableRoles(args("admin", "admin"))).toEqual([]);
   });

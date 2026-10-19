@@ -4,7 +4,7 @@ import { pool } from "../src/db/pool.js";
 import { resetDb } from "./helpers/db.js";
 import { recordingAppDeps } from "./helpers/app.js";
 import { authHeaders, createOrg, signUp, type TestUser } from "./helpers/auth.js";
-import { seedNote, seedVault } from "./helpers/seed.js";
+import { seedMember, seedNote, seedVault } from "./helpers/seed.js";
 
 /**
  * POST /api/shares must force-close live sockets for every affected doc whenever
@@ -44,6 +44,7 @@ describe("POST /shares — realtime read-only enforcement", () => {
     docId = await seedNote(vault, null, "note.md");
     const member = await signUp("member@shares.test");
     memberId = member.userId;
+    await seedMember(orgId, memberId, "member");
   });
   afterAll(async () => {
     await pool.end();

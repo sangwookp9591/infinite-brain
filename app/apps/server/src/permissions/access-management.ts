@@ -1,4 +1,6 @@
+import { requireExternalSharing } from "./external-sharing.js";
 // SPDX-License-Identifier: Apache-2.0
+import { isActiveRole, isManagerRole, isTeamRole } from "./roles.js";
 import { randomUUID } from "node:crypto";
 import type pg from "pg";
 import { pool as defaultPool } from "../db/pool.js";
@@ -34,7 +36,7 @@ export async function requireAccessManager(
   db: Queryable = defaultPool,
 ): Promise<void> {
   const role = await orgRole(organizationId, userId, db);
-  if (role !== "owner" && role !== "admin") {
+  if (!isManagerRole(role)) {
     throw new AccessManagementError(
       "Only the vault owner or an admin can manage access",
       403,
@@ -61,7 +63,7 @@ export function canManageMemberAccess(
   isSelf: boolean,
 ): boolean {
   if (viewerRole === "owner") return true;
-  if (viewerRole === "admin") return isSelf || targetRole === "member" || targetRole === "admin";
+  if (viewerRole === "admin") return isSelf || targetRole === "member" || targetRole === "admin" || targetRole === "guest";
   return false;
 }
 
@@ -154,41 +156,50 @@ async function validateResources(
   }
 }
 
-async function validateAudience(
+/** Validate and lock targets in the SAME transaction as the ACL write.
+ * Removal deletes member first, then its shares, so FOR SHARE serializes both.
+ */
+export async function validateShareTargets(
   db: Queryable,
   organizationId: string,
-  audience: AccessAudience,
+  userIds: string[],
   actorUserId: string,
+  resources: AccessResource[],
+  allowCreator = false,
 ): Promise<string[]> {
-  if (audience.type === "org") return [];
-  const ids = [...new Set(audience.userIds.filter(Boolean))];
+  const ids = [...new Set(userIds.filter(Boolean))].sort();
   if (ids.length === 0 || ids.length > 500) {
-    throw new AccessManagementError(
-      "userIds must contain between 1 and 500 members",
-      400,
-      "invalid_audience",
-    );
+    throw new AccessManagementError("Choose between 1 and 500 people", 400, "invalid_audience");
   }
+  // Global revocation lock must precede membership row locks: a bulk revoke
+  // holds it while deleting guest rows on another transaction connection.
+  await db.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",[`external-access:${organizationId}`]);
   const { rows } = await db.query<{ user_id: string; role: string }>(
     `SELECT "userId" AS user_id, role FROM member
-      WHERE "organizationId" = $1 AND "userId" = ANY($2::text[])`,
+      WHERE "organizationId" = $1 AND "userId" = ANY($2::text[])
+      ORDER BY "userId" FOR SHARE`,
     [organizationId, ids],
   );
-  if (rows.length !== ids.length) {
-    throw new AccessManagementError(
-      "Every selected person must be a current vault member",
-      404,
-      "member_not_found",
-    );
+  if (rows.length !== ids.length || rows.some((row) => !isActiveRole(row.role))) {
+    throw new AccessManagementError("This person has not joined this vault yet. Invite them first.", 400, "share_target_not_member");
   }
   const actorRole = await orgRole(organizationId, actorUserId, db);
+  if (!isManagerRole(actorRole) && !(allowCreator && isTeamRole(actorRole))) {
+    throw new AccessManagementError("Ask a vault owner or admin to change sharing.", 403, "access_manager_required");
+  }
   for (const row of rows) {
-    if (!canManageMemberAccess(actorRole, row.role, row.user_id === actorUserId)) {
-      throw new AccessManagementError(
-        "An admin can only change the access of members or themselves",
-        403,
-        "access_manager_required",
-      );
+    if (!isTeamRole(row.role)) {
+      if (resources.some((resource) => resource.resourceType === "vault")) {
+        throw new AccessManagementError("Share individual folders or notes with a guest.", 400, "guest_vault_level_not_allowed");
+      }
+      if (!isManagerRole(actorRole)) {
+        throw new AccessManagementError("Ask a vault owner or admin to share with a guest.", 403, "access_manager_required");
+      }
+      const identity=(await db.query<{email:string;verified:boolean}>('SELECT email,"emailVerified" AS verified FROM "user" WHERE id=$1',[row.user_id])).rows[0];
+      await requireExternalSharing(organizationId,"share",identity,db);
+    }
+    if (actorRole === "admin" && !canManageMemberAccess(actorRole, row.role, row.user_id === actorUserId)) {
+      throw new AccessManagementError("An admin cannot change the owner's access.", 403, "access_manager_required");
     }
   }
   return ids;
@@ -283,7 +294,7 @@ export async function applyBulkAccess(
   ];
   await requireAccessManager(input.organizationId, input.actorUserId, db);
   await validateResources(db, input.organizationId, resources);
-  const selectedUsers = await validateAudience(db, input.organizationId, input.audience, input.actorUserId);
+  let selectedUsers: string[] = [];
   const currentMembers = await db.query<{ user_id: string }>(
     `SELECT "userId" AS user_id FROM member WHERE "organizationId" = $1`,
     [input.organizationId],
@@ -293,6 +304,9 @@ export async function applyBulkAccess(
   let cleared = 0;
   try {
     await client.query("BEGIN");
+    if (input.audience.type === "users") {
+      selectedUsers = await validateShareTargets(client, input.organizationId, input.audience.userIds, input.actorUserId, resources);
+    }
     const revision = await nextAccessRevision(client, input.organizationId);
     for (const resource of resources) {
       cleared += await clearResourceOverrides(

@@ -857,7 +857,7 @@ interface AppStore {
   /** Remove a member from the active vault (owner/admin), then refresh. */
   removeMember: (userId: string) => Promise<void>;
   /** Change a member's role in the active vault (owner/admin), then refresh. */
-  updateMemberRole: (userId: string, role: "member" | "admin") => Promise<void>;
+  updateMemberRole: (userId: string, role: "member" | "admin" | "guest") => Promise<void>;
   acceptInvitation: (invitationId: string) => Promise<void>;
   /** Re-read only the signed-in user's own pending invitations (live arrival,
    *  window focus, the account menu opening). Cheap: one GET. */
@@ -1786,7 +1786,11 @@ function sameVault(get: () => AppStore, epoch: number | null | undefined): boole
  * server enforces the same latch and is the authority. (A note written past it
  * would be permanently unsyncable: the server refuses to register it.)
  */
+function isGuestVault(get: () => AppStore): boolean {
+  const state=get();return state.syncEnabled && state.members.some(member=>member.userId===state.session?.user.id && member.role==="guest");
+}
 function rootCreateBlocked(get: () => AppStore, dir: string): boolean {
+  if(dir==="" && isGuestVault(get)){toast("Choose a shared folder you can edit, then add a note there.","error");return true;}
   if (dir !== "" || !get().rootFrozen) return false;
   toast(
     "This vault's root is frozen — create this inside a folder instead.",
@@ -2919,6 +2923,7 @@ export const useStore = create<AppStore>((set, get) => ({
 
   renameNoteFileExact: async (oldPath, newPath) => {
     if (oldPath === newPath) return true;
+    if(isGuestVault(get)){toast("Ask an admin to rename or move this note.","error");return false;}
     const epoch = get().vault?.epoch;
     // Epoch-pinned: this spans awaits, so a vault switch mid-rename must be
     // refused by Rust rather than applied to the other vault.

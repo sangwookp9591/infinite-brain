@@ -1,4 +1,6 @@
-/* Fixed graph palette: the immersive space stays dark in both app themes. */
+/* Graph-only palette. The canvas is an immersive dark sky in both app themes;
+   keep these renderer-facing colors together so CSS and GPU backends share
+   one visual contract. */
 .graph-view {
   --graph-space-core: #0f111b;
   --graph-space-mid: #080910;
@@ -17,6 +19,8 @@
   --graph-help: #aab6d0;
   --graph-focus: #aabaff;
   --graph-label: #d2ddf4;
+  --graph-edge: #779acb;
+  --graph-ray: #c2ddff;
   --graph-chrome-surface: rgba(15, 20, 36, 0.72);
   --graph-chrome-border: rgba(178, 194, 230, 0.15);
   --graph-chrome-text: #e3e9f8;
@@ -32,7 +36,7 @@
   position: fixed;
   inset: 0;
   z-index: 200;
-  background: var(--bg-app);
+  background: var(--graph-space-rim);
   display: flex;
   flex-direction: column;
   animation: fade-in var(--t-med) var(--ease) both;
@@ -102,7 +106,7 @@
   padding: var(--sp-2) var(--sp-3);
   background: var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-card);
+  border-radius: var(--radius-island);
   box-shadow: var(--shadow-md);
   pointer-events: auto;
 }

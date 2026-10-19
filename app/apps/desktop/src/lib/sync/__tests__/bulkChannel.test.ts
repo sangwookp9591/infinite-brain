@@ -16,7 +16,12 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ApiClient } from "../../api";
 import { encodeHello } from "../vaultProtocol";
-import { VaultSyncEngine, type DocUpdateSink, type WebSocketLike } from "../vaultSyncEngine";
+import {
+  VaultSyncEngine,
+  WS_CLOSE_UNAUTHORIZED,
+  type DocUpdateSink,
+  type WebSocketLike,
+} from "../vaultSyncEngine";
 
 function fakeApi(): ApiClient {
   return {
@@ -59,6 +64,37 @@ const flush = async () => {
 };
 
 describe("hello.mode", () => {
+  it("keeps the close handler for err + 4401 and stops without retrying", async () => {
+    const sock = fakeSocket();
+    const schedule = vi.fn(() => 17 as unknown as ReturnType<typeof setTimeout>);
+    const clear = vi.fn();
+    const statuses: string[] = [];
+    const engine = new VaultSyncEngine({
+      api: fakeApi(),
+      vaultId: "v1",
+      sink: fakeSink(),
+      wsFactory: () => sock.ws,
+      reconnect: { baseMs: 0, maxMs: 0 },
+      setTimeoutImpl: schedule,
+      clearTimeoutImpl: clear,
+      onStatus: (status) => statuses.push(status),
+    });
+    engine.start();
+    await flush();
+    sock.ws.onopen?.({});
+    await flush();
+
+    sock.ws.onmessage?.({ data: JSON.stringify({ t: "err", message: "membership ended" }) });
+    expect(schedule).not.toHaveBeenCalled();
+    expect(sock.ws.onclose).not.toBeNull();
+
+    sock.ws.onclose?.({ code: WS_CLOSE_UNAUTHORIZED, reason: "membership ended" });
+    expect(engine.getStatus()).toBe("no-access");
+    expect(statuses).toContain("no-access");
+    expect(schedule).not.toHaveBeenCalled();
+    engine.stop();
+  });
+
   it("is absent by default — the frame every shipped server already parses", () => {
     const frame = JSON.parse(encodeHello({ token: "t", manifest: {} }));
     expect("mode" in frame).toBe(false);

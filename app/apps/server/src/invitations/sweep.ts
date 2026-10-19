@@ -1,3 +1,4 @@
+import { sweepAuditLog } from "../audit/log.js";
 // SPDX-License-Identifier: Apache-2.0
 //
 // Invitation reminders and expiry notices (#268).
@@ -195,6 +196,7 @@ export async function sweepInvitationsOnce(opts: SweepOptions = {}): Promise<Swe
     );
     expiredCount = noticed.rows.length;
     expiredOrgs = [...new Set(noticed.rows.map((r) => r.organization_id))];
+    await sweepAuditLog(client);
     await client.query("COMMIT");
   } catch (err) {
     await client.query("ROLLBACK").catch(() => {});

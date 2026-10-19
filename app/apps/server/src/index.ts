@@ -1,3 +1,4 @@
+import { createDocRevocations } from "./sync/doc-revocations.js";
 import { startAiChangesRetention, stopAiChangesRetention } from "./ai-changes/retention.js";
 import { noteLastSeenForVault } from "./members/last-seen.js";
 import { serve } from "@hono/node-server";
@@ -173,6 +174,7 @@ async function main() {
     },
   );
   await sync.listen();
+  const docRevocations=await createDocRevocations(pubsub,(vaultId,docId)=>disconnectDoc(sync,vaultId,docId));
 
   // Both structural and ACL changes drop this instance's display-only readable
   // sets for the vault first (#261, `permissions/readable-cache.ts`).
@@ -317,7 +319,9 @@ async function main() {
   });
 
   const app = createApp({
-    disconnectDoc: (vaultId, docId) => disconnectDoc(sync, vaultId, docId),
+    disconnectDoc: (vaultId, docId) => {
+      void docRevocations.disconnect(vaultId,docId).catch(broadcastFailed("document-revocation"));
+    },
     evictDoc: (vaultId, docId) => evictDoc(sync, vaultId, docId),
     // Share create/revoke → subscribers re-evaluate their readable-doc set.
     onAclChanged: (vaultId) => {
@@ -412,6 +416,7 @@ async function main() {
     syncWss.close();
     releaseWatch?.stop();
     vaultWss.close();
+    await docRevocations.stop();
     await pubsub.close();
     await sync.destroy();
     process.exit(0);

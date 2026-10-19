@@ -1,3 +1,6 @@
+import { externalSharing, requireExternalSharing } from "../../permissions/external-sharing.js";
+import { AccessManagementError } from "../../permissions/access-management.js";
+import { isManagerRole, isTeamRole } from "../../permissions/roles.js";
 import { randomBytes, randomUUID } from "node:crypto";
 import { Readable } from "node:stream";
 import { Hono } from "hono";
@@ -113,8 +116,8 @@ async function gate(
   const note = await liveNote(docId);
   if (!note) return { ok: false, status: 404, error: "Unknown note" };
   const role = await orgRole(note.organizationId, userId);
-  const isAdmin = role === "owner" || role === "admin";
-  const isCreator = note.createdBy !== null && note.createdBy === userId;
+  const isAdmin = isManagerRole(role);
+  const isCreator = isTeamRole(role) && note.createdBy !== null && note.createdBy === userId;
   if (!isAdmin && !isCreator) {
     return { ok: false, status: 403, error: "Not allowed to manage sharing here" };
   }
@@ -144,22 +147,34 @@ publicLinkApiRoutes.post("/notes/:docId/public-link", async (c) => {
   // Create-or-get: repeated copies must return the SAME url. The unique
   // doc_id key makes the race harmless — the loser's insert is a no-op and
   // both callers read back the one surviving row.
-  const inserted = await pool.query<LinkRow>(
+  const client = await pool.connect();
+  let created: LinkRow | null = null;
+  let row: LinkRow | undefined;
+  try {
+    await client.query("BEGIN");
+    await requireExternalSharing(g.note.organizationId,"public",undefined,client);
+  const inserted = await client.query<LinkRow>(
     `INSERT INTO public_links (id, doc_id, vault_id, org_id, token, created_by)
      VALUES ($1, $2, $3, $4, $5, $6)
      ON CONFLICT (doc_id) DO NOTHING
      RETURNING id, doc_id, token, created_at`,
     [randomUUID(), docId, g.note.vaultId, g.note.organizationId, mintToken(), session.userId],
   );
-  const created = inserted.rows[0] ?? null;
-  const row =
+  created = inserted.rows[0] ?? null;
+  row =
     created ??
     (
-      await pool.query<LinkRow>(
+      await client.query<LinkRow>(
         "SELECT id, doc_id, token, created_at FROM public_links WHERE doc_id = $1",
         [docId],
       )
     ).rows[0];
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    if(error instanceof AccessManagementError) return c.json({error:error.code,message:error.message},error.status);
+    throw error;
+  } finally { client.release(); }
   if (!row) return c.json({ error: "Unknown note" }, 404);
   return c.json(
     {
@@ -359,7 +374,9 @@ async function noteForToken(token: string): Promise<PublicNoteRow | null> {
       WHERE pl.token = $1`,
     [token],
   );
-  return rows[0] ?? null;
+  const row = rows[0] ?? null;
+  if (row && (await externalSharing(row.org_id)).mode !== "on") return null;
+  return row;
 }
 
 /** Display title: stored title, else the filename without extension. */

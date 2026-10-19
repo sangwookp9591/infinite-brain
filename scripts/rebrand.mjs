@@ -45,6 +45,7 @@ export const BRAND = {
     ".git/", "node_modules/", "target/", "dist/", "build/", ".context/",
     "app/apps/desktop/public/dashboard-templates/", // Imported vendor assets and attribution.
     "docs/research/", "docs/FINAL-report.md", "docs/UPSTREAM-CLAUDE.md", "docs/BRANDING.md", // Historical/source records.
+    "docs/superpowers/specs/2026-10-17-identity-redesign-directions.md", // Quotes the original redesign request verbatim.
     "scripts/rebrand.mjs", "scripts/rebrand.test.mjs", "docs/reports/", // Source map, fixtures, and audit reports preserve old values intentionally.
     "CHANGELOG.md", "LICENSE", "NOTICE", "TRADEMARK.md", // Rewritten or preserved separately.
   ],
@@ -102,10 +103,27 @@ const replacements = [
   [BRAND.from.repositoryPath, "sangwookp9591/infinite-brain"],
 ];
 
+// Phrases that name the upstream project on purpose (fork attribution, design history).
+const preservedPhrases = [
+  "Baalda 0.1.83",
+  "upstream Baalda",
+  "Baalda/Atomize PLUS",
+  "Baalda처럼",
+  "Baalda에서 물려받은",
+];
+
 export function rebrandText(input) {
-  return replacements
+  const masked = preservedPhrases.reduce(
+    (text, phrase, i) => text.split(phrase).join(`\u0000preserved${i}\u0000`),
+    input,
+  );
+  const replaced = replacements
     .sort(([a], [b]) => b.length - a.length)
-    .reduce((text, [from, to]) => text.split(from).join(to), input);
+    .reduce((text, [from, to]) => text.split(from).join(to), masked);
+  return preservedPhrases.reduce(
+    (text, phrase, i) => text.split(`\u0000preserved${i}\u0000`).join(phrase),
+    replaced,
+  );
 }
 
 function isExcluded(path) {

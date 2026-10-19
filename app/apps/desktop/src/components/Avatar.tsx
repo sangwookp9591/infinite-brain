@@ -1,38 +1,24 @@
 /* ============================================================
-   Character avatars — every user is auto-assigned a unique illustrated
-   character (DiceBear "notionists" — clean, professional Notion-style line
-   art) from a stable seed (their id/email/name), so nobody is stuck with a
-   flat "TU". Generated as pure SVG on-device: no network, no external avatar
-   service (which would break local-first and leak identity), and the same
-   seed renders the same character on every machine. Backgrounds are drawn
-   from our happy palette so the vibe stays coherent.
+   Generated avatars — every person without a photo gets a "neuron": a soma,
+   a few dendrites ending in bulbs, and one thicker axon, drawn on a lavender
+   tile (`lib/avatar/neuron.ts`). It is seeded from their id/email/name, built
+   as pure SVG on-device (no network, no external avatar service that would
+   break local-first and leak identity), and the same seed renders the same
+   neuron on every machine. People differ by shape as well as hue.
 
-   LAZY ONLY. `@dicebear/collection` is ~300 KB, so this module must never be
-   static-imported from a module that is in the eager startup graph — eager
-   call sites go through `./Face` (`<Face>` / `<LazyAvatar>`) instead. Modules
-   that already live behind a lazy boundary (Editor, the vault-settings
-   dialog, ShareDialog) import it directly, which is correct: they pay for the
-   chunk they are already in.
+   EAGER-SAFE. The old third-party generator was ~300 KB, so it had to stay
+   behind a lazy boundary. The neuron generator is ~3 KB
+   with no dependencies, so it is imported statically everywhere (`./Face`
+   is now a thin re-export) and no first-screen monogram swap is needed.
    ============================================================ */
-import { useEffect, useId, useMemo, useState, type CSSProperties } from "react";
-import { createAvatar } from "@dicebear/core";
-import { notionists } from "@dicebear/collection";
-import { PRESENCE_PALETTE } from "../lib/presence/color";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useResolvedAvatar, type AvatarIdentity } from "../lib/avatarIdentity";
-import { scopeSvgIds } from "../lib/svgIds";
+import { neuronSvg, type AvatarTheme } from "../lib/avatar/neuron";
+import { useAvatarTheme } from "../lib/avatar/useAvatarTheme";
 
-// Palette hex values without the leading "#", as DiceBear expects. DiceBear
-// deterministically picks one per seed, so each character gets its own colour.
-const AVATAR_BG = PRESENCE_PALETTE.map((c) => c.slice(1));
-
-/** Build the illustrated-character SVG for a seed. */
-export function characterSvg(seed: string): string {
-  return createAvatar(notionists, {
-    seed,
-    backgroundColor: AVATAR_BG,
-    backgroundType: ["solid"],
-    radius: 50,
-  }).toString();
+/** Build the generated-avatar SVG for a seed. */
+export function characterSvg(seed: string, theme: AvatarTheme = "light"): string {
+  return neuronSvg(seed, theme);
 }
 
 export interface FaceProps extends AvatarIdentity {
@@ -45,9 +31,10 @@ export interface FaceProps extends AvatarIdentity {
 /** Photo-or-character markup for a resolved avatar, inside the caller's span. */
 function useAvatarMarkup(identity: AvatarIdentity) {
   const { photo, seed } = useResolvedAvatar(identity);
-  const instance = useId();
-  const svg = useMemo(() => scopeSvgIds(characterSvg(seed), instance), [seed, instance]);
-  // Prefer the person's photo; fall back to the generated character if it
+  const theme = useAvatarTheme();
+  // The SVG has no ids, so identical avatars can share a page without clashes.
+  const svg = useMemo(() => characterSvg(seed, theme), [seed, theme]);
+  // Prefer the person's photo; fall back to the generated avatar if it
   // fails to load.
   const [imgFailed, setImgFailed] = useState(false);
   useEffect(() => setImgFailed(false), [photo]);

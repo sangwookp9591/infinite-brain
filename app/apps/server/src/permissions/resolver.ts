@@ -1,3 +1,4 @@
+import { isActiveRole, isTeamRole } from "./roles.js";
 import type pg from "pg";
 import { lapseEnforced, resolveAccountPlan, type AccountPlan } from "../billing/plan.js";
 import { pool as defaultPool } from "../db/pool.js";
@@ -1304,6 +1305,8 @@ async function effectivePermissionInner(
 
   const facts = cache ? await cache.membership(db, loc.organizationId, userId) : null;
   const role = facts ? facts.role : await memberRole(db, loc.organizationId, userId);
+  if (!isActiveRole(role)) return "none";
+  if (!isTeamRole(role)) return (await guestItemAccess(db, userId, docId, folderIds, undefined, rows ?? undefined)).permission;
 
   // The person's own vault level replaces the whole vault-wide baseline (org
   // posture, join snapshot, role shortcut, authorship) — see
@@ -1511,6 +1514,21 @@ export async function buildAccessContextFromIndex(
 }
 
 /** Resolve one user's effective access against a prebuilt {@link AccessContext}. */
+async function guestItemAccess(
+  db: Queryable, userId: string, docId: string | null, folderIds: string[],
+  index?: AccessIndex, loaded?: ShareRow[],
+): Promise<ResolvedAccess> {
+  const rows = (loaded ?? (index ? indexedRows(index, docId, folderIds) :
+    (await db.query<ShareRow>(`SELECT resource_type,resource_id,principal_type,principal_id,permission,access_revision
+      FROM shares WHERE (resource_type='file' AND resource_id=$1) OR
+        (resource_type='folder' AND resource_id=ANY($2::text[]))`, [docId, folderIds])).rows))
+    .filter((row) => row.resource_type !== "vault");
+  if (rowsDenied(rows, "user", userId, docId, folderIds)) return { permission: "none", capped: false, denied: true };
+  const permission = rowsGrant(rows, userId, docId, folderIds, "", false, false);
+  const capped = rowsLocked(rows, userId, docId, folderIds);
+  return { permission: permission === "edit" && capped ? "view" : permission, capped: permission === "edit" && capped };
+}
+
 export async function resolveAccessForUser(
   ctx: AccessContext,
   userId: string,
@@ -1520,7 +1538,10 @@ export async function resolveAccessForUser(
   /** Preloaded rows for `ctx.organizationId` — see {@link AccessIndex}. */
   accessIndex?: AccessIndex,
 ): Promise<ResolvedAccess> {
-  const resolved = await resolveAccessForUserInner(ctx, userId, role, db, cache, accessIndex);
+  if (!isActiveRole(role)) return { permission: "none", capped: false };
+  const resolved = !isTeamRole(role)
+    ? await guestItemAccess(db, userId, ctx.docId, ctx.folderIds, accessIndex)
+    : await resolveAccessForUserInner(ctx, userId, role, db, cache, accessIndex);
   if (resolved.permission !== "edit") return resolved;
   // Billing lapse cap, exactly as in {@link effectivePermission}.
   const memo = cache ?? createResolverCache();

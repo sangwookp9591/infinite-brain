@@ -1,3 +1,4 @@
+import { shareErrorMessage } from "./shareErrorMessage";
 // SPDX-License-Identifier: Apache-2.0
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { sharePrincipalType, shareResourceId, shareResourceType, type BulkAccessResource, type MemberOverview, type TeamAccessMode } from "../lib/api";
@@ -352,7 +353,7 @@ export function MemberAccessBoard({
         // Put the moved rows back, then ask the server what is true: the
         // write is atomic, but a lost answer can hide one that DID commit.
         setSummaryModes((prev) => revertModes(prev, before, affected.map((r) => r.key)));
-        toast(accessWriteFailureMessage(cause), "error");
+        toast(shareErrorMessage(cause, accessWriteFailureMessage(cause)), "error");
         rereadOrReload(allRows.filter((r) => affectedKeys.has(r.key) || ancestors.has(r.path)));
       }
       return false;
@@ -406,7 +407,7 @@ export function MemberAccessBoard({
         try {
           for (const lock of blockers) await useStore.getState().removeLock(lock.id);
         } catch (cause) {
-          toast(accessWriteFailureMessage(cause), "error");
+          toast(shareErrorMessage(cause, accessWriteFailureMessage(cause)), "error");
           rereadOrReload(allRows);
           return;
         } finally { if (live.current) setBusy(false); }
@@ -477,7 +478,7 @@ export function MemberAccessBoard({
       }
       await onChanged();
     } catch (cause) {
-      if (live.current) toast(accessWriteFailureMessage(cause), "error");
+      if (live.current) toast(shareErrorMessage(cause, accessWriteFailureMessage(cause)), "error");
     } finally {
       if (live.current) setBusy(false);
     }
@@ -716,7 +717,7 @@ export function MemberAccessBoard({
     <div ref={boardRef} className={`access-board${dragKey ? " is-dragging" : ""}`}>
       <div className="access-board-head">
         <p className="access-board-intro"><span className="access-board-intro-drag">Drag</span> rows between columns, or use the arrows. Changes save right away.</p>
-        {!hideSetEverything && <MenuSelect<EverythingChoice | "none">
+        {!hideSetEverything && member.role !== "guest" && <MenuSelect<EverythingChoice | "none">
           value="none"
           options={[
             { value: "open", label: "Can edit", hint: "Every folder and note" },
@@ -763,7 +764,7 @@ export function MemberAccessBoard({
                     value="none"
                     // Expand and collapse only change the view, so they stay
                     // offered when moves are not (busy writes are guarded).
-                    options={canSetAccess ? actions : actions.filter((a) => a.value === "expand" || a.value === "collapse")}
+                    options={canSetAccess ? actions.filter((action) => member.role !== "guest" || action.value !== "add") : actions.filter((a) => a.value === "expand" || a.value === "collapse")}
                     triggerContent={dots}
                     caret={false}
                     ariaLabel={`${col.title} actions`}

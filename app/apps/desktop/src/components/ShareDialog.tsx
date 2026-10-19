@@ -1,3 +1,4 @@
+import { shareErrorMessage } from "./shareErrorMessage";
 import { useEffect, useState } from "react";
 import { authManager } from "../lib/auth/authManager";
 import {
@@ -36,7 +37,7 @@ export function ShareDialog({ target, onClose }: { target: ShareTarget; onClose:
       const list = await authManager.api.listShares(target.resourceType, target.resourceId);
       setShares(list);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(shareErrorMessage(e));
     }
   };
 
@@ -61,7 +62,7 @@ export function ShareDialog({ target, onClose }: { target: ShareTarget; onClose:
       });
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(shareErrorMessage(e));
     } finally {
       setBusy(false);
     }
@@ -73,7 +74,7 @@ export function ShareDialog({ target, onClose }: { target: ShareTarget; onClose:
       await authManager.api.revokeShare(shareId);
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(shareErrorMessage(e));
     } finally {
       setBusy(false);
     }

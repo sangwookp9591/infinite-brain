@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Synthetic, in-memory preview data. Never contacts a backend.
+let externalPolicy = { mode: "on", domains: [] as string[] };
+const externalOperations = new Map<string, unknown>();
 const now = Date.now();
 const ago = (hours: number) => new Date(now - hours * 3600000).toISOString();
 export const ORG = "preview-org";
@@ -531,7 +533,16 @@ export async function previewFetch(
       ],
     });
   if (p.endsWith("/locks")) return ok({ locks: [] });
-  if (p.endsWith("/join-code")) return ok({ code: "DEMO-ONLY" });
+  if (p.endsWith("/audit")) return ok({events:[{id:"preview-event",actor_name:"Kamil",target_type:"share",result:"ok",created_at:ago(1)}],nextBefore:null});
+  if (p.endsWith("/sharing-availability")) return ok({publicLinks:externalPolicy.mode==="on"});
+  if (p.endsWith("/external-sharing")) { if(method==="PUT") externalPolicy=body; return ok(externalPolicy); }
+  if (p.endsWith("/external-access/preview")) return ok({guests:2,invitations:1,publicLinks:3,aiConnections:1,bootstrapSessions:0});
+  if (p.endsWith("/external-access/revoke") && method==="POST") {
+    const result={id:body.operationId,status:"completed",counts:{guests:2,invitations:1,publicLinks:3,aiConnections:1},errors:[]}; externalOperations.set(body.operationId,result);return ok(result);
+  }
+  if (p.includes("/external-access/revoke/")) return ok(externalOperations.get(p.split("/").pop()!)??{});
+  if (p.endsWith("/join-code/rotate")) return ok({code:"NEWDEMO2",expiresAt:new Date(now+7*86400000).toISOString()});
+  if (p.endsWith("/join-code")) return ok({ code: "DEMOONLY", expiresAt:new Date(now+7*86400000).toISOString() });
   if (/^\/api\/orgs\/[^/]+$/.test(p) && method === "GET")
     return ok({ orgId: ORG, name: organizations[0].name, role: "owner" });
   if (p === "/api/billing/config") return ok(billingConfig);

@@ -1,3 +1,6 @@
+import { isTeamRole } from "../permissions/roles.js";
+// SPDX-License-Identifier: Apache-2.0
+import { MCP_RESOURCE } from "./resource.js";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import type pg from "pg";
 import { pool as defaultPool } from "../db/pool.js";
@@ -68,10 +71,10 @@ export async function createMcpToken(
   const id = randomUUID();
   const tokenPrefix = token.slice(0, DISPLAY_LEN) + "…";
   const { rows } = await db.query<{ created_at: string }>(
-    `INSERT INTO mcp_tokens (id, user_id, organization_id, name, token_hash, token_prefix, scopes)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `INSERT INTO mcp_tokens (id, user_id, organization_id, name, token_hash, token_prefix, scopes, resource)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      RETURNING created_at`,
-    [id, auth.userId, auth.organizationId, name, hashToken(token), tokenPrefix, scopes.join(" ")],
+    [id, auth.userId, auth.organizationId, name, hashToken(token), tokenPrefix, scopes.join(" "), MCP_RESOURCE],
   );
   return {
     token,
@@ -157,16 +160,17 @@ export async function verifyMcpToken(
     organization_id: string;
     name: string;
     scopes: string;
+    resource: string | null;
   }>(
-    "SELECT id, user_id, organization_id, name, scopes FROM mcp_tokens WHERE token_hash = $1",
+    "SELECT id, user_id, organization_id, name, scopes, resource FROM mcp_tokens WHERE token_hash = $1",
     [hashToken(token)],
   );
   const row = rows[0];
-  if (!row) return null;
+  if (!row || (row.resource !== null && row.resource !== MCP_RESOURCE)) return null;
 
   // Membership can be revoked after the token was minted — re-check every time.
   const role = await orgRole(row.organization_id, row.user_id, db);
-  if (!role) return null;
+  if (!isTeamRole(role)) return null;
 
   // Best-effort activity stamp; never block the request on it. use_count is NOT
   // bumped here — that happens per tools/call via bumpMcpTokenUsage so the count

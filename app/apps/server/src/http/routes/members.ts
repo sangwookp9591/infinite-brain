@@ -1,3 +1,8 @@
+import { recordAudit } from "../../audit/log.js";
+import { createGuestInvitation, validateInvitationTargets } from "../../members/guest-invitations.js";
+import { AccessManagementError } from "../../permissions/access-management.js";
+import { checkInviteSeat, teamModel } from "../../billing/plan.js";
+import { canAddMember } from "../../billing/entitlements.js";
 // SPDX-License-Identifier: Apache-2.0
 import { Hono } from "hono";
 import { APIError } from "better-auth/api";
@@ -171,7 +176,7 @@ memberRoutes.get("/orgs/:orgId/members/overview", async (c) => {
       invitedBy: inviters.get(m.user_id) ?? null,
       ...(levels ? { access: { level: levels.get(m.user_id) ?? "none" } } : {}),
     })),
-    invitations: invitations.rows.map((i) => ({
+    invitations: (canManage ? invitations.rows : []).map((i) => ({
       id: i.id,
       email: i.email,
       role: i.role ?? "member",
@@ -423,12 +428,19 @@ memberRoutes.post("/orgs/:orgId/invitations", async (c) => {
     return c.json({ error: "invalid_email", message: "One or more addresses are not valid", invalid: bad }, 400);
   }
   const role = body.role ?? "member";
-  if (role !== "member" && role !== "admin") {
-    return c.json({ error: "invalid_role", message: "role must be member or admin" }, 400);
+  if (role !== "member" && role !== "admin" && role !== "guest") {
+    return c.json({ error: "invalid_role", message: "Choose member, admin or guest" }, 400);
   }
   const access = body.access ?? null;
   if (access !== null && (typeof access !== "string" || !ACCESS_MODES.has(access))) {
     return c.json({ error: "invalid_access", message: "access must be open, readonly, private or null" }, 400);
+  }
+
+  let targets;
+  if (role === "guest") {
+    if (access !== null) return c.json({ error: "guest_vault_level_not_allowed", message: "Choose individual folders or notes for a guest." }, 400);
+    try { targets = await validateInvitationTargets(orgId, body.targets); }
+    catch (error) { if (error instanceof AccessManagementError) return c.json({ error: error.code, message: error.message }, error.status); throw error; }
   }
 
   const canEmail = emailEnabled();
@@ -438,7 +450,11 @@ memberRoutes.post("/orgs/:orgId/invitations", async (c) => {
   // parallel creates could all pass the same last free seat.
   for (const email of emails) {
     try {
-      const inv = (await auth.api.createInvitation({
+      if (role === "guest") {
+        const refused = teamModel() ? await checkInviteSeat(pool, orgId, email) : !(await canAddMember(orgId)).allowed;
+        if (refused) { results.push({ email, emailed: false, error: "member_limit_reached" }); continue; }
+      }
+      const inv = role === "guest" ? await createGuestInvitation(orgId, session.userId, email, targets!) : (await auth.api.createInvitation({
         body: { email, role, organizationId: orgId },
         headers: c.req.raw.headers,
       })) as { id: string } | null;
@@ -456,7 +472,8 @@ memberRoutes.post("/orgs/:orgId/invitations", async (c) => {
       const emailed = canEmail ? await emailInvitation(inv.id) : false;
       results.push({ email, invitationId: inv.id, emailed });
     } catch (err) {
-      const { code } = inviteErrorCode(err);
+      const code = err instanceof AccessManagementError ? err.code : inviteErrorCode(err).code;
+      await recordAudit(pool,{organizationId:orgId,action:"invitation.refused",targetType:"invitation",targetId:email,result:"refused",refs:{code}});
       if ((code === "member_limit_reached" || code === "seat_limit_reached") && err instanceof APIError) {
         limitError = (err.body ?? {}) as Record<string, unknown>;
       }

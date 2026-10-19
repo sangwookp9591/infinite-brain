@@ -1,3 +1,4 @@
+import { guestView } from "../../permissions/guest-view.js";
 import { randomUUID } from "node:crypto";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
@@ -315,14 +316,21 @@ export function createRegistryRoutes(deps: RegistryDeps = {}): Hono {
     const session = await getSession(c);
     if (!session) return c.json({ error: "Authentication required" }, 401);
     const { rows } = await pool.query(
-      `SELECT v.id, v.organization_id, v.name, v.created_at, v.root_frozen
+      `SELECT v.id, v.organization_id, v.name, v.created_at, v.root_frozen, m.role AS membership_role
          FROM vaults v
          JOIN member m ON m."organizationId" = v.organization_id
         WHERE m."userId" = $1
         ORDER BY v.created_at ASC`,
       [session.userId],
     );
-    return c.json({ vaults: rows });
+    const visible = [];
+    for (const row of rows) {
+      const { membership_role, ...vault } = row;
+      if (membership_role !== "guest") { visible.push(vault); continue; }
+      const scoped = await guestView(session.userId, row.id);
+      if (scoped.readable.size || scoped.folders.length) visible.push({ ...vault, name: (await pool.query("SELECT name FROM organization WHERE id=$1", [row.organization_id])).rows[0]?.name ?? "Shared vault" });
+    }
+    return c.json({ vaults: visible });
   });
 
   /**
@@ -715,20 +723,21 @@ export function createRegistryRoutes(deps: RegistryDeps = {}): Hono {
     if (page === "invalid") {
       return c.json({ error: `limit must be an integer 1..${PAGE_LIMIT_MAX}` }, 400);
     }
+    const guestReadable = (await orgRole(org, session.userId)) === "guest" ? await listReadableDocsInVault(session.userId, vaultId) : null;
     const SELECT = `SELECT id, vault_id, folder_id, path, created_by, created_at
-         FROM files WHERE vault_id = $1`;
+         FROM files WHERE vault_id = $1${guestReadable ? ` AND id=ANY($${page ? 4 : 2}::text[])` : ""}`;
     const { rows } = page
       ? await pool.query(
           `${SELECT} AND ($3::text IS NULL OR path COLLATE "C" > $3::text)
             ORDER BY path COLLATE "C" LIMIT $2`,
-          [vaultId, page.limit + 1, page.after],
+          [vaultId, page.limit + 1, page.after, ...(guestReadable ? [[...guestReadable]] : [])],
         )
-      : await pool.query(`${SELECT} ORDER BY path`, [vaultId]);
+      : await pool.query(`${SELECT} ORDER BY path`, [vaultId, ...(guestReadable ? [[...guestReadable]] : [])]);
     const more = page !== null && rows.length > page.limit;
     const window = more ? rows.slice(0, page!.limit) : rows;
     // The SAME readable set the notes listing uses: a `files` id IS a doc id, so
     // a folder share reaches the binaries in it exactly as it reaches the notes.
-    const readable = await listReadableDocsInVault(session.userId, vaultId);
+    const readable = guestReadable ?? await listReadableDocsInVault(session.userId, vaultId);
     const files = window.filter((f) => readable.has(f.id));
     if (more) return c.json({ files, nextAfter: window[window.length - 1].path as string });
     return c.json({ files, ...(page ? { nextAfter: null } : {}) });
@@ -879,7 +888,7 @@ export function createRegistryRoutes(deps: RegistryDeps = {}): Hono {
     if (!session) return c.json({ error: "Authentication required" }, 401);
 
     const body = await c.req.json().catch(() => ({}));
-    const { vaultId, folderId, title, relPath } = body;
+    let { vaultId, folderId, title, relPath } = body;
     if (typeof vaultId !== "string" || typeof relPath !== "string") {
       return c.json({ error: "vaultId and relPath are required" }, 400);
     }
@@ -896,6 +905,13 @@ export function createRegistryRoutes(deps: RegistryDeps = {}): Hono {
     if (!org) return c.json({ error: "Unknown vault" }, 404);
     if (!(await orgRole(org, session.userId))) {
       return c.json({ error: "Not a member of this vault" }, 403);
+    }
+
+    if ((await orgRole(org, session.userId)) === "guest") {
+      if (typeof folderId !== "string" || !(await canEditFolder(session.userId, folderId))) return c.json({ error: "guest_action_not_available", message: "Choose a shared folder you can edit." }, 403);
+      const parent = (await pool.query<{ path: string }>("SELECT path FROM folders WHERE id=$1 AND vault_id=$2", [folderId, vaultId])).rows[0];
+      if (!parent) return c.json({ error: "Unknown folder" }, 404);
+      relPath = `${parent.path}/${relPath.split("/").at(-1)}`;
     }
 
     // Shared with `/notes/batch` — see `registry/batch-ops.ts registerNote` for
@@ -970,12 +986,13 @@ export function createRegistryRoutes(deps: RegistryDeps = {}): Hono {
     // last_edited_* rides this pull deliberately: the file rows that show
     // "edited by X" are already re-fetched on every `registry` frame, so
     // attribution stays live without a second endpoint or a new wire frame.
+    const guestReadable = (await orgRole(org, session.userId)) === "guest" ? await listReadableDocsInVault(session.userId, vaultId) : null;
     const SELECT = `SELECT n.id, n.vault_id, n.folder_id, n.title, n.rel_path, n.doc_id, n.created_by,
               n.created_at, n.updated_at, n.color,
               n.last_edited_by, u.name AS last_edited_by_name, n.last_edited_at
          FROM notes n
          LEFT JOIN "user" u ON u.id = n.last_edited_by
-        WHERE n.vault_id = $1 AND n.deleted_at IS NULL`;
+        WHERE n.vault_id = $1 AND n.deleted_at IS NULL${guestReadable ? ` AND n.id=ANY($${page ? 4 : 2}::text[])` : ""}`;
     // One row past the limit is read, never returned: it is the only honest
     // proof that another page exists. Ordered by `rel_path COLLATE "C"` against
     // the m030 index, so the cursor is an index seek rather than an offset scan.
@@ -983,9 +1000,9 @@ export function createRegistryRoutes(deps: RegistryDeps = {}): Hono {
       ? await pool.query(
           `${SELECT} AND ($3::text IS NULL OR n.rel_path COLLATE "C" > $3::text)
             ORDER BY n.rel_path COLLATE "C" LIMIT $2`,
-          [vaultId, page.limit + 1, page.after],
+          [vaultId, page.limit + 1, page.after, ...(guestReadable ? [[...guestReadable]] : [])],
         )
-      : await pool.query(`${SELECT} ORDER BY n.rel_path`, [vaultId]);
+      : await pool.query(`${SELECT} ORDER BY n.rel_path`, [vaultId, ...(guestReadable ? [[...guestReadable]] : [])]);
     const more = page !== null && rows.length > page.limit;
     const window = more ? rows.slice(0, page!.limit) : rows;
     // Private-by-default: hide notes the caller can't read (leaks title/path and
@@ -996,7 +1013,7 @@ export function createRegistryRoutes(deps: RegistryDeps = {}): Hono {
     // may not see instead of stalling on them. A page may therefore come back
     // shorter than `limit` — or empty — while `nextAfter` is still set; that is
     // correct, and the client's stop condition is `nextAfter`, never the count.
-    const readable = await listReadableDocsInVault(session.userId, vaultId);
+    const readable = guestReadable ?? await listReadableDocsInVault(session.userId, vaultId);
     const notes = window.filter((n) => readable.has(n.id));
     const nextAfter = more ? (window[window.length - 1].rel_path as string) : null;
     // Tombstones ride the SAME response as the notes, deliberately. The client's
@@ -1193,7 +1210,7 @@ export function createRegistryRoutes(deps: RegistryDeps = {}): Hono {
     const session = await getSession(c);
     if (!session) return c.json({ error: "Authentication required" }, 401);
     const body = await c.req.json().catch(() => ({}));
-    const { vaultId, folderId, path } = body;
+    let { vaultId, folderId, path } = body;
     if (typeof vaultId !== "string" || typeof path !== "string") {
       return c.json({ error: "vaultId and path are required" }, 400);
     }
@@ -1202,6 +1219,13 @@ export function createRegistryRoutes(deps: RegistryDeps = {}): Hono {
     if (!(await orgRole(org, session.userId))) {
       return c.json({ error: "Not a member of this vault" }, 403);
     }
+    if ((await orgRole(org, session.userId)) === "guest") {
+      if (typeof folderId !== "string" || !(await canEditFolder(session.userId, folderId))) return c.json({ error: "guest_action_not_available", message: "Choose a shared folder you can edit." }, 403);
+      const parent = (await pool.query<{ path: string }>("SELECT path FROM folders WHERE id=$1 AND vault_id=$2", [folderId, vaultId])).rows[0];
+      if (!parent) return c.json({ error: "Unknown folder" }, 404);
+      path = `${parent.path}/${path.split("/").at(-1)}`;
+    }
+
     // Client-supplied stable id, under either spelling: notes call it `docId`,
     // and the desktop's local `files.id` is sometimes sent as `id`. Both mean
     // the same thing — this doc's identity was minted on the device.

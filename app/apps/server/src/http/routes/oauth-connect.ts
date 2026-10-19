@@ -1,3 +1,9 @@
+import { isTeamRole } from "../../permissions/roles.js";
+// SPDX-License-Identifier: Apache-2.0
+import { MCP_RESOURCE, allowedResource } from "../../mcp/resource.js";
+import { exchangeOAuthToken } from "../../mcp/oauth-exchange.js";
+import { ensureCimdClient } from "../../mcp/cimd.js";
+import { lockOAuthConnection, unlockOAuthConnection, stampOAuthGrant } from "../../mcp/oauth.js";
 import { Hono } from "hono";
 import { pool } from "../../db/pool.js";
 import { auth, googleEnabled } from "../../auth/auth.js";
@@ -170,7 +176,7 @@ oauthConnectRoutes.get("/oauth/consent", async (c) => {
   const { rows: vaults } = await pool.query<{ id: string; name: string; role: string }>(
     `SELECT o.id, o.name, m.role
        FROM member m JOIN organization o ON o.id = m."organizationId"
-      WHERE m."userId" = $1
+      WHERE m."userId" = $1 AND m.role IN ('owner','admin','member')
       ORDER BY o."createdAt" ASC`,
     [session.userId],
   );
@@ -248,21 +254,27 @@ oauthConnectRoutes.post("/oauth/consent", async (c) => {
   }
 
   const role = organizationId ? await orgRole(organizationId, session.userId) : null;
+  if (accept && !isTeamRole(role)) return c.html("This vault is not available for an AI connection.", 403);
   const manage = form[`manage_${organizationId}`] === "yes";
   const scopes = scopePreset(form.scope_preset ?? "write", manage);
   if (accept && (!role || !scopes || (manage && role !== "owner" && role !== "admin"))) {
     return c.html(page({ title: "Invalid access", body: "<h1>Invalid vault or access selection</h1>" }), 400);
   }
-  if (!(await prepareOAuthConsent(consentCode, clientId, session.userId, accept ? scopes! : undefined))) {
-    return c.html(page({ title: "Invalid request", body: "<h1>Invalid or expired consent</h1>" }), 400);
-  }
-
-  const previous = accept ? (await pool.query<{ organization_id: string; scopes: string | null; updated_at: string }>(
-    "SELECT organization_id, scopes, updated_at::text FROM mcp_oauth_vault WHERE client_id = $1 AND user_id = $2", [clientId, session.userId],
-  )).rows[0] : undefined;
+  const lock = await pool.connect();
   let bindingVersion: string | undefined;
+  let previous: { organization_id: string; scopes: string | null; updated_at: string; generation: string } | undefined;
   try {
-    if (accept) bindingVersion = await setVaultBinding(clientId, session.userId, organizationId, undefined, scopes!);
+    await lockOAuthConnection(lock, clientId, session.userId);
+    if (!(await prepareOAuthConsent(consentCode, clientId, session.userId, accept ? scopes! : undefined))) {
+      return c.html(page({ title: "Invalid request", body: "<h1>Invalid or expired consent</h1>" }), 400);
+    }
+    previous = accept ? (await lock.query<{ organization_id: string; scopes: string | null; updated_at: string; generation: string }>(
+      "SELECT organization_id, scopes, updated_at::text, generation FROM mcp_oauth_vault WHERE client_id = $1 AND user_id = $2", [clientId, session.userId],
+    )).rows[0] : undefined;
+    if (accept) {
+      bindingVersion = await setVaultBinding(clientId, session.userId, organizationId, lock, scopes!);
+      await stampOAuthGrant(consentCode, clientId, session.userId, lock);
+    }
     const result = (await auth.api.oAuthConsent({
       body: { accept, consent_code: consentCode },
       headers: c.req.raw.headers,
@@ -274,12 +286,12 @@ oauthConnectRoutes.post("/oauth/consent", async (c) => {
   } catch {
     // Compensate only our binding generation; never overwrite a newer consent.
     if (bindingVersion) {
-      if (previous) await pool.query(
-        `UPDATE mcp_oauth_vault SET organization_id = $4, scopes = $5, updated_at = $6::timestamptz
+      if (previous) await lock.query(
+        `UPDATE mcp_oauth_vault SET organization_id = $4, scopes = $5, updated_at = $6::timestamptz, generation = $7
           WHERE client_id = $1 AND user_id = $2 AND updated_at = $3::timestamptz`,
-        [clientId, session.userId, bindingVersion, previous.organization_id, previous.scopes, previous.updated_at],
+        [clientId, session.userId, bindingVersion, previous.organization_id, previous.scopes, previous.updated_at, previous.generation],
       );
-      else await pool.query("DELETE FROM mcp_oauth_vault WHERE client_id = $1 AND user_id = $2 AND updated_at = $3::timestamptz", [clientId, session.userId, bindingVersion]);
+      else await lock.query("DELETE FROM mcp_oauth_vault WHERE client_id = $1 AND user_id = $2 AND updated_at = $3::timestamptz", [clientId, session.userId, bindingVersion]);
     }
     return c.html(
       page({
@@ -288,6 +300,9 @@ oauthConnectRoutes.post("/oauth/consent", async (c) => {
       }),
       400,
     );
+  } finally {
+    await unlockOAuthConnection(lock, clientId, session.userId);
+    lock.release();
   }
 });
 
@@ -301,38 +316,52 @@ export function withIssuer(uri: string): string {
 export async function handleOAuthRequest(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const mcp = url.pathname === "/api/auth/mcp/authorize" || url.pathname === "/api/auth/mcp/token";
+  // The underlying OIDC routes bypass our MCP audience and consent contract.
+  if (["/api/auth/oauth2/token", "/api/auth/oauth2/authorize", "/api/auth/oauth2/consent"].includes(url.pathname)) {
+    return Response.json({ error: "invalid_request", error_description: "Use the MCP connection flow" }, { status: 400 });
+  }
+  let body: Record<string, unknown> = {};
   if (mcp) {
-    let resources: unknown[] = url.searchParams.getAll("resource");
+    const resources: unknown[] = url.searchParams.getAll("resource");
     if (request.method === "POST") {
       try {
         if (request.headers.get("content-type")?.includes("application/json")) {
-          const body = await request.clone().json() as Record<string, unknown>;
+          body = await request.clone().json() as Record<string, unknown>;
           if (body.resource !== undefined) resources.push(body.resource);
         } else {
-          resources.push(...(await request.clone().formData()).getAll("resource"));
+          const form = await request.clone().formData();
+          resources.push(...form.getAll("resource"));
+          body = Object.fromEntries(form);
         }
-      } catch { /* Better Auth reports malformed bodies. */ }
+      } catch { return Response.json({ error: "invalid_request" }, { status: 400 }); }
     }
-    if (resources.some((resource) => resource !== `${config.betterAuthUrl}/api/mcp`)) {
+    if (resources.some((resource) => !allowedResource(resource))) {
       return Response.json({ error: "invalid_target", error_description: "resource must identify this MCP endpoint" }, { status: 400 });
     }
+    if (url.pathname.endsWith("/authorize")) {
+      try { await ensureCimdClient(url.searchParams.get("client_id") ?? "", url.searchParams.get("redirect_uri") ?? ""); }
+      catch { return Response.json({ error: "invalid_client" }, { status: 400 }); }
+    }
   }
-  // TODO: Better Auth 1.6 discards resource in its grant/token schema; full
-  // audience binding and CIMD require provider support, not metadata claims.
-  const response = await auth.handler(request);
-  if (!mcp && url.pathname !== "/api/auth/oauth2/consent") return response;
+  const response = url.pathname === "/api/auth/mcp/token"
+    ? await exchangeOAuthToken(request, body) : await auth.handler(request);
+  if (url.pathname === "/api/auth/mcp/authorize") {
+    const location = response.headers.get("location");
+    const code = location ? new URL(location, config.betterAuthUrl).searchParams.get("consent_code") : null;
+    if (code) {
+      const ctx = await auth.$context;
+      const grant = await ctx.internalAdapter.findVerificationValue(code);
+      if (grant) await ctx.internalAdapter.updateVerificationByIdentifier(code, {
+        value: JSON.stringify({ ...JSON.parse(grant.value), resource: MCP_RESOURCE }),
+      });
+    }
+  }
+  if (!mcp) return response;
   const headers = new Headers(response.headers);
   const location = headers.get("location");
   if (location) {
     headers.set("location", withIssuer(location));
     return new Response(response.body, { status: response.status, headers });
-  }
-  if (url.pathname === "/api/auth/oauth2/consent" && response.ok) {
-    const body = await response.clone().json().catch(() => null) as { redirectURI?: unknown } | null;
-    if (typeof body?.redirectURI === "string") {
-      headers.delete("content-length");
-      return new Response(JSON.stringify({ ...body, redirectURI: withIssuer(body.redirectURI) }), { status: response.status, headers });
-    }
   }
   return response;
 }

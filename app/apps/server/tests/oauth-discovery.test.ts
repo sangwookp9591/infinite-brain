@@ -32,6 +32,13 @@ describe("MCP OAuth discovery", () => {
     expect(body.authorization_servers).toEqual(bareBody.authorization_servers);
   });
 
+  it("ignores untrusted proxy headers when advertising resource and issuer", async () => {
+    const res = await app.fetch(new Request("http://attacker.example/.well-known/oauth-protected-resource", {
+      headers: { forwarded: "proto=https;host=attacker.example", "x-forwarded-host": "attacker.example", "x-forwarded-proto": "https" },
+    }));
+    expect((await res.json() as { resource: string }).resource).toBe(`${config.betterAuthUrl}/api/mcp`);
+  });
+
   it("serves the same authorization-server metadata at the /api/mcp-suffixed path", async () => {
     const bare = await get("/.well-known/oauth-authorization-server");
     expect(bare.status).toBe(200);
@@ -40,6 +47,7 @@ describe("MCP OAuth discovery", () => {
     const metadata = await bare.json() as Record<string, unknown>;
     expect(metadata.scopes_supported).toEqual(expect.arrayContaining([...MCP_SCOPES]));
     expect(metadata.authorization_response_iss_parameter_supported).toBe(true);
+    expect(metadata.client_id_metadata_document_supported).toBe(true);
     expect(await suffixed.json()).toEqual(metadata);
   });
 });

@@ -24,7 +24,7 @@ export async function seedOrg(name: string, slug: string): Promise<string> {
 export async function seedMember(
   organizationId: string,
   userId: string,
-  role: "owner" | "admin" | "member",
+  role: "owner" | "admin" | "member" | "guest",
 ): Promise<string> {
   const id = randomUUID();
   await pool.query(

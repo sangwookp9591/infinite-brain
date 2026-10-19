@@ -37,6 +37,7 @@ function channel(): VaultChannel {
   const pubsub = new InMemoryPubSub();
   pubsubs.push(pubsub);
   return new VaultChannel({
+    roleForUser: async () => "team",
     pubsub,
     // token = the user id
     verifyToken: async (token: string) => ({ userId: token, vaultId: "v1" }),

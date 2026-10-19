@@ -10,7 +10,7 @@
 //    member rows). The display name is only the seed of last resort, for a
 //    payload from a peer on an older build that carries no id.
 //
-// Pure and dependency-free (no DiceBear), so eager modules may import it.
+// Pure and dependency-free, so eager modules may import it.
 import { useSyncExternalStore } from "react";
 import { characterSeed } from "./profileAvatar";
 

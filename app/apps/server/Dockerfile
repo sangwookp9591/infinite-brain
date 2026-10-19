@@ -1,4 +1,4 @@
-# Baalda server — production image.
+# Infinite Brain server — production image.
 #
 # Build context MUST be the repo root (this Dockerfile reaches into app/ as a
 # whole because the server is one workspace of the pnpm monorepo and needs the

@@ -4,7 +4,7 @@ type Lab = { l: number; a: number; b: number };
 export type Pair = { accent: string; hover: string; onAccent: string };
 
 const LIGHT_SURFACE = "#ffffff";
-const DARK_SURFACE = "#18181b";
+const DARK_SURFACE = "#141830";
 const WHITE = "#ffffff";
 const INK = "#18181b";
 

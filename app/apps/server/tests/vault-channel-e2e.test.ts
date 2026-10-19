@@ -26,13 +26,17 @@ import {
 class FakeWs extends EventEmitter {
   readonly OPEN = 1;
   readyState = 1;
+  closeCode: number | null = null;
+  closeReason: string | null = null;
   readonly sent: Array<{ text?: unknown; bytes?: Uint8Array }> = [];
   send(data: unknown, opts?: { binary?: boolean }): void {
     if (opts?.binary) this.sent.push({ bytes: data as Uint8Array });
     else this.sent.push({ text: JSON.parse(data as string) });
   }
-  close(): void {
+  close(code?: number, reason?: string): void {
     this.readyState = 3;
+    this.closeCode = code ?? null;
+    this.closeReason = reason ?? null;
     this.emit("close");
   }
   hello(token: string): void {
@@ -161,9 +165,11 @@ describe("VaultChannel end-to-end (spec 05 §3.1)", () => {
     // Now they're removed — the row goes, and the vault channel is told.
     await pool.query(`DELETE FROM member WHERE id = $1`, [memberRow]);
     await channel.publishAclChanged(vault);
-    // The channel answers by re-resolving and dropping every doc it can no longer
-    // read; the token is still perfectly valid, which is the whole point.
-    await waitFor(() => ws.controls().some((c) => c.t === "drop" && c.docId === docId));
+    // Membership loss ends the whole channel: a per-doc drop would leave vault-
+    // wide traffic such as voice and presence open until the token expires.
+    await waitFor(() => ws.readyState === 3);
+    expect(ws.closeCode).toBe(4401);
+    expect(ws.closeReason).toBe("membership ended");
 
     const framesBefore = ws.frames().length;
     const after = new Y.Doc();
@@ -173,6 +179,7 @@ describe("VaultChannel end-to-end (spec 05 §3.1)", () => {
     await tick();
     await tick();
 
+    // Once the channel has closed it must receive no further document content.
     expect(ws.frames().length).toBe(framesBefore);
     expect(textFrom(ws.frames().filter((f) => f.docId === docId))).not.toContain("AFTER REMOVAL");
   });

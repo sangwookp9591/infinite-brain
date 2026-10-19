@@ -1,3 +1,16 @@
+import { createExternalRevokeRoutes } from "./routes/external-revoke.js";
+// SPDX-License-Identifier: Apache-2.0
+import { pool } from "../db/pool.js";
+import { APIError } from "better-auth/api";
+import { acceptGuestInvitation } from "../members/guest-invitations.js";
+import { AccessManagementError } from "../permissions/access-management.js";
+import { getSession } from "./session.js";
+import { announceMemberJoined } from "../sync/member-events.js";
+import { announceInvitationGone } from "../sync/user-events.js";
+import { externalSharingRoutes } from "./routes/external-sharing.js";
+import { guestHttp } from "../permissions/guest-http.js";
+import { auditRequests } from "../audit/http.js";
+import { auditRoutes } from "./routes/audit.js";
 import { createAiChangeRoutes } from "./routes/ai-changes.js";
 import { MCP_SCOPES } from "../mcp/scopes.js";
 import { Hono } from "hono";
@@ -147,6 +160,7 @@ function allowedOrigins(): string[] {
  */
 export function createApp(deps: AppDeps): Hono {
   const app = new Hono();
+  app.use("*", auditRequests);
 
   // CORS must run before any route (incl. Better Auth) so cross-origin browser
   // clients — chiefly the Tauri webview — succeed and can read auth headers.
@@ -189,6 +203,7 @@ export function createApp(deps: AppDeps): Hono {
       // we ship.
       exposeHeaders: [
         "set-auth-token",
+        "X-Request-Id",
         "X-InfiniteBrain-Cursor",
         "X-InfiniteBrain-Docs",
         "X-InfiniteBrain-Bytes",
@@ -217,6 +232,8 @@ export function createApp(deps: AppDeps): Hono {
     if (c.req.path.startsWith("/api/blobs/")) return next();
     return compressor(c, next);
   });
+
+  app.use("/api/*", guestHttp);
 
   // `features`: what this server accepts beyond the base protocol, so a desktop
   // can pick a path with one call per server URL instead of wasting a chunk on
@@ -279,6 +296,7 @@ export function createApp(deps: AppDeps): Hono {
     return new Response(JSON.stringify({ ...metadata,
       scopes_supported: ["openid", "profile", "email", "offline_access", ...MCP_SCOPES],
       authorization_response_iss_parameter_supported: true,
+      client_id_metadata_document_supported: true,
     }), { status: response.status, headers: response.headers });
   };
   app.get("/.well-known/oauth-authorization-server", (c) => discovery(c.req.raw));
@@ -319,12 +337,41 @@ export function createApp(deps: AppDeps): Hono {
   // Better Auth owns everything under /api/auth (web-standard Request handler).
   // Email sign-in passes the per-account failure throttle first (#237).
   app.post("/api/auth/sign-in/email", (c) => throttledSignIn(c.req.raw, auth.handler));
+  app.post("/api/auth/organization/accept-invitation", async (c) => {
+    const input=await c.req.raw.clone().json().catch(()=>({})) as Record<string, unknown>;
+    const invitation=typeof input.invitationId==="string" ? (await pool.query<{role:string}>("SELECT role FROM invitation WHERE id=$1",[input.invitationId])).rows[0] : null;
+    if(invitation?.role!=="guest" || typeof input.invitationId!=="string")return handleOAuthRequest(c.req.raw);
+    const session=await getSession(c); if(!session)return c.json({error:"Authentication required"},401);
+    try {
+      const org=await acceptGuestInvitation(input.invitationId,session);
+      await auth.api.setActiveOrganization({headers:c.req.raw.headers,body:{organizationId:org}});
+      await announceMemberJoined(org,"A guest"); await announceInvitationGone(input.invitationId,{userId:session.userId});
+      return c.json({organizationId:org,role:"guest",accepted:true});
+    }catch(error){if(error instanceof AccessManagementError)return c.json({error:error.code,message:error.message},error.status);if(error instanceof APIError)return c.json(error.body,error.statusCode as 400 | 401 | 402 | 403 | 404 | 500);throw error;}
+  });
+  // Better Auth leave only deletes membership; use our grant/socket teardown.
+  app.post("/api/auth/organization/leave", async (c) => {
+    const input = await c.req.json().catch(() => ({}));
+    if (typeof input.organizationId !== "string") return c.json({ error: "organizationId required" }, 400);
+    return app.fetch(new Request(new URL(`/api/orgs/${encodeURIComponent(input.organizationId)}/leave`, c.req.url), {
+      method: "POST", headers: c.req.raw.headers, body: "{}",
+    }));
+  });
+  app.get("/api/auth/organization/list",async(c)=>{
+    const session=await getSession(c);if(!session)return c.json({error:"Authentication required"},401);
+    const organizations=await auth.api.listOrganizations({headers:c.req.raw.headers});
+    const memberships=(await pool.query<{id:string;role:string}>('SELECT "organizationId" AS id,role FROM member WHERE "userId"=$1',[session.userId])).rows;
+    return c.json(organizations.map(org=>memberships.find(m=>m.id===org.id)?.role==="guest"?{id:org.id,name:org.name}:org));
+  });
+  app.post("/api/auth/organization/remove-member", (c) => c.json({ error: "Use vault member settings to remove a person." }, 403));
   app.on(["GET", "POST"], "/api/auth/*", (c) => handleOAuthRequest(c.req.raw));
 
   // Desktop Google sign-in handoff — deliberately NOT under /api/auth (the
   // catch-all above would shadow it). See desktop-oauth.ts.
   app.route("/api", desktopOauthRoutes);
   app.route("/api", bugReportRoutes);
+  app.route("/api", auditRoutes);
+  app.route("/api", externalSharingRoutes);
   // Invitation preview (public, by unguessable id) + the signed-in inbox that
   // sidesteps Better Auth's verified-email gate on list-user-invitations.
   app.route("/api", invitationRoutes);
@@ -402,6 +449,7 @@ export function createApp(deps: AppDeps): Hono {
       billingProvider,
     }),
   );
+  app.route("/api", createExternalRevokeRoutes({...deps,billingProvider}));
   app.route("/api", createBillingRoutes({ provider: billingProvider }));
   app.route("/api", graphRoutes);
   app.route("/api", createHousekeeperRoutes(deps.docWriter));

@@ -1,3 +1,4 @@
+import { AuditClient } from "../audit/client.js";
 import pg from "pg";
 import { config } from "../config.js";
 
@@ -27,7 +28,7 @@ function poolMax(): number {
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : 30;
 }
 
-export const pool = new pg.Pool({
+export const pool = new pg.Pool({ Client: AuditClient,
   connectionString: config.databaseUrl,
   max: poolMax(),
   // Hand idle connections back rather than pinning `max` sockets forever.

@@ -20,7 +20,7 @@ describe("accentPalette", () => {
   it("keeps both theme pairs in gamut and readable for preset, extreme, and seeded colors", () => {
     for (const seed of [...seeds, ...seededSeeds()]) {
       const palette = accentPalette(seed);
-      for (const [theme, surface] of [[palette.light, "#ffffff"], [palette.dark, "#18181b"]] as const) {
+      for (const [theme, surface] of [[palette.light, "#ffffff"], [palette.dark, "#141830"]] as const) {
         expect(theme.accent).toMatch(/^#[0-9a-f]{6}$/);
         expect(theme.hover).toMatch(/^#[0-9a-f]{6}$/);
         expect(theme.onAccent).toMatch(/^#[0-9a-f]{6}$/);

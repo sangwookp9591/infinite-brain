@@ -42,6 +42,15 @@ describe("POST /api/sync-token (spec 03 §7)", () => {
     await pool.end();
   });
 
+  it("external with a per-user share is refused", async () => {
+    const external = await signUp("external@sync.test");
+    const org = await seedOrg("External", "external-sync");
+    const doc = await seedNote(await seedVault(org), null, "note.md");
+    await seedShare(org, "file", doc, external.userId, "edit");
+    expect((await postSyncToken(external.token, doc)).status).toBe(403);
+    expect((await pool.query("SELECT id FROM shares WHERE principal_id = $1", [external.userId])).rowCount).toBe(1);
+  });
+
   it("edit grant -> 200 readOnly:false with a valid, doc-scoped token", async () => {
     const owner = await signUp("owner@t.com");
     const org = await seedOrg("Acme", "acme-t1");

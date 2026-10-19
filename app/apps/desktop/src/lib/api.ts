@@ -417,7 +417,7 @@ export type MemberAccessLevel = "edit" | "view" | "none" | "custom";
 export interface MemberOverview {
   userId: string;
   memberId: string;
-  role: "owner" | "admin" | "member";
+  role: "owner" | "admin" | "member" | "guest";
   name: string | null;
   email: string | null;
   image: string | null;
@@ -469,7 +469,8 @@ export interface MembersOverview {
 
 export interface InviteManyInput {
   emails: string[];
-  role: "member" | "admin";
+  role: "member" | "admin" | "guest";
+  targets?: Array<{ resourceType: "folder" | "file"; resourceId: string; permission: "view" | "edit" }>;
   /** null = whatever the vault's New members setting says. */
   access: TeamAccessMode | null;
 }
@@ -980,7 +981,7 @@ export interface OrgBilling {
 export interface MyBillingVault {
   orgId: string;
   name: string;
-  role: "owner" | "admin" | "member";
+  role: "owner" | "admin" | "member" | "guest";
   plan: "free" | "pro";
   status: "none" | "active" | "past_due" | "canceled";
   currentPeriodEnd: string | null;
@@ -1099,6 +1100,16 @@ export type OrgStatus =
   | { kind: "unknown" };
 
 /** A rejected server response — carries the HTTP status for callers to branch on. */
+export interface ExternalAccessCounts { guests: number; invitations: number; publicLinks: number; aiConnections: number; bootstrapSessions: number }
+export interface ExternalRevocation { id: string; status: "running" | "completed" | "partial"; counts: Partial<ExternalAccessCounts>; errors: Array<{ type: string; id: string; message: string }> }
+export interface SecurityEvent {
+  id: string;
+  actor_name: string;
+  target_type: string;
+  result: "ok" | "refused" | "failed";
+  created_at: string;
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -1987,23 +1998,58 @@ export class ApiClient {
   // ---- Join codes -----------------------------------------------------------
 
   /** The active vault's shareable join code (owner/admin; lazily created). */
+  async externalAccessPreview(organizationId: string): Promise<ExternalAccessCounts> {
+    return (await this.request<ExternalAccessCounts>("GET", `/api/orgs/${encodeURIComponent(organizationId)}/external-access/preview`)).data;
+  }
+  async revokeExternalAccess(organizationId: string, operationId: string): Promise<ExternalRevocation> {
+    return (await this.request<ExternalRevocation>("POST", `/api/orgs/${encodeURIComponent(organizationId)}/external-access/revoke`, { body: { operationId, confirm: true } })).data;
+  }
+  async getExternalRevocation(organizationId: string, operationId: string): Promise<ExternalRevocation> {
+    return (await this.request<ExternalRevocation>("GET", `/api/orgs/${encodeURIComponent(organizationId)}/external-access/revoke/${encodeURIComponent(operationId)}`)).data;
+  }
+
+  async getExternalSharing(organizationId: string): Promise<{ mode: "on" | "off" | "domains"; domains: string[] }> {
+    return (await this.request<{ mode: "on" | "off" | "domains"; domains: string[] }>("GET", `/api/orgs/${encodeURIComponent(organizationId)}/external-sharing`)).data;
+  }
+  async setExternalSharing(organizationId: string, policy: { mode: "on" | "off" | "domains"; domains: string[] }) {
+    return (await this.request<typeof policy>("PUT", `/api/orgs/${encodeURIComponent(organizationId)}/external-sharing`, { body: policy })).data;
+  }
+  async sharingAvailability(organizationId: string): Promise<{ publicLinks: boolean }> {
+    return (await this.request<{ publicLinks: boolean }>("GET", `/api/orgs/${encodeURIComponent(organizationId)}/sharing-availability`)).data;
+  }
+
+  async getSecurityEvents(organizationId: string, before?: string): Promise<{ events: SecurityEvent[]; nextBefore: string | null }> {
+    const { data } = await this.request<{ events: SecurityEvent[]; nextBefore: string | null }>("GET", `/api/orgs/${encodeURIComponent(organizationId)}/audit${before ? `?before=${encodeURIComponent(before)}` : ""}`);
+    return data;
+  }
+
+  async getJoinCodeDetails(): Promise<{ code: string; expiresAt: string }> {
+    return (await this.request<{ code: string; expiresAt: string }>("GET", "/api/orgs/join-code")).data;
+  }
+
+  async rotateJoinCode(): Promise<{ code: string; expiresAt: string }> {
+    return (await this.request<{ code: string; expiresAt: string }>("POST", "/api/orgs/join-code/rotate", { body: {} })).data;
+  }
+
   async getJoinCode(): Promise<string> {
     const { data } = await this.request<{ code: string }>("GET", "/api/orgs/join-code");
     return data.code;
   }
 
   /** Join a vault by its shared code (any signed-in user). */
-  async joinVault(code: string): Promise<{
-    organizationId: string;
-    name?: string;
-    alreadyMember?: boolean;
-  }> {
-    const { data } = await this.request<{
-      organizationId: string;
-      name?: string;
-      alreadyMember?: boolean;
-    }>("POST", "/api/orgs/join", { body: { code } });
-    return data;
+  async joinVault(code: string): Promise<{ organizationId: string; name?: string; alreadyMember?: boolean }> {
+    try {
+      return (await this.request<{ organizationId: string; name?: string; alreadyMember?: boolean }>("POST", "/api/orgs/join", { body: { code } })).data;
+    } catch (error) {
+      if (error instanceof ApiError) {
+        const refusal = (error.body as { error?: string } | undefined)?.error;
+        const message = ({ join_code_expired: "This code has expired. Ask an admin for a new code.",
+          join_code_rate_limited: "Too many tries. Wait 15 minutes before trying another code.",
+          guest_invite_pending: "Use your invitation link to join this vault as a guest." } as Record<string,string>)[refusal ?? ""];
+        if (message) throw new ApiError(error.status, message, error.body);
+      }
+      throw error;
+    }
   }
 
   /**
@@ -2143,7 +2189,7 @@ export class ApiClient {
   async updateMemberRole(
     organizationId: string,
     userId: string,
-    role: "member" | "admin",
+    role: "member" | "admin" | "guest",
   ): Promise<void> {
     await this.request<{ updated: boolean }>(
       "PATCH",

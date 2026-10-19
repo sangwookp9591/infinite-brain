@@ -50,6 +50,7 @@ function channelWith(coalesceMs = 0): { channel: VaultChannel; aclCalls: () => n
   pubsubs.push(pubsub);
   let calls = 0;
   const channel = new VaultChannel({
+    roleForUser: async () => "team",
     pubsub,
     verifyToken: async (token: string) => {
       if (token !== "good") throw new Error("bad token");

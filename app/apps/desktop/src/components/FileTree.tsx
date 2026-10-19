@@ -508,6 +508,7 @@ export function FileTree() {
   // Creating one is retired from the UI: per-item team locks conflict with the
   // per-person access model, so only Unlock remains for vaults that have them.
   const myRole = members.find((m) => m.userId === session?.user.id)?.role;
+  const isGuest = myRole === "guest";
   const canManage = myRole === "owner" || myRole === "admin";
   // Creator-only delete: a plain member may delete only what they created
   // (`lib/sync/deletePolicy.ts`). Read straight from the registry's authorship
@@ -1083,6 +1084,7 @@ export function FileTree() {
     name: string;
     node: NodeApi<TreeNode>;
   }) => {
+    if(isGuest){toast("Ask an admin to rename this item.","error");return;}
     const oldPath = node.data.path;
     const dir = parentDir(oldPath);
     let newName = name.trim();
@@ -1131,6 +1133,7 @@ export function FileTree() {
     destDir: string,
     index: number,
   ) => {
+    if(isGuest){toast("Ask an admin to move folders or notes.","error");return;}
     // dragIds are node ids === current paths. Their paths after the drop only
     // change when the parent folder changes (a reorder keeps the same path).
     const from = dragIds;
@@ -1554,6 +1557,7 @@ export function FileTree() {
   }
 
   async function createUniqueFolder(dir: string) {
+    if(isGuest){toast("Ask an admin to add a folder.","error");return;}
     if (rootBlocked(dir)) return;
     const name = "New Folder";
     for (let i = 0; i < 50; i++) {
@@ -1752,7 +1756,7 @@ export function FileTree() {
             className={`tree-tool${rootFrozen ? " blocked" : ""}`}
             title={rootFrozen ? ROOT_FROZEN_HINT : "New note"}
             aria-label="New note"
-            aria-disabled={rootFrozen}
+            aria-disabled={rootFrozen || isGuest}
             onClick={() => void useStore.getState().createNoteIn("")}
           >
             {ICON_NEW_NOTE}
@@ -1761,8 +1765,8 @@ export function FileTree() {
             className={`tree-tool${rootFrozen ? " blocked" : ""}`}
             title={rootFrozen ? ROOT_FROZEN_HINT : "New folder"}
             aria-label="New folder"
-            aria-disabled={rootFrozen}
-            onClick={() => createUniqueFolder("")}
+            aria-disabled={rootFrozen || isGuest}
+            onClick={() => isGuest ? toast("Ask an admin to add a folder.", "error") : createUniqueFolder("")}
           >
             {ICON_NEW_FOLDER}
           </button>
@@ -1934,7 +1938,7 @@ export function FileTree() {
       ) : null}
       {data.length === 0 ? (
         <div className="filetree-empty">
-          {emptyView.state === "nothing-shared" ? (
+          {isGuest ? "Nothing shared with you yet. Ask an admin to share a folder or note." : emptyView.state === "nothing-shared" ? (
             <NothingShared ownerName={emptyView.ownerName} vaultName={emptyView.vaultName} />
           ) : (
             "No notes yet"
@@ -1955,6 +1959,7 @@ export function FileTree() {
             onToggle={onToggle}
             onActivate={onActivate}
             onRename={onRename}
+            disableEdit={isGuest}
             // Arborist's own drag is HTML5-based and cannot complete inside this
             // webview (see the pointer-drag block above), so it is switched off
             // entirely rather than left to start drags that die silently — which
@@ -2009,7 +2014,7 @@ export function FileTree() {
           <li
             className={menuCreateBlocked ? "disabled" : undefined}
             title={menuCreateBlocked ? ROOT_FROZEN_HINT : undefined}
-            onClick={() => createUniqueFolder(menuDir)}
+            onClick={() => isGuest ? toast("Ask an admin to add a folder.", "error") : createUniqueFolder(menuDir)}
           >
             New folder
           </li>
@@ -2055,7 +2060,7 @@ export function FileTree() {
               {ipc.revealLabel()}
             </li>
           )}
-          {menu.node && <li onClick={() => menu.node!.edit()}>Rename</li>}
+          {!isGuest && menu.node && <li onClick={() => menu.node!.edit()}>Rename</li>}
           {/* At the vault root this is the vault-wide sort (the same setting
               as the header button). Inside a folder it is THAT folder's sort:
               it replaces the vault-wide one for the folder and everything under
@@ -2106,7 +2111,7 @@ export function FileTree() {
               Reset manual order
             </li>
           )}
-          {SHOW_SHARE_ITEM && menu.node && menuTarget && (
+          {!isGuest && SHOW_SHARE_ITEM && menu.node && menuTarget && (
             <li onClick={() => setShareTarget(menuTarget)}>Share…</li>
           )}
           {menu.node &&

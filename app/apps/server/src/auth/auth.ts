@@ -1,8 +1,12 @@
+import { applyGuestInvitation } from "../members/guest-invitations.js";
+import { defaultAc, ownerAc, adminAc, memberAc } from "better-auth/plugins/organization/access";
+import { AuditClient } from "../audit/client.js";
 import { betterAuth } from "better-auth";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import { bearer, mcp, organization } from "better-auth/plugins";
 import { Algorithm, hash as argonHash, verify as argonVerify } from "@node-rs/argon2";
 import pg from "pg";
+import { MCP_RESOURCE } from "../mcp/resource.js";
 import { MCP_SCOPES } from "../mcp/scopes.js";
 import { config } from "../config.js";
 import { BRAND_NAME } from "../brand.js";
@@ -49,9 +53,10 @@ const argonOpts = { algorithm: Algorithm.Argon2id } as const;
 const mcpMetadata = {
   scopes_supported: ["openid", "profile", "email", "offline_access", ...MCP_SCOPES],
   authorization_response_iss_parameter_supported: true,
+  client_id_metadata_document_supported: true,
 };
 
-export const authPool = new pg.Pool({ connectionString: config.databaseUrl });
+export const authPool = new pg.Pool({ Client: AuditClient, connectionString: config.databaseUrl });
 
 // Google social sign-in is opt-in: only wired when both creds are present, so a
 // self-hosted server without them just omits the provider (the desktop hides
@@ -245,6 +250,7 @@ export const auth = betterAuth({
     bearer(),
     organization({
       creatorRole: "owner",
+      roles: { owner: ownerAc, admin: adminAc, member: memberAc, guest: defaultAc.newRole({}) },
       invitationExpiresIn: config.invitationExpiresInSeconds, // INVITATION_EXPIRES_HOURS, default 7 days
       // Better Auth's own delete-organization endpoint is closed off entirely,
       // the same way `beforeUpdateMemberRole` closes off role changes below.
@@ -323,6 +329,7 @@ export const auth = betterAuth({
           }
         },
         beforeCreateInvitation: async (data) => {
+          if (data.invitation.role === "guest") throw new APIError("BAD_REQUEST", { message: "Choose guest folders or notes in vault member settings.", error: "guest_targets_required" });
           // A re-invite replaces a pending row rather than adding a seat, so it
           // must pass even at the cap — otherwise a full free vault could never
           // re-send a lost invitation.
@@ -346,6 +353,7 @@ export const auth = betterAuth({
         // Hard gate at acceptance (team model only; vault mode never gated it):
         // members + 1 must fit, and someone already on the account takes no seat.
         beforeAcceptInvitation: async (data) => {
+          if (data.invitation.role === "guest") throw new APIError("FORBIDDEN",{message:"Accept this invitation through the vault invitation link."});
           if (!teamModel()) return;
           const refused = await checkJoinSeat(authPool, data.organization.id, {
             userId: data.user.id,
@@ -400,12 +408,13 @@ export const auth = betterAuth({
         afterAcceptInvitation: async (data) => {
           // Apply the access the inviter chose (invitation_access, m046). The
           // member row exists by now; best-effort, never fails the accept.
-          await applyInvitationAccess({
+          if (data.invitation.role === "guest") await applyGuestInvitation(data.invitation.id, data.organization.id, data.user.id);
+          else await applyInvitationAccess({
             invitationIds: [data.invitation.id],
             organizationId: data.organization.id,
             userId: data.user.id,
           });
-          const name = data.user.name?.trim() || data.user.email;
+          const name = data.invitation.role === "guest" ? "A guest" : data.user.name?.trim() || data.user.email;
           await announceMemberJoined(data.organization.id, name);
           await announceInvitationGone(data.invitation.id, { userId: data.user.id });
         },
@@ -414,6 +423,9 @@ export const auth = betterAuth({
         // admin) and force-closes live sockets so the new role applies now.
         // Better Auth's own update-member-role endpoint does neither, so it's
         // closed off entirely.
+        beforeAddMember: async (data) => {
+          if (data.member.role === "guest") throw new APIError("FORBIDDEN",{message:"Invite guests with selected folders or notes in vault settings."});
+        },
         beforeUpdateMemberRole: async () => {
           throw new APIError("FORBIDDEN", {
             message: "role_change_not_supported_here",
@@ -434,7 +446,7 @@ export const auth = betterAuth({
     mcp({
       // Canonical resource id advertised in the protected-resource metadata:
       // the MCP endpoint clients actually POST to.
-      resource: `${config.betterAuthUrl}/api/mcp`,
+      resource: MCP_RESOURCE,
       loginPage: `${config.betterAuthUrl}/oauth/login`,
       oidcConfig: {
         scopes: [...MCP_SCOPES],

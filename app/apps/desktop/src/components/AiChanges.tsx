@@ -12,7 +12,7 @@ import "./aiChanges.css";
 
 function TextDiff({ before, after }: { before: string; after: string }) {
   const parts = useMemo(() => aiTextDiff(before, after), [before, after]);
-  return <pre className="ai-change-diff" aria-label="변경 전후 diff">{parts.map(([op, text], i) =>
+  return <pre className="ai-change-diff" aria-label="Before and after">{parts.map(([op, text], i) =>
     op < 0 ? <del key={i}>{text}</del> : op > 0 ? <ins key={i}>{text}</ins> : <span key={i}>{text}</span>)}</pre>;
 }
 
@@ -79,48 +79,48 @@ function AiChangesBody({ vaultId, online }: { vaultId: string; online: boolean }
     } finally { if (alive.current) { setBusy(false); setFuseAttempt(n => n + 1); } }
   };
   const shown = connection ? items.filter(i => i.connection_id === connection) : items;
-  return <section className="ai-changes" aria-label="AI 변경">
+  return <section className="ai-changes" aria-label="AI changes">
     <details open>
-      <summary>AI 변경</summary>
+      <summary>AI changes</summary>
       <div className="ai-change-toolbar">
-        <label>연결 <select value={connection} disabled={busy} onChange={e => { previewRequest.current++; setConnection(e.target.value); setDetail(null); setConflict(null); setResults([]); }}>
-          <option value="">모든 연결</option>
+        <label>Connection <select value={connection} disabled={busy} onChange={e => { previewRequest.current++; setConnection(e.target.value); setDetail(null); setConflict(null); setResults([]); }}>
+          <option value="">All connections</option>
           {aiConnections(items).map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
         </select></label>
-        <AsyncButton className="ghost-pill sm" disabled={!online || busy} onClick={refresh}>새로고침</AsyncButton>
+        <AsyncButton className="ghost-pill sm" disabled={!online || busy} onClick={refresh}>Refresh</AsyncButton>
         <button type="button" className="ghost-pill sm" disabled={!online || busy || !connection}
-          onClick={() => setConfirm("batch")}>최근 1시간 모두 되돌리기</button>
+          onClick={() => setConfirm("batch")}>Undo everything from the last hour</button>
       </div>
-      {!online && <p className="muted">연결 후 변경 목록을 새로고침하고 되돌릴 수 있습니다.</p>}
+      {!online && <p className="muted">Connect to refresh the list and undo changes.</p>}
       {error && <p role="alert" className="auth-error">{error}</p>}
-      {conflict && <div role="alert"><p>AI 변경 이후 내용이 달라져 되돌리지 않았습니다. 삭제선은 AI가 남긴 내용, 밑줄은 현재 내용입니다.</p>
+      {conflict && <div role="alert"><p>This note changed after the AI edit, so it was not undone. Struck-through text is what the AI left; underlined text is what is there now.</p>
         <TextDiff before={conflict.expected ?? ""} after={conflict.current} />
         {conflict.currentPath && <p>{conflict.expectedPath} → {conflict.currentPath}</p>}</div>}
-      {batchTruncated && <p role="status">일괄 처리 한도를 초과했습니다. 결과를 확인한 뒤 나머지를 다시 실행하세요.</p>}
-      {results.length > 0 && <ul aria-label="되돌리기 결과">{results.map(r => <li key={r.id}>
-        {items.find(i => i.id === r.id)?.after_path ?? r.id}: {r.status === "failed" ? r.error ?? "실패" : "되돌림"}
+      {batchTruncated && <p role="status">Too many changes for one batch. Check the results, then run the rest again.</p>}
+      {results.length > 0 && <ul aria-label="Undo results">{results.map(r => <li key={r.id}>
+        {items.find(i => i.id === r.id)?.after_path ?? r.id}: {r.status === "failed" ? r.error ?? "Failed" : "Undone"}
         {r.diff && <TextDiff before={r.diff.expected ?? ""} after={r.diff.current} />}
       </li>)}</ul>}
-      {shown.length === 0 && <p className="muted">기록된 AI 변경이 없습니다.</p>}
+      {shown.length === 0 && <p className="muted">No AI changes recorded.</p>}
       <ul className="ai-change-list">{shown.map(item => <li key={item.id}>
         <button type="button" className="ai-change-preview" disabled={busy || !online} onClick={() => void preview(item.id)}>
           <strong>{item.after_path}</strong><span>{item.connection_label} · {item.op}</span>
           <time dateTime={item.created_at}>{new Date(item.created_at).toLocaleString()}</time>
         </button>
-        <FuseButton key={`${item.id}:${fuseAttempt}`} label={item.reverted_at ? "되돌림" : "되돌리기"}
-          doneLabel="되돌리기 대기" disabled={busy || !online || !!item.reverted_at || item.diff_summary.oversized}
+        <FuseButton key={`${item.id}:${fuseAttempt}`} label={item.reverted_at ? "Undone" : "Undo"}
+          doneLabel="Undoing…" disabled={busy || !online || !!item.reverted_at || item.diff_summary.oversized}
           onAction={() => setBusy(true)} onUndo={() => setBusy(false)} onCommit={() => void revert(item)} />
         {detail?.id === item.id && <div className="ai-change-detail">
           {item.before_path !== item.after_path && <p>{item.before_path} → {item.after_path}</p>}
-          <p>삭제선: 변경 전 · 밑줄: 변경 후</p>
-          {detail.before_text === null || detail.after_text === null ? <p>1MiB를 초과하여 본문 diff와 되돌리기를 제공하지 않습니다.</p>
+          <p>Struck through: before · Underlined: after</p>
+          {detail.before_text === null || detail.after_text === null ? <p>Too large (over 1 MiB) to show a comparison or undo.</p>
             : <TextDiff before={detail.before_text} after={detail.after_text} />}
         </div>}
       </li>)}</ul>
-      {truncated && <p className="muted">최근 변경 100개를 표시합니다. 일괄 되돌리기는 서버에서 최근 1시간을 조회합니다.</p>}
+      {truncated && <p className="muted">Showing the latest 100 changes. Undoing in bulk looks at the last hour on the server.</p>}
     </details>
-    {confirm && <ConfirmDialog title="AI 변경을 되돌릴까요?" confirmLabel="되돌리기" onConfirm={() => void revert()} onCancel={() => setConfirm(null)}>
-      {confirm === "batch" ? "선택한 연결의 최근 1시간 변경을 최신순으로 되돌립니다. 항목별 성공과 충돌 결과를 표시합니다." : `${confirm.after_path}의 AI 변경을 되돌립니다. 이후 내용이 달라졌으면 덮어쓰지 않습니다.`}
+    {confirm && <ConfirmDialog title="Undo this AI change?" confirmLabel="Undo" onConfirm={() => void revert()} onCancel={() => setConfirm(null)}>
+      {confirm === "batch" ? "Undoes the selected connection’s changes from the last hour, newest first. You will see which ones worked and which conflicted." : `Undoes the AI change to ${confirm.after_path}. If the note changed since, it will not be overwritten.`}
     </ConfirmDialog>}
   </section>;
 }

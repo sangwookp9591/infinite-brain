@@ -229,17 +229,17 @@ accountPageRoutes.get("/invite/:id", async (c) => {
 
   const server = publicBaseUrl(c);
   const deepLink = `${config.deepLinkScheme}://invite/${encodeURIComponent(id)}?server=${encodeURIComponent(server)}`;
-  const who = inv.inviterName?.trim() || "A teammate";
+  const who = inv.role === "guest" ? "A vault admin" : inv.inviterName?.trim() || "A teammate";
   const body = `
     <h1>Join ${esc(inv.organizationName)}</h1>
-    <p class="sub"><b>${esc(who)}</b> invited <b>${esc(inv.email)}</b> to this vault${
+    <p class="sub"><b>${esc(who)}</b> invited <b>${esc(inv.role === "guest" ? "you" : inv.email)}</b> to this vault${
       inv.role === "admin" ? " as an admin" : ""
     }.</p>
     <a class="btn primary" href="${esc(deepLink)}" style="display:block;text-decoration:none">Open in ${esc(
       BRAND_NAME,
     )}</a>
     <p class="sub" style="margin-top:18px">Sign in with <b>${esc(
-      inv.email,
+      inv.role === "guest" ? "the email address that received this invitation" : inv.email,
     )}</b> — or create an account with that address — and you'll land in the vault.</p>
     <p class="foot">Don't have ${esc(BRAND_NAME)} yet? <a href="${BRAND_URL}" rel="noopener">Get it</a>, then open this link again.</p>
     <script>location.href = ${JSON.stringify(deepLink)};</script>`;
