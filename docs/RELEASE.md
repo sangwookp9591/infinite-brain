@@ -475,7 +475,7 @@ security find-identity -v -p codesigning
 
 # 2. The local updater key must match the one compiled into the app.
 #    (Both sides are newline-stripped — the files differ only in a trailing \n.)
-a=$(tr -d '\n' < ~/.tauri/opencontext.key.pub)
+a=$(tr -d '\n' < ~/.infinite-brain/updater.key.pub)
 b=$(python3 -c "import json;print(json.load(open('app/apps/desktop/src-tauri/tauri.conf.json'))['plugins']['updater']['pubkey'])" | tr -d '\n')
 [ "$a" = "$b" ] && echo "updater key OK" || echo "MISMATCH — do not publish"
 ```
@@ -502,8 +502,8 @@ with no error logged anywhere.
 cd app/apps/desktop
 export PATH="/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
 export APPLE_SIGNING_IDENTITY="Developer ID Application: Your Name (TEAMID)"
-export TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.tauri/opencontext.key)"
-export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""
+export TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.infinite-brain/updater.key)"
+export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="$(cat ~/.infinite-brain/updater.key.password)"
 unset APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID   # omit -> skip notarization
 
 npx tauri build --target aarch64-apple-darwin

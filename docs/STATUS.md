@@ -52,7 +52,6 @@ workspaces after the redesign. Packaged app, native Windows/WebView2 and real ex
 remain unverified.
 
 **Open items:**
-- Put a password on the updater private key before any release.
 - Hub guests: full path re-rooting for sync cursors, bootstrap manifest and attachments (Q3), guest seat billing (Q10).
 - Membership loss deletes the local team vault folder without a recovery copy (2026-10-09 decision); revisit now that guests and bulk revocation exist.
 - Deferred review items L4 (ACL metadata scope), L8/L9 (multi-writer locking, broadcast-then-DB-failure recovery).
