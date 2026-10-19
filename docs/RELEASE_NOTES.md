@@ -28,6 +28,12 @@
     (every app still installs it). Ask before each release: silent, or notes?
 -->
 
+## 0.2.1
+
+- Korean: The sidebar, menus, sign-in, sharing and the sync status now speak Korean. Pick English or 한국어 in Settings → Appearance, or leave it on System.
+- A star, once: After about five days of use, a small card asks whether you'd like to star Infinite Brain on GitHub. It appears once and never blocks a note.
+- Update card: When the app updates itself, each change now appears as its own row in a card.
+
 ## 0.2.0
 
 - Notes as files: Your notes are plain Markdown files on your own computer, and your team edits them together in real time.
