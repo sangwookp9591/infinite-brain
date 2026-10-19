@@ -2,17 +2,18 @@ import { useEffect, useState } from "react";
 import { ActivityLattice } from "./kit/ActivityLattice";
 import { ProgressDial } from "./kit/ProgressDial";
 import { isBulkPhase, type SyncProgress } from "../lib/sync/vaultScope";
+import { t } from "../lib/i18n";
 import { syncPauseRemaining, type SyncPause } from "../lib/sync/syncPause";
 
 /** "just now" / "1m ago" / "2h ago" — coarse on purpose; it ticks every 30s. */
 export function relativeAgo(ts: number, now: number): string {
   const s = Math.max(0, Math.floor((now - ts) / 1000));
-  if (s < 45) return "just now";
+  if (s < 45) return t("just now");
   const m = Math.floor(s / 60);
-  if (m < 60) return `${Math.max(1, m)}m ago`;
+  if (m < 60) return t("{n}m ago", { n: Math.max(1, m) });
   const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
+  if (h < 24) return t("{n}h ago", { n: h });
+  return t("{n}d ago", { n: Math.floor(h / 24) });
 }
 
 /** True while the open vault has a bulk sync run in flight. */
@@ -82,23 +83,23 @@ export function syncBadgeLabel(args: {
   const { status, pending, lastSyncedAt, now, enabled, noteOpen } = args;
   const progress = pillProgress(args.progress);
   if (progress?.phase === "removing") {
-    return `Updating access · ${Math.max(0, progress.total - progress.done).toLocaleString()} remaining`;
+    return t("Updating access · {n} remaining", { n: Math.max(0, progress.total - progress.done).toLocaleString() });
   }
   // A grant fact about the open note outranks everything else: there is no point
   // reporting upload progress on a doc we are not allowed to write.
   if (noteOpen !== false) {
-    if (status === "no-access") return "No access";
-    if (status === "read-only") return "Read-only";
+    if (status === "no-access") return t("No access");
+    if (status === "read-only") return t("Read-only");
   }
   // Terminal and vault-wide-relevant: this note will never reach the server on
   // its own, so it outranks run progress whether or not it is the open note.
   // Saying "Syncing…" over a doc the server has permanently refused is the lie
   // the whole badge exists to avoid.
-  if (status === "too-large") return "Too large to sync";
+  if (status === "too-large") return t("Too large to sync");
   // The server has no such doc any more (its row is soft-deleted, or it was
   // never registered), so no reconnect can sync it. One stable word beats the
   // Synced/Syncing strobe this state used to produce.
-  if (status === "deleted") return "Deleted";
+  if (status === "deleted") return t("Deleted");
   if (progress && isSyncRunActive(progress)) {
     // The one exception to "one verb": notes whose content the server has
     // never had (#258) — an interrupted first upload resuming, or a fresh one.
@@ -107,35 +108,37 @@ export function syncBadgeLabel(args: {
     // so an already-synced vault never reads "Uploading".
     const left = progress.notUploaded ?? 0;
     if (progress.phase === "uploading" && left > 0) {
-      return `Uploading · ${left.toLocaleString()} ${left === 1 ? "note" : "notes"} left`;
+      return left === 1
+        ? t("Uploading · {n} note left", { n: left.toLocaleString() })
+        : t("Uploading · {n} notes left", { n: left.toLocaleString() });
     }
-    if (progress.total <= 0) return "Syncing…";
+    if (progress.total <= 0) return t("Syncing…");
     // One verb for every phase. The old per-phase labels ("Uploading",
     // "Downloading") described the mechanism, not the user's situation — the
     // content pass pulls each note's server state before pushing anything, so
     // on an already-synced vault "Uploading files" read as "my synced vault is
     // being re-sent". Done is clamped so a racing denominator can never render
     // an impossible "585/164".
-    return `Syncing ${Math.min(progress.done, progress.total)}/${progress.total} updates`;
+    return t("Syncing {done}/{total} updates", { done: Math.min(progress.done, progress.total), total: progress.total });
   }
   // Only a run with NO failed note is still `error` here (see `pillProgress`):
   // the run itself could not proceed because the vault channel never connected
   // (the download-phase watchdog). Name the situation the user can act on, not
   // a mystery "incomplete".
   if (progress?.phase === "error") {
-    if (status === "connecting" || status === "error") return "Retrying…";
-    return "Sync incomplete";
+    if (status === "connecting" || status === "error") return t("Retrying…");
+    return t("Sync incomplete");
   }
   if (noteOpen === false) {
-    return progress?.phase === "done" ? "Synced" : "Syncing…";
+    return progress?.phase === "done" ? t("Synced") : t("Syncing…");
   }
   if (status === "synced") {
-    if (pending) return "Syncing…";
-    return lastSyncedAt != null ? `Synced · ${relativeAgo(lastSyncedAt, now)}` : "Synced";
+    if (pending) return t("Syncing…");
+    return lastSyncedAt != null ? t("Synced · {ago}", { ago: relativeAgo(lastSyncedAt, now) }) : t("Synced");
   }
-  if (status === "connecting") return "Syncing…";
-  if (status === "error") return "Retrying…";
-  return enabled === false ? "Local only" : "Offline";
+  if (status === "connecting") return t("Syncing…");
+  if (status === "error") return t("Retrying…");
+  return enabled === false ? t("Local only") : t("Offline");
 }
 
 /**

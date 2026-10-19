@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 // Display helpers for Vault Settings → Health.
 //
 // Pure and dependency-free (no React, no store, no Tauri) so they unit-test in
@@ -44,17 +45,17 @@ export function formatBytes(n: number): string {
 export function relativeTime(ms: number, now: number): string {
   if (!Number.isFinite(ms)) return "—";
   const secs = Math.floor((now - ms) / 1000);
-  if (secs < 45) return "just now";
+  if (secs < 45) return t("just now");
   const mins = Math.floor(secs / 60);
-  if (mins < 60) return `${Math.max(1, mins)} min ago`;
+  if (mins < 60) return t("{n} min ago", { n: Math.max(1, mins) });
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours} ${hours === 1 ? "hour" : "hours"} ago`;
+  if (hours < 24) return hours === 1 ? t("1 hour ago") : t("{n} hours ago", { n: hours });
   const days = Math.floor(hours / 24);
-  if (days < 30) return `${days} ${days === 1 ? "day" : "days"} ago`;
+  if (days < 30) return days === 1 ? t("1 day ago") : t("{n} days ago", { n: days });
   const months = Math.floor(days / 30);
-  if (months < 12) return `${months} ${months === 1 ? "month" : "months"} ago`;
+  if (months < 12) return months === 1 ? t("1 month ago") : t("{n} months ago", { n: months });
   const years = Math.floor(days / 365);
-  return `${years} ${years === 1 ? "year" : "years"} ago`;
+  return years === 1 ? t("1 year ago") : t("{n} years ago", { n: years });
 }
 
 /**

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, type CSSProperties } from "react";
 import { useStore } from "../store";
+import { useT } from "../lib/i18n";
 import { requestNewDashboard as dispatchNewDashboard, type DashboardCreationIntent } from "../lib/homeEvents";
 import { mergePins, visiblePinnedItems, pinKey, effectiveHomeNote, isHomeNavigation } from "../lib/pins";
 import { displayName } from "../lib/notePath";
@@ -22,6 +23,7 @@ export function requestNewDashboard(kind?: "link", intent?: DashboardCreationInt
 const onError = (e: unknown) => toast(e instanceof Error ? e.message : String(e), "error");
 
 export function HomeSection() {
+  const tr = useT();
   const st = useStore();
   const home = effectiveHomeNote(st);
   const menu = useRef<HTMLDetailsElement>(null);
@@ -38,9 +40,9 @@ export function HomeSection() {
   }, []);
   if (st.homeSectionHidden) return null;
   const selected = isHomeNavigation(st);
-  const label = home ? displayName(home.path.split("/").pop() ?? home.path, false) : "Set a home";
-  return <section className="home-section" aria-label="Home">
-    <div className="pinned-label">Home</div>
+  const label = home ? displayName(home.path.split("/").pop() ?? home.path, false) : tr("Set a home");
+  return <section className="home-section" aria-label={tr("Home")}>
+    <div className="pinned-label">{tr("Home")}</div>
     <div className="home-sidebar-entry" onContextMenu={(event) => {
       if (!menu.current) return;
       event.preventDefault(); menu.current.open = true;
@@ -48,7 +50,7 @@ export function HomeSection() {
     }}>
     <button className={`home-sidebar-row${selected ? " selected" : ""}${!home ? " is-unset" : ""}`}
       aria-current={selected ? "page" : undefined}
-      title={home ? `Open Home: ${home.path}` : "Choose a template for your Home dashboard"}
+      title={home ? tr("Open Home: {path}", { path: home.path }) : tr("Choose a template for your Home dashboard")}
       onClick={() => { if (home) void st.openHome(true, true).catch(onError); else requestNewDashboard(undefined, { setAsHome: true }); }}>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m3 10 9-7 9 7v11h-6v-7H9v7H3z" /></svg>
       <span>{label}</span>
@@ -61,12 +63,12 @@ export function HomeSection() {
       // click. Outside pointerdown handles that case without removing its target.
       onBlur={(event) => { if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) closeMenu(); }}
       onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); closeMenu(); menu.current?.querySelector<HTMLElement>("summary")?.focus(); } }}>
-      <summary className="icon-btn" aria-label="Home options" title="Home options">···</summary>
+      <summary className="icon-btn" aria-label={tr("Home options")} title={tr("Home options")}>···</summary>
       <div className="home-sidebar-menu-items">
-        <button type="button" onClick={() => { closeMenu(); useStore.setState({ homePickerOpen: true }); }}>Change Home…</button>
-        {st.personalHomeDocId && <button type="button" onClick={() => { closeMenu(); void st.setHome(null, "personal").catch(onError); }}>{sharedHome ? "Use vault Home instead" : "Unset Home"}</button>}
-        {sharedHome && canManage && <button type="button" onClick={() => { closeMenu(); void st.setHome(null, "vault").catch(onError); }}>Unset vault Home for everyone</button>}
-        <button type="button" onClick={() => { closeMenu(); st.setHomeSectionHidden(true); }}>Hide Home section</button>
+        <button type="button" onClick={() => { closeMenu(); useStore.setState({ homePickerOpen: true }); }}>{tr("Change Home…")}</button>
+        {st.personalHomeDocId && <button type="button" onClick={() => { closeMenu(); void st.setHome(null, "personal").catch(onError); }}>{sharedHome ? tr("Use vault Home instead") : tr("Unset Home")}</button>}
+        {sharedHome && canManage && <button type="button" onClick={() => { closeMenu(); void st.setHome(null, "vault").catch(onError); }}>{tr("Unset vault Home for everyone")}</button>}
+        <button type="button" onClick={() => { closeMenu(); st.setHomeSectionHidden(true); }}>{tr("Hide Home section")}</button>
       </div>
     </details>
     </div>
@@ -74,6 +76,7 @@ export function HomeSection() {
 }
 
 export function PinnedSection() {
+  const tr = useT();
   const st = useStore();
   const orgId = st.syncEnabled ? st.session?.activeOrganizationId : null;
   const shared = orgId ? st.vaultAppearance[orgId]?.pinnedItems ?? [] : [];
@@ -106,8 +109,8 @@ export function PinnedSection() {
   const locks = lockScopesByPath(st.tree, st.locks, st.session?.user.id, st.lifts);
   const rows = visiblePinnedItems(shared, st.personalPins, st.titles, (path) => Boolean(st.tree && nodeAt(st.tree, path)));
   if (!rows.length) return null;
-  return <section className="pinned-section" aria-label="Pinned notes and folders">
-    <div className="pinned-label">Pinned</div>
+  return <section className="pinned-section" aria-label={tr("Pinned notes and folders")}>
+    <div className="pinned-label">{tr("Pinned")}</div>
     {rows.map(({ item, shared, path }) => {
       const color = st.itemColors[path] ?? automatic[path];
       const lock = st.syncEnabled ? effectiveLockForPath(locks, path) : null;
@@ -122,12 +125,12 @@ export function PinnedSection() {
           <span className="pinned-name">{displayName(path.split("/").pop() ?? path, item.kind === "folder")}</span>
           <SidebarPresence peers={peers} />
           {lock && <span className="pinned-lock" title={LOCK_TITLES[lock]} aria-label={LOCK_TITLES[lock]}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="5" y="10" width="14" height="11" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></svg></span>}
-          {shared && <span className="pinned-shared" title="Pinned for everyone by a vault admin">Everyone</span>}
+          {shared && <span className="pinned-shared" title={tr("Pinned for everyone by a vault admin")}>{tr("Everyone")}</span>}
         </button>
         {(!shared || canManage) && <MenuSelect<"none" | "unpin">
           value="none"
-          options={[{ value: "unpin", label: shared ? "Unpin for everyone" : "Unpin" }]}
-          ariaLabel={`Pinned options for ${displayName(path.split("/").pop() ?? path, item.kind === "folder")}`}
+          options={[{ value: "unpin", label: shared ? tr("Unpin for everyone") : tr("Unpin") }]}
+          ariaLabel={tr("Pinned options for {name}", { name: displayName(path.split("/").pop() ?? path, item.kind === "folder") })}
           triggerClassName="row-more-btn pinned-more"
           triggerContent="···"
           caret={false}

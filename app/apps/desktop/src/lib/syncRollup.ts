@@ -24,6 +24,7 @@
 import { isSafeAttachmentRelPath, isUnderAttachments } from "./sync/attachments";
 import type { SyncStatus } from "./sync/syncManager";
 import type { DocSyncState } from "./sync/vaultScope";
+import { t } from "./i18n";
 
 /**
  * Should the sidebar draw per-note dots and folder counters at all?
@@ -445,7 +446,7 @@ export function rowSyncMark(
   const noteState = index.notes.get(row.path);
   if (noteState) {
     const state = sidebarState(noteState, runActive);
-    return { state, progress: null, title: DOC_SYNC_TITLES[state] };
+    return { state, progress: null, title: t(DOC_SYNC_TITLES[state]) };
   }
   // Not a note — but a `.pdf`/`.docx`/`.mp4` the attachment mirror carries gets
   // the SAME dot, in the same column, in its own words. A file the mirror has
@@ -453,7 +454,7 @@ export function rowSyncMark(
   const fileState = index.files.get(row.path);
   if (fileState) {
     const state = sidebarState(fileState, runActive);
-    return { state, progress: null, title: FILE_SYNC_TITLES[state] };
+    return { state, progress: null, title: t(FILE_SYNC_TITLES[state]) };
   }
   return null;
 }
