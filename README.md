@@ -15,6 +15,12 @@ Write on your own computer, edit together in real time, and let your AI read and
 
 <br>
 
+<a href="docs/assets/promo/infinite-brain-promo.mp4"><img src="docs/assets/promo/poster.jpg" alt="Play the 40-second Infinite Brain intro video" width="900"></a>
+
+<sub>▶ <a href="docs/assets/promo/infinite-brain-promo.mp4">Watch the 40-second intro</a></sub>
+
+<br><br>
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/ui/main-dark.png">
   <img src="docs/assets/ui/main-light.png" alt="The Infinite Brain main window: an icon rail, a floating sidebar with the vault's notes, and a note open in the editor sheet" width="900">
