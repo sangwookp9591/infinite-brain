@@ -25,6 +25,8 @@ Object.defineProperty(navigator, "userAgent", {
       : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/140.0.0.0 Safari/537.36",
 });
 localStorage.setItem("cbk-theme", params.get("theme") || "light");
+// The first-launch intro only shows on its own surface, never over a review capture.
+if (surface !== "onboarding") localStorage.setItem("infinitebrain.onboarding.v1", "seen");
 localStorage.setItem("context.sidebarWidth", "328");
 localStorage.setItem(
   "context.sidebarHidden",
@@ -309,7 +311,17 @@ useStore.setState({
 });
 (window as any).previewStore = useStore;
 (window as any).previewUnknownRequests = unknownRequests;
-if (surface === "health" || surface === "housekeeper") {
+if (surface === "onboarding") {
+  await import("/src/assets/fonts/fonts.css");
+  await import("/src/styles/tokens.css");
+  await import("/src/App.css");
+  const React = await import("react");
+  const { createRoot } = await import("react-dom/client");
+  const { Onboarding } = await import("/src/components/Onboarding.tsx");
+  createRoot(document.getElementById("root")!).render(
+    React.createElement(Onboarding, { onDone: () => location.reload() }),
+  );
+} else if (surface === "health" || surface === "housekeeper") {
   await import("/src/assets/fonts/fonts.css");
   await import("/src/styles/tokens.css");
   await import("/src/App.css");

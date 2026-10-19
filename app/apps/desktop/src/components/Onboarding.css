@@ -1,0 +1,260 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/* First-launch intro. The stage is always the Orbit night sky, in both themes,
+   so the art reads the same regardless of the system appearance. */
+.onboarding {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  grid-template-rows: auto 1fr auto auto;
+  overflow: hidden;
+  color: #eef0ff;
+  background: radial-gradient(120% 90% at 50% 10%, #1d1f4a 0%, #0d0e24 55%, #07081a 100%);
+  font-family: var(--font-ui, "Geist", "Pretendard", -apple-system, sans-serif);
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.onboarding-sky { position: absolute; inset: 0; pointer-events: none; }
+.onboarding-sky svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.onboarding-nebula {
+  position: absolute;
+  left: 20%; top: 5%;
+  width: 60vmax; height: 60vmax;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(106, 95, 240, 0.32) 0%, rgba(74, 63, 212, 0.12) 40%, transparent 70%);
+  filter: blur(40px);
+}
+
+.onboarding-top {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 28px 36px 0;
+  /* Leaves room for the macOS traffic lights over an overlay title bar. */
+  padding-left: max(36px, 88px);
+}
+.onboarding-wordmark { font-family: var(--font-display); font-size: 17px; letter-spacing: -0.01em; color: rgba(238, 240, 255, 0.85); }
+.onboarding-skip {
+  border: 0;
+  background: transparent;
+  color: rgba(238, 240, 255, 0.62);
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.onboarding-skip:hover { color: #fff; background: rgba(255, 255, 255, 0.08); }
+
+.onboarding-stage { position: relative; display: grid; place-items: center; min-height: 0; padding: 12px 24px; }
+.onboarding-art { position: relative; width: min(560px, 80vw); height: min(330px, 42vh); display: grid; place-items: center; }
+
+.onboarding-copy { position: relative; text-align: center; padding: 0 24px; min-height: 150px; }
+.onboarding-eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #a29bff;
+  margin-bottom: 10px;
+}
+.onboarding-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: clamp(30px, 4.4vw, 46px);
+  letter-spacing: -0.02em;
+  line-height: 1.08;
+  color: #fff;
+}
+.onboarding-body {
+  margin: 14px auto 0;
+  max-width: 460px;
+  font-size: 15px;
+  line-height: 1.55;
+  color: rgba(238, 240, 255, 0.72);
+}
+
+.onboarding-nav {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 18px 36px 32px;
+}
+.onboarding-progress { display: flex; gap: 8px; }
+.onboarding-bar {
+  width: 44px;
+  height: 14px;
+  padding: 5px 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.onboarding-bar::before {
+  content: "";
+  display: block;
+  height: 3px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.16);
+}
+.onboarding-bar-fill {
+  display: block;
+  height: 3px;
+  margin-top: -3px;
+  border-radius: 3px;
+  background: #a29bff;
+}
+.onboarding-actions { display: flex; gap: 10px; }
+.onboarding-back,
+.onboarding-next {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 999px;
+  padding: 10px 22px;
+  cursor: pointer;
+}
+.onboarding-back { border: 1px solid rgba(255, 255, 255, 0.18); background: transparent; color: #eef0ff; }
+.onboarding-back:hover { background: rgba(255, 255, 255, 0.06); }
+.onboarding-next {
+  border: 0;
+  color: #fff;
+  background: linear-gradient(135deg, #6a5ff0 0%, #4a3fd4 100%);
+  box-shadow: 0 8px 28px rgba(74, 63, 212, 0.45);
+  min-width: 128px;
+}
+.onboarding { outline: none; }
+.onboarding :focus-visible { outline: 2px solid #a29bff; outline-offset: 3px; }
+
+/* ── Scene 1: files become stars ─────────────────────────────── */
+.ob-files { position: absolute; inset: 0; }
+.ob-files-links { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.ob-link { stroke: rgba(162, 155, 255, 0.5); stroke-width: 0.3; stroke-linecap: round; }
+.ob-link-flat { stroke-width: 1.2; vector-effect: non-scaling-stroke; }
+.ob-file {
+  position: absolute;
+  translate: -50% -50%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px 9px 9px;
+  border-radius: 12px;
+  font-size: 13px;
+  white-space: nowrap;
+  color: #eef0ff;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+.ob-file-ext {
+  font-family: var(--font-mono, "Geist Mono", monospace);
+  font-size: 10px;
+  padding: 3px 5px;
+  border-radius: 6px;
+  color: #0d0e24;
+  background: #a29bff;
+}
+.ob-star {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 12px 4px rgba(162, 155, 255, 0.85), 0 0 40px 10px rgba(106, 95, 240, 0.45);
+}
+
+/* ── Scenes 2 and 3: a note card ─────────────────────────────── */
+.ob-note {
+  position: relative;
+  width: min(460px, 76vw);
+  padding: 22px 24px 18px;
+  border-radius: 20px;
+  text-align: left;
+  background: rgba(24, 26, 60, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.ob-note-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.ob-note-title { font-family: var(--font-display); font-size: 20px; color: #fff; }
+.ob-avatars { display: flex; }
+.ob-avatar {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  margin-left: -6px;
+  border-radius: 50%;
+  border: 2px solid #181a3c;
+  font-size: 11px;
+  font-weight: 600;
+  color: #0d0e24;
+}
+.ob-line { height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.1); margin: 10px 0; }
+.ob-line-w80 { width: 80%; }
+.ob-line-w70 { width: 70%; }
+.ob-line-w60 { width: 60%; }
+.ob-typing { position: relative; min-height: 22px; font-size: 15px; line-height: 22px; color: #eef0ff; margin: 12px 0; }
+.ob-caret {
+  position: relative;
+  display: inline-block;
+  width: 2px;
+  height: 18px;
+  margin-left: 1px;
+  vertical-align: -3px;
+  background: var(--c);
+  animation: ob-blink 1s steps(1) infinite;
+}
+.ob-caret-tag {
+  position: absolute;
+  left: 0;
+  bottom: 100%;
+  padding: 1px 6px;
+  border-radius: 6px 6px 6px 0;
+  font-size: 10px;
+  font-weight: 600;
+  color: #0d0e24;
+  background: #4dd0e1;
+  white-space: nowrap;
+}
+.ob-sara-sel { position: relative; display: inline-block; }
+.ob-sara-hl { position: absolute; inset: -1px -2px; z-index: -1; border-radius: 3px; background: rgba(255, 138, 101, 0.35); transform-origin: left; }
+.ob-sara-line { position: relative; z-index: 0; }
+.ob-caret-tag-sara { background: #ff8a65; left: auto; right: 0; bottom: auto; top: 100%; border-radius: 0 0 6px 6px; }
+.ob-synced { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px; color: rgba(238, 240, 255, 0.7); }
+.ob-dot { width: 7px; height: 7px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 8px #4ade80; }
+@keyframes ob-blink { 50% { opacity: 0; } }
+
+.ob-ai-chip { padding: 4px 10px; border-radius: 999px; font-size: 12px; color: #fff; background: rgba(162, 155, 255, 0.2); border: 1px solid rgba(162, 155, 255, 0.45); }
+.ob-diff { font-size: 15px; line-height: 1.6; margin: 12px 0; }
+.ob-old { text-decoration: line-through; text-decoration-thickness: 2px; color: #eef0ff; }
+.ob-new { text-decoration: underline; text-decoration-color: #4ade80; text-decoration-thickness: 2px; text-underline-offset: 3px; color: #c8f7d8; }
+.ob-undo-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; }
+.ob-ai-meta { font-size: 12px; color: rgba(238, 240, 255, 0.62); }
+.ob-undo {
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #0d0e24;
+  background: #fff;
+  transition: background 0.3s, color 0.3s;
+}
+.ob-undo.is-done { color: #fff; background: rgba(74, 222, 128, 0.25); }
+
+/* ── Scene 4: galaxy ─────────────────────────────────────────── */
+.ob-galaxy { width: min(440px, 48vh); aspect-ratio: 1; }
+.ob-galaxy svg { width: 100%; height: 100%; overflow: visible; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ob-caret { animation: none; }
+}
+
+@media (max-height: 640px) {
+  .onboarding-copy { min-height: 120px; }
+  .onboarding-body { font-size: 14px; }
+}

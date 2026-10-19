@@ -44,6 +44,7 @@ import { TabBar } from "./components/TabBar";
 import { VirtualTabHost } from "./components/VirtualTabHost";
 import { Toasts } from "./components/Toasts";
 import { toast } from "./lib/toast";
+import { shouldShowOnboarding } from "./lib/onboardingIntro";
 import { RightPanel } from "./components/RightPanel";
 import { usePendingReviewCount } from "./components/ReviewTab";
 import { bridgeManager } from "./lib/bridge";
@@ -107,6 +108,9 @@ const GraphView = lazy(() =>
 );
 const VaultPicker = lazy(() =>
   import("./components/VaultPicker").then((m) => ({ default: m.VaultPicker })),
+);
+const Onboarding = lazy(() =>
+  import("./components/Onboarding").then((m) => ({ default: m.Onboarding })),
 );
 const AuthDialog = lazy(() =>
   import("./components/AuthDialog").then((m) => ({ default: m.AuthDialog })),
@@ -1040,6 +1044,20 @@ function SyncIndicator({
  * sign-in. Mounted in BOTH root branches — a signed-out user can receive a link
  * with or without a folder open.
  */
+/** The first-launch intro over the welcome screen, once per device. A link
+ *  that arrives with a sign-in prompt (invite, shared note) takes precedence:
+ *  the intro steps aside so the prompt is never hidden behind it. */
+function FirstRunIntro() {
+  const authPrompt = useStore((s) => s.authPrompt);
+  const [show, setShow] = useState(() => shouldShowOnboarding(window.localStorage));
+  if (!show || authPrompt) return null;
+  return (
+    <Suspense fallback={<div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "#0d0e24" }} />}>
+      <Onboarding onDone={() => setShow(false)} />
+    </Suspense>
+  );
+}
+
 function PromptedAuthDialog() {
   const authPrompt = useStore((s) => s.authPrompt);
   if (
@@ -1605,6 +1623,7 @@ export default function App() {
         <Suspense fallback={<div className="booting">Loading…</div>}>
           <VaultPicker />
         </Suspense>
+        <FirstRunIntro />
         <VaultFolderPrompt />
         <PromptedAuthDialog />
       </div>

@@ -9,6 +9,7 @@ query parameters to the simulator URL:
 - `surface=dashboard-manage` opens the saved dashboards manager.
 - `surface=health` mounts the pure Health renderer with synthetic local and
   Remote Vault stats.
+- `surface=onboarding` plays the first-launch intro on its own.
 - `surface=housekeeper` mounts the Housekeeper panel with local API fixtures.
 
 Add `theme=light` or `theme=dark`, and use a 1440×900 or 720×600 viewport for
