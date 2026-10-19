@@ -11,7 +11,7 @@ Write on your own computer, edit together in real time, and let your AI read and
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 ![Platform: macOS | Windows](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-lightgrey)
 
-[Download](#-download) · [Getting started](#-getting-started) · [Working as a team](#-working-as-a-team) · [What your team sees](#-what-your-team-sees) · [AI](#-connect-your-ai) · [Self-hosting](#-run-your-own-server) · [Development](#-development)
+[Download](#-download) · [Getting started](#-getting-started) · [Working as a team](#-working-as-a-team) · [What your team sees](#-what-your-team-sees) · [AI](#-connect-your-ai) · [Self-hosting](#-run-your-own-server) · [Development](#-development) · [Releasing](#-releasing)
 
 <br>
 
@@ -185,14 +185,7 @@ pnpm run dev:desktop
 | Rust tests | `app/apps/desktop/src-tauri` | `cargo test` |
 | Lint | `app` | `pnpm lint` |
 
-**Installers and updates.** There are two ways to ship a version. Both publish a GitHub release with `latest.json`, which installed apps poll to update themselves. The version's section in [`docs/RELEASE_NOTES.md`](docs/RELEASE_NOTES.md) becomes the in-app What's New.
-
-| Path | What it produces | Guide |
-|---|---|---|
-| **This Mac** | `scripts/build-installers.sh` builds a Developer ID signed, notarized universal `.dmg` and a cross-compiled Windows `.exe`. `scripts/publish-release.sh --yes` uploads them with `latest.json` | [`docs/RELEASE_SIGNING.md`](docs/RELEASE_SIGNING.md) |
-| **GitHub Actions** | Pushing a version bump to `main` runs [`release.yml`](.github/workflows/release.yml): `.dmg`, `.exe`/`.msi` and Linux packages. Without the Apple secrets the `.dmg` is ad-hoc signed | [`docs/RELEASE.md`](docs/RELEASE.md) |
-
-When you publish from this Mac, publish first and push the version bump afterwards. The workflow skips a version that already has a release.
+Releasing a version (installers, updates, release notes) is in [Releasing](#-releasing) below.
 
 To build a local macOS app without the updater key:
 
@@ -202,6 +195,80 @@ pnpm tauri build --bundles app --config '{"bundle":{"createUpdaterArtifacts":fal
 ```
 
 Developer notes and the rules that keep data safe are in [`CLAUDE.md`](CLAUDE.md) and [`AGENTS.md`](AGENTS.md). Build status is in [`docs/STATUS.md`](docs/STATUS.md).
+
+## 🚢 Releasing
+
+A release is a version bump, release notes, two installers and one GitHub release. Everything below runs from this repository on one Mac; [`docs/RELEASE_SIGNING.md`](docs/RELEASE_SIGNING.md) has the one-time setup and troubleshooting, and [`docs/RELEASE.md`](docs/RELEASE.md) covers the GitHub Actions path.
+
+**One-time setup** (already done on the release Mac): a Developer ID Application certificate in the keychain, a notarization profile named `axdb-notary` (`xcrun notarytool store-credentials`), the updater key in `~/.infinite-brain/` (`updater.key`, `updater.key.password`, `updater.key.pub`; the public key must match `plugins.updater.pubkey` in `tauri.conf.json`, and the build stops if it does not), `cargo-xwin`, `nsis` and `llvm` for the Windows build, and `gh` logged in.
+
+### 1. Bump the version
+
+Set the same version in all four files (they must agree):
+
+| File | Key |
+|---|---|
+| `app/apps/desktop/src-tauri/tauri.conf.json` | `"version"` |
+| `app/apps/desktop/package.json` | `"version"` |
+| `app/apps/desktop/src-tauri/Cargo.toml` | `version` |
+| `app/apps/desktop/src-tauri/Cargo.lock` | the `desktop` package's `version` |
+
+The server rejects desktop builds below 0.1.49 on writes, so versions stay above that.
+
+### 2. Write the release notes
+
+Add a `## <version>` section at the top of [`docs/RELEASE_NOTES.md`](docs/RELEASE_NOTES.md). This text is the GitHub release body **and** the What's New card users see after the app updates itself.
+
+- Two to five points, one per change users would notice. No file names or issue numbers.
+- Start each point with a short label and a colon, then a sentence: `Korean: The sidebar and menus now speak Korean.` The label becomes the row title in the card; a point without one shows under "New".
+- No section, or an empty one, ships silently: the app updates without showing What's New.
+
+### 3. Build and sign
+
+```sh
+scripts/build-installers.sh          # macOS and Windows
+scripts/build-installers.sh mac      # only the .dmg
+scripts/build-installers.sh win      # only the .exe
+```
+
+It writes to `dist/<version>/` (git-ignored):
+
+- **macOS:** a universal (Apple Silicon and Intel) `.dmg`, signed with Developer ID and the hardened runtime, then sent to Apple for **notarization** and stapled. Notarization is Apple's automatic check; it usually takes minutes but has taken hours, and the script waits for it. If the wait is cut off (a network drop, say), the submission is not lost: find its id in `dist/<version>/notary.log`, then `xcrun notarytool info <id> --keychain-profile axdb-notary`, and when it says `Accepted` run `xcrun stapler staple` on the `.dmg` (`xcrun stapler validate` and `spctl -a -vv -t open --context context:primary-signature <dmg>` to check) and copy it into `dist/<version>/`.
+- **Windows:** an NSIS `*-setup.exe`, cross-compiled on the Mac. It is not code-signed, so Windows shows a SmartScreen warning the first time (**More info → Run anyway**).
+- **Updater files:** a `.app.tar.gz` and a `.sig` for each platform, signed with the updater key.
+
+`SKIP_NOTARIZE=1` builds a signed `.dmg` without notarizing; fresh downloads then get a Gatekeeper warning.
+
+### 4. Publish
+
+```sh
+scripts/publish-release.sh           # preview: prints latest.json and the files to upload
+scripts/publish-release.sh --yes     # create the GitHub release (goes live at once)
+```
+
+The script refuses a `.dmg` that is not notarized and stapled, refuses to overwrite a release that exists, renames the files without spaces, builds `latest.json` from the `.sig` files and the version's release notes, and runs `gh release create v<version>`.
+
+**What users get.** Installed apps check `releases/latest/download/latest.json` at launch and every 15 minutes, download the update in the background, verify it against the embedded public key, restart at a quiet moment and show What's New. The **Check for updates** button in the account menu does the same on demand. Auto-update does not depend on notarization, only on the updater signature. The portfolio site's install buttons read `releases/latest` and refresh within ten minutes.
+
+### 5. Push, in this order
+
+Publish **first**, push the version bump **after**. Pushing a version bump to `main` runs the [release workflow](.github/workflows/release.yml), which builds and publishes the same version itself, ad-hoc signed without the Apple secrets. It skips a version that already has a release, so with the release already published the push only runs CI.
+
+```sh
+git push origin main
+```
+
+### Checklist
+
+- [ ] The four version files agree and the release notes section exists
+- [ ] `pnpm test` (desktop) and `tsc` pass; server tests run only against a disposable database
+- [ ] `xcrun stapler validate` passes on the `.dmg`; the preview shows both platforms
+- [ ] After publishing: `curl -sL https://github.com/sangwookp9591/infinite-brain/releases/latest/download/latest.json` shows the new version
+- [ ] Then push the commits
+
+### Deploying the server
+
+The desktop app and the server are released separately. The server (`app/apps/server`) ships as a Docker image to Docker Compose, Railway or Coolify; see [`docs/DEPLOY.md`](docs/DEPLOY.md) and [Run your own server](#-run-your-own-server). Raise `MIN_CLIENT_VERSION` only one release after the desktop build that needs it.
 
 ## 🤝 Community
 
