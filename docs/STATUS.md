@@ -11,7 +11,7 @@ tags: [infinite-brain, status, roadmap]
 
 ## Status (2026-10-19)
 
-No hosted server or published release yet. The first release is 0.2.0, built and signed on this Mac (docs/RELEASE_SIGNING.md).
+No hosted server yet. v0.2.0, the first release, was published on 2026-10-19: a notarized universal `.dmg` and a Windows `.exe`, built and signed on this Mac (docs/RELEASE_SIGNING.md). The portfolio site's install buttons read it from `releases/latest`.
 
 | Milestone | State | Report |
 |---|---|---|
@@ -32,7 +32,7 @@ No hosted server or published release yet. The first release is 0.2.0, built and
 | M7 Orbit identity redesign: Orbit tokens, bundled Fraunces/Geist/Pretendard, 1.5px icons, icon rail + floating sidebar, editor sheet, dialogs, dashboards, graph tokens; in-house Neuron avatars and vault marks (`@dicebear` removed) | ✅ merged | [[superpowers/specs/2026-10-17-identity-redesign-directions]], [[reports/IMPL-REPORT-redesign-final]] |
 
 | Launch prep: inherited records removed, README rewritten around team use, first-launch motion intro, glass avatars, 40-second intro video (`docs/assets/promo/`) | ✅ merged | — |
-| Installers: signed + notarized universal `.dmg` and cross-compiled NSIS `.exe` on one Mac, `latest.json` publishing for in-app updates, password-protected updater key, Actions fallback without Apple secrets | ✅ merged (first publish pending) | [[RELEASE_SIGNING]] |
+| Installers: signed + notarized universal `.dmg` and cross-compiled NSIS `.exe` on one Mac, `latest.json` publishing for in-app updates, password-protected updater key, Actions fallback without Apple secrets | ✅ published as v0.2.0 | [[RELEASE_SIGNING]] |
 
 | Team second brain: PRD v2, A0 authorization design, B0 smart-search spike and first-run mock, kit `ActivityHeatmap` + `ToolCallCard` | ✅ merged (C0 P2P design merged as draft r4, r5 fixes pending) | [[NEXT-TASKS]] |
 
