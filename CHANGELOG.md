@@ -25,6 +25,7 @@ and this project aims to follow [Semantic Versioning](https://semver.org/spec/v2
   editing, undoable AI edits and the galaxy. Shown once per device, skippable, still under reduced
   motion, and out of the way of invite or shared-note sign-in prompts.
 - **English and Korean.** A language setting (System, English, 한국어) in Account settings → Appearance. Untranslated text falls back to English, so Korean grows screen by screen; the sidebar and menus, sign-in, invite and sharing, the sync status, settings tabs, About and the first-launch tour are done.
+- **What's New card.** After an update, the changes appear as a card with one row per change (label, a tinted mark and the text) instead of a bullet list, and the window is as wide as it was designed to be.
 - **GitHub star ask.** After five days of use a corner card asks once whether to star the repository, and Settings → About always has a Star on GitHub button. It never blocks a note and ends for good after any answer.
 - **Glass avatars.** Every avatar sits under a CSS glass layer (lit rim, glare, shade), tuned for
   light and dark and kept in proportion from 16px rows to the profile.

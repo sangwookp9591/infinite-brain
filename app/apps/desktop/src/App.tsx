@@ -77,7 +77,8 @@ import {
 } from "./lib/updater";
 import { onClientOutdated } from "./lib/api";
 import { setUpdateHintHandler } from "./lib/updateHint";
-import { isSilentRelease, notesForVersion, releaseNoteLines } from "./lib/releaseNotes";
+import { isSilentRelease, notesForVersion, releaseChange, releaseNoteLines } from "./lib/releaseNotes";
+import { ChangeSummary } from "./components/ChangeSummary";
 import { runConfetti } from "./lib/celebrate/celebrate";
 import { viewerFor } from "./lib/formats";
 import { effectiveHomeNote, homeSidebarVisitKey } from "./lib/pins";
@@ -952,32 +953,21 @@ function WhatsNewModal() {
               </svg>
             </div>
             <h2 className="whats-new-title">{tr("What’s New")}</h2>
-            <span className="whats-new-version">v{updated.version}</span>
             <p className="whats-new-sub">
               {tr("{name} updated itself to the latest version — here’s what changed.", { name: BRAND_NAME })}
             </p>
           </div>
           {updated.notes.length > 0 && (
-            <ul className="whats-new-notes">
-              {updated.notes.map((line, i) => (
-                <li key={i} style={{ animationDelay: `${120 + i * 70}ms` }}>
-                  <svg
-                    width="15"
-                    height="15"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.4"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                  >
-                    <path d="M20 6L9 17l-5-5" />
-                  </svg>
-                  <span>{line}</span>
-                </li>
-              ))}
-            </ul>
+            <div className="whats-new-notes">
+              <ChangeSummary
+                title={tr("What’s changed")}
+                period={`v${updated.version}`}
+                changes={updated.notes.map((line) => {
+                  const c = releaseChange(line);
+                  return { label: c.label || tr("New"), change: c.change, tone: c.tone };
+                })}
+              />
+            </div>
           )}
           <button className="primary whats-new-cta" autoFocus onClick={close}>
             {tr("Nice — let’s go")}

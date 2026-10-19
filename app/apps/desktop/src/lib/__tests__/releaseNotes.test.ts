@@ -3,6 +3,7 @@ import {
   SILENT_RELEASE_MARKER,
   isSilentRelease,
   notesForVersion,
+  releaseChange,
   releaseNoteLines,
 } from "../releaseNotes";
 
@@ -168,5 +169,37 @@ describe("isSilentRelease", () => {
 
   it("announces a release with notes", () => {
     expect(isSilentRelease(MULTI, "0.1.60")).toBe(false);
+  });
+});
+
+describe("releaseChange", () => {
+  it("splits a themed point into a label and the change", () => {
+    expect(releaseChange("Sync light: now shows your whole vault.")).toEqual({
+      label: "Sync light", change: "now shows your whole vault.", tone: "good",
+    });
+  });
+
+  it("keeps a line without a label whole, for the caller to label", () => {
+    expect(releaseChange("Infinite Brain now updates itself at a quiet moment.")).toEqual({
+      label: "", change: "Infinite Brain now updates itself at a quiet moment.", tone: "good",
+    });
+  });
+
+  it("does not mistake a colon deep in a sentence, or a time, for a label", () => {
+    expect(releaseChange("Reminders now fire at 12:30 sharp.").label).toBe("");
+    expect(releaseChange("This is a long sentence that happens to contain a colon: and goes on").label).toBe("");
+    expect(releaseChange("Sync: ok. Then more: text").label).toBe("Sync");
+  });
+
+  it("marks changes that are not gains with the neutral tone", () => {
+    expect(releaseChange("Changed: the Share button moved.").tone).toBe("neutral");
+    expect(releaseChange("Heads-up: older apps must update.").tone).toBe("neutral");
+    expect(releaseChange("Fixed: a crash on start.").tone).toBe("good");
+  });
+
+  it("uses the first colon only", () => {
+    expect(releaseChange("Search: handles Korean: 한국어 too.")).toEqual({
+      label: "Search", change: "handles Korean: 한국어 too.", tone: "good",
+    });
   });
 });

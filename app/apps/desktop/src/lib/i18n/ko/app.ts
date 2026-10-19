@@ -95,4 +95,6 @@ export const app: Record<string, string> = {
   "Unpin for everyone": "모두에게서 고정 해제",
   "Unpin": "고정 해제",
   "Pinned options for {name}": "{name} 고정 옵션",
+  "What’s changed": "달라진 점",
+  "New": "새로운 기능",
 };

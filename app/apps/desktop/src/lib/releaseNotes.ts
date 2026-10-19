@@ -89,6 +89,35 @@ export function releaseNoteLines(
     .slice(0, max);
 }
 
+/** One row of the What's New card: a short label and what changed. */
+export interface ReleaseChange {
+  /** The part before the first ": ". Empty when the line has none. */
+  label: string;
+  change: string;
+  /** good = new or improved (arrow up); neutral = worth knowing, not a gain (dash). */
+  tone: "good" | "neutral";
+}
+
+/** A label is a short theme name — "Sync light", "Health page" — not the start of a sentence. */
+const LABELLED = /^([^:.!?]{2,28}):\s+(\S.*)$/;
+const NEUTRAL_LABEL = /^(changed|note|heads[- ]?up|deprecated|removed|moved)\b/i;
+
+/**
+ * Split a note line written as `Label: what changed` into a card row.
+ *
+ * `docs/RELEASE_NOTES.md` already asks for themed points ("Sync light: …"), so
+ * most lines have a label. A line without one still shows, under an empty label
+ * the caller replaces with a generic word, and is never cut: the whole line is
+ * the change. A colon later in a long sentence is not a label (the length and
+ * punctuation guard), so "Note that 12:30 is now supported" stays one piece.
+ */
+export function releaseChange(line: string): ReleaseChange {
+  const m = LABELLED.exec(line.trim());
+  if (!m) return { label: "", change: line.trim(), tone: "good" };
+  const label = m[1].trim();
+  return { label, change: m[2].trim(), tone: NEUTRAL_LABEL.test(label) ? "neutral" : "good" };
+}
+
 /**
  * The release workflows append this to a release body whose version section in
  * `docs/RELEASE_NOTES.md` was left empty: "ship it, but don't announce it". It

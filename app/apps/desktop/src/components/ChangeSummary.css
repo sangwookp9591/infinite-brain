@@ -1,0 +1,58 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/* Adapted from the "Change Summary (Clean)" snippet supplied by the project owner. */
+.ui-csc {
+  --ui-csc-good: var(--success);
+  --ui-csc-good-fill: color-mix(in srgb, var(--success) 12%, transparent);
+  --ui-csc-bad: var(--danger);
+  --ui-csc-bad-fill: color-mix(in srgb, var(--danger) 12%, transparent);
+  --ui-csc-neutral-fill: color-mix(in srgb, var(--text-primary) 7%, transparent);
+  --ui-csc-line: color-mix(in srgb, var(--text-primary) 8%, transparent);
+  --ui-csc-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  box-sizing: border-box;
+  width: 100%;
+  container-type: inline-size;
+  overflow: hidden;
+  text-align: left;
+  border-radius: 12px;
+  background: var(--bg-surface);
+  /* Strokes are shadows: a 0.5px hairline plus a soft lift. */
+  box-shadow: 0 0 0 0.5px var(--ui-csc-line), 0 1px 1px -1px rgb(0 0 0 / 0.1), 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+}
+.ui-csc *, .ui-csc *::before, .ui-csc *::after { box-sizing: border-box; }
+:where(.ui-csc) svg { display: block; flex: none; }
+.ui-csc__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 44px; padding: 0 16px; }
+.ui-csc__title { display: inline-flex; align-items: center; gap: 8px; min-width: 0; font-weight: 600; white-space: nowrap; }
+.ui-csc__icon { display: grid; place-items: center; flex: none; width: 16px; height: 16px; color: var(--text-tertiary); }
+.ui-csc__period { flex: none; font-size: 12px; line-height: 16px; color: var(--text-tertiary); }
+.ui-csc__list { margin: 0; }
+.ui-csc__row {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.5fr);
+  align-items: center;
+  gap: 16px;
+  min-height: 48px;
+  padding: 8px 16px;
+  border-top: 0.5px solid var(--ui-csc-line);
+  animation: ui-csc-in 520ms var(--ui-csc-ease) both;
+  transition: background-color 140ms ease;
+}
+.ui-csc__row:hover { background: color-mix(in srgb, var(--text-primary) 2.5%, transparent); }
+.ui-csc__label { margin: 0; font-weight: 500; overflow-wrap: anywhere; }
+.ui-csc__change { display: flex; align-items: flex-start; gap: 8px; min-width: 0; margin: 0; color: var(--text-secondary); }
+.ui-csc__text { min-width: 0; overflow-wrap: anywhere; }
+.ui-csc__trend { display: grid; place-items: center; flex: none; width: 20px; height: 20px; border-radius: 5px; }
+.ui-csc__trend[data-tone="good"] { background: var(--ui-csc-good-fill); color: var(--ui-csc-good); }
+.ui-csc__trend[data-tone="bad"] { background: var(--ui-csc-bad-fill); color: var(--ui-csc-bad); }
+.ui-csc__trend[data-tone="neutral"] { background: var(--ui-csc-neutral-fill); color: var(--text-tertiary); }
+/* Narrow: the change stacks under its label, so long text wraps instead of being cut off. */
+@container (max-width: 400px) {
+  .ui-csc__head { padding: 0 14px; }
+  .ui-csc__row { grid-template-columns: minmax(0, 1fr); gap: 4px; padding: 10px 14px; }
+}
+@media (pointer: coarse) { .ui-csc__row { min-height: 52px; } }
+@keyframes ui-csc-in { from { opacity: 0; transform: translateY(4px); } }
+@media (prefers-reduced-motion: reduce) { .ui-csc__row { animation: none; transition: none; } }
