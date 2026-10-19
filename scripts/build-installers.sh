@@ -56,8 +56,10 @@ build_mac() {
 
   local bundle="$TARGET_DIR/universal-apple-darwin/release/bundle"
   local app="$bundle/macos/$NAME.app"
-  local dmg
-  dmg="$(ls "$bundle/dmg/"*.dmg | head -1)"
+  # This version's file by name. The bundle folders keep what earlier builds left
+  # there, so "the first .dmg" can be an old release's.
+  local dmg="$bundle/dmg/${NAME}_${VERSION}_universal.dmg"
+  [ -f "$dmg" ] || die "no $dmg after the build"
   codesign -dvv "$app" 2>&1 | grep -E 'Authority=Developer ID Application|flags=.*runtime' >/dev/null \
     || die "$app is not Developer ID signed with the hardened runtime"
 
@@ -84,7 +86,10 @@ build_win() {
 
   say "Windows: NSIS installer (cross-compiled, unsigned)"
   (cd "$DESKTOP" && pnpm tauri build --runner cargo-xwin --target x86_64-pc-windows-msvc --bundles nsis)
-  cp "$TARGET_DIR/x86_64-pc-windows-msvc/release/bundle/nsis/"*-setup.exe* "$OUT/"
+  # Only this version's installer: the nsis folder still holds earlier releases'.
+  local exe="$TARGET_DIR/x86_64-pc-windows-msvc/release/bundle/nsis/${NAME}_${VERSION}_x64-setup.exe"
+  [ -f "$exe" ] || die "no $exe after the build"
+  cp "$exe" "$exe.sig" "$OUT/"
 }
 
 case "$WHAT" in
@@ -95,5 +100,5 @@ case "$WHAT" in
 esac
 
 say "Checksums"
-(cd "$OUT" && shasum -a 256 *.dmg *.exe 2>/dev/null | tee SHA256SUMS.txt)
+(cd "$OUT" && shopt -s nullglob && files=(*.dmg *.exe) && shasum -a 256 "${files[@]}" | tee SHA256SUMS.txt)
 ls -lh "$OUT"
