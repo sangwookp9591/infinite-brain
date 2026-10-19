@@ -34,6 +34,7 @@ Write on your own computer, edit together in real time, and let your AI read and
 - **Works offline.** You write locally first. Changes sync when you are back online, and edits from different people merge instead of overwriting each other.
 - **Built for teams.** Invite people with a link, choose who can edit or only view each folder, and see who is in a note while you write.
 - **Asks once for a star.** After about five days of use a small corner card asks whether you'd like to star the repo on GitHub. It appears once, never blocks a note and never comes back after any answer. The same button lives in **Settings → About**.
+- **English and Korean.** Pick the language in **Settings → Appearance** (System, English or 한국어). System follows your computer. Korean covers the settings tabs, About, the star card and the first-launch tour so far; screens not yet translated stay in English.
 - **Starts with a short tour.** The first launch plays a four-scene intro before the welcome screen, and it never shows again.
 - **AI that you can undo.** Connect Claude or ChatGPT to a vault. Every change an AI makes is recorded, shown as a diff and can be undone.
 

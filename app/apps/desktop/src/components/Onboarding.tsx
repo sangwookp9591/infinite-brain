@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { markOnboardingSeen } from "../lib/onboardingIntro";
+import { useT } from "../lib/i18n";
 import "./Onboarding.css";
 
 const SCENE_MS = 6000;
@@ -60,6 +61,7 @@ const SCENES = [
 
 export function Onboarding({ onDone }: { onDone: () => void }) {
   const reduced = useReducedMotion() ?? false;
+  const tr = useT();
   const [index, setIndex] = useState(0);
   const [leaving, setLeaving] = useState(false);
   const last = index === SCENES.length - 1;
@@ -101,7 +103,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
       className="onboarding"
       role="dialog"
       aria-modal="true"
-      aria-label="Welcome to Infinite Brain"
+      aria-label={tr("Welcome to Infinite Brain")}
       initial={{ opacity: 0 }}
       animate={leaving ? { opacity: 0, scale: 1.04 } : { opacity: 1, scale: 1 }}
       transition={{ duration: leaving ? (reduced ? 0.12 : 0.5) : 0.4 }}
@@ -114,7 +116,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
 
       <header className="onboarding-top">
         <span className="onboarding-wordmark">Infinite Brain</span>
-        <button type="button" className="onboarding-skip" onClick={finish}>Skip</button>
+        <button type="button" className="onboarding-skip" onClick={finish}>{tr("Skip")}</button>
       </header>
 
       <div className="onboarding-stage" aria-hidden="true">
@@ -142,22 +144,22 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
             animate={{ opacity: 1, y: 0, transition: { duration: 0.6, delay: 0.15, ease: EASE_OUT } }}
             exit={{ opacity: 0, y: -8, transition: { duration: 0.25 } }}
           >
-            <div className="onboarding-eyebrow">{scene.eyebrow}</div>
-            <h1 className="onboarding-title">{scene.title}</h1>
-            <p className="onboarding-body">{scene.body}</p>
+            <div className="onboarding-eyebrow">{tr(scene.eyebrow)}</div>
+            <h1 className="onboarding-title">{tr(scene.title)}</h1>
+            <p className="onboarding-body">{tr(scene.body)}</p>
           </motion.div>
         </AnimatePresence>
       </div>
 
       <footer className="onboarding-nav">
-        <div className="onboarding-progress" role="tablist" aria-label="Intro steps">
+        <div className="onboarding-progress" role="tablist" aria-label={tr("Intro steps")}>
           {SCENES.map((s, i) => (
             <button
               key={s.title}
               type="button"
               role="tab"
               aria-selected={i === index}
-              aria-label={`Step ${i + 1}: ${s.title}`}
+              aria-label={`${i + 1}: ${tr(s.title)}`}
               className="onboarding-bar"
               onClick={() => go(i)}
             >
@@ -174,7 +176,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
         </div>
         <div className="onboarding-actions">
           {index > 0 && (
-            <button type="button" className="onboarding-back" onClick={() => go(index - 1)}>Back</button>
+            <button type="button" className="onboarding-back" onClick={() => go(index - 1)}>{tr("Back")}</button>
           )}
           <motion.button
             type="button"
@@ -183,7 +185,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
             whileHover={reduced ? undefined : { scale: 1.03 }}
             whileTap={reduced ? undefined : { scale: 0.97 }}
           >
-            {last ? "Get started" : "Next"}
+            {last ? tr("Get started") : tr("Next")}
           </motion.button>
         </div>
       </footer>

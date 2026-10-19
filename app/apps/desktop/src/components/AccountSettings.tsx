@@ -25,6 +25,7 @@ import {
 import { imageFileToSquareDataUrl } from "../lib/squareImage";
 import { InstalledAgentsStatus } from "./DashboardAgentRunner";
 import { openRepoForStar } from "./StarPrompt";
+import { LOCALE_CHOICES, setLocaleChoice, useLocaleChoice, useT, type LocaleChoice } from "../lib/i18n";
 import { AccountPlanTab } from "./AccountPlanTab";
 import { AccountVaultsTab } from "./AccountVaultsTab";
 import { Avatar } from "./Avatar";
@@ -32,6 +33,8 @@ import { serverFailureMessage } from "./serverFailureMessage";
 import { SettingsModal } from "./SettingsModal";
 import { SettingsCrossLink } from "./SettingsCrossLink";
 import { Switch } from "./Switch";
+import { SegmentedChips } from "./kit/SegmentedChips";
+import { PulseStar } from "./kit/PulseStar";
 import { AppearanceRows } from "./AppearanceRows";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -150,6 +153,7 @@ export function AccountSettings({
   const session = useStore((s) => s.session);
   const [tab, setTab] = useState<AccountTab>(initialTab ?? "profile");
   const vaultOpen = useStore((s) => s.vault !== null);
+  const tr = useT();
 
   // Esc, click-away, focus and the backdrop all live in `SettingsModal`.
   if (!session) return null;
@@ -157,13 +161,13 @@ export function AccountSettings({
   const userLabel = session.user.name || session.user.email;
 
   return (
-    <SettingsModal label="Account settings" onClose={onClose}>
+    <SettingsModal label={tr("Account settings")} onClose={onClose}>
       <header className="settings-page-header">
         <div className="settings-title">
-          <span className="settings-eyebrow">Account settings</span>
+          <span className="settings-eyebrow">{tr("Account settings")}</span>
           <h1>{userLabel}</h1>
         </div>
-        <button className="icon-btn" onClick={onClose} aria-label="Close settings" title="Close (Esc)">
+        <button className="icon-btn" onClick={onClose} aria-label={tr("Close settings")} title={tr("Close (Esc)")}>
           ✕
         </button>
       </header>
@@ -178,19 +182,19 @@ export function AccountSettings({
               onClick={() => setTab(t.id)}
             >
               {t.icon}
-              <span className="menu-item-label">{t.label}</span>
+              <span className="menu-item-label">{tr(t.label)}</span>
             </button>
           ))}
           {vaultOpen && (
             <SettingsCrossLink
-              label="Vault settings"
+              label={tr("Vault settings")}
               onOpen={() => useStore.getState().requestSettings("general")}
             />
           )}
         </nav>
 
-        <section className="settings-content" aria-label={activeTab.label}>
-          <h2 className="settings-section-title">{activeTab.label}</h2>
+        <section className="settings-content" aria-label={tr(activeTab.label)}>
+          <h2 className="settings-section-title">{tr(activeTab.label)}</h2>
           {tab === "profile" ? (
             <ProfileTab />
           ) : tab === "status" ? (
@@ -520,6 +524,8 @@ function StatusTab() {
 }
 
 function AppearanceTab() {
+  const tr = useT();
+  const localeChoice = useLocaleChoice();
   const homeSectionHidden = useStore((s) => s.homeSectionHidden);
   const overrides = useStore((s) => s.appearanceOverrides);
   const vaultAppearance = useStore((s) => s.vaultAppearance);
@@ -552,6 +558,17 @@ function AppearanceTab() {
   };
   return (
     <>
+    <div className="menu-row">
+      <span className="menu-row-label">{tr("Language")}
+        <span className="field-hint">{tr("Follows your computer's language when set to System.")}</span>
+      </span>
+      <SegmentedChips
+        label={tr("Language")}
+        items={LOCALE_CHOICES.map((c) => ({ value: c.id, label: c.id === "system" ? tr("System") : c.label }))}
+        value={localeChoice}
+        onChange={(value) => setLocaleChoice(value as LocaleChoice)}
+      />
+    </div>
     <label className="menu-row toggle-row">
       <span className="menu-row-label">Show Home section
         <span className="field-hint">Turning this off unsets your Home and stops it opening at startup on this device.</span>
@@ -680,6 +697,7 @@ function ConnectionTab() {
 }
 
 function AboutTab({ onClose }: { onClose: () => void }) {
+  const tr = useT();
   const update = useUpdateState();
   const [version, setVersion] = useState<string | null>(null);
 
@@ -703,7 +721,7 @@ function AboutTab({ onClose }: { onClose: () => void }) {
       statusText = "Checking for updates…";
       break;
     case "uptodate":
-      statusText = "You're on the latest version.";
+      statusText = tr("You're on the latest version.");
       break;
     case "available":
       statusText = `Version ${update.version} found — starting the download…`;
@@ -743,7 +761,7 @@ function AboutTab({ onClose }: { onClose: () => void }) {
       <div className="about-update-row">
         <div className="about-update-text">
           <div className="about-version">
-            <span className="menu-row-label">Current version</span>
+            <span className="menu-row-label">{tr("Current version")}</span>
             <span className="mono">{version ?? "…"}</span>
           </div>
           <span className={`update-status${statusError ? " error" : ""}`} role="status" aria-live="polite">
@@ -755,7 +773,7 @@ function AboutTab({ onClose }: { onClose: () => void }) {
             take it now. (The check button is disabled in this phase anyway.) */}
         {update.phase === "ready" ? (
           <button className="primary sm about-update-btn" onClick={() => void relaunchForUpdate()}>
-            Restart now
+            {tr("Restart now")}
           </button>
         ) : (
           <button
@@ -765,7 +783,7 @@ function AboutTab({ onClose }: { onClose: () => void }) {
             onClick={() => void checkAndAutoInstall()}
           >
             {busy && <span className="btn-spinner" aria-hidden="true" />}
-            <span>{update.phase === "checking" ? "Checking…" : busy ? "Updating…" : "Check for updates"}</span>
+            <span>{update.phase === "checking" ? tr("Checking…") : busy ? tr("Updating…") : tr("Check for updates")}</span>
           </button>
         )}
       </div>
@@ -774,19 +792,15 @@ function AboutTab({ onClose }: { onClose: () => void }) {
 
       <div className="about-star">
         <div className="about-star-text">
-          <span className="menu-row-label">Enjoying Infinite Brain?</span>
-          <span className="muted">Free and open source. A star on GitHub helps other teams find it.</span>
+          <span className="menu-row-label">{tr("Enjoying Infinite Brain?")}</span>
+          <span className="muted">{tr("Free and open source. A star on GitHub helps other teams find it.")}</span>
         </div>
-        <button
-          type="button"
-          className="secondary sm"
-          onClick={() => void openRepoForStar().catch(() => {})}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z" />
-          </svg>
-          <span>Star on GitHub</span>
-        </button>
+        <PulseStar
+          label={tr("Star on GitHub")}
+          doneLabel={tr("Thank you!")}
+          size={18}
+          onDone={() => void openRepoForStar().catch(() => {})}
+        />
       </div>
 
       <div className="menu-sep" />
@@ -801,7 +815,7 @@ function AboutTab({ onClose }: { onClose: () => void }) {
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
           <path d="M16 17l5-5-5-5M21 12H9" />
         </Icon>
-        <span className="menu-item-label">Sign out</span>
+        <span className="menu-item-label">{tr("Sign out")}</span>
       </button>
     </div>
   );

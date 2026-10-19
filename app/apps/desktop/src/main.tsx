@@ -12,6 +12,7 @@ import { WindowsControls } from "./components/WindowsControls";
 import { UpgradeDialogHost } from "./components/UpgradeDialog";
 import { initPlatform } from "./lib/platform";
 import { initTheme } from "./lib/theme";
+import { initLocale } from "./lib/i18n";
 import { mirrorConsoleToTerminal } from "./lib/devConsole";
 import * as perf from "./lib/perf";
 
@@ -19,6 +20,8 @@ import * as perf from "./lib/perf";
 perf.mark("script");
 // Paint the persisted (or system) theme before the first render.
 initTheme();
+// Stamp <html lang> (and so the right font fallbacks) before the first paint.
+initLocale();
 // Same deal for the platform flag: it sets the macOS traffic-light inset, and
 // applying it after the first paint would visibly shove the sidebar down.
 initPlatform();
