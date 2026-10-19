@@ -109,6 +109,9 @@ const GraphView = lazy(() =>
 const VaultPicker = lazy(() =>
   import("./components/VaultPicker").then((m) => ({ default: m.VaultPicker })),
 );
+const StarPrompt = lazy(() =>
+  import("./components/StarPrompt").then((m) => ({ default: m.StarPrompt })),
+);
 const Onboarding = lazy(() =>
   import("./components/Onboarding").then((m) => ({ default: m.Onboarding })),
 );
@@ -1711,6 +1714,9 @@ export default function App() {
             rightPanelOpen={rightPanelOpen} onOpen={useStore.getState().closeRightPanel} />
           <MemberJoinedBanner />
           <WhatsNewModal />
+          <Suspense fallback={null}>
+            <StarPrompt />
+          </Suspense>
           {/* Sits flush against the top of the window now that there's no system
               title bar above it (`titleBarStyle: "Overlay"`), which is where the
               reclaimed ~28px comes from — and that makes it the strip you'd expect

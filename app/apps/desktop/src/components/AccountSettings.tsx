@@ -24,6 +24,7 @@ import {
 } from "../lib/profileAvatar";
 import { imageFileToSquareDataUrl } from "../lib/squareImage";
 import { InstalledAgentsStatus } from "./DashboardAgentRunner";
+import { openRepoForStar } from "./StarPrompt";
 import { AccountPlanTab } from "./AccountPlanTab";
 import { AccountVaultsTab } from "./AccountVaultsTab";
 import { Avatar } from "./Avatar";
@@ -770,6 +771,23 @@ function AboutTab({ onClose }: { onClose: () => void }) {
       </div>
 
       <InstalledAgentsStatus />
+
+      <div className="about-star">
+        <div className="about-star-text">
+          <span className="menu-row-label">Enjoying Infinite Brain?</span>
+          <span className="muted">Free and open source. A star on GitHub helps other teams find it.</span>
+        </div>
+        <button
+          type="button"
+          className="secondary sm"
+          onClick={() => void openRepoForStar().catch(() => {})}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z" />
+          </svg>
+          <span>Star on GitHub</span>
+        </button>
+      </div>
 
       <div className="menu-sep" />
       <button
