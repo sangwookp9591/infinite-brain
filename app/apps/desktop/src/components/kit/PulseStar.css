@@ -1,0 +1,38 @@
+/*SPDX-License-Identifier: Apache-2.0 AND LicenseRef-ReactBits-MIT-CommonsClause
+Adapted from React Bits Pulse Heart (https://reactbits.dev), Copyright (c) 2026 David Haz.
+See ./LICENSE-react-bits.md. */
+.kit-pulse-star {
+  --ps-size: 22px;
+  --ps-gold: #f5b53d;
+  --ps-pill: var(--bg-raised);
+  --ps-idle: var(--text-tertiary);
+  --ps-text: var(--text-primary);
+  position: relative; display: inline-flex; align-items: center; justify-content: center;
+  margin: 0; padding: 0; border: 0; border-radius: var(--radius-pill); background: none;
+  color: var(--ps-text); font: inherit; cursor: pointer; user-select: none; outline: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.kit-pulse-star:active:not(:disabled) { transform: scale(0.97); }
+.kit-pulse-star:focus-visible { box-shadow: var(--focus-ring); }
+.kit-pulse-star:disabled { cursor: default; }
+.kit-pulse-star-pill {
+  display: inline-flex; align-items: center; gap: calc(var(--ps-size) * 0.4);
+  padding: calc(var(--ps-size) * 0.4) calc(var(--ps-size) * 0.75) calc(var(--ps-size) * 0.4) calc(var(--ps-size) * 0.5);
+  border-radius: var(--radius-pill); background: var(--ps-pill);
+  box-shadow: inset 0 0 0 1px var(--border);
+  transform-origin: center;
+}
+.kit-pulse-star-glyph { display: block; width: var(--ps-size); height: var(--ps-size); color: var(--ps-idle); transition: color 160ms ease; }
+.kit-pulse-star-glyph svg {
+  display: block; width: 100%; height: 100%; overflow: visible;
+  fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round;
+}
+.kit-pulse-star-label { font-size: var(--fs-sm); font-weight: 600; line-height: 1; letter-spacing: -0.1px; white-space: nowrap; }
+@media (hover: hover) and (pointer: fine) {
+  .kit-pulse-star:not([data-flipped]):not(:disabled):hover .kit-pulse-star-glyph { color: color-mix(in srgb, var(--ps-idle) 40%, var(--ps-gold)); }
+}
+.kit-pulse-star[data-flipped] .kit-pulse-star-glyph { color: var(--ps-gold); transition: none; }
+.kit-pulse-star[data-flipped] .kit-pulse-star-glyph svg { fill: currentColor; }
+@media (prefers-contrast: more) { .kit-pulse-star-pill { box-shadow: inset 0 0 0 1px var(--text-secondary); } }
+@media (prefers-reduced-motion: reduce) { .kit-pulse-star { transition: none; } .kit-pulse-star-glyph { transition: color 200ms ease; } }

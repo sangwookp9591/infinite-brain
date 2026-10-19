@@ -11434,7 +11434,6 @@ body.access-board-grabbing * {
 .star-prompt-title { font-family: var(--font-display); font-size: var(--fs-lg); letter-spacing: -0.01em; }
 .star-prompt-body { margin: var(--sp-2) 0 var(--sp-3); font-size: var(--fs-sm); line-height: 1.5; color: var(--text-secondary); }
 .star-prompt-actions { display: flex; gap: var(--sp-2); }
-.star-prompt-star { display: inline-flex; align-items: center; gap: 6px; }
 .star-prompt-x {
   position: absolute; top: var(--sp-2); right: var(--sp-2);
   width: 26px; height: 26px; border: 0; border-radius: 999px;
@@ -11443,4 +11442,4 @@ body.access-board-grabbing * {
 .star-prompt-x:hover { background: var(--bg-raised); color: var(--text-primary); }
 .about-star { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); margin-top: var(--sp-4); }
 .about-star-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.about-star .secondary { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.about-star .kit-pulse-star { flex-shrink: 0; }
