@@ -5719,6 +5719,62 @@ button.secondary.about-update-btn:disabled {
   object-fit: cover;
 }
 
+/* Glass over every avatar (Avatar and FaceSvg add .glass-face): a lens with a
+   curved rim that catches the light at the top left and falls into shade at
+   the bottom right, a soft glare and a faint tint, so the picture reads as
+   sitting under glass. CSS only: avatars repeat in long lists, and WKWebView
+   has no backdrop displacement for real refraction. The span is its own size
+   container so the rim keeps its proportions from 16px rows to the profile. */
+.glass-face {
+  position: relative;
+  container-type: size;
+  isolation: isolate;
+}
+.glass-face::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    /* specular highlight, then the broad glare: light from the top left */
+    radial-gradient(34% 18% at 34% 17%, rgb(255 255 255 / var(--glass-spec)) 0%, transparent 100%),
+    radial-gradient(70% 46% at 32% 12%, rgb(255 255 255 / var(--glass-glare)) 0%, rgb(255 255 255 / 0.08) 62%, transparent 76%),
+    /* bevel band: the curved edge brightens toward the rim */
+    radial-gradient(closest-side, transparent 74%, rgb(255 255 255 / 0.1) 90%, rgb(255 255 255 / 0.2) 100%),
+    /* the far side of the dome sits in shade */
+    linear-gradient(155deg, transparent 52%, rgb(var(--glass-shade-rgb) / 0.16) 100%),
+    var(--glass-tint);
+  box-shadow:
+    inset 0 0 0 max(1px, 3cqw) rgb(255 255 255 / 0.16),
+    inset 0 0 0 max(0.5px, 1cqw) var(--glass-edge),
+    inset 6cqw 8cqw 6cqw -3cqw rgb(255 255 255 / var(--glass-rim)),
+    inset -6cqw -8cqw 9cqw -3cqw rgb(var(--glass-shade-rgb) / 0.26);
+}
+:root {
+  --glass-glare: 0.42;
+  --glass-spec: 0.75;
+  --glass-rim: 0.85;
+  --glass-edge: rgb(20 22 43 / 0.1);
+  --glass-shade-rgb: 40 30 120;
+  --glass-tint: rgb(233 231 255 / 0.06);
+}
+:root[data-theme="dark"] {
+  --glass-glare: 0.3;
+  --glass-spec: 0.45;
+  --glass-rim: 0.42;
+  --glass-edge: rgb(255 255 255 / 0.12);
+  --glass-shade-rgb: 0 0 0;
+  --glass-tint: rgb(162 155 255 / 0.05);
+}
+@media (prefers-reduced-transparency: reduce) {
+  .glass-face::after {
+    background: none;
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.2);
+  }
+}
+
 /* ============================================================
    Sync-state chips — pill, soft semantic fills
    ============================================================ */

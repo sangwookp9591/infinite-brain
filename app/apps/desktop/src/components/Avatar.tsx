@@ -53,7 +53,12 @@ function PhotoImg({ src, onError }: { src: string; onError: () => void }) {
  */
 export function FaceSvg({ className, style, title, ariaHidden, ...identity }: FaceProps) {
   const { photo, svg, onError } = useAvatarMarkup(identity);
-  const common = { className, style, title, "aria-hidden": ariaHidden || undefined };
+  const common = {
+    className: `glass-face${className ? ` ${className}` : ""}`,
+    style,
+    title,
+    "aria-hidden": ariaHidden || undefined,
+  };
   if (photo) {
     return (
       <span {...common}>
@@ -81,14 +86,14 @@ export function Avatar({
   const { photo, svg, onError } = useAvatarMarkup({ userId, name: label, image });
   if (photo) {
     return (
-      <span className="avatar" aria-hidden="true">
+      <span className="avatar glass-face" aria-hidden="true">
         <PhotoImg src={photo} onError={onError} />
       </span>
     );
   }
   return (
     <span
-      className="avatar"
+      className="avatar glass-face"
       aria-hidden="true"
       dangerouslySetInnerHTML={{ __html: svg }}
     />
