@@ -1,0 +1,71 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Install a published Windows release on a real Windows runner and check it
+# starts: the installer is built on a Mac with cargo-xwin, so nothing else
+# ever runs it on Windows before users do. Manual: Actions -> windows-smoke ->
+# Run workflow (or `gh workflow run windows-smoke.yml -f version=0.2.2`).
+name: windows-smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version to test, without the v (e.g. 0.2.2)
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Download the installer from the release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          gh release download "v$env:VERSION" -R "${{ github.repository }}" -p "Infinite-Brain_${env:VERSION}_x64-setup.exe" -D "$env:RUNNER_TEMP"
+          Get-ChildItem "$env:RUNNER_TEMP\*.exe" | Format-Table Name, Length
+
+      - name: Install silently
+        shell: pwsh
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          $setup = "$env:RUNNER_TEMP\Infinite-Brain_${env:VERSION}_x64-setup.exe"
+          $p = Start-Process -FilePath $setup -ArgumentList '/S' -Wait -PassThru
+          "installer exit code: $($p.ExitCode)"
+          if ($p.ExitCode -ne 0) { throw "installer failed" }
+          $exe = Get-ChildItem -Path "$env:LOCALAPPDATA\Programs", "$env:LOCALAPPDATA", "$env:ProgramFiles" -Recurse -Filter 'desktop.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $exe) { $exe = Get-ChildItem -Path "$env:LOCALAPPDATA", "$env:ProgramFiles" -Recurse -Filter 'Infinite Brain.exe' -ErrorAction SilentlyContinue | Select-Object -First 1 }
+          if (-not $exe) { throw "installed executable not found" }
+          "installed: $($exe.FullName) ($($exe.Length) bytes)"
+          "EXE=$($exe.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Launch and check it stays up
+        shell: pwsh
+        run: |
+          $proc = Start-Process -FilePath $env:EXE -PassThru
+          Start-Sleep -Seconds 25
+          $proc.Refresh()
+          if ($proc.HasExited) { throw "the app exited with code $($proc.ExitCode)" }
+          $children = Get-Process | Where-Object { $_.ProcessName -like 'msedgewebview2*' }
+          "app running (pid $($proc.Id)), WebView2 processes: $($children.Count)"
+          if ($children.Count -eq 0) { throw "no WebView2 process: the window never loaded its web content" }
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+          [System.Drawing.Graphics]::FromImage($bmp).CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+          $bmp.Save("$env:RUNNER_TEMP\screen.png")
+          Stop-Process -Id $proc.Id -Force
+
+      - name: Upload the screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-smoke-${{ inputs.version }}
+          path: ${{ runner.temp }}/screen.png
+          if-no-files-found: ignore
