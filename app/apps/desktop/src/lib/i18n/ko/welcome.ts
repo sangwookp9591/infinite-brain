@@ -105,4 +105,6 @@ export const welcome: Record<string, string> = {
   "Creating your account on {host}": "{host}에 계정을 만드는 중",
   "Use a self-hosted server": "자체 호스팅 서버 사용",
   "Change": "변경",
+  "Couldn't reach the server at {host}. An account is for working with a team and needs an Infinite Brain server. You can keep using your notes on this computer without one.":
+    "{host} 서버에 연결할 수 없어요. 계정은 팀과 함께 쓸 때 필요하고, Infinite Brain 서버가 있어야 해요. 계정 없이도 이 컴퓨터에서 메모를 계속 쓸 수 있어요.",
 };

@@ -6,6 +6,7 @@
 import { setSelfAvatarImage } from "./lib/avatarIdentity";
 import { create } from "zustand";
 import * as ipc from "./lib/ipc";
+import { explainUnreachable } from "./lib/auth/unreachable";
 import { DOCUMENTS_BLOCKED_TEXT, isDocumentsDenied } from "./lib/vault/folderErrors";
 import { bridgeManager } from "./lib/bridge";
 import {
@@ -3288,7 +3289,10 @@ export const useStore = create<AppStore>((set, get) => ({
     // restoring the previous one must not land its state on top of ours.
     ++authInitGen;
     try {
-      await authManager.signIn({ email, password });
+      // Only the request itself: a TypeError from the landing below is a bug, not an offline server.
+      await authManager.signIn({ email, password }).catch((e: unknown) => {
+        throw explainUnreachable(e, authManager.getServerUrl());
+      });
       const session = await authManager.currentSession();
       if (session) recordOnboardingStage("signed_in");
       set({ session, authStatus: session ? "signed-in" : "signed-out" });
@@ -3349,7 +3353,9 @@ export const useStore = create<AppStore>((set, get) => ({
     // restoring the previous one must not land its state on top of ours.
     ++authInitGen;
     try {
-      await authManager.signUp({ name, email, password });
+      await authManager.signUp({ name, email, password }).catch((e: unknown) => {
+        throw explainUnreachable(e, authManager.getServerUrl());
+      });
       const session = await authManager.currentSession();
       if (session) recordOnboardingStage("signed_in");
       set({ session, authStatus: session ? "signed-in" : "signed-out" });
