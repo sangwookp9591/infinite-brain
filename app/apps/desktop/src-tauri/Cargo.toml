@@ -110,6 +110,21 @@ tauri-plugin-updater = "2"
 [target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
 tauri-plugin-single-instance = { version = "2.4.3", features = ["deep-link"] }
 
+# Smart search (`semantic.rs`): llama.cpp statically linked, running the
+# EmbeddingGemma 2 GGUF the user downloads. macOS only for now: B0 measured
+# Apple silicon (Metal), and the Windows/Linux builds would ship without AVX2 or
+# with a Vulkan loader the app cannot start without (B0-LLAMA-SPIKE.md §5).
+#
+# Pinned to utilityai/llama-cpp-rs PR #1175, which moves the bundled llama.cpp
+# to v0.7.0: every crates.io release (0.1.160 and older) bundles a llama.cpp
+# that rejects the `gemma-embedding2` architecture. A full commit SHA, so the
+# fork cannot change under us. Move back to a crates.io version once #1175
+# ships. Building it needs cmake (`brew install cmake`).
+# `default-features = false`: the defaults pull OpenMP, which macOS has no
+# system copy of. Metal is always on for macOS regardless of features.
+[target.'cfg(target_os = "macos")'.dependencies]
+llama-cpp-2 = { git = "https://github.com/willsheldon/llama-cpp-rs", rev = "cb98c630d0fec934a8a379db4fd63cd3622f6984", default-features = false }
+
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 

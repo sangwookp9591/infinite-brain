@@ -13,6 +13,7 @@ import {
 import { toast } from "../lib/toast";
 import { PulseStar } from "./kit/PulseStar";
 import { t, useT } from "../lib/i18n";
+import { shouldAskSmartSearch, useSmartSearch } from "../lib/smartSearch";
 
 /** The repository's star page opens in the user's browser. */
 export function openRepoForStar(): Promise<void> {
@@ -32,7 +33,12 @@ export function StarPrompt() {
   const [show, setShow] = useState(false);
   // Anything that already wants the user's attention wins: the auth/invite
   // prompts, and a sync that is not healthy. Asking for a favour then is rude.
-  const busy = useStore((s) => s.authPrompt !== null);
+  // The smart search question goes first; both live in the same corner.
+  const smart = useSmartSearch();
+  const smartBusy =
+    shouldAskSmartSearch(window.localStorage, smart) ||
+    smart?.state === "downloading" || smart?.state === "preparing";
+  const busy = useStore((s) => s.authPrompt !== null) || smartBusy;
 
   useEffect(() => {
     if (!shouldAskForStar(state, { busy })) { setShow(false); return; }

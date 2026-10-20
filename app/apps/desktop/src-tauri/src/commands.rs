@@ -2058,12 +2058,14 @@ pub async fn delete_path(
 /// `Index::search_all` for the merge rule.
 #[tauri::command]
 pub async fn search_notes(
+    app: AppHandle,
     state: State<'_, AppState>,
     query: String,
 ) -> AppResult<Vec<SearchResult>> {
     let (_, index) = require_vault(&state)?;
-    let guard = index.lock().unwrap();
-    guard.search_all(&query)
+    let keyword = index.lock().unwrap().search_all(&query)?;
+    // Smart search, when on, blends in notes that match by meaning.
+    Ok(crate::semantic::blend(&app, &index, &query, keyword))
 }
 
 /// The extracted plain text of one tree binary, by vault-relative path.

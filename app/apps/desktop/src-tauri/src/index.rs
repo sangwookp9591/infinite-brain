@@ -340,6 +340,16 @@ impl Index {
         self.folder_writes.get()
     }
 
+    /// The connection, for `semantic.rs`, which keeps its own table here.
+    pub(crate) fn conn(&self) -> &Connection {
+        &self.conn
+    }
+
+    /// Where this index lives on disk (empty for an in-memory index).
+    pub(crate) fn db_path(&self) -> PathBuf {
+        PathBuf::from(self.conn.path().unwrap_or_default())
+    }
+
     fn migrate(&self) -> AppResult<()> {
         self.conn.execute_batch(
             r#"
@@ -523,6 +533,20 @@ impl Index {
                 size     INTEGER NOT NULL,
                 mtime_ns INTEGER NOT NULL,
                 sha256   TEXT NOT NULL
+            );
+
+            -- Smart search vectors (`semantic.rs`), one row per chunk of a note.
+            -- Derived: `sha256` is the note's content hash when it was embedded
+            -- and `version` the model bundle, so a changed note or a new model is
+            -- re-embedded and nothing else here depends on these rows.
+            CREATE TABLE IF NOT EXISTS note_vectors (
+                note_id TEXT NOT NULL,
+                chunk   INTEGER NOT NULL,
+                sha256  TEXT NOT NULL,
+                version TEXT NOT NULL,
+                text    TEXT NOT NULL,
+                vec     BLOB NOT NULL,
+                PRIMARY KEY (note_id, chunk)
             );
             "#,
         )?;
@@ -3212,7 +3236,7 @@ pub struct YjsStateVector {
 /// the shared helper, so the two can never drift apart.
 /// The lowercase extension of a vault-relative path, without the dot. `None`
 /// for a file with no extension (which tier 2 never surfaces anyway).
-fn ext_of(rel: &str) -> Option<String> {
+pub(crate) fn ext_of(rel: &str) -> Option<String> {
     let name = rel.rsplit('/').next().unwrap_or(rel);
     match name.rsplit_once('.') {
         Some((stem, ext)) if !stem.is_empty() && !ext.is_empty() => {
@@ -3320,7 +3344,7 @@ fn rank_order(a: &RankedHit, b: &RankedHit) -> std::cmp::Ordering {
 /// literal `<`, `>`, `&`, quotes, or even `<script>`/`<img onerror=…>`), so the
 /// snippet is escaped before the `<mark>` highlight markers are put back — the
 /// only tags that survive into the rendered snippet are our own `<mark>`s.
-fn html_escape(s: &str) -> String {
+pub(crate) fn html_escape(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for ch in s.chars() {
         match ch {

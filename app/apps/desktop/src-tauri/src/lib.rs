@@ -23,6 +23,7 @@ pub mod keychain;
 pub mod notefile;
 pub mod oauth;
 pub mod parse;
+pub mod semantic;
 mod relaunch;
 mod state;
 pub mod stats;
@@ -171,6 +172,7 @@ pub fn run() {
             // A silent update restarted us while another app was in front:
             // hand focus straight back (see `relaunch.rs`).
             relaunch::apply_on_launch(app.handle());
+            semantic::resume(app.handle());
             #[cfg(desktop)]
             if let Some(win) = app.get_webview_window("main") {
                 // Windows draws the chrome in React so tabs and app controls
@@ -207,6 +209,11 @@ pub fn run() {
         .manage(clipboard::ClipboardState::default())
         .invoke_handler(tauri::generate_handler![
             agent_runner::detect_agents,
+            semantic::smart_search_status,
+            semantic::smart_search_enable,
+            semantic::smart_search_cancel,
+            semantic::smart_search_disable,
+            semantic::smart_search_clear,
             agent_runner::run_agent,
             agent_runner::cancel_agent,
             dashboard::query_notes,
@@ -321,6 +328,11 @@ pub fn run() {
             oauth::google_oauth_await,
             oauth::google_oauth_return_to_app,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while running tauri application")
+        .run(|_, event| {
+            if let tauri::RunEvent::Exit = event {
+                semantic::shutdown();
+            }
+        });
 }

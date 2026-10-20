@@ -1,0 +1,16 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/* Smart search: the settings tab rows, the progress bar and the search-box hint.
+   Tokens only, adapted from the design lab's `ss-*` mock (dev/design-lab/lab.css). */
+.ss-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4, 16px); }
+.ss-row .io-heading { margin-bottom: 2px; }
+.ss-row .kit-check-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.ss-row .kit-check { min-height: 32px; flex: none; }
+.ss-bar { height: 8px; margin-top: var(--sp-2, 8px); border-radius: var(--radius-pill); background: var(--bg-subtle); overflow: hidden; }
+.ss-bar span { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width var(--t-med) var(--ease); }
+@media (prefers-reduced-motion: reduce) { .ss-bar span { transition: none; } }
+.ss-meta { display: flex; justify-content: space-between; margin: 6px 0 0; font-size: var(--fs-xs); font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+.ss-note { margin: 6px 0 0; font-size: var(--fs-xs); line-height: 1.5; color: var(--text-tertiary); word-break: keep-all; }
+.ss-chip { flex: none; height: 26px; padding: 0 10px; border: 0; border-radius: var(--radius-pill); background: var(--accent-soft); color: var(--accent); font: inherit; font-size: var(--fs-xs); cursor: pointer; white-space: nowrap; }
+.ss-chip:hover { background: var(--accent-soft-hover, var(--accent-soft)); }
+.search-smart-hint { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2, 8px); padding: 6px 14px; font-size: var(--fs-xs); color: var(--text-tertiary); border-top: 1px solid var(--border); }
+.smart-search-card .star-prompt-actions { margin-top: var(--sp-3, 12px); }

@@ -111,6 +111,9 @@ const GraphView = lazy(() =>
 const VaultPicker = lazy(() =>
   import("./components/VaultPicker").then((m) => ({ default: m.VaultPicker })),
 );
+const SmartSearchPrompt = lazy(() =>
+  import("./components/SmartSearch").then((m) => ({ default: m.SmartSearchPrompt })),
+);
 const StarPrompt = lazy(() =>
   import("./components/StarPrompt").then((m) => ({ default: m.StarPrompt })),
 );
@@ -1713,6 +1716,7 @@ export default function App() {
           <WhatsNewModal />
           <Suspense fallback={null}>
             <StarPrompt />
+            <SmartSearchPrompt />
           </Suspense>
           {/* Sits flush against the top of the window now that there's no system
               title bar above it (`titleBarStyle: "Overlay"`), which is where the

@@ -1,4 +1,5 @@
 import { SecurityHistoryTab } from "./SecurityHistoryTab";
+import { SmartSearchTab } from "./SmartSearch";
 import { SpringCheck } from "./kit/SpringCheck";
 /* The vault-settings dialog and its nine tabs — the whole settings surface of
    the app, split out of `AccountMenu.tsx` so it can load on demand. Nothing
@@ -156,6 +157,17 @@ const SETTINGS_TABS: Array<{ id: SettingsTab; label: string; icon: React.ReactNo
         <path d="M12 3v10" />
         <path d="m8 9 4 4 4-4" />
         <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+      </MenuIcon>
+    ),
+  },
+  {
+    id: "smart-search",
+    label: "Smart search",
+    icon: (
+      <MenuIcon>
+        <circle cx="11" cy="11" r="7" />
+        <path d="m20 20-3.5-3.5" />
+        <path d="M11 8v6M8 11h6" />
       </MenuIcon>
     ),
   },
@@ -374,6 +386,8 @@ export function VaultSettingsDialog({
             <VersioningTab canManage={canManage} />
           ) : shown === "import-export" ? (
             <ImportExportTab />
+          ) : shown === "smart-search" ? (
+            <SmartSearchTab />
           ) : (
             <AppearanceTab canManage={canManage} isSynced={isSynced} />
           )}

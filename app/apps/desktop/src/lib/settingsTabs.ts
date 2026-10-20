@@ -21,6 +21,7 @@ export type SettingsTab =
   | "mcp"
   | "versioning"
   | "import-export"
+  | "smart-search"
   | "appearance";
 
 /** Account settings stay separate from vault settings but use the same

@@ -3,6 +3,7 @@ import type { SearchResult } from "../lib/ipc";
 import * as ipc from "../lib/ipc";
 import { noteLabel } from "../lib/notePath";
 import { useStore } from "../store";
+import { SmartSearchHint } from "./SmartSearch";
 
 /**
  * Search, as a centered overlay rather than a sidebar panel.
@@ -122,6 +123,12 @@ export function SearchPanel({ onClose }: { onClose?: () => void }) {
           />
           <kbd className="search-esc">esc</kbd>
         </div>
+        <SmartSearchHint
+          onOpenSettings={() => {
+            onClose?.();
+            useStore.getState().requestSettings("smart-search");
+          }}
+        />
 
         {searching && (
           <ul className="search-results" ref={listRef}>

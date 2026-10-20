@@ -1236,6 +1236,26 @@ export const onIndexReady = (cb: (e: IndexReady) => void): Promise<UnlistenFn> =
 export interface FilesIndexed {
   paths: string[];
 }
+/** Smart search (`semantic.rs`): its state, as the settings tab, the first-run
+ *  card and the search box show it. Sizes are bytes. */
+export type SmartSearchStatus =
+  | { state: "unsupported" }
+  | { state: "off"; downloaded: boolean; modelBytes: number }
+  | { state: "downloading"; received: number; total: number }
+  | { state: "preparing" }
+  | { state: "on"; modelBytes: number; indexed: number; total: number }
+  | { state: "limited"; reason: "memory" | "storage"; neededBytes: number }
+  | { state: "failed"; message: string };
+
+export const smartSearchStatus = () => invoke<SmartSearchStatus>("smart_search_status");
+/** Resolves once it is on, failed, cancelled or limited; progress arrives on `onSmartSearch`. */
+export const smartSearchEnable = () => invoke<SmartSearchStatus>("smart_search_enable");
+export const smartSearchCancel = () => invoke<void>("smart_search_cancel");
+export const smartSearchDisable = () => invoke<SmartSearchStatus>("smart_search_disable");
+export const smartSearchClear = () => invoke<SmartSearchStatus>("smart_search_clear");
+export const onSmartSearch = (cb: (status: SmartSearchStatus) => void): Promise<UnlistenFn> =>
+  listen<SmartSearchStatus>("smart-search", (event) => cb(event.payload));
+
 export const onFilesIndexed = (
   cb: (paths: string[]) => void,
 ): Promise<UnlistenFn> =>
