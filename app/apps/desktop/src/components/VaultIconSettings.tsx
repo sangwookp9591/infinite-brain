@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { ITEM_COLORS } from "../lib/appearance";
 import { authManager } from "../lib/auth/authManager";
+import { useT } from "../lib/i18n";
 import { imageFileToSquareDataUrl } from "../lib/squareImage";
 import { toast } from "../lib/toast";
 import {
@@ -43,6 +44,7 @@ export function VaultIconSettings({
   name: string;
   canEdit: boolean;
 }) {
+  const t = useT();
   const isSynced = identity.startsWith("org:");
   const raw = useVaultIconRaw(identity);
   const current = resolveVaultIcon(identity, raw);
@@ -82,7 +84,7 @@ export function VaultIconSettings({
     try {
       await persist(value);
     } catch (e) {
-      toast(`Couldn't change the vault icon — ${e instanceof Error ? e.message : String(e)}`, "error");
+      toast(t("Couldn't change the vault icon — {reason}", { reason: e instanceof Error ? e.message : String(e) }), "error");
     } finally {
       setPending(null);
     }
@@ -109,7 +111,7 @@ export function VaultIconSettings({
       rememberRecentUpload(src);
     } catch (e) {
       console.warn("[vault-icon] upload failed", e);
-      setUploadError("Couldn't upload that image. Try a smaller PNG or JPG.");
+      setUploadError(t("Couldn't upload that image. Try a smaller PNG or JPG."));
     } finally {
       setPending(null);
     }
@@ -130,13 +132,13 @@ export function VaultIconSettings({
           )}
         </span>
         <div className="vault-icon-head-text">
-          <span className="vault-icon-title">Vault icon</span>
+          <span className="vault-icon-title">{t("Vault icon")}</span>
           <span className="field-hint">
             {!isSynced
-              ? "Shown on this device only, until you turn on sync."
+              ? t("Shown on this device only, until you turn on sync.")
               : canEdit
-                ? "Everyone in this vault sees this icon."
-                : "Everyone in this vault sees this icon. Only an owner or admin can change it."}
+                ? t("Everyone in this vault sees this icon.")
+                : t("Everyone in this vault sees this icon. Only an owner or admin can change it.")}
           </span>
         </div>
         <div className="vault-icon-head-actions">
@@ -146,7 +148,7 @@ export function VaultIconSettings({
               disabled={!canEdit || busy}
               onClick={() => save(null, "reset")}
             >
-              Reset
+              {t("Reset")}
             </AsyncButton>
           )}
           {/* Not an AsyncButton: its click only opens the file picker, and the
@@ -158,7 +160,7 @@ export function VaultIconSettings({
             onClick={() => fileRef.current?.click()}
           >
             <span className="async-btn-label">
-              {pending === "upload" ? "Uploading…" : "Upload image"}
+              {pending === "upload" ? t("Uploading…") : t("Upload image")}
             </span>
             {pending === "upload" && <Spinner size="xs" />}
           </button>
@@ -185,8 +187,8 @@ export function VaultIconSettings({
       <div className="vault-icon-customise" aria-busy={busy || undefined}>
         {shownRecent.length > 0 && (
           <div className="vault-icon-recent">
-            <span className="vault-icon-label">Recent uploads</span>
-            <div className="vault-icon-recent-row" role="radiogroup" aria-label="Recent uploads">
+            <span className="vault-icon-label">{t("Recent uploads")}</span>
+            <div className="vault-icon-recent-row" role="radiogroup" aria-label={t("Recent uploads")}>
               {shownRecent.map((src) => {
                 const selected = current.kind === "image" && current.src === src;
                 return (
@@ -195,7 +197,7 @@ export function VaultIconSettings({
                     className={`vault-icon-thumb${selected ? " active" : ""}`}
                     role="radio"
                     aria-checked={selected}
-                    title="Use this image"
+                    title={t("Use this image")}
                     disabled={!canEdit || busy}
                     onClick={() => {
                       rememberRecentUpload(src);
@@ -212,13 +214,13 @@ export function VaultIconSettings({
           </div>
         )}
 
-        <div className="vault-icon-colors" role="radiogroup" aria-label="Icon colour">
+        <div className="vault-icon-colors" role="radiogroup" aria-label={t("Icon colour")}>
           {/* No background: the glyph alone, in the text colour. */}
           <button
             className={`swatch swatch-none${color === NO_COLOR ? " active" : ""}`}
             role="radio"
             aria-checked={color === NO_COLOR}
-            title="None"
+            title={t("None")}
             disabled={!canEdit || busy}
             onClick={() => pickColor(NO_COLOR)}
           />
@@ -229,7 +231,7 @@ export function VaultIconSettings({
               style={{ background: c.value } as CSSProperties}
               role="radio"
               aria-checked={c.id === color}
-              title={c.label}
+              title={t(c.label)}
               disabled={!canEdit || busy}
               onClick={() => pickColor(c.id)}
             />
@@ -238,10 +240,10 @@ export function VaultIconSettings({
 
         {usingImage && (
           <span className="vault-icon-note">
-            {canEdit ? "Using your uploaded image. Pick an icon to switch back." : "Using an uploaded image."}
+            {canEdit ? t("Using your uploaded image. Pick an icon to switch back.") : t("Using an uploaded image.")}
           </span>
         )}
-        <div className="vault-icon-grid" role="radiogroup" aria-label="Icon">
+        <div className="vault-icon-grid" role="radiogroup" aria-label={t("Icon")}>
           {VAULT_ICON_NAMES.map((icon) => {
             const selected = current.kind === "preset" && current.icon === icon;
             return (

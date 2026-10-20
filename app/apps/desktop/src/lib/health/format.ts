@@ -83,21 +83,21 @@ export function middleTruncate(path: string, max: number): string {
 export function verdictLabel(v: HealthVerdict): string {
   switch (v) {
     case "local":
-      return "Local only";
+      return t("Local only");
     case "signed-out":
-      return "Signed out";
+      return t("Signed out");
     case "no-access":
-      return "No access";
+      return t("No access");
     case "offline":
-      return "Offline";
+      return t("Offline");
     case "connecting":
-      return "Connecting";
+      return t("Connecting");
     case "syncing":
-      return "Syncing";
+      return t("Syncing");
     case "attention":
-      return "Needs attention";
+      return t("Needs attention");
     case "healthy":
-      return "Healthy";
+      return t("Healthy");
   }
 }
 
@@ -132,33 +132,33 @@ export function verdictTone(
 export function kindLabel(kind: HealthIssueKind): string {
   switch (kind) {
     case "too-large":
-      return "Too large";
+      return t("Too large");
     case "no-write-access":
-      return "Read-only edit";
+      return t("Read-only edit");
     case "upload-failed":
-      return "Upload failed";
+      return t("Upload failed");
     case "register-failed":
-      return "Not registered";
+      return t("Not registered");
     case "limit":
-      return "Plan limit";
+      return t("Plan limit");
     case "unregistered":
-      return "Not uploaded yet";
+      return t("Not uploaded yet");
     case "no-access":
-      return "No access";
+      return t("No access");
     case "left-behind":
-      return "Left on disk";
+      return t("Left on disk");
     case "inbound-blocked":
-      return "Safety check";
+      return t("Safety check");
     case "materialize-failed":
-      return "Couldn't write";
+      return t("Couldn't write");
     case "orphan-history":
-      return "Leftover history";
+      return t("Leftover history");
     case "linked-paths":
-      return "Linked path";
+      return t("Linked path");
     case "shared-file":
-      return "Shared file";
+      return t("Shared file");
     case "sync-paused":
-      return "Sync paused";
+      return t("Sync paused");
   }
 }
 
@@ -203,11 +203,21 @@ const MONTHS = [
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ];
 
+/** "8 Oct": the day and month, month name translated (Korean: "10월 8일"). */
+function dayMonth(d: Date): string {
+  return t("{day} {month}", { day: d.getDate(), month: t(MONTHS[d.getMonth()]) });
+}
+
 /** "19:34, 8 Oct 2026": an exact local time and day for a detail line. */
 export function clockDate(ms: number): string {
   const d = new Date(ms);
   if (Number.isNaN(d.getTime())) return "—";
-  return `${clockTime(ms)}, ${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+  return t("{time}, {day} {month} {year}", {
+    time: clockTime(ms),
+    day: d.getDate(),
+    month: t(MONTHS[d.getMonth()]),
+    year: d.getFullYear(),
+  });
 }
 
 /**
@@ -224,10 +234,10 @@ export function splitPath(path: string): { dir: string; name: string } {
 /** The heading over one day of the timeline: "Today", "Yesterday", "12 Sep". */
 export function dayLabel(ms: number, now: number): string {
   const d = new Date(ms);
-  if (Number.isNaN(d.getTime())) return "Unknown";
-  if (dayKey(ms) === dayKey(now)) return "Today";
-  if (dayKey(ms) === dayKey(now - 86_400_000)) return "Yesterday";
-  return `${d.getDate()} ${MONTHS[d.getMonth()]}`;
+  if (Number.isNaN(d.getTime())) return t("Unknown");
+  if (dayKey(ms) === dayKey(now)) return t("Today");
+  if (dayKey(ms) === dayKey(now - 86_400_000)) return t("Yesterday");
+  return dayMonth(d);
 }
 
 // ── Activity strip cells (laid out by `heatmapRange.ts`) ─────────────────────
@@ -249,6 +259,8 @@ export interface ActivityCell {
 export function activityCellTitle(cell: ActivityCell): string {
   const d = new Date(cell.date);
   const day = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getDay()];
-  const when = cell.today ? "Today" : `${day} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
-  return `${when} · ${cell.count.toLocaleString()} ${cell.count === 1 ? "note" : "notes"}`;
+  const when = cell.today
+    ? t("Today")
+    : t("{weekday} {day} {month}", { weekday: t(day), day: d.getDate(), month: t(MONTHS[d.getMonth()]) });
+  return `${when} · ${t(cell.count === 1 ? "{count} note" : "{count} notes", { count: cell.count.toLocaleString() })}`;
 }

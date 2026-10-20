@@ -20,6 +20,7 @@ import { buildTreeSyncIndex } from "../syncRollup";
 // dependency-free.
 import { formatBytes, relativeTime } from "./format";
 import { BRAND_NAME } from "../brand";
+import { t } from "../i18n";
 import {
   groupCreateRefusals,
   isHeldCreateCode,
@@ -275,12 +276,16 @@ function tooLargeIssue(f: HealthContentFailure, ctx: IssueContext): HealthIssue 
 
   const why =
     cause === "history"
-      ? `This note's edit history is ${historyText ?? "over the limit"}; the Remote Vault ` +
-        `accepts up to ${capMb} MB per note. The note's own text is not the problem.`
+      ? t("This note's edit history is {size}; the Remote Vault accepts up to {cap} MB per note. The note's own text is not the problem.", {
+          size: historyText ?? t("over the limit"),
+          cap: capMb,
+        })
       : cause === "file"
-        ? `This note is ${sizeText ?? "over the limit"}; the Remote Vault accepts up to ` +
-          `${capMb} MB. It has to get smaller before it can sync.`
-        : `The Remote Vault refused this note as too large: ${f.reason}`;
+        ? t("This note is {size}; the Remote Vault accepts up to {cap} MB. It has to get smaller before it can sync.", {
+            size: sizeText ?? t("over the limit"),
+            cap: capMb,
+          })
+        : t("The Remote Vault refused this note as too large: {reason}", { reason: f.reason });
 
   const meaning =
     cause === "history"
@@ -336,7 +341,7 @@ function tooLargeIssue(f: HealthContentFailure, ctx: IssueContext): HealthIssue 
     path: f.relPath,
     kind: "too-large",
     severity: "error",
-    title: "Too large to sync",
+    title: t("Too large to sync"),
     why,
     remedies,
     code: null,
@@ -437,10 +442,10 @@ function uploadFailedIssue(f: HealthContentFailure): HealthIssue {
     path: f.relPath,
     kind: "upload-failed",
     severity: "error",
-    title: "Couldn't upload",
-    why:
-      `This note's content did not reach the Remote Vault. ${capitalize(f.reason)} ` +
-      `Its only copy is on this device.`,
+    title: t("Couldn't upload"),
+    why: t("This note's content did not reach the Remote Vault. {reason} Its only copy is on this device.", {
+      reason: capitalize(f.reason),
+    }),
     remedies: ["retry", "open", "reveal", "export-copy", "copy-details"],
     code: null,
     explanation: {
@@ -475,10 +480,10 @@ function noWriteAccessIssue(f: HealthContentFailure): HealthIssue {
     path: f.relPath,
     kind: "no-write-access",
     severity: "error",
-    title: "Read-only sync needs review",
+    title: t("Read-only sync needs review"),
     why: saved
-      ? "The Remote Vault refused this note as read-only. Infinite Brain kept a recovery copy before restoring the Remote Vault's version."
-      : "The Remote Vault refused this note as read-only. Check again to verify whether its current local and remote text already match.",
+      ? t("The Remote Vault refused this note as read-only. Infinite Brain kept a recovery copy before restoring the Remote Vault's version.")
+      : t("The Remote Vault refused this note as read-only. Check again to verify whether its current local and remote text already match."),
     remedies: ["retry", "open", "reveal", "export-copy", "copy-details"],
     code: null,
     explanation: {
@@ -571,12 +576,10 @@ function limitIssue(f: HealthRegistryFailure): HealthIssue {
     path: f.path,
     kind: "limit",
     severity: "error",
-    title: "Plan limit reached",
-    why: notes ? "This vault reached its sync limit for notes. Upgrade to Team to sync more. Existing notes keep syncing; additional notes stay on this device." : member
-      ? "This vault has as many members as the free plan allows, so the Remote Vault " +
-        "refused. Upgrade to add more."
-      : "This account has as many vaults as the free plan allows, so the Remote Vault " +
-        "refused to create more. Upgrade to keep syncing.",
+    title: t("Plan limit reached"),
+    why: notes ? t("This vault reached its sync limit for notes. Upgrade to Team to sync more. Existing notes keep syncing; additional notes stay on this device.") : member
+      ? t("This vault has as many members as the free plan allows, so the Remote Vault refused. Upgrade to add more.")
+      : t("This account has as many vaults as the free plan allows, so the Remote Vault refused to create more. Upgrade to keep syncing."),
     remedies: ["upgrade", "copy-details"],
     code: f.code,
     explanation: {
@@ -620,10 +623,10 @@ function registryIssue(f: HealthRegistryFailure, ctx: IssueContext): HealthIssue
       path: null,
       kind: "register-failed",
       severity: "error",
-      title: "New notes and folder changes aren't syncing",
-      why:
-        `The app can't load the vault's file list (last error: ${f.reason}). ` +
-        "Edits to existing notes still sync.",
+      title: t("New notes and folder changes aren't syncing"),
+      why: t("The app can't load the vault's file list (last error: {reason}). Edits to existing notes still sync.", {
+        reason: f.reason,
+      }),
       remedies: ["copy-details"],
       code: f.code,
       explanation: {
@@ -652,7 +655,7 @@ function registryIssue(f: HealthRegistryFailure, ctx: IssueContext): HealthIssue
       path: f.path,
       kind: "inbound-blocked",
       severity: "error",
-      title: "Linked path not synced",
+      title: t("Linked path not synced"),
       why: f.reason,
       remedies: ["reveal", "copy-details"],
       code: f.code,
@@ -678,8 +681,8 @@ function registryIssue(f: HealthRegistryFailure, ctx: IssueContext): HealthIssue
       path: f.path,
       kind: "inbound-blocked",
       severity: "warn",
-      title: "Removed on disk, being restored",
-      why: "This note was removed from the vault folder together with many others at once.",
+      title: t("Removed on disk, being restored"),
+      why: t("This note was removed from the vault folder together with many others at once."),
       remedies: ["copy-details"],
       code: f.code,
       explanation: {
@@ -705,8 +708,10 @@ function registryIssue(f: HealthRegistryFailure, ctx: IssueContext): HealthIssue
       path: f.path,
       kind: "inbound-blocked",
       severity: "error",
-      title: "Local change held for safety",
-      why: `Infinite Brain kept this item on disk because a sync safety check did not pass. ${capitalize(f.reason)}`,
+      title: t("Local change held for safety"),
+      why: t("Infinite Brain kept this item on disk because a sync safety check did not pass. {reason}", {
+        reason: capitalize(f.reason),
+      }),
       remedies: ["retry", "reveal", "copy-details"],
       code: f.code,
       explanation: {
@@ -726,10 +731,10 @@ function registryIssue(f: HealthRegistryFailure, ctx: IssueContext): HealthIssue
       path: f.path,
       kind: "materialize-failed",
       severity: "error",
-      title: "Couldn't write this to disk",
-      why:
-        `The Remote Vault has this note, but it could not be written into your vault ` +
-        `folder. ${capitalize(f.reason)}`,
+      title: t("Couldn't write this to disk"),
+      why: t("The Remote Vault has this note, but it could not be written into your vault folder. {reason}", {
+        reason: capitalize(f.reason),
+      }),
       remedies: ["retry", "reveal", "copy-details"],
       code: f.code,
       explanation: {
@@ -768,11 +773,10 @@ function registryIssue(f: HealthRegistryFailure, ctx: IssueContext): HealthIssue
       path: f.path,
       kind: "left-behind",
       severity: "error",
-      title: "Left on disk — not on the Remote Vault",
-      why:
-        `${capitalize(f.reason)} It was kept here rather than removed, because ` +
-        `this device may hold the only copy. Open it to check, then delete it if ` +
-        `you don't need it.`,
+      title: t("Left on disk — not on the Remote Vault"),
+      why: t("{reason} It was kept here rather than removed, because this device may hold the only copy. Open it to check, then delete it if you don't need it.", {
+        reason: capitalize(f.reason),
+      }),
       remedies: ["open", "reveal", "reregister", "export-copy", "delete", "copy-details"],
       code: f.code,
       explanation: {
@@ -814,10 +818,13 @@ function registryIssue(f: HealthRegistryFailure, ctx: IssueContext): HealthIssue
     path: f.path,
     kind: "register-failed",
     severity: "error",
-    title: isFolder ? "Folder couldn't be registered" : "Couldn't be registered",
-    why:
-      `The Remote Vault has no record for this ${what}, so nothing ` +
-      `under it can sync. ${capitalize(f.reason)}`,
+    title: isFolder ? t("Folder couldn't be registered") : t("Couldn't be registered"),
+    why: t(
+      isFolder
+        ? "The Remote Vault has no record for this folder, so nothing under it can sync. {reason}"
+        : "The Remote Vault has no record for this note, so nothing under it can sync. {reason}",
+      { reason: capitalize(f.reason) },
+    ),
     remedies,
     code: f.code,
     explanation: {
@@ -873,8 +880,14 @@ export function createRefusalIssueKey(code: string, folder: string): string {
 /** Every create refused for the same access reason in one folder, as ONE issue. */
 export function createRefusalIssue(g: CreateRefusalGroup, ctx: IssueContext): HealthIssue {
   const n = g.paths.length;
-  const what = g.notes === n ? plural(n, "new note") : plural(n, "new item");
   const where = wherePhrase(g.folder);
+  const whereText = g.folder === "" ? t("at the top of this vault") : t("in {folder}", { folder: g.folder });
+  const whatText = t(
+    g.notes === n
+      ? n === 1 ? "{count} new note" : "{count} new notes"
+      : n === 1 ? "{count} new item" : "{count} new items",
+    { count: num(n) },
+  );
   const access = g.code === "no_write_access";
   const shown = g.paths.slice(0, MAX_REFUSAL_PATHS_SHOWN);
   return {
@@ -884,12 +897,11 @@ export function createRefusalIssue(g: CreateRefusalGroup, ctx: IssueContext): He
     kind: "register-failed",
     severity: "error",
     title: access
-      ? `${what} not syncing: no permission to add notes ${where}`
-      : `${what} not syncing: notes can't be added at the top of this vault`,
+      ? t("{what} not syncing: no permission to add notes {where}", { what: whatText, where: whereText })
+      : t("{what} not syncing: notes can't be added at the top of this vault", { what: whatText }),
     why: access
-      ? `You don't have permission to add notes ${where}, so these stay on this computer. ` +
-        "Edits to notes that already exist still sync."
-      : "This vault's top level is locked, so these stay on this computer until they are in a folder.",
+      ? t("You don't have permission to add notes {where}, so these stay on this computer. Edits to notes that already exist still sync.", { where: whereText })
+      : t("This vault's top level is locked, so these stay on this computer until they are in a folder."),
     remedies: access ? ["contact-owner", "copy-details"] : ["copy-details"],
     code: g.code,
     explanation: {
@@ -1017,12 +1029,11 @@ export function syncPausedIssue(
     path: null,
     kind: "sync-paused",
     severity: "warn",
-    title: "Sync paused",
+    title: t("Sync paused"),
     why:
-      (count != null && count > 0
-        ? `${num(count)} notes were emptied at once from this account, so the Remote Vault paused your sync. `
-        : "Many notes were emptied at once from this account, so the Remote Vault paused your sync. ") +
-      "Your edits are safe on this device.",
+      count != null && count > 0
+        ? t("{count} notes were emptied at once from this account, so the Remote Vault paused your sync. Your edits are safe on this device.", { count: num(count) })
+        : t("Many notes were emptied at once from this account, so the Remote Vault paused your sync. Your edits are safe on this device."),
     remedies: ["copy-details"],
     code: "shrink_held",
     explanation: {
@@ -1133,7 +1144,7 @@ function buildIssues(
       }),
       key: `limit:${input.failures.limitCode}`,
       path: null,
-      why: "The Remote Vault stopped this sync run at a plan limit. Upgrade to continue.",
+      why: t("The Remote Vault stopped this sync run at a plan limit. Upgrade to continue."),
     });
   }
 
@@ -1144,10 +1155,8 @@ function buildIssues(
       path: null,
       kind: "no-access",
       severity: "error",
-      title: "No access to this vault",
-      why:
-        "The Remote Vault refused a sync token for this vault, so nothing is uploading " +
-        "or downloading. Ask the vault's owner to share it with you again.",
+      title: t("No access to this vault"),
+      why: t("The Remote Vault refused a sync token for this vault, so nothing is uploading or downloading. Ask the vault's owner to share it with you again."),
       remedies: ["contact-owner", "copy-details"],
       code: null,
       explanation: {
@@ -1206,10 +1215,8 @@ function buildIssues(
         path,
         kind: "unregistered",
         severity: "warn",
-        title: "Not on the Remote Vault yet",
-        why:
-          "This note exists only on this device: the Remote Vault has no record for it, " +
-          "and nothing has reported a failure. A sync run should pick it up.",
+        title: t("Not on the Remote Vault yet"),
+        why: t("This note exists only on this device: the Remote Vault has no record for it, and nothing has reported a failure. A sync run should pick it up."),
         remedies: ["retry", "open", "reveal"],
         code: null,
         explanation: {
@@ -1262,8 +1269,10 @@ export function linkIssues(checks: VaultChecks | null | undefined): HealthIssue[
       path: null,
       kind: "linked-paths",
       severity: "warn",
-      title: `${plural(linked.count, "linked path")} ${linked.count === 1 ? "is" : "are"} ignored by sync`,
-      why: "These paths are symbolic links. Infinite Brain does not sync through links.",
+      title: t(linked.count === 1 ? "{count} linked path is ignored by sync" : "{count} linked paths are ignored by sync", {
+        count: num(linked.count),
+      }),
+      why: t("These paths are symbolic links. Infinite Brain does not sync through links."),
       remedies: ["copy-details"],
       code: "symlink",
       explanation: {
@@ -1295,8 +1304,8 @@ export function linkIssues(checks: VaultChecks | null | undefined): HealthIssue[
       path: group.paths[0],
       kind: "shared-file",
       severity: "error",
-      title: "Two notes share one file on disk",
-      why: `${group.paths.join(", ")} are the same file on disk, usually through a symbolic link.`,
+      title: t("Two notes share one file on disk"),
+      why: t("{paths} are the same file on disk, usually through a symbolic link.", { paths: group.paths.join(", ") }),
       remedies: ["reveal", "copy-details"],
       code: "shared-file",
       explanation: {
@@ -1477,66 +1486,74 @@ function describe(
   const where = serverHost ? ` · ${serverHost}` : "";
   const last =
     input.lastSyncedAt != null
-      ? `Last confirmed ${relativeTime(input.lastSyncedAt, input.now)}`
-      : "Nothing confirmed yet this session";
+      ? t("Last confirmed {when}", { when: relativeTime(input.lastSyncedAt, input.now) })
+      : t("Nothing confirmed yet this session");
   const overflow =
     ctx.unregisteredTotal > MAX_UNREGISTERED_ISSUES
-      ? ` Showing the first ${num(MAX_UNREGISTERED_ISSUES)} of ${num(ctx.unregisteredTotal)} unregistered notes.`
+      ? ` ${t("Showing the first {shown} of {total} unregistered notes.", {
+          shown: num(MAX_UNREGISTERED_ISSUES),
+          total: num(ctx.unregisteredTotal),
+        })}`
       : "";
+  const notes = (n: number) => t(n === 1 ? "{count} note" : "{count} notes", { count: num(n) });
 
   switch (verdict) {
     case "local":
       return {
-        headline: "Sync is off for this folder",
-        detail:
-          `${plural(counts.total, "note")} live here on this device only. ` +
-          `Turn on sync to reach your other devices and your team.`,
+        headline: t("Sync is off for this folder"),
+        detail: t("{notes} live here on this device only. Turn on sync to reach your other devices and your team.", {
+          notes: notes(counts.total),
+        }),
       };
     case "signed-out":
       return {
-        headline: "Signed out — nothing is syncing",
-        detail:
-          `This vault syncs with${serverHost ? ` ${serverHost}` : " its Remote Vault"}. ` +
-          `Sign in to resume. Your edits are safe on disk in the meantime.`,
+        headline: t("Signed out — nothing is syncing"),
+        detail: t("This vault syncs with {server}. Sign in to resume. Your edits are safe on disk in the meantime.", {
+          server: serverHost ?? t("its Remote Vault"),
+        }),
       };
     case "no-access":
       return {
-        headline: "You no longer have access to this vault",
+        headline: t("You no longer have access to this vault"),
         detail:
-          `The Remote Vault refused a sync token, so nothing is moving in either ` +
-          `direction. Ask the vault's owner to share it with you again.${where}`,
+          t("The Remote Vault refused a sync token, so nothing is moving in either direction. Ask the vault's owner to share it with you again.") +
+          where,
       };
     case "offline":
       return {
-        headline: `Offline — ${num(counts.synced)} of ${plural(counts.total, "note")} are on the Remote Vault`,
-        detail: `${last}. Syncing resumes on its own when the connection comes back.${where}`,
+        headline: t("Offline — {synced} of {notes} are on the Remote Vault", {
+          synced: num(counts.synced),
+          notes: notes(counts.total),
+        }),
+        detail: `${last}. ${t("Syncing resumes on its own when the connection comes back.")}${where}`,
       };
     case "connecting":
       return {
-        headline: "Connecting…",
+        headline: t("Connecting…"),
         detail: `${last}${where}.`,
       };
     case "syncing": {
       const p = input.syncProgress;
       if (p?.phase === "removing") return {
-        headline: `Updating access — ${num(Math.max(0, p.total - p.done))} remaining`,
-        detail: "Removing local copies you can no longer access.",
+        headline: t("Updating access — {count} remaining", { count: num(Math.max(0, p.total - p.done)) }),
+        detail: t("Removing local copies you can no longer access."),
       };
       // #258: content the server has never had (an interrupted first upload
       // resuming, or a fresh one) is named as such, because "keep the app open
       // until this reaches zero" is the one thing the reader needs to know.
       const notUploaded = p?.notUploaded ?? 0;
       if (notUploaded > 0) return {
-        headline: `Uploading — ${plural(notUploaded, "note")} not uploaded yet`,
+        headline: t("Uploading — {notes} not uploaded yet", { notes: notes(notUploaded) }),
         detail:
-          `Teammates see these notes as empty until their content arrives. Keep ` +
-          `${BRAND_NAME} open until this reaches zero${where}.${overflow}`,
+          t("Teammates see these notes as empty until their content arrives. Keep {brand} open until this reaches zero", {
+            brand: BRAND_NAME,
+          }) + `${where}.${overflow}`,
       };
       const of = p && p.total > 0 ? `${num(p.done)} of ${num(p.total)}` : num(behind);
       return {
-        headline: `Syncing — ${of} updates`,
+        headline: t("Syncing — {of} updates", { of }),
         detail:
-          `${num(counts.synced)} of ${plural(counts.total, "note")} are confirmed so far` +
+          t("{synced} of {notes} are confirmed so far", { synced: num(counts.synced), notes: notes(counts.total) }) +
           `${where}.${overflow}`,
       };
     }
@@ -1544,10 +1561,10 @@ function describe(
       return {
         headline:
           behind === 0
-            ? `${plural(errors, "thing")} need${errors === 1 ? "s" : ""} you`
+            ? t(errors === 1 ? "{count} thing needs you" : "{count} things need you", { count: num(errors) })
             : errors > 0
-              ? `${plural(behind, "note")} not on the Remote Vault — ${num(errors)} need you`
-              : `${plural(behind, "note")} ${behind === 1 ? "is" : "are"} not on the Remote Vault`,
+              ? t("{notes} not on the Remote Vault — {errors} need you", { notes: notes(behind), errors: num(errors) })
+              : t(behind === 1 ? "{count} note is not on the Remote Vault" : "{count} notes are not on the Remote Vault", { count: num(behind) }),
         detail: `${last}${where}.${overflow}`,
       };
     case "healthy":
@@ -1555,8 +1572,8 @@ function describe(
       return {
         headline:
           counts.total === 0
-            ? "This vault is empty"
-            : `All ${plural(counts.total, "note")} are on the Remote Vault`,
+            ? t("This vault is empty")
+            : t("All {notes} are on the Remote Vault", { notes: notes(counts.total) }),
         detail: `${last}${where}.${overflow}`,
       };
   }
@@ -1611,20 +1628,20 @@ export interface InspectVerdictInput {
  * or a `synced` report actually said so.
  */
 export function composeInspectionVerdict(i: InspectVerdictInput): string {
-  if (!i.exists) return "There is no file at this path.";
-  if (!i.syncEnabled) return "This folder does not sync, so this note lives on this device only.";
-  if (i.issue) return `${i.issue.title} — see Needs attention above for what to do.`;
+  if (!i.exists) return t("There is no file at this path.");
+  if (!i.syncEnabled) return t("This folder does not sync, so this note lives on this device only.");
+  if (i.issue) return t("{title} — see Needs attention above for what to do.", { title: i.issue.title });
   if (i.permanentFailure) {
-    return `Infinite Brain stopped trying to sync this note: ${capitalize(i.permanentFailure)}`;
+    return t("Infinite Brain stopped trying to sync this note: {reason}", { reason: capitalize(i.permanentFailure) });
   }
-  if (i.queued) return "Waiting to be pushed — it is in the queue for the next sync pass.";
-  if (i.diverged) return "Has edits the Remote Vault may not have yet; the next sync pass will send them.";
+  if (i.queued) return t("Waiting to be pushed — it is in the queue for the next sync pass.");
+  if (i.diverged) return t("Has edits the Remote Vault may not have yet; the next sync pass will send them.");
   if (i.state === "synced" && i.pushed) {
-    return "Synced — the Remote Vault confirmed this note's content.";
+    return t("Synced — the Remote Vault confirmed this note's content.");
   }
   if (i.pushed && i.state === null) {
-    return "On the Remote Vault; nothing about it has changed since this app launched.";
+    return t("On the Remote Vault; nothing about it has changed since this app launched.");
   }
-  if (i.docId === null) return "The Remote Vault does not know this note yet.";
-  return "Not confirmed yet — nothing has reported this note's content as stored on the Remote Vault.";
+  if (i.docId === null) return t("The Remote Vault does not know this note yet.");
+  return t("Not confirmed yet — nothing has reported this note's content as stored on the Remote Vault.");
 }

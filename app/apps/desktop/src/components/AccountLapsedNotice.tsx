@@ -4,6 +4,7 @@ import { useNoticeSlot } from "./useNoticeSlot";
 import { authManager } from "../lib/auth/authManager";
 import { hasBillingLapsedLock } from "../lib/locks";
 import { syncManager } from "../lib/sync/docSession";
+import { t, useT } from "../lib/i18n";
 import { toast } from "../lib/toast";
 import type { Share } from "../lib/api";
 import { useStore } from "../store";
@@ -45,24 +46,25 @@ export function AccountLapsedNoticeView({
   onManage: () => void;
   onDismiss: () => void;
 }) {
+  const t = useT();
   return (
     <Banner show={show} className="account-lapsed-banner" role="alert">
       <span>
-        {ACCOUNT_LAPSED_COPY}
-        {!canManage && ` ${ACCOUNT_LAPSED_MEMBER_COPY}`}
+        {t(ACCOUNT_LAPSED_COPY)}
+        {!canManage && ` ${t(ACCOUNT_LAPSED_MEMBER_COPY)}`}
       </span>
       <div className="banner-actions">
         {canManage ? (
           <>
             <button className="primary" disabled={busy} onClick={onResume}>
-              Resume plan
+              {t("Resume plan")}
             </button>
             <button disabled={busy} onClick={onManage}>
-              Manage plan
+              {t("Manage plan")}
             </button>
           </>
         ) : (
-          <button onClick={onDismiss}>Dismiss</button>
+          <button onClick={onDismiss}>{t("Dismiss")}</button>
         )}
       </div>
     </Banner>
@@ -121,9 +123,9 @@ export function AccountLapsedNotice() {
     try {
       await authManager.api.accountResume();
       await useStore.getState().refreshLocks();
-      toast("Team plan resumed");
+      toast(t("Team plan resumed"));
     } catch (e) {
-      toast(`Couldn't resume the plan — ${e instanceof Error ? e.message : String(e)}`, "error");
+      toast(t("Couldn't resume the plan — {error}", { error: e instanceof Error ? e.message : String(e) }), "error");
     } finally {
       setBusy(false);
     }

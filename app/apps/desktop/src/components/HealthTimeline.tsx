@@ -6,6 +6,7 @@
 import { useMemo, useState } from "react";
 import type { SyncLogEntry, SyncLogLevel } from "../lib/health/types";
 import { clockTime, dayLabel } from "../lib/health/format";
+import { useT, t } from "../lib/i18n";
 import { Chip, PathText } from "./HealthShared";
 
 /** Rendered at once. The buffer holds 200; a wall of them helps nobody. */
@@ -26,6 +27,7 @@ export function HealthTimeline({
   /** A line that names a path hands it to the inspector above. */
   onInspect: (path: string) => void;
 }) {
+  const t = useT();
   const [filter, setFilter] = useState<Filter>("all");
   const [limit, setLimit] = useState(PAGE);
   const [expanded, setExpanded] = useState(false);
@@ -54,7 +56,7 @@ export function HealthTimeline({
   }, [log, filter]);
 
   if (log.length === 0) {
-    return <p className="muted">Nothing yet this session.</p>;
+    return <p className="muted">{t("Nothing yet this session.")}</p>;
   }
 
   const page = shown.slice(0, expanded ? limit : COLLAPSED);
@@ -69,24 +71,24 @@ export function HealthTimeline({
 
   return (
     <>
-      <div className="health-chips" role="group" aria-label="Filter the timeline">
+      <div className="health-chips" role="group" aria-label={t("Filter the timeline")}>
         <Chip active={filter === "all"} onClick={() => setFilter("all")} count={log.length}>
-          All
+          {t("All")}
         </Chip>
         <Chip
           active={filter === "warn"}
           onClick={() => setFilter("warn")}
           count={counts.warn + counts.error}
         >
-          Warnings
+          {t("Warnings")}
         </Chip>
         <Chip active={filter === "error"} onClick={() => setFilter("error")} count={counts.error}>
-          Errors
+          {t("Errors")}
         </Chip>
       </div>
 
       {page.length === 0 ? (
-        <p className="muted">Nothing at this level.</p>
+        <p className="muted">{t("Nothing at this level.")}</p>
       ) : (
         <div className={`health-timeline${expanded ? " is-expanded" : ""}`}>
           {days.map((day) => (
@@ -106,7 +108,7 @@ export function HealthTimeline({
                       {(e.count ?? 1) > 1 && (
                         <span
                           className="health-log-count"
-                          title={`Happened ${e.count} times within a minute`}
+                          title={t("Happened {count} times within a minute", { count: e.count ?? 1 })}
                         >
                           ×{e.count}
                         </span>
@@ -116,7 +118,7 @@ export function HealthTimeline({
                           type="button"
                           className="health-log-path"
                           onClick={() => onInspect(e.path as string)}
-                          title={`Check ${e.path}`}
+                          title={t("Check {path}", { path: e.path })}
                         >
                           <PathText path={e.path} chars={44} />
                         </button>
@@ -133,7 +135,7 @@ export function HealthTimeline({
       <div className="health-timeline-actions">
         {!expanded && hidden > 0 && (
           <button type="button" className="ghost-pill sm" onClick={() => setExpanded(true)}>
-            Show all {shown.length.toLocaleString()}
+            {t("Show all {count}", { count: shown.length.toLocaleString() })}
           </button>
         )}
         {expanded && shown.length > limit && (
@@ -142,7 +144,7 @@ export function HealthTimeline({
             className="ghost-pill sm"
             onClick={() => setLimit((n) => n + PAGE)}
           >
-            Show older
+            {t("Show older")}
           </button>
         )}
         {expanded && (
@@ -154,7 +156,7 @@ export function HealthTimeline({
               setLimit(PAGE);
             }}
           >
-            Show less
+            {t("Show less")}
           </button>
         )}
       </div>
@@ -163,5 +165,5 @@ export function HealthTimeline({
 }
 
 function levelWord(level: SyncLogLevel): string {
-  return level === "error" ? "Error" : level === "warn" ? "Warning" : "Info";
+  return level === "error" ? t("Error") : level === "warn" ? t("Warning") : t("Info");
 }

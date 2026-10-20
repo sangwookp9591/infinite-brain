@@ -8,6 +8,7 @@ import { SETTING_RANGES, type GraphTheme } from "../lib/graph/graphSettings";
 import type { LegendEntry } from "../lib/graph/graphColor";
 import { BarSlider } from "./kit/BarSlider";
 import { SegmentedChips } from "./kit/SegmentedChips";
+import { useT } from "../lib/i18n";
 
 export interface GraphControlsProps {
   settings: GraphSettings;
@@ -54,6 +55,7 @@ function formatValue(key: SliderKey, value: number): string {
 
 export function GraphControls(props: GraphControlsProps): React.JSX.Element {
   const { settings, onChange, onReset, legend } = props;
+  const t = useT();
 
   // One slider row: friendly label and the shared keyboard-accessible slider.
   const slider = (key: SliderKey) => {
@@ -61,9 +63,9 @@ export function GraphControls(props: GraphControlsProps): React.JSX.Element {
     const value = settings[key] as number;
     return (
       <div className="graph-control-row" key={key}>
-        <span className="graph-control-label">{SLIDER_LABELS[key]}</span>
+        <span className="graph-control-label">{t(SLIDER_LABELS[key])}</span>
         <BarSlider
-          label={SLIDER_LABELS[key]}
+          label={t(SLIDER_LABELS[key])}
           disabled={props.fixedLayout && ["charge", "linkDistance", "linkStrength", "gravity"].includes(key)}
           min={range.min}
           max={range.max}
@@ -82,8 +84,8 @@ export function GraphControls(props: GraphControlsProps): React.JSX.Element {
           toggle meant this panel could be showing one of two different graphs
           under one name, and the whole-vault view is the one that was wanted. */}
       <div className="graph-control-group">
-        <div className="graph-control-group-title">Forces</div>
-        {props.fixedLayout && <small>Stable spiral layout for large vaults.</small>}
+        <div className="graph-control-group-title">{t("Forces")}</div>
+        {props.fixedLayout && <small>{t("Stable spiral layout for large vaults.")}</small>}
         {slider("charge")}
         {slider("linkDistance")}
         {slider("linkStrength")}
@@ -91,13 +93,13 @@ export function GraphControls(props: GraphControlsProps): React.JSX.Element {
       </div>
 
       <div className="graph-control-group">
-        <div className="graph-control-group-title">Appearance</div>
+        <div className="graph-control-group-title">{t("Appearance")}</div>
         <div className="graph-control-row">
-          <span className="graph-control-label">Theme</span>
+          <span className="graph-control-label">{t("Theme")}</span>
           <SegmentedChips
-            label="Graph theme"
+            label={t("Graph theme")}
             size="sm"
-            items={THEMES}
+            items={THEMES.map((o) => ({ ...o, label: t(o.label) }))}
             value={settings.theme}
             onChange={(value) => onChange({ theme: value as GraphTheme })}
           />
@@ -106,11 +108,11 @@ export function GraphControls(props: GraphControlsProps): React.JSX.Element {
         {slider("edgeThickness")}
         {slider("labelScale")}
         <div className="graph-control-row">
-          <span className="graph-control-label">Color by</span>
+          <span className="graph-control-label">{t("Color by")}</span>
           <SegmentedChips
-            label="Color mode"
+            label={t("Color mode")}
             size="sm"
-            items={COLOR_MODES}
+            items={COLOR_MODES.map((o) => ({ ...o, label: t(o.label) }))}
             value={settings.colorMode}
             onChange={(value) => onChange({ colorMode: value as ColorMode })}
           />
@@ -118,20 +120,20 @@ export function GraphControls(props: GraphControlsProps): React.JSX.Element {
       </div>
 
       <div className="graph-control-group">
-        <div className="graph-control-group-title">Filter</div>
+        <div className="graph-control-group-title">{t("Filter")}</div>
         <div className="graph-control-row">
           <input
             type="text"
             className="graph-control-search"
-            placeholder="Filter by title…"
-            aria-label="Filter notes by title"
+            placeholder={t("Filter by title…")}
+            aria-label={t("Filter notes by title")}
             value={settings.search}
             onChange={(e) => onChange({ search: e.target.value })}
           />
         </div>
         {slider("minDegree")}
         <div className="graph-control-row">
-          <label htmlFor="graph-hideOrphans">Hide unlinked</label>
+          <label htmlFor="graph-hideOrphans">{t("Hide unlinked")}</label>
           <input
             id="graph-hideOrphans"
             type="checkbox"
@@ -143,7 +145,7 @@ export function GraphControls(props: GraphControlsProps): React.JSX.Element {
 
       {legend.length > 0 && (
         <div className="graph-control-group">
-          <div className="graph-control-group-title">Legend</div>
+          <div className="graph-control-group-title">{t("Legend")}</div>
           <div className="graph-legend">
             {legend.map((entry) => (
               <div className="graph-legend-row" key={entry.label}>
@@ -161,7 +163,7 @@ export function GraphControls(props: GraphControlsProps): React.JSX.Element {
 
       <div className="graph-control-footer">
         <button type="button" className="graph-control-reset" onClick={onReset}>
-          Reset
+          {t("Reset")}
         </button>
       </div>
     </div>

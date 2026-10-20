@@ -8,6 +8,7 @@ import type { NoteInspection } from "../lib/health/types";
 import type { NoteTitle } from "../lib/ipc";
 import { formatBytes, relativeTime } from "../lib/health/format";
 import { copyText } from "../lib/clipboard";
+import { t, useT } from "../lib/i18n";
 import { AsyncButton } from "./AsyncButton";
 import { CopyButton, Glyph, PathText, type HealthHandlers } from "./HealthShared";
 
@@ -29,6 +30,7 @@ export function HealthInspector({
    *  re-runs it rather than being swallowed as an unchanged prop. */
   request?: { path: string; n: number } | null;
 }) {
+  const t = useT();
   const [query, setQuery] = useState("");
   const [openList, setOpenList] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -89,8 +91,8 @@ export function HealthInspector({
         <input
           type="text"
           className="health-inspector-input"
-          placeholder="Type a note's path or name…"
-          aria-label="Check one note"
+          placeholder={t("Type a note's path or name…")}
+          aria-label={t("Check one note")}
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
@@ -119,7 +121,7 @@ export function HealthInspector({
         )}
       </div>
 
-      {busy && <p className="muted">Looking…</p>}
+      {busy && <p className="muted">{t("Looking…")}</p>}
       {error && <div className="auth-error">{error}</div>}
       {!busy && result && (
         <InspectionCard result={result} handlers={handlers} onShowIssue={onShowIssue} />
@@ -140,30 +142,31 @@ export function InspectionCard({
   handlers: HealthHandlers;
   onShowIssue: (key: string) => void;
 }) {
+  const t = useT();
   if (!result.exists) {
     return (
       <div className="health-inspection" data-tone="warn">
-        <p className="health-inspection-verdict">There is no file at this path.</p>
+        <p className="health-inspection-verdict">{t("There is no file at this path.")}</p>
         <PathText path={result.path} />
       </div>
     );
   }
 
   const facts: Array<[string, string, boolean?]> = [
-    ["State", stateLabel(result)],
-    ["On Remote Vault", yesNo(result.pushed)],
-    ["Waiting to push", yesNo(result.queued)],
-    ["Has unsent edits", yesNo(result.diverged)],
-    ["Size", result.bytes != null ? formatBytes(result.bytes) : "Not measured"],
+    [t("State"), stateLabel(result)],
+    [t("On Remote Vault"), yesNo(result.pushed)],
+    [t("Waiting to push"), yesNo(result.queued)],
+    [t("Has unsent edits"), yesNo(result.diverged)],
+    [t("Size"), result.bytes != null ? formatBytes(result.bytes) : t("Not measured")],
     [
-      "Modified",
-      result.mtime != null ? relativeTime(result.mtime, handlers.now) : "Unknown",
+      t("Modified"),
+      result.mtime != null ? relativeTime(result.mtime, handlers.now) : t("Unknown"),
     ],
     [
-      "History size",
-      result.historyBytes != null ? formatBytes(result.historyBytes) : "Unknown",
+      t("History size"),
+      result.historyBytes != null ? formatBytes(result.historyBytes) : t("Unknown"),
     ],
-    ["Doc id", result.docId ?? "Not registered", result.docId != null],
+    [t("Doc id"), result.docId ?? t("Not registered"), result.docId != null],
   ];
 
   const copyFacts = async () => {
@@ -187,7 +190,7 @@ export function InspectionCard({
             <dt>{label}</dt>
             <dd>
               <span className="health-fact-value">{value}</span>
-              {copyable && <CopyButton value={value} label={`Copy ${label}`} />}
+              {copyable && <CopyButton value={value} label={t("Copy {label}", { label })} />}
             </dd>
           </div>
         ))}
@@ -199,7 +202,7 @@ export function InspectionCard({
           className="link-btn"
           onClick={() => onShowIssue((result.issue as { key: string }).key)}
         >
-          See its entry above
+          {t("See its entry above")}
         </button>
       )}
 
@@ -209,21 +212,21 @@ export function InspectionCard({
           className="link-btn"
           onClick={() => handlers.openNote(result.path)}
         >
-          Open
+          {t("Open")}
         </button>
         <AsyncButton className="link-btn" onClick={() => handlers.actions.reveal(result.path)}>
-          Reveal
+          {t("Reveal")}
         </AsyncButton>
         {result.docId && (
           <AsyncButton
             className="link-btn"
             onClick={() => handlers.actions.retryDoc(result.docId as string)}
           >
-            Retry
+            {t("Retry")}
           </AsyncButton>
         )}
         <AsyncButton className="link-btn" onClick={copyFacts}>
-          Copy facts
+          {t("Copy facts")}
         </AsyncButton>
       </div>
     </div>
@@ -231,26 +234,26 @@ export function InspectionCard({
 }
 
 function yesNo(v: boolean): string {
-  return v ? "Yes" : "No";
+  return v ? t("Yes") : t("No");
 }
 
 /** The reported per-doc state in the page's own words. `null` is not "unsynced"
  *  — it means nothing has spoken for this note since launch, which is a
  *  different thing and reads as such. */
 function stateLabel(r: NoteInspection): string {
-  if (r.permanentFailure) return "Stopped trying";
+  if (r.permanentFailure) return t("Stopped trying");
   switch (r.state) {
     case "synced":
-      return "Synced";
+      return t("Synced");
     case "syncing":
-      return "Syncing";
+      return t("Syncing");
     case "queued":
-      return "Queued";
+      return t("Queued");
     case "error":
-      return "Failed";
+      return t("Failed");
     case "unsynced":
-      return "Not on the Remote Vault";
+      return t("Not on the Remote Vault");
     default:
-      return r.emptyEverywhere ? "Empty here and on the Remote Vault" : "Nothing reported yet";
+      return r.emptyEverywhere ? t("Empty here and on the Remote Vault") : t("Nothing reported yet");
   }
 }

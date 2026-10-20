@@ -20,6 +20,7 @@ import {
   seatUsageLines,
   SELF_HOSTED_PLAN_COPY,
 } from "../lib/billing";
+import { useT } from "../lib/i18n";
 import * as ipc from "../lib/ipc";
 import { toast } from "../lib/toast";
 import { readOrgVaults, useStore } from "../store";
@@ -35,10 +36,6 @@ function formatDate(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
-}
-
-function plural(n: number, singular: string, pluralNoun: string): string {
-  return `${n} ${n === 1 ? singular : pluralNoun}`;
 }
 
 type Loaded = {
@@ -69,6 +66,7 @@ async function orNull<T>(p: Promise<T>): Promise<T | null> {
  * vault's own Billing tab there.
  */
 export function AccountPlanTab() {
+  const t = useT();
   const [data, setData] = useState<Loaded | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [upgrading, setUpgrading] = useState(false);
@@ -141,14 +139,14 @@ export function AccountPlanTab() {
   if (error) {
     return (
       <>
-        <div className="auth-error">{error}</div>
+        <div className="auth-error">{t(error)}</div>
         <AsyncButton className="secondary" onClick={load}>
-          Try again
+          {t("Try again")}
         </AsyncButton>
       </>
     );
   }
-  if (!data) return <div className="muted">Loading…</div>;
+  if (!data) return <div className="muted">{t("Loading…")}</div>;
 
   const { config, account, usage } = data;
   if (data.state === "disabled") {
@@ -159,7 +157,7 @@ export function AccountPlanTab() {
   if (data.state === "vault" || !account) {
     return (
       <div className="muted perm-empty">
-        Billing is per vault on this server; manage it in each vault's settings.
+        {t("Billing is per vault on this server; manage it in each vault's settings.")}
       </div>
     );
   }
@@ -241,14 +239,20 @@ export function AccountPlanTab() {
     : isTeam
     ? [
         planPriceLine(account.plan, account.interval, config.team),
-        seatsBought != null ? plural(seatsBought, "seat", "seats") : null,
+        seatsBought != null
+          ? seatsBought === 1
+            ? t("{count} seat", { count: seatsBought })
+            : t("{count} seats", { count: seatsBought })
+          : null,
         account.currentPeriodEnd
-          ? `${account.cancelAtPeriodEnd ? "cancels on" : "renews"} ${formatDate(account.currentPeriodEnd)}`
+          ? account.cancelAtPeriodEnd
+            ? t("cancels on {date}", { date: formatDate(account.currentPeriodEnd) })
+            : t("renews {date}", { date: formatDate(account.currentPeriodEnd) })
           : null,
       ]
         .filter(Boolean)
         .join(" · ")
-    : "For you and one teammate · $0";
+    : t("For you and one teammate · $0");
 
   // ---- Usage tiles: meters against the Free ceilings, plain counts on Team ----
   const syncedVaults = usage ? (usage.totals.vaults ?? usage.vaults.length) : 0;
@@ -266,36 +270,36 @@ export function AccountPlanTab() {
     ? [
         {
           key: "vaults",
-          caption: "Synced vaults",
+          caption: t("Synced vaults"),
           value: String(syncedVaults),
           sub:
             vaultLimit != null
               ? freeBase != null && vaultLimit > freeBase
-                ? `of ${vaultLimit} · includes vaults you had before`
-                : `of ${vaultLimit}`
-              : syncedVaults === 1 ? "vault" : "vaults",
+                ? t("of {limit} · includes vaults you had before", { limit: vaultLimit })
+                : t("of {limit}", { limit: vaultLimit })
+              : syncedVaults === 1 ? t("vault") : t("vaults"),
           meter: vaultLimit != null ? { used: syncedVaults, limit: vaultLimit } : null,
         },
         {
           key: "people",
-          caption: "People",
+          caption: t("People"),
           value: String(usage.totals.people),
           sub:
             peopleLimit != null
-              ? `of ${peopleLimit} on this account`
-              : usage.totals.people === 1 ? "person" : "people",
+              ? t("of {limit} on this account", { limit: peopleLimit })
+              : usage.totals.people === 1 ? t("person") : t("people"),
           meter: peopleLimit != null ? { used: usage.totals.people, limit: peopleLimit } : null,
         },
         {
           key: "notes",
-          caption: "Notes",
+          caption: t("Notes"),
           value: String(usage.totals.notes),
-          sub: "across your vaults",
+          sub: t("across your vaults"),
           meter: null,
         },
         {
           key: "attachments",
-          caption: "Attachments",
+          caption: t("Attachments"),
           value: bytesValue ?? "0",
           sub: bytesUnit ?? "B",
           meter: null,
@@ -314,7 +318,7 @@ export function AccountPlanTab() {
             {discount && <div className="billing-section-note muted">{discount}</div>}
             {account.complimentaryUntil && (
               <div className="billing-section-note">
-                Complimentary Team until {formatDate(account.complimentaryUntil)}
+                {t("Complimentary Team until {date}", { date: formatDate(account.complimentaryUntil) })}
               </div>
             )}
           </div>
@@ -322,19 +326,19 @@ export function AccountPlanTab() {
             <div className="plan-page-actions">
               {!isTeam ? (
                 <button className="primary" onClick={() => setUpgrading(true)}>
-                  Upgrade to Team
+                  {t("Upgrade to Team")}
                 </button>
               ) : (
                 <>
                   <AsyncButton className="secondary" onClick={openPortal}>
-                    Manage billing
+                    {t("Manage billing")}
                   </AsyncButton>
                   {account.cancelAtPeriodEnd || account.lapsed ? (
                     <AsyncButton
                       className="secondary"
-                      onClick={() => run(() => authManager.api.accountResume(), "Plan resumed.")}
+                      onClick={() => run(() => authManager.api.accountResume(), t("Plan resumed."))}
                     >
-                      Resume plan
+                      {t("Resume plan")}
                     </AsyncButton>
                   ) : (
                     <AsyncButton
@@ -345,12 +349,12 @@ export function AccountPlanTab() {
                         setConfirmCancel(true);
                       }}
                     >
-                      Cancel plan
+                      {t("Cancel plan")}
                     </AsyncButton>
                   )}
                   {!legacy && (
                     <AsyncButton className="primary" onClick={() => setManagingSeats(true)}>
-                      Add or change seats
+                      {t("Add or change seats")}
                     </AsyncButton>
                   )}
                 </>
@@ -376,12 +380,12 @@ export function AccountPlanTab() {
               </div>
             ))
           ))}
-        {account.lapsed && <div className="auth-error">{LAPSED_COPY}</div>}
+        {account.lapsed && <div className="auth-error">{t(LAPSED_COPY)}</div>}
         {!account.canManage && (
           <div className="billing-section-note">
             {ownsVaults
-              ? "Billing is handled by the vault owner."
-              : "You don't own any vaults; billing is handled by each vault's owner."}
+              ? t("Billing is handled by the vault owner.")
+              : t("You don't own any vaults; billing is handled by each vault's owner.")}
           </div>
         )}
       </div>
@@ -390,29 +394,29 @@ export function AccountPlanTab() {
       {/* ---- Usage on this account ---- */}
       {ownsVaults && tiles.length > 0 && (
         <>
-          <div className="subhead">Usage on this account</div>
+          <div className="subhead">{t("Usage on this account")}</div>
           <div className="vault-usage-tiles">
-            {tiles.map((t) => {
-              const full = !!t.meter && t.meter.limit > 0 && t.meter.used >= t.meter.limit;
+            {tiles.map((tile) => {
+              const full = !!tile.meter && tile.meter.limit > 0 && tile.meter.used >= tile.meter.limit;
               const pct =
-                t.meter && t.meter.limit > 0
-                  ? Math.min(100, Math.round((t.meter.used / t.meter.limit) * 100))
+                tile.meter && tile.meter.limit > 0
+                  ? Math.min(100, Math.round((tile.meter.used / tile.meter.limit) * 100))
                   : 0;
               return (
-                <div key={t.key} className="vault-usage-tile">
-                  <span className="vault-usage-caption">{t.caption}</span>
-                  <span className="vault-usage-value">{t.value}</span>
-                  <span className="vault-usage-sub" title={t.sub}>
-                    {t.sub}
+                <div key={tile.key} className="vault-usage-tile">
+                  <span className="vault-usage-caption">{tile.caption}</span>
+                  <span className="vault-usage-value">{tile.value}</span>
+                  <span className="vault-usage-sub" title={tile.sub}>
+                    {tile.sub}
                   </span>
-                  {t.meter && (
+                  {tile.meter && (
                     <div
                       className={`vault-usage-meter${full ? " is-full" : ""}`}
                       role="meter"
-                      aria-label={t.caption}
+                      aria-label={tile.caption}
                       aria-valuemin={0}
-                      aria-valuemax={t.meter.limit}
-                      aria-valuenow={t.meter.used}
+                      aria-valuemax={tile.meter.limit}
+                      aria-valuenow={tile.meter.used}
                     >
                       <span style={{ width: `${pct}%` }} />
                     </div>
@@ -427,14 +431,14 @@ export function AccountPlanTab() {
       {/* ---- People on this account (owners only) ---- */}
       {account.canManage && account.people.length > 0 && (
         <>
-          <div className="subhead">People on this account</div>
+          <div className="subhead">{t("People on this account")}</div>
           {peopleCopy.note && <div className="billing-section-note muted">{peopleCopy.note}</div>}
           <table className="members-table plan-page-people">
             <thead>
               <tr>
-                <th>Person</th>
-                <th>Vaults</th>
-                {peopleCopy.seatColumn && <th className="plan-page-seat-col">Seat</th>}
+                <th>{t("Person")}</th>
+                <th>{t("Vaults")}</th>
+                {peopleCopy.seatColumn && <th className="plan-page-seat-col">{t("Seat")}</th>}
               </tr>
             </thead>
             <tbody>
@@ -459,7 +463,7 @@ export function AccountPlanTab() {
                         })}
                       </div>
                     </td>
-                    {peopleCopy.seatColumn && <td className="muted plan-page-seat-col">1 seat</td>}
+                    {peopleCopy.seatColumn && <td className="muted plan-page-seat-col">{t("1 seat")}</td>}
                   </tr>
                 );
               })}
@@ -486,33 +490,33 @@ export function AccountPlanTab() {
             void load();
             refreshShared();
           }}
-          onResume={() => run(() => authManager.api.accountResume(), "Plan resumed.")}
+          onResume={() => run(() => authManager.api.accountResume(), t("Plan resumed."))}
           onKeepSeats={() =>
             run(
               () => authManager.api.setSeats(account.seats.purchased ?? 0),
-              "Seat change cancelled.",
+              t("Seat change cancelled."),
             )
           }
         />
       )}
       {confirmCancel && (
         <ConfirmDialog
-          title="Cancel the Team plan?"
-          confirmLabel="Cancel plan"
-          cancelLabel="Keep it"
+          title={t("Cancel the Team plan?")}
+          confirmLabel={t("Cancel plan")}
+          cancelLabel={t("Keep it")}
           onCancel={() => setConfirmCancel(false)}
           onConfirm={async () => {
             const ok = await run(
               () => authManager.api.accountCancel(),
-              "Plan will cancel at the end of the period.",
+              t("Plan will cancel at the end of the period."),
             );
             if (ok) setConfirmCancel(false);
           }}
         >
           <p>
             {account.currentPeriodEnd
-              ? `Team stays on until ${formatDate(account.currentPeriodEnd)}. After that, sync becomes read-only for vaults with more than 2 people until you resume.`
-              : "Team stays on until the end of the current period. After that, sync becomes read-only for vaults with more than 2 people until you resume."}
+              ? t("Team stays on until {date}. After that, sync becomes read-only for vaults with more than 2 people until you resume.", { date: formatDate(account.currentPeriodEnd) })
+              : t("Team stays on until the end of the current period. After that, sync becomes read-only for vaults with more than 2 people until you resume.")}
           </p>
           {actionError && <div className="auth-error">{actionError}</div>}
         </ConfirmDialog>
@@ -536,21 +540,22 @@ function SelfHostedPlan({
   usage: BillingUsage | null;
   fallbackVaults: number;
 }) {
+  const t = useT();
   const vaults = usage ? (usage.totals.vaults ?? usage.vaults.length) : fallbackVaults;
   const tiles: { key: string; caption: string; value: string; sub: string }[] = [
-    { key: "vaults", caption: "Synced vaults", value: String(vaults), sub: vaults === 1 ? "vault" : "vaults" },
+    { key: "vaults", caption: t("Synced vaults"), value: String(vaults), sub: vaults === 1 ? t("vault") : t("vaults") },
   ];
   if (usage) {
     const [bytesValue, bytesUnit] = formatBytes(usage.totals.storageBytes ?? 0).split(" ");
     tiles.push(
       {
         key: "people",
-        caption: "People",
+        caption: t("People"),
         value: String(usage.totals.people),
-        sub: usage.totals.people === 1 ? "person" : "people",
+        sub: usage.totals.people === 1 ? t("person") : t("people"),
       },
-      { key: "notes", caption: "Notes", value: String(usage.totals.notes), sub: "across your vaults" },
-      { key: "attachments", caption: "Attachments", value: bytesValue ?? "0", sub: bytesUnit ?? "B" },
+      { key: "notes", caption: t("Notes"), value: String(usage.totals.notes), sub: t("across your vaults") },
+      { key: "attachments", caption: t("Attachments"), value: bytesValue ?? "0", sub: bytesUnit ?? "B" },
     );
   }
   const people = account?.canManage ? account.people : [];
@@ -560,24 +565,24 @@ function SelfHostedPlan({
         <div className="plan-page-head">
           <div className="plan-page-summary">
             <div className="billing-plan-head">
-              <span className="billing-plan-name">Self-hosted</span>
-              <span className="billing-status none">No limits</span>
+              <span className="billing-plan-name">{t("Self-hosted")}</span>
+              <span className="billing-status none">{t("No limits")}</span>
             </div>
-            <div className="billing-section-note">{SELF_HOSTED_PLAN_COPY}</div>
+            <div className="billing-section-note">{t(SELF_HOSTED_PLAN_COPY)}</div>
           </div>
         </div>
       </div>
 
       {(usage || vaults > 0) && (
         <>
-          <div className="subhead">Usage on this account</div>
+          <div className="subhead">{t("Usage on this account")}</div>
           <div className="vault-usage-tiles">
-            {tiles.map((t) => (
-              <div key={t.key} className="vault-usage-tile">
-                <span className="vault-usage-caption">{t.caption}</span>
-                <span className="vault-usage-value">{t.value}</span>
-                <span className="vault-usage-sub" title={t.sub}>
-                  {t.sub}
+            {tiles.map((tile) => (
+              <div key={tile.key} className="vault-usage-tile">
+                <span className="vault-usage-caption">{tile.caption}</span>
+                <span className="vault-usage-value">{tile.value}</span>
+                <span className="vault-usage-sub" title={tile.sub}>
+                  {tile.sub}
                 </span>
               </div>
             ))}
@@ -587,12 +592,12 @@ function SelfHostedPlan({
 
       {account && people.length > 0 && (
         <>
-          <div className="subhead">People on this account</div>
+          <div className="subhead">{t("People on this account")}</div>
           <table className="members-table plan-page-people">
             <thead>
               <tr>
-                <th>Person</th>
-                <th>Vaults</th>
+                <th>{t("Person")}</th>
+                <th>{t("Vaults")}</th>
               </tr>
             </thead>
             <tbody>

@@ -23,6 +23,7 @@ import { removeFromOrder } from "../ordering";
 import { copyText } from "../clipboard";
 import { isNoteExt } from "../formats";
 import { toast } from "../toast";
+import { t } from "../i18n";
 import { runCheckAction, type CheckActionDeps } from "./checkActions";
 import { withoutAutomaticChecks } from "./checks";
 import {
@@ -452,17 +453,17 @@ export function useVaultHealth(options: UseVaultHealthOptions = {}): VaultHealth
   const actions = useMemo<HealthActions>(() => {
     const api: HealthActions = {
       async downloadFiles(paths) {
-        if (vaultEpoch == null) throw new Error("No vault is open.");
+        if (vaultEpoch == null) throw new Error(t("No vault is open."));
         try { await syncManager.downloadMissingFiles(paths, vaultEpoch); }
         finally { refresh(); }
       },
       async removeServerFile(path) {
-        if (vaultEpoch == null) throw new Error("No vault is open.");
+        if (vaultEpoch == null) throw new Error(t("No vault is open."));
         await syncManager.removeMissingServerFile(path, vaultEpoch);
         refresh();
       },
       async retryLocalFiles(paths) {
-        if (vaultEpoch == null) throw new Error("No vault is open.");
+        if (vaultEpoch == null) throw new Error(t("No vault is open."));
         try { await syncManager.retryLocalFiles(paths, vaultEpoch); }
         finally { refresh(); }
       },
@@ -534,7 +535,7 @@ export function useVaultHealth(options: UseVaultHealthOptions = {}): VaultHealth
         const dest = await ipc.saveFile(basename(path));
         if (!dest) return null;
         await ipc.exportPath(path, dest, st.vault?.epoch);
-        toast(`Saved a copy to ${dest}`);
+        toast(t("Saved a copy to {dest}", { dest }));
         return dest;
       },
 
@@ -553,8 +554,7 @@ export function useVaultHealth(options: UseVaultHealthOptions = {}): VaultHealth
         const mapping = await syncManager.registry.registerNote(path, title, meta?.id);
         if (!mapping) {
           throw new Error(
-            "This note couldn't be registered: the vault isn't reconciled with the " +
-              "Remote Vault yet. Try again once the connection is back.",
+            t("This note couldn't be registered: the vault isn't reconciled with the Remote Vault yet. Try again once the connection is back."),
           );
         }
         // Registering creates the row; the content still has to be pushed, and

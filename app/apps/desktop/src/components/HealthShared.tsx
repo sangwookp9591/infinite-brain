@@ -6,6 +6,7 @@
 import { useState, type ReactNode } from "react";
 import { copyText } from "../lib/clipboard";
 import { middleTruncate } from "../lib/health/format";
+import { useT } from "../lib/i18n";
 import type {
   CheckActionOutcome,
   CheckActionPlan,
@@ -108,6 +109,13 @@ export function Section({
   );
 }
 
+/** Puts `code` in a <code> element at the `{code}` slot of an already
+ *  translated sentence, so the slot can sit anywhere in the Korean word order. */
+export function withCode(sentence: string, code: ReactNode): ReactNode {
+  const [before, ...rest] = sentence.split("{code}");
+  return <>{before}<code>{code}</code>{rest.join("{code}")}</>;
+}
+
 /** The tiny uppercase label over a block inside an expanded panel. */
 export function Eyebrow({ children }: { children: ReactNode }) {
   return <div className="health-eyebrow">{children}</div>;
@@ -138,13 +146,14 @@ export function PathText({
  *  button itself — a toast at the other end of the window says nothing about
  *  which of nine rows was copied. */
 export function CopyButton({ value, label }: { value: string; label: string }) {
+  const t = useT();
   const [copied, setCopied] = useState(false);
   return (
     <button
       type="button"
       className="icon-btn health-copy"
-      title={copied ? "Copied" : label}
-      aria-label={copied ? "Copied" : label}
+      title={copied ? t("Copied") : label}
+      aria-label={copied ? t("Copied") : label}
       onClick={() => {
         void copyText(value).then(() => {
           setCopied(true);

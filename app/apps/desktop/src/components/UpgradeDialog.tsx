@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { authManager } from "../lib/auth/authManager";
 import * as ipc from "../lib/ipc";
 import { useStore } from "../store";
+import { t, useT } from "../lib/i18n";
 import type { MyBillingAccount } from "../lib/api";
 import {
   FREE_PLAN_INCLUDES,
@@ -41,7 +42,7 @@ export function formatPrice(money: { amount: number; currency: string }): string
 }
 
 export const perLabel = (interval: "month" | "year") =>
-  interval === "month" ? "/mo" : "/yr";
+  interval === "month" ? t("/mo") : t("/yr");
 
 /**
  * Upgrade-to-Team flow (ShareDialog modal pattern). Shows the plan card with a
@@ -65,6 +66,7 @@ export function UpgradeDialog({
   /** Why the dialog opened (a limit was hit): one muted line under the heading. */
   reason?: string;
 }) {
+  const t = useT();
   const billingConfig = useStore((s) => s.billingConfig);
   const activeOrgId = useStore((s) => s.session?.activeOrganizationId ?? null);
   const orgId = orgIdProp ?? activeOrgId;
@@ -136,7 +138,7 @@ export function UpgradeDialog({
   const saveLabel = teamMode
     ? yearlySavingsLabel(billingConfig)
     : monthly && yearly && monthly.amount > 0 && yearly.amount < monthly.amount * 12
-      ? `Save ${Math.round((1 - yearly.amount / (monthly.amount * 12)) * 100)}%`
+      ? t("Save {pct}%", { pct: Math.round((1 - yearly.amount / (monthly.amount * 12)) * 100) })
       : null;
 
   useEffect(() => {
@@ -296,8 +298,8 @@ export function UpgradeDialog({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="modal-header">
-          <span>{teamMode ? "Upgrade" : "Upgrade to Pro"}</span>
-          <button className="icon-btn" onClick={onClose} aria-label="Close">
+          <span>{teamMode ? t("Upgrade") : t("Upgrade to Pro")}</span>
+          <button className="icon-btn" onClick={onClose} aria-label={t("Close")}>
             ✕
           </button>
         </div>
@@ -306,10 +308,10 @@ export function UpgradeDialog({
 
         {phase === "plan" && teamMode && (
           <>
-            <h2 className="upgrade-tiers-heading">Plans that grow with your team</h2>
+            <h2 className="upgrade-tiers-heading">{t("Plans that grow with your team")}</h2>
             {reason && <p className="upgrade-reason muted">{reason}</p>}
             <div className="upgrade-tiers">
-              <section className="upgrade-tier" aria-label="Free plan">
+              <section className="upgrade-tier" aria-label={t("Free plan")}>
                 {/* Every card has the same eight rows (icon, head, tagline,
                     price, controls, action, list head, list) so the subgrid
                     lines them up; Free fills Team-only rows with placeholders. */}
@@ -317,22 +319,22 @@ export function UpgradeDialog({
                   <TierIcon kind="free" />
                 </div>
                 <div className="upgrade-tier-head">
-                  <span className="upgrade-tier-name">Free</span>
+                  <span className="upgrade-tier-name">{t("Free")}</span>
                 </div>
-                <div className="upgrade-tier-tagline">For you and one teammate</div>
+                <div className="upgrade-tier-tagline">{t("For you and one teammate")}</div>
                 <div className="upgrade-tier-price">
                   <span className="upgrade-amount">{formatMoney(0, currency)}</span>
                   <span className="upgrade-tier-unit">
                     <span>{currency.toUpperCase()}</span>
-                    <span>/ month</span>
+                    <span>{t("/ month")}</span>
                   </span>
                 </div>
                 <div className="upgrade-tier-controls upgrade-tier-muted">
-                  Up to 2 people · 1 synced vault
+                  {t("Up to 2 people · 1 synced vault")}
                 </div>
                 <div className="upgrade-tier-action">
                   <button type="button" className="ghost-pill upgrade-tier-cta" disabled>
-                    Your current plan
+                    {t("Your current plan")}
                   </button>
                   <div className="upgrade-tier-footnote upgrade-tier-centered" aria-hidden="true">
                     {"\u00a0"}
@@ -343,19 +345,19 @@ export function UpgradeDialog({
                 </div>
                 <ul className="upgrade-features">
                   {FREE_PLAN_INCLUDES.map((item) => (
-                    <li key={item}>{item}</li>
+                    <li key={item}>{t(item)}</li>
                   ))}
                 </ul>
               </section>
 
-              <section className="upgrade-tier is-featured" aria-label="Team plan">
+              <section className="upgrade-tier is-featured" aria-label={t("Team plan")}>
                 <div className="upgrade-tier-icon">
                   <TierIcon kind="team" />
                 </div>
                 <div className="upgrade-tier-head">
                   <span className="upgrade-tier-name">Team</span>
                   {monthly && yearly && (
-                    <div className="segmented upgrade-tier-toggle" role="radiogroup" aria-label="Billing interval">
+                    <div className="segmented upgrade-tier-toggle" role="radiogroup" aria-label={t("Billing interval")}>
                       <button
                         type="button"
                         role="radio"
@@ -363,7 +365,7 @@ export function UpgradeDialog({
                         className={interval === "month" ? "active" : ""}
                         onClick={() => setInterval("month")}
                       >
-                        Monthly
+                        {t("Monthly")}
                       </button>
                       <button
                         type="button"
@@ -372,20 +374,20 @@ export function UpgradeDialog({
                         className={interval === "year" ? "active" : ""}
                         onClick={() => setInterval("year")}
                       >
-                        Yearly
+                        {t("Yearly")}
                         {saveLabel && <span className="upgrade-tier-save"> · {saveLabel}</span>}
                       </button>
                     </div>
                   )}
                 </div>
-                <div className="upgrade-tier-tagline">For teams of {minSeats} or more</div>
+                <div className="upgrade-tier-tagline">{t("For teams of {minSeats} or more", { minSeats })}</div>
                 <div className="upgrade-tier-price">
                   {selected && (
                     <>
                       <span className="upgrade-amount">{formatMoney(selected.amount, currency)}</span>
                       <span className="upgrade-tier-unit">
                         <span>{currency.toUpperCase()}</span>
-                        <span>/ seat / {selected.interval === "year" ? "year" : "month"}</span>
+                        <span>{selected.interval === "year" ? t("/ seat / year") : t("/ seat / month")}</span>
                       </span>
                     </>
                   )}
@@ -394,7 +396,7 @@ export function UpgradeDialog({
                 {/* The seat count is picked on the checkout page, which also
                     shows the total; this row only keeps the subgrid aligned. */}
                 <div className="upgrade-tier-controls upgrade-tier-muted">
-                  Choose the number of seats at checkout
+                  {t("Choose the number of seats at checkout")}
                 </div>
 
                 <div className="upgrade-tier-action">
@@ -406,24 +408,26 @@ export function UpgradeDialog({
                   >
                     {busy && <span className="btn-spinner" aria-hidden="true" />}
                     <span>
-                      Get Team
+                      {t("Get Team")}
                     </span>
                   </button>
                   <div className="upgrade-tier-footnote upgrade-tier-centered">
-                    No commitment · Cancel anytime
+                    {t("No commitment · Cancel anytime")}
                   </div>
                   {used > 0 && (
                     <div className="upgrade-tier-footnote upgrade-tier-centered">
-                      Includes the {used} {used === 1 ? "person" : "people"} already in your vaults
+                      {used === 1
+                        ? t("Includes the {count} person already in your vaults", { count: used })
+                        : t("Includes the {count} people already in your vaults", { count: used })}
                     </div>
                   )}
                   {error && <div className="auth-error">{error}</div>}
                 </div>
 
-                <div className="upgrade-tier-list-head">Everything in Free, and:</div>
+                <div className="upgrade-tier-list-head">{t("Everything in Free, and:")}</div>
                 <ul className="upgrade-features">
                   {TEAM_BENEFITS.map((benefit) => (
-                    <li key={benefit}>{benefit}</li>
+                    <li key={benefit}>{t(benefit)}</li>
                   ))}
                 </ul>
               </section>
@@ -435,15 +439,15 @@ export function UpgradeDialog({
           <>
             {reason && <p className="upgrade-reason muted">{reason}</p>}
             <p className="upgrade-lead">
-              <strong>Pro</strong> adds unlimited members, standalone file sync and Infinite Brain
-              Assistant to this vault. Pick how you'd like to pay.
+              <strong>Pro</strong>
+              {t(" adds unlimited members, standalone file sync and Infinite Brain Assistant to this vault. Pick how you'd like to pay.")}
             </p>
             <p className="muted">{legacyFreePlanExplanation(billingConfig?.freeLimits)}</p>
 
             <div
               className="upgrade-plans"
               role="radiogroup"
-              aria-label="Billing interval"
+              aria-label={t("Billing interval")}
             >
               {monthly && (
                 <button
@@ -454,7 +458,7 @@ export function UpgradeDialog({
                   onClick={() => setInterval("month")}
                 >
                   <span className="upgrade-plan-head">
-                    <span className="upgrade-plan-cadence">Monthly</span>
+                    <span className="upgrade-plan-cadence">{t("Monthly")}</span>
                   </span>
                   <span className="upgrade-price">
                     <span className="upgrade-amount">{formatPrice(monthly)}</span>
@@ -472,7 +476,7 @@ export function UpgradeDialog({
                   onClick={() => setInterval("year")}
                 >
                   <span className="upgrade-plan-head">
-                    <span className="upgrade-plan-cadence">Yearly</span>
+                    <span className="upgrade-plan-cadence">{t("Yearly")}</span>
                     {saveLabel && <span className="upgrade-save-badge">{saveLabel}</span>}
                   </span>
                   <span className="upgrade-price">
@@ -486,7 +490,7 @@ export function UpgradeDialog({
 
             <ul className="upgrade-features">
               {LEGACY_PRO_BENEFITS.map((benefit) => (
-                <li key={benefit}>{benefit}</li>
+                <li key={benefit}>{t(benefit)}</li>
               ))}
             </ul>
             {error && <div className="auth-error">{error}</div>}
@@ -499,7 +503,7 @@ export function UpgradeDialog({
             >
               {busy && <span className="btn-spinner" aria-hidden="true" />}
               <span>
-                Upgrade
+                {t("Upgrade")}
                 {selected ? ` — ${formatPrice(selected)}${perLabel(selected.interval)}` : ""}
               </span>
             </button>
@@ -509,20 +513,19 @@ export function UpgradeDialog({
         {phase === "waiting" && (
           <div className="upgrade-waiting">
             <span className="btn-spinner accent" aria-hidden="true" />
-            <div className="subhead">Waiting for payment…</div>
+            <div className="subhead">{t("Waiting for payment…")}</div>
             <div className="muted">
-              Complete the checkout in your browser. This unlocks automatically once
-              your payment is confirmed — you can leave this open.
+              {t("Complete the checkout in your browser. This unlocks automatically once your payment is confirmed — you can leave this open.")}
             </div>
             {error && <div className="auth-error">{error}</div>}
             <div className="upgrade-waiting-actions">
               {checkoutUrl && (
                 <button className="primary sm" onClick={() => void reopenCheckout()}>
-                  Open checkout again
+                  {t("Open checkout again")}
                 </button>
               )}
               <button className="ghost-pill sm" onClick={backToPlans}>
-                Cancel
+                {t("Cancel")}
               </button>
             </div>
           </div>
@@ -530,10 +533,9 @@ export function UpgradeDialog({
 
         {phase === "timeout" && (
           <div className="upgrade-waiting">
-            <div className="subhead">Still waiting on payment</div>
+            <div className="subhead">{t("Still waiting on payment")}</div>
             <div className="muted">
-              We haven't seen the payment confirmed yet. If you finished checkout, it
-              can take a moment — check again below.
+              {t("We haven't seen the payment confirmed yet. If you finished checkout, it can take a moment — check again below.")}
             </div>
             {error && <div className="auth-error">{error}</div>}
             <div className="upgrade-waiting-actions">
@@ -544,10 +546,10 @@ export function UpgradeDialog({
                 onClick={() => void checkAgain()}
               >
                 {checking && <span className="btn-spinner" aria-hidden="true" />}
-                <span>Check again</span>
+                <span>{t("Check again")}</span>
               </button>
               <button className="ghost-pill sm" onClick={backToPlans}>
-                Back
+                {t("Back")}
               </button>
             </div>
           </div>
@@ -558,14 +560,14 @@ export function UpgradeDialog({
             <div className="upgrade-success-mark" aria-hidden="true">
               ✓
             </div>
-            <div className="subhead">{teamMode ? "You're on Team" : "You're on Pro"}</div>
+            <div className="subhead">{teamMode ? t("You're on Team") : t("You're on Pro")}</div>
             <div className="muted">
               {teamMode
-                ? "Your vaults now sync standalone files, and your seats are ready for your team."
-                : "This vault now has unlimited members, standalone file sync and Infinite Brain Assistant."}
+                ? t("Your vaults now sync standalone files, and your seats are ready for your team.")
+                : t("This vault now has unlimited members, standalone file sync and Infinite Brain Assistant.")}
             </div>
             <button className="primary sm" onClick={onClose}>
-              Done
+              {t("Done")}
             </button>
           </div>
         )}

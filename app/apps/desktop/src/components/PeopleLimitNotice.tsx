@@ -9,6 +9,7 @@ import {
   seatsFullCopy,
 } from "../lib/billing";
 import { ApiError } from "../lib/api";
+import { useT } from "../lib/i18n";
 import { useStore } from "../store";
 
 /**
@@ -40,6 +41,7 @@ export function PeopleLimitNotice({ error, canManageBilling, ownerName = null, f
   /** The account's Free people limit, when the error itself carries none. */
   freeLimit?: number | null;
 }) {
+  const t = useT();
   const kind = peopleLimitKind(error);
   if (!kind) return null;
   if (kind === "member_limit") {
@@ -54,7 +56,7 @@ export function PeopleLimitNotice({ error, canManageBilling, ownerName = null, f
             className="link-btn"
             onClick={() => useStore.getState().requestUpgradeDialog({ reason: peopleLimitReason(cap) })}
           >
-            Upgrade →
+            {t("Upgrade →")}
           </button>
         )}
       </div>
@@ -66,7 +68,7 @@ export function PeopleLimitNotice({ error, canManageBilling, ownerName = null, f
       <span>{canManageBilling ? message : `${message} ${askOwnerTo(ownerName, "add seats")}`}</span>
       {canManageBilling && (
         <button className="link-btn" onClick={() => useStore.getState().requestAccountSettings("plan")}>
-          Add seats
+          {t("Add seats")}
         </button>
       )}
     </div>

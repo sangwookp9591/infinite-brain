@@ -13,6 +13,7 @@ import {
   seatsDialogSubtitle,
   seatsUpdatedToast,
 } from "../lib/billing";
+import { useT } from "../lib/i18n";
 import { toast } from "../lib/toast";
 import { AsyncButton } from "./AsyncButton";
 
@@ -46,6 +47,7 @@ export function ManageSeatsDialog({
   /** Cancels the scheduled decrease (seats back to `purchased`); resolves true on success. */
   onKeepSeats: () => Promise<boolean>;
 }) {
+  const t = useT();
   const canceling = seatChangeLocked(account);
   // A legacy plan has unlimited people and no seats (an older server still
   // lets the dialog open): say so, never preview a seat change.
@@ -63,7 +65,7 @@ export function ManageSeatsDialog({
     setPreview(null);
     if (legacy || canceling || seats < floor || seats === current || seats === scheduled) return;
     let cancelled = false;
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       authManager.api
         .previewSeatChange(seats)
         .then((p) => {
@@ -75,7 +77,7 @@ export function ManageSeatsDialog({
     }, PREVIEW_DEBOUNCE_MS);
     return () => {
       cancelled = true;
-      clearTimeout(t);
+      clearTimeout(timer);
     };
   }, [seats, floor, current, scheduled, canceling, legacy]);
 
@@ -127,26 +129,26 @@ export function ManageSeatsDialog({
         className="modal manage-seats"
         role="dialog"
         aria-modal="true"
-        aria-label="Manage seats"
+        aria-label={t("Manage seats")}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="manage-seats-head">
-          <h2 className="confirm-title">Manage seats</h2>
+          <h2 className="confirm-title">{t("Manage seats")}</h2>
           <p className="manage-seats-subtitle">{subtitle}</p>
         </div>
         {legacy ? (
-          <p className="manage-seats-text">{LEGACY_NO_SEATS_COPY}</p>
+          <p className="manage-seats-text">{t(LEGACY_NO_SEATS_COPY)}</p>
         ) : canceling ? (
-          <p className="manage-seats-text">{RESUME_TO_CHANGE_SEATS}</p>
+          <p className="manage-seats-text">{t(RESUME_TO_CHANGE_SEATS)}</p>
         ) : (
           <>
             <div className="manage-seats-row">
-              <span className="manage-seats-label">Seats</span>
+              <span className="manage-seats-label">{t("Seats")}</span>
               <span className="manage-seats-stepper">
                 <button
                   type="button"
                   className="secondary"
-                  aria-label="Remove a seat"
+                  aria-label={t("Remove a seat")}
                   disabled={seats <= floor}
                   onClick={() => setSeats((n) => Math.max(floor, n - 1))}
                 >
@@ -158,7 +160,7 @@ export function ManageSeatsDialog({
                 <button
                   type="button"
                   className="secondary"
-                  aria-label="Add a seat"
+                  aria-label={t("Add a seat")}
                   onClick={() => setSeats((n) => n + 1)}
                 >
                   +
@@ -168,7 +170,9 @@ export function ManageSeatsDialog({
             {pending && current != null && (
               <div className="manage-seats-scheduled">
                 <span>
-                  Dropping to {pending.to} {pending.to === 1 ? "seat" : "seats"} on {formatDate(pending.effectiveAt)}.
+                  {pending.to === 1
+                    ? t("Dropping to {count} seat on {date}.", { count: pending.to, date: formatDate(pending.effectiveAt) })
+                    : t("Dropping to {count} seats on {date}.", { count: pending.to, date: formatDate(pending.effectiveAt) })}
                 </span>
                 <AsyncButton
                   type="button"
@@ -177,7 +181,7 @@ export function ManageSeatsDialog({
                     if (await onKeepSeats()) onClose();
                   }}
                 >
-                  Keep {current} {current === 1 ? "seat" : "seats"}
+                  {current === 1 ? t("Keep {count} seat", { count: current }) : t("Keep {count} seats", { count: current })}
                 </AsyncButton>
               </div>
             )}
@@ -187,7 +191,7 @@ export function ManageSeatsDialog({
         {error && <div className="auth-error">{error}</div>}
         <div className="confirm-actions invite-people-actions">
           <button type="button" className="ghost-pill" onClick={onClose}>
-            {legacy ? "Close" : "Cancel"}
+            {legacy ? t("Close") : t("Cancel")}
           </button>
           {legacy ? null : canceling ? (
             <AsyncButton
@@ -197,11 +201,11 @@ export function ManageSeatsDialog({
                 if (await onResume()) onClose();
               }}
             >
-              Resume plan
+              {t("Resume plan")}
             </AsyncButton>
           ) : (
             <AsyncButton className="primary" spinnerTone="on-accent" disabled={!summary.canConfirm} onClick={confirm}>
-              Update seats
+              {t("Update seats")}
             </AsyncButton>
           )}
         </div>

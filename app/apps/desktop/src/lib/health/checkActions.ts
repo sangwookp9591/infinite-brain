@@ -27,6 +27,7 @@ import {
   type CheckRow,
 } from "./checks";
 import { formatBytes } from "./format";
+import { t } from "../i18n";
 import type { VaultCheckId, VaultCheckItem, VaultCheckResult } from "./types";
 
 /** One thing an action will act on. */
@@ -131,6 +132,7 @@ export function planCheckAction(
         ...wording.confirm,
         title: fill(wording.confirm.title, n, def),
         body: fill(wording.confirm.body, n, def),
+        confirmLabel: t(wording.confirm.confirmLabel),
       }
     : null;
 
@@ -138,9 +140,9 @@ export function planCheckAction(
     checkId: def.id,
     action,
     kind,
-    label: wording.label,
-    verb: wording.verb,
-    gerund: wording.gerund,
+    label: t(wording.label),
+    verb: t(wording.verb),
+    gerund: t(wording.gerund),
     wholeVault,
     targets,
     skipped,
@@ -155,11 +157,11 @@ function judge(action: CheckAction, item: VaultCheckItem): string | null {
     case "reset-history-all":
       return item.docId
         ? null
-        : "no edit history is recorded for this file, so there is nothing to reset";
+        : t("no edit history is recorded for this file, so there is nothing to reset");
     case "rename-legal": {
       const to = suggestLegalPath(item.path);
       if (to === null) {
-        return "the offending name is a folder, or nothing legal is left of it — rename it yourself";
+        return t("the offending name is a folder, or nothing legal is left of it — rename it yourself");
       }
       return null;
     }
@@ -170,9 +172,9 @@ function judge(action: CheckAction, item: VaultCheckItem): string | null {
 
 /** `{n}` → the count, `{check}` → the check's label, lower-cased mid-sentence. */
 function fill(text: string, n: number, def: CheckDefinition): string {
-  return text
+  return t(text)
     .replace(/\{n\}/g, n.toLocaleString())
-    .replace(/\{check\}/g, def.label.toLowerCase());
+    .replace(/\{check\}/g, t(def.label).toLowerCase());
 }
 
 // ── Legal names ───────────────────────────────────────────────────────────────
@@ -332,7 +334,7 @@ export async function runCheckAction(
         out.done = docsRemoved;
         out.total = docsRemoved;
         out.note =
-          docsRemoved === 0 ? "Nothing to reclaim" : `${formatBytes(bytesReclaimed)} freed`;
+          docsRemoved === 0 ? t("Nothing to reclaim") : t("{size} freed", { size: formatBytes(bytesReclaimed) });
       } catch (e) {
         out.errors.push({ path: "", reason: reason(e) });
       }
@@ -343,7 +345,7 @@ export async function runCheckAction(
         const { filesRemoved, bytesFreed } = await deps.emptyTrash();
         out.done = filesRemoved;
         out.total = filesRemoved;
-        out.note = filesRemoved === 0 ? "Nothing to empty" : `${formatBytes(bytesFreed)} freed`;
+        out.note = filesRemoved === 0 ? t("Nothing to empty") : t("{size} freed", { size: formatBytes(bytesFreed) });
       } catch (e) {
         out.errors.push({ path: "", reason: reason(e) });
       }
@@ -383,7 +385,7 @@ export async function runCheckAction(
         }
         onProgress?.(++done, plan.targets.length);
       }
-      out.note = out.done > 0 ? `in ${dir}` : null;
+      out.note = out.done > 0 ? t("in {dir}", { dir }) : null;
       return out;
     }
 
@@ -393,7 +395,7 @@ export async function runCheckAction(
       let done = 0;
       for (const target of plan.targets) {
         if (!target.docId) {
-          out.skipped.push({ path: target.path, reason: "no doc id" });
+          out.skipped.push({ path: target.path, reason: t("no doc id") });
           onProgress?.(++done, plan.targets.length);
           continue;
         }
@@ -406,7 +408,7 @@ export async function runCheckAction(
         }
         onProgress?.(++done, plan.targets.length);
       }
-      out.note = freed > 0 ? `${formatBytes(freed)} freed` : null;
+      out.note = freed > 0 ? t("{size} freed", { size: formatBytes(freed) }) : null;
       return out;
     }
 
@@ -416,7 +418,7 @@ export async function runCheckAction(
       for (const target of plan.targets) {
         const to = suggestLegalPath(target.path);
         if (to == null) {
-          out.skipped.push({ path: target.path, reason: "nothing legal to rename it to" });
+          out.skipped.push({ path: target.path, reason: t("nothing legal to rename it to") });
           onProgress?.(++done, plan.targets.length);
           continue;
         }
@@ -427,12 +429,12 @@ export async function runCheckAction(
           if (!(await deps.isFile(target.path))) {
             out.skipped.push({
               path: target.path,
-              reason: "this is a folder — rename it in the sidebar",
+              reason: t("this is a folder — rename it in the sidebar"),
             });
           } else if (await deps.isFile(to)) {
             out.skipped.push({
               path: target.path,
-              reason: `\`${basename(to)}\` is taken — rename it yourself`,
+              reason: t("`{name}` is taken — rename it yourself", { name: basename(to) }),
             });
           } else {
             await deps.rename(target.path, to);
@@ -463,19 +465,19 @@ export function outcomeSummary(
   outcome: CheckActionOutcome,
   plan: CheckActionPlan,
 ): string {
-  if (outcome.cancelled) return "Cancelled — nothing changed";
+  if (outcome.cancelled) return t("Cancelled — nothing changed");
   const failed = outcome.errors.length;
   const parts: string[] = [];
   let note = outcome.note;
 
   if (plan.wholeVault) {
-    if (outcome.done === 0 && failed > 0) return `${plan.label} failed`;
+    if (outcome.done === 0 && failed > 0) return t("{label} failed", { label: plan.label });
     if (plan.action === "rebuild-index" || plan.action === "sync-now") {
       parts.push(plan.verb);
     } else if (outcome.done === 0 && note) {
       return note;
     } else {
-      parts.push(`${plan.verb} ${outcome.done.toLocaleString()}`);
+      parts.push(t("{verb} {count}", { verb: plan.verb, count: outcome.done.toLocaleString() }));
     }
   } else if (outcome.total === 0 && note) {
     // Nothing turned out to need doing, and the action can say so in its own
@@ -484,14 +486,18 @@ export function outcomeSummary(
     note = null;
   } else {
     parts.push(
-      `${plan.verb} ${outcome.done.toLocaleString()} of ${outcome.total.toLocaleString()}`,
+      t("{verb} {done} of {total}", {
+        verb: plan.verb,
+        done: outcome.done.toLocaleString(),
+        total: outcome.total.toLocaleString(),
+      }),
     );
   }
 
   if (note) parts.push(note);
-  if (failed > 0) parts.push(`${failed.toLocaleString()} failed`);
+  if (failed > 0) parts.push(t("{count} failed", { count: failed.toLocaleString() }));
   if (outcome.skipped.length > 0) {
-    parts.push(`${outcome.skipped.length.toLocaleString()} left alone`);
+    parts.push(t("{count} left alone", { count: outcome.skipped.length.toLocaleString() }));
   }
   return parts.join(" · ");
 }

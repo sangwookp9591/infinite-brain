@@ -8,7 +8,8 @@ import { useState } from "react";
 import type { HealthActions, HealthInventory } from "../lib/health/types";
 import { AsyncButton } from "./AsyncButton";
 import { ConfirmDialog } from "./ConfirmDialog";
-import { Glyph, type GlyphName } from "./HealthShared";
+import { Glyph, withCode, type GlyphName } from "./HealthShared";
+import { t, useT } from "../lib/i18n";
 
 /** Rows shown before "Show more". */
 const PAGE = 20;
@@ -29,12 +30,14 @@ export function placeRows(notes: string[], folders: string[], files: string[]): 
   return [...sorted(notes, "note"), ...sorted(folders, "folder"), ...sorted(files, "file")];
 }
 
-const count = (n: number) => `${n.toLocaleString()} ${n === 1 ? "item" : "items"}`;
+const count = (n: number) =>
+  t(n === 1 ? "{count} item" : "{count} items", { count: n.toLocaleString() });
 
 function RowLabel({ row }: { row: PlaceRow }) {
+  const t = useT();
   return (
     <span className="health-place-row" title={row.path}>
-      <span className="health-place-kind" aria-label={KIND_LABEL[row.kind]}>
+      <span className="health-place-kind" aria-label={t(KIND_LABEL[row.kind])}>
         <Glyph name={KIND_ICON[row.kind]} size={14} />
       </span>
       <span className="health-missing-path">{row.path}</span>
@@ -50,8 +53,12 @@ export const PRO_FILES_LINE =
 export function describeSelection(rows: PlaceRow[]): string {
   const n = (kind: PlaceKind) => rows.filter((r) => r.kind === kind).length;
   const part = (count: number, one: string, many: string) =>
-    count > 0 ? `${count.toLocaleString()} ${count === 1 ? one : many}` : null;
-  return [part(n("note"), "note", "notes"), part(n("folder"), "folder", "folders"), part(n("file"), "file", "files")]
+    count > 0 ? t(count === 1 ? one : many, { count: count.toLocaleString() }) : null;
+  return [
+    part(n("note"), "{count} note", "{count} notes"),
+    part(n("folder"), "{count} folder", "{count} folders"),
+    part(n("file"), "{count} file", "{count} files"),
+  ]
     .filter(Boolean)
     .join(", ");
 }
@@ -70,6 +77,7 @@ function SelectableRow({
   checked: boolean;
   onToggle: () => void;
 }) {
+  const t = useT();
   return (
     <label className="health-missing-row">
       {selectable ? (
@@ -78,7 +86,7 @@ function SelectableRow({
           className="health-issue-check"
           checked={checked}
           onChange={onToggle}
-          aria-label={`Select ${row.path}`}
+          aria-label={t("Select {path}", { path: row.path })}
         />
       ) : (
         <span className="health-place-checkslot" aria-hidden="true" />
@@ -124,6 +132,7 @@ export function LocalOnlyGroup({
   onShow: (path: string) => void;
   stale: boolean;
 }) {
+  const t = useT();
   const rows = placeRows(inventory.deviceOnlyNotes, inventory.deviceOnlyFolders, inventory.deviceOnlyFiles);
   const [limit, setLimit] = useState(PAGE);
   const sel = useSelection(rows);
@@ -140,7 +149,7 @@ export function LocalOnlyGroup({
   return (
     <div className="health-difference-group health-place-group">
       <div className="health-difference-grouphead">
-        <h4>{`Only on this computer · ${count(rows.length)}${stale ? " (last known view)" : ""}`}</h4>
+        <h4>{t(stale ? "Only on this computer · {count} (last known view)" : "Only on this computer · {count}", { count: count(rows.length) })}</h4>
         <div className="health-group-actions">
           {canSync && (
             <AsyncButton
@@ -150,7 +159,7 @@ export function LocalOnlyGroup({
                 await actions.syncNow();
               }}
             >
-              Check again
+              {t("Check again")}
             </AsyncButton>
           )}
           <button
@@ -158,7 +167,7 @@ export function LocalOnlyGroup({
             className="ghost-pill sm"
             onClick={() => sel.setSelected(allPicked ? new Set() : new Set(rows.map(rowKey)))}
           >
-            {allPicked ? "Clear selection" : "Select all"}
+            {allPicked ? t("Clear selection") : t("Select all")}
           </button>
           {sel.picked.length > 0 && (
             <button
@@ -166,12 +175,12 @@ export function LocalOnlyGroup({
               className="ghost-pill sm danger"
               onClick={() => { setError(null); setConfirmDelete(sel.picked); }}
             >
-              {`Delete selected (${sel.picked.length.toLocaleString()})`}
+              {t("Delete selected ({count})", { count: sel.picked.length.toLocaleString() })}
             </button>
           )}
         </div>
       </div>
-      {filesBlocked && files.length > 0 && <p>{PRO_FILES_LINE}</p>}
+      {filesBlocked && files.length > 0 && <p>{t(PRO_FILES_LINE)}</p>}
       {error && !confirmDelete && <p role="alert" className="auth-error health-missing-error">{error}</p>}
       <ul>
         {rows.slice(0, limit).map((row) => (
@@ -189,7 +198,7 @@ export function LocalOnlyGroup({
                 className="ghost-pill sm"
                 onClick={() => (row.kind === "note" ? onOpen(row.path) : onShow(row.path))}
               >
-                {row.kind === "note" ? "Open" : "Show"}
+                {row.kind === "note" ? t("Open") : t("Show")}
               </button>
             </span>
           </li>
@@ -197,13 +206,13 @@ export function LocalOnlyGroup({
       </ul>
       {rows.length > limit && (
         <button type="button" className="link-btn" onClick={() => setLimit(limit + PAGE)}>
-          {`Show more (${(rows.length - limit).toLocaleString()} remaining)`}
+          {t("Show more ({count} remaining)", { count: (rows.length - limit).toLocaleString() })}
         </button>
       )}
       {confirmDelete && (
         <ConfirmDialog
-          title={`Delete ${describeSelection(confirmDelete)} from this computer?`}
-          confirmLabel="Delete"
+          title={t("Delete {what} from this computer?", { what: describeSelection(confirmDelete) })}
+          confirmLabel={t("Delete")}
           onCancel={() => { setConfirmDelete(null); setError(null); }}
           onConfirm={async () => {
             setError(null);
@@ -224,11 +233,10 @@ export function LocalOnlyGroup({
         >
           {error && <p role="alert" className="auth-error">{error}</p>}
           <p>
-            These exist only on this computer — the Remote Vault has no copy — so deleting them
-            removes them for good. Save a copy first if you need them.
+            {t("These exist only on this computer — the Remote Vault has no copy — so deleting them removes them for good. Save a copy first if you need them.")}
           </p>
           {confirmDelete.some((r) => r.kind === "folder") && (
-            <p>Folders are deleted with everything inside them.</p>
+            <p>{t("Folders are deleted with everything inside them.")}</p>
           )}
         </ConfirmDialog>
       )}
@@ -250,6 +258,7 @@ export function RemoteOnlyGroup({
   showCheckAgain: boolean;
   stale: boolean;
 }) {
+  const t = useT();
   const rows = placeRows(inventory.serverOnlyNotes, inventory.serverOnlyFolders, inventory.serverOnlyFiles);
   const [limit, setLimit] = useState(PAGE);
   const sel = useSelection(rows);
@@ -265,7 +274,7 @@ export function RemoteOnlyGroup({
     setNotice(null);
     try {
       await actions.downloadFiles(paths);
-      setNotice("Download complete.");
+      setNotice(t("Download complete."));
       sel.drop(paths);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -275,21 +284,21 @@ export function RemoteOnlyGroup({
   return (
     <div className="health-difference-group health-place-group">
       <div className="health-difference-grouphead">
-        <h4>{`Only on the Remote Vault · ${count(rows.length)}${stale ? " (last known view)" : ""}`}</h4>
+        <h4>{t(stale ? "Only on the Remote Vault · {count} (last known view)" : "Only on the Remote Vault · {count}", { count: count(rows.length) })}</h4>
         <div className="health-group-actions">
           {showCheckAgain && (
             <AsyncButton className="ghost-pill sm" onClick={() => actions.syncNow()}>
-              Check again
+              {t("Check again")}
             </AsyncButton>
           )}
           {files.length > 0 && !downloadsBlocked && pickedFiles.length === 0 && (
             <AsyncButton className="ghost-pill sm" onClick={() => download(files)}>
-              Download all
+              {t("Download all")}
             </AsyncButton>
           )}
           {pickedFiles.length > 0 && !downloadsBlocked && (
             <AsyncButton className="ghost-pill sm" onClick={() => download(pickedFiles)}>
-              {`Download selected (${pickedFiles.length.toLocaleString()})`}
+              {t("Download selected ({count})", { count: pickedFiles.length.toLocaleString() })}
             </AsyncButton>
           )}
           {pickedFiles.length > 0 && (
@@ -298,12 +307,12 @@ export function RemoteOnlyGroup({
               className="ghost-pill sm danger"
               onClick={() => { setError(null); setRemove(pickedFiles); }}
             >
-              {`Remove from server (${pickedFiles.length.toLocaleString()})`}
+              {t("Remove from server ({count})", { count: pickedFiles.length.toLocaleString() })}
             </button>
           )}
         </div>
       </div>
-      {downloadsBlocked && files.length > 0 && <p>{PRO_FILES_LINE}</p>}
+      {downloadsBlocked && files.length > 0 && <p>{t(PRO_FILES_LINE)}</p>}
       {notice && <p role="status">{notice}</p>}
       {error && !remove && <p role="alert" className="auth-error health-missing-error">{error}</p>}
       <ul>
@@ -321,7 +330,7 @@ export function RemoteOnlyGroup({
                   <span className="health-pro-tag">Team</span>
                 ) : (
                   <AsyncButton className="ghost-pill sm" onClick={() => download([row.path])}>
-                    Download
+                    {t("Download")}
                   </AsyncButton>
                 )}
                 <button
@@ -329,7 +338,7 @@ export function RemoteOnlyGroup({
                   className="ghost-pill sm danger"
                   onClick={() => { setError(null); setRemove([row.path]); }}
                 >
-                  Remove from server
+                  {t("Remove from server")}
                 </button>
               </span>
             )}
@@ -338,17 +347,17 @@ export function RemoteOnlyGroup({
       </ul>
       {rows.length > limit && (
         <button type="button" className="link-btn" onClick={() => setLimit(limit + PAGE)}>
-          {`Show more (${(rows.length - limit).toLocaleString()} remaining)`}
+          {t("Show more ({count} remaining)", { count: (rows.length - limit).toLocaleString() })}
         </button>
       )}
       {remove && (
         <ConfirmDialog
           title={
             remove.length === 1
-              ? "Remove this file from the server?"
-              : `Remove ${remove.length.toLocaleString()} files from the server?`
+              ? t("Remove this file from the server?")
+              : t("Remove {count} files from the server?", { count: remove.length.toLocaleString() })
           }
-          confirmLabel="Remove from server"
+          confirmLabel={t("Remove from server")}
           onCancel={() => { setRemove(null); setError(null); }}
           onConfirm={async () => {
             setError(null);
@@ -372,10 +381,9 @@ export function RemoteOnlyGroup({
         >
           {error && <p role="alert" className="auth-error">{error}</p>}
           <p>
-            {remove.length === 1 ? <code>{remove[0]}</code> : `These ${remove.length.toLocaleString()} files`}{" "}
-            will be permanently removed from the Remote Vault. Other members lose access and synced
-            devices may remove their copies. This cannot be undone. Save a copy first if you need{" "}
-            {remove.length === 1 ? "it" : "them"}.
+            {remove.length === 1
+              ? withCode(t("{code} will be permanently removed from the Remote Vault. Other members lose access and synced devices may remove their copies. This cannot be undone. Save a copy first if you need it."), remove[0])
+              : t("These {count} files will be permanently removed from the Remote Vault. Other members lose access and synced devices may remove their copies. This cannot be undone. Save a copy first if you need them.", { count: remove.length.toLocaleString() })}
           </p>
         </ConfirmDialog>
       )}

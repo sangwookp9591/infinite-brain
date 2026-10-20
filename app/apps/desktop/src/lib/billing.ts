@@ -10,6 +10,16 @@
 
 import { ApiError } from "./api";
 import type { BillingConfig, MyBillingAccount } from "./api";
+import { t } from "./i18n";
+
+// The constant sentences below stay English (they are the dictionary keys and
+// tests read them); a component shows them with `t(CONST)`. The functions
+// translate their own output.
+const seatsLabel = (n: number): string =>
+  n === 1 ? t("{count} seat", { count: n }) : t("{count} seats", { count: n });
+const peopleLabel = (n: number): string =>
+  n === 1 ? t("{count} person", { count: n }) : t("{count} people", { count: n });
+const perShort = (interval: "month" | "year" | null): string => (interval === "year" ? t("/yr") : t("/mo"));
 
 export type LimitKind =
   | "vault_limit"
@@ -78,7 +88,13 @@ export function legacyFreePlanExplanation(
 ): string {
   const members = limits?.membersPerVault ?? 3;
   const vaults = limits?.vaultsPerUser ?? 2;
-  return `Free includes ${members} member${members === 1 ? "" : "s"} per vault, ${vaults} free vault${vaults === 1 ? "" : "s"}, note sync, embedded attachments and MCP. Pro adds unlimited members, standalone file sync and Infinite Brain Assistant.`;
+  return t(
+    "Free includes {members} per vault, {vaults}, note sync, embedded attachments and MCP. Pro adds unlimited members, standalone file sync and Infinite Brain Assistant.",
+    {
+      members: members === 1 ? t("{count} member", { count: members }) : t("{count} members", { count: members }),
+      vaults: vaults === 1 ? t("{count} free vault", { count: vaults }) : t("{count} free vaults", { count: vaults }),
+    },
+  );
 }
 
 /** {@link legacyFreePlanExplanation} with the default limits. */
@@ -97,40 +113,49 @@ export const FREE_PLAN_EXPLANATION =
 
 /** "Free includes N people": N is the account's own Free limit (grandfathered
  *  accounts hold more than the default 2). */
-export const freePeopleIncluded = (n: number): string => `Free includes ${n} ${n === 1 ? "person" : "people"}.`;
+export const freePeopleIncluded = (n: number): string =>
+  n === 1 ? t("Free includes {count} person.", { count: n }) : t("Free includes {count} people.", { count: n });
 export function freePeopleCopy(n: number | null = null): string {
-  return `${freePeopleIncluded(n ?? 2)} Upgrade to Team to add more.`;
+  return `${freePeopleIncluded(n ?? 2)} ${t("Upgrade to Team to add more.")}`;
 }
 export const FREE_PEOPLE_COPY = freePeopleCopy(2);
 /** The Upgrade dialog's reason line when a people limit sent the user there. */
 export function peopleLimitReason(n: number | null = null): string {
-  return `${freePeopleIncluded(n ?? 2)} Team has no limit.`;
+  return `${freePeopleIncluded(n ?? 2)} ${t("Team has no limit.")}`;
 }
 export const PEOPLE_LIMIT_REASON = peopleLimitReason(2);
 /** An admin's line: whom to ask to add seats (or upgrade). */
-export function askOwnerTo(ownerName: string | null | undefined, what: string): string {
-  return `${ownerName ? `Ask ${ownerName}` : "Ask the vault owner"} to ${what}.`;
+export function askOwnerTo(ownerName: string | null | undefined, what: "add seats" | "upgrade to Team"): string {
+  if (what === "add seats") {
+    return ownerName ? t("Ask {name} to add seats.", { name: ownerName }) : t("Ask the vault owner to add seats.");
+  }
+  return ownerName
+    ? t("Ask {name} to upgrade to Team.", { name: ownerName })
+    : t("Ask the vault owner to upgrade to Team.");
 }
 
-const syncedVaults = (n: number) => `${n} synced vault${n === 1 ? "" : "s"}`;
+const syncedVaults = (n: number) =>
+  n === 1 ? t("{count} synced vault", { count: n }) : t("{count} synced vaults", { count: n });
 
 /**
  * Team-model nudge for a refused vault (`vault_limit_reached`). `n` is the
  * server's `limit`, which is above the default for a grandfathered account.
  */
 export function teamVaultLimitCopy(n: number): string {
-  return `Free includes ${syncedVaults(n)} on your account. Upgrade to Team for unlimited synced vaults.`;
+  return t("Free includes {vaults} on your account. Upgrade to Team for unlimited synced vaults.", {
+    vaults: syncedVaults(n),
+  });
 }
 
 /** The Upgrade dialog's reason line for a refused vault. */
 export function vaultLimitReason(n: number): string {
-  return `Free includes ${syncedVaults(n)}. Team has no limit.`;
+  return t("Free includes {vaults}. Team has no limit.", { vaults: syncedVaults(n) });
 }
 export const ASK_OWNER_SEATS_COPY = "Ask the vault owner to add seats.";
 
 /** "All 5 seats are in use." — or the count-free form when the server sent none. */
 export function seatsFullCopy(seats: number | null): string {
-  return seats != null ? `All ${seats} seats are in use.` : "All seats are in use.";
+  return seats != null ? t("All {seats} seats are in use.", { seats }) : t("All seats are in use.");
 }
 
 /** Every place the contract token might surface on a rejected request. */
@@ -197,7 +222,7 @@ export function yearlySavingsLabel(cfg: Pick<BillingConfig, "team"> | null | und
   const year = prices.find((p) => p.interval === "year")?.perSeat;
   if (month == null || year == null || month <= 0) return null;
   const pct = Math.round((1 - year / (month * 12)) * 100);
-  return pct > 0 ? `Save ${pct}%` : null;
+  return pct > 0 ? t("Save {pct}%", { pct }) : null;
 }
 
 /** "$10" / "$10.50" / "€110". Fixed `en-US` grouping so it is testable. */
@@ -223,8 +248,7 @@ export function seatTotalLine(
   currency: string,
   interval: "month" | "year",
 ): string {
-  const per = interval === "year" ? "/yr" : "/mo";
-  return `${seats} ${seats === 1 ? "seat" : "seats"} × ${formatMoney(perSeat, currency)} = ${formatMoney(seatTotalCents(seats, perSeat), currency)}${per}`;
+  return `${seatsLabel(seats)} × ${formatMoney(perSeat, currency)} = ${formatMoney(seatTotalCents(seats, perSeat), currency)}${perShort(interval)}`;
 }
 
 /** True for the forever discount `move-legacy-subs.ts` creates (`legacy-<accountId>`). */
@@ -241,28 +265,29 @@ export function discountLine(
 ): string | null {
   const p = account.price;
   if (!p || p.charged >= p.list) return null;
-  const per = account.interval === "year" ? "/yr" : "/mo";
+  const per = perShort(account.interval);
   const currency = account.currency ?? "usd";
-  const saving = `saving ${formatMoney(p.list - p.charged, currency)}${per}`;
+  const saving = t("saving {amount}", { amount: `${formatMoney(p.list - p.charged, currency)}${per}` });
   const label = p.discountName?.trim() && !isLegacyDiscount(p.discountName)
-    ? `Discount ${p.discountName.trim()}`
-    : "Discount";
+    ? t("Discount {name}", { name: p.discountName.trim() })
+    : t("Discount");
   const renews = `${formatMoney(p.renewalAmount ?? p.list, currency)}${per}`;
   // A promo code often lasts one payment or a few months: say when it ends
   // instead of promising the saving every renewal. Forever and an unknown
   // duration (an older server) keep the saving wording.
   if (p.discountDuration === "once") {
-    return `${label} applied to your first payment · renews at ${renews}`;
+    return t("{label} applied to your first payment · renews at {renews}", { label, renews });
   }
   if (p.discountDuration === "repeating" && p.discountDurationMonths) {
-    const months = p.discountDurationMonths === 1 ? "1 month" : `${p.discountDurationMonths} months`;
-    return `${label} for ${months} · then ${renews}`;
+    const n = p.discountDurationMonths;
+    const months = n === 1 ? t("{count} month", { count: n }) : t("{count} months", { count: n });
+    return t("{label} for {months} · then {renews}", { label, months, renews });
   }
   if (isLegacyDiscount(p.discountName)) {
-    return `Legacy price ${formatMoney(p.charged, currency)}${per} · ${saving}`;
+    return t("Legacy price {price} · {saving}", { price: `${formatMoney(p.charged, currency)}${per}`, saving });
   }
   const name = p.discountName?.trim();
-  return `${name ? `Discount ${name}` : "Discounted"} · ${saving}`;
+  return `${name ? t("Discount {name}", { name }) : t("Discounted")} · ${saving}`;
 }
 
 /** Manage seats is locked while the subscription is set to cancel at the
@@ -279,8 +304,11 @@ export const LEGACY_NO_SEATS_COPY = "Your plan includes unlimited people, so the
 /** The Manage seats dialog's subtitle: "19 seats · 1 person on your account".
  *  `seats` is null before a first purchase and then reads as people only. */
 export function seatsDialogSubtitle(seats: number | null, people: number): string {
-  const who = `${people} ${people === 1 ? "person" : "people"} on your account`;
-  return seats == null ? who : `${seats} ${seats === 1 ? "seat" : "seats"} · ${who}`;
+  const who =
+    people === 1
+      ? t("{count} person on your account", { count: people })
+      : t("{count} people on your account", { count: people });
+  return seats == null ? who : `${seatsLabel(seats)} · ${who}`;
 }
 const BILLING_FALLBACK =
   "Billing couldn't make that change right now. Try again, or open Manage billing.";
@@ -297,10 +325,10 @@ export function billingErrorMessage(e: unknown): string {
   const code = typeof body?.code === "string" ? body.code : typeof body?.error === "string" ? body.error : null;
   const message = typeof body?.message === "string" ? body.message.trim() : "";
   const raw = (m: string) => /\bpolar\b|\(HTTP \d{3}\)|^HTTP \d{3}$|subscriptions\.\w+\(/i.test(m);
-  if (code === "subscription_canceling") return message && !raw(message) ? message : RESUME_TO_CHANGE_SEATS;
+  if (code === "subscription_canceling") return message && !raw(message) ? message : t(RESUME_TO_CHANGE_SEATS);
   if (message && !raw(message)) return message;
-  if (e.status >= 500 || e.status === 0) return BILLING_FALLBACK;
-  return e.message && !raw(e.message) && !/^[a-z_]+$/.test(e.message) ? e.message : BILLING_FALLBACK;
+  if (e.status >= 500 || e.status === 0) return t(BILLING_FALLBACK);
+  return e.message && !raw(e.message) && !/^[a-z_]+$/.test(e.message) ? e.message : t(BILLING_FALLBACK);
 }
 
 /**
@@ -363,17 +391,17 @@ export function subscriptionStatusLine(
   fmt: SubscriptionLineFormat,
 ): string | null {
   if (row.status === "none") return null;
-  if (row.status === "past_due") return "Past due";
+  if (row.status === "past_due") return t("Past due");
   if (row.status === "canceled") {
-    return row.currentPeriodEnd ? `Ended ${fmt.date(row.currentPeriodEnd)}` : "Canceled";
+    return row.currentPeriodEnd ? t("Ended {date}", { date: fmt.date(row.currentPeriodEnd) }) : t("Canceled");
   }
   if (row.cancelAtPeriodEnd) {
     return row.currentPeriodEnd
-      ? `Ends ${fmt.date(row.currentPeriodEnd)}`
-      : "Ends at the end of the current period";
+      ? t("Ends {date}", { date: fmt.date(row.currentPeriodEnd) })
+      : t("Ends at the end of the current period");
   }
   const parts: string[] = [];
-  if (row.currentPeriodEnd) parts.push(`Renews ${fmt.date(row.currentPeriodEnd)}`);
+  if (row.currentPeriodEnd) parts.push(t("Renews {date}", { date: fmt.date(row.currentPeriodEnd) }));
   if (row.amount != null && row.currency) {
     parts.push(fmt.price(row.amount, row.currency, row.interval));
   }
@@ -392,11 +420,11 @@ export function planPillLabel(row: {
   complimentary?: boolean;
   lapsed?: boolean;
 }): string {
-  if (row.readOnly || row.lapsed) return "Read-only";
-  if (row.plan === "free") return "Free";
-  if (row.status === "past_due") return "Past due";
-  if (row.status === "canceled") return "Canceled";
-  if (row.complimentary) return "Team (complimentary)";
+  if (row.readOnly || row.lapsed) return t("Read-only");
+  if (row.plan === "free") return t("Free");
+  if (row.status === "past_due") return t("Past due");
+  if (row.status === "canceled") return t("Canceled");
+  if (row.complimentary) return t("Team (complimentary)");
   return "Team";
 }
 
@@ -416,17 +444,19 @@ export function planStatusPill(
   account: Pick<MyBillingAccount, "plan" | "status" | "cancelAtPeriodEnd" | "currentPeriodEnd" | "lapsed">,
   fmtDate: (iso: string) => string,
 ): PlanStatusPill | null {
-  if (account.lapsed) return { label: "Read-only", tone: "canceled" };
+  if (account.lapsed) return { label: t("Read-only"), tone: "canceled" };
   if (account.plan === "free") return null;
-  if (account.status === "past_due") return { label: "Past due", tone: "past_due" };
+  if (account.status === "past_due") return { label: t("Past due"), tone: "past_due" };
   if (account.cancelAtPeriodEnd) {
     return {
-      label: account.currentPeriodEnd ? `Cancels on ${fmtDate(account.currentPeriodEnd)}` : "Cancels at period end",
+      label: account.currentPeriodEnd
+        ? t("Cancels on {date}", { date: fmtDate(account.currentPeriodEnd) })
+        : t("Cancels at period end"),
       tone: "past_due",
     };
   }
-  if (account.status === "canceled") return { label: "Canceled", tone: "canceled" };
-  return { label: "Active", tone: "active" };
+  if (account.status === "canceled") return { label: t("Canceled"), tone: "canceled" };
+  return { label: t("Active"), tone: "active" };
 }
 
 /**
@@ -457,12 +487,16 @@ export function vaultPlanLine(input: {
   }
   const isFree = input.fallbackPlan === "free";
   const plan = isFree ? "Free" : "Team";
-  const status: PlanStatusPill | null = isFree ? null : { label: "Active", tone: "active" };
+  const status: PlanStatusPill | null = isFree ? null : { label: t("Active"), tone: "active" };
   if (!input.isOwner) {
     const name = input.ownerName?.trim();
-    return { plan, status, billedOn: name ? `Billed on ${name}'s account` : "Billed on the owner's account" };
+    return {
+      plan,
+      status,
+      billedOn: name ? t("Billed on {name}'s account", { name }) : t("Billed on the owner's account"),
+    };
   }
-  return { plan, status, billedOn: input.vaultAccountId && a ? "Billed on another account" : null };
+  return { plan, status, billedOn: input.vaultAccountId && a ? t("Billed on another account") : null };
 }
 
 /** The shape {@link transferTargets} filters on — a `MyBillingVault`, loosened
@@ -520,34 +554,38 @@ export function seatChangeSummary(input: {
   const { seats, current, floor, used, minSeats, preview, currency, interval } = input;
   if (seats < floor) {
     return {
-      text: `You can't go below the people already on your account (${used}) or the ${minSeats}-seat minimum.`,
+      text: t("You can't go below the people already on your account ({used}) or the {minSeats}-seat minimum.", {
+        used,
+        minSeats,
+      }),
       canConfirm: false,
     };
   }
   if (current != null && seats === current) return { text: null, canConfirm: false };
   if (input.scheduled != null && seats === input.scheduled) return { text: null, canConfirm: false };
   if (!preview) return { text: null, canConfirm: false };
-  const per = interval === "year" ? "year" : "month";
   const money = (v: number | null | undefined): string | null =>
     typeof v === "number" && Number.isFinite(v) ? formatMoney(v, currency) : null;
+  const perInterval = (amount: string) =>
+    interval === "year" ? t("{amount} per year", { amount }) : t("{amount} per month", { amount });
   if (current == null || seats > current) {
     const now = money(preview.proratedNow);
     const next = money(preview.newAmount);
     let text: string;
     if (now !== null && next !== null) {
-      text = `You'll be charged about ${now} today (prorated); then ${next} per ${per}.`;
+      text = t("You'll be charged about {now} today (prorated); then {next}.", { now, next: perInterval(next) });
     } else if (next !== null) {
-      text = `Then ${next} per ${per}. Your next invoice will show the exact amount.`;
+      text = t("Then {next}. Your next invoice will show the exact amount.", { next: perInterval(next) });
     } else {
-      text = SEAT_PRICE_UNKNOWN;
+      text = t(SEAT_PRICE_UNKNOWN);
     }
     return { text, canConfirm: true };
   }
   const end = preview.currentPeriodEnd;
   return {
     text: end
-      ? `Goes down to ${seats} ${seats === 1 ? "seat" : "seats"} on ${input.formatDate(end)}.`
-      : `Goes down to ${seats} ${seats === 1 ? "seat" : "seats"} at the end of this billing period.`,
+      ? t("Goes down to {seats} on {date}.", { seats: seatsLabel(seats), date: input.formatDate(end) })
+      : t("Goes down to {seats} at the end of this billing period.", { seats: seatsLabel(seats) }),
     canConfirm: true,
   };
 }
@@ -561,10 +599,10 @@ export function seatsUpdatedToast(
   effectiveAt: string | null | undefined,
   formatDate: (iso: string) => string,
 ): string {
-  if (previous == null || seats >= previous) return `Seats updated to ${seats}.`;
+  if (previous == null || seats >= previous) return t("Seats updated to {seats}.", { seats });
   return effectiveAt
-    ? `Seats drop to ${seats} on ${formatDate(effectiveAt)}.`
-    : `Seats drop to ${seats} at the end of this billing period.`;
+    ? t("Seats drop to {seats} on {date}.", { seats, date: formatDate(effectiveAt) })
+    : t("Seats drop to {seats} at the end of this billing period.", { seats });
 }
 
 /** Shown when the seat preview has no usable prices. */
@@ -602,11 +640,14 @@ export function planPriceLine(
   interval: "month" | "year" | null,
   team: { currency: string; prices: { interval: "month" | "year"; perSeat: number }[] } | null | undefined,
 ): string {
-  if (plan === "free") return "Free";
+  if (plan === "free") return t("Free");
   const iv = interval ?? "month";
   const price = team?.prices.find((p) => p.interval === iv);
   if (!price || !team) return "Team";
-  return `${formatMoney(price.perSeat, team.currency)} per seat / ${iv}`;
+  const amount = formatMoney(price.perSeat, team.currency);
+  return iv === "year"
+    ? t("{amount} per seat / year", { amount })
+    : t("{amount} per seat / month", { amount });
 }
 
 /** The account fields the legacy-plan checks read. */
@@ -645,7 +686,7 @@ export function legacyPlanLine(
   currency: string,
   formatDate: (iso: string) => string,
 ): string {
-  const parts = ["Legacy plan", "unlimited people at your original price"];
+  const parts = [t("Legacy plan"), t("unlimited people at your original price")];
   const charges = account.legacyCharges;
   if (charges && charges.length > 0) {
     // Several old Pro vaults each bill on their own: sum per interval,
@@ -656,13 +697,14 @@ export function legacyPlanLine(
         rows: charges.filter((c) => c.interval === interval),
       }))
       .filter((g) => g.rows.length > 0)
-      .map((g) => `${formatMoney(g.rows.reduce((t, c) => t + c.amount, 0), currency)}/${g.interval === "year" ? "yr" : "mo"}`);
+      .map((g) => `${formatMoney(g.rows.reduce((sum, c) => sum + c.amount, 0), currency)}${perShort(g.interval)}`);
     parts.push(sums.join(" + "));
   } else if (account.price && Number.isFinite(account.price.charged)) {
-    parts.push(`${formatMoney(account.price.charged, currency)}/${account.interval === "year" ? "yr" : "mo"}`);
+    parts.push(`${formatMoney(account.price.charged, currency)}${perShort(account.interval)}`);
   }
   if (account.currentPeriodEnd) {
-    parts.push(`${account.cancelAtPeriodEnd ? "cancels on" : "renews"} ${formatDate(account.currentPeriodEnd)}`);
+    const date = formatDate(account.currentPeriodEnd);
+    parts.push(account.cancelAtPeriodEnd ? t("cancels on {date}", { date }) : t("renews {date}", { date }));
   }
   return parts.join(" · ");
 }
@@ -679,9 +721,9 @@ export function peopleTableCopy(account: {
 }): { note: string | null; seatColumn: boolean } {
   if (account.plan !== "team") return { note: null, seatColumn: false };
   if (account.legacyPlan || account.seats.purchased == null) {
-    return { note: "Everyone on your account, across all your vaults.", seatColumn: false };
+    return { note: t("Everyone on your account, across all your vaults."), seatColumn: false };
   }
-  return { note: "Each person uses one seat, whichever vaults they're in.", seatColumn: true };
+  return { note: t("Each person uses one seat, whichever vaults they're in."), seatColumn: true };
 }
 
 /** "N of M seats used" plus invited and pending-decrease lines. */
@@ -690,11 +732,16 @@ export function seatUsageLines(
   formatDate: (iso: string) => string,
 ): string[] {
   const lines: string[] = [];
-  if (seats.purchased != null) lines.push(`${seats.used} of ${seats.purchased} seats used`);
-  else lines.push(`${seats.used} ${seats.used === 1 ? "person" : "people"}`);
-  if (seats.reserved > 0) lines.push(`${seats.reserved} invited`);
+  if (seats.purchased != null) lines.push(t("{used} of {purchased} seats used", { used: seats.used, purchased: seats.purchased }));
+  else lines.push(peopleLabel(seats.used));
+  if (seats.reserved > 0) lines.push(t("{count} invited", { count: seats.reserved }));
   if (seats.pendingDecrease) {
-    lines.push(`Goes down to ${seats.pendingDecrease.to} on ${formatDate(seats.pendingDecrease.effectiveAt)}`);
+    lines.push(
+      t("Goes down to {count} on {date}", {
+        count: seats.pendingDecrease.to,
+        date: formatDate(seats.pendingDecrease.effectiveAt),
+      }),
+    );
   }
   return lines;
 }
@@ -752,17 +799,24 @@ export function membersSeatLine(
 ): string {
   if (account.plan === "team" && account.seats.purchased != null) {
     const b = seatBreakdown(account.seats);
-    const owner = viewerIsOwner ? "your" : ownerName ? `${ownerName}'s` : "the owner's";
-    return `Uses ${b.claimed} of ${b.purchased} seats on ${owner} account · ${b.reserved} invited`;
+    const v = { claimed: b.claimed, purchased: b.purchased, reserved: b.reserved };
+    if (viewerIsOwner) return t("Uses {claimed} of {purchased} seats on your account · {reserved} invited", v);
+    if (ownerName) return t("Uses {claimed} of {purchased} seats on {name}'s account · {reserved} invited", { ...v, name: ownerName });
+    return t("Uses {claimed} of {purchased} seats on the owner's account · {reserved} invited", v);
   }
   if (account.plan === "team") {
     // Legacy or complimentary Team: no seats bought, no people limit.
-    const owner = viewerIsOwner ? "your" : ownerName ? `${ownerName}'s` : "the owner's";
-    const n = account.seats.used;
-    return `Team · unlimited people on ${owner} account (${n} ${n === 1 ? "person" : "people"})`;
+    const people = peopleLabel(account.seats.used);
+    if (viewerIsOwner) return t("Team · unlimited people on your account ({people})", { people });
+    if (ownerName) return t("Team · unlimited people on {name}'s account ({people})", { name: ownerName, people });
+    return t("Team · unlimited people on the owner's account ({people})", { people });
   }
   const cap = freeLimitOf(account);
-  return `Free includes ${cap} ${cap === 1 ? "person" : "people"} on this account (${account.seats.used} of ${cap} used)`;
+  return t("Free includes {people} on this account ({used} of {cap} used)", {
+    people: peopleLabel(cap),
+    used: account.seats.used,
+    cap,
+  });
 }
 
 /**
@@ -780,9 +834,12 @@ export function invitePrewarning(
     const b = seatBreakdown(account.seats);
     if (b.available > 0) return null;
     const full = seatsFullCopy(b.purchased);
-    const tail = b.reserved > 0 ? ` ${b.reserved} reserved by pending invitations.` : "";
+    const tail = b.reserved > 0 ? ` ${t("{count} reserved by pending invitations.", { count: b.reserved })}` : "";
     return viewerIsOwner
-      ? { text: `${full}${tail} New people need a seat; people already on your account don't.`, action: "add-seats" }
+      ? {
+          text: `${full}${tail} ${t("New people need a seat; people already on your account don't.")}`,
+          action: "add-seats",
+        }
       : { text: `${full}${tail} ${askOwnerTo(ownerName, "add seats")}`, action: null };
   }
   const cap = freeLimitOf(account);
@@ -857,13 +914,13 @@ export function invitedVaults(list: InvitedVault[] | null | undefined): InvitedV
 
 /** The popover's total: "2 invited". */
 export function invitedTotalLabel(total: number): string {
-  return `${total} invited`;
+  return t("{count} invited", { count: total });
 }
 
 /** The Invited count's accessible name, which also says where the invitations are. */
 export function invitedCountAriaLabel(total: number, vaults: InvitedVault[]): string {
-  if (vaults.length === 1) return `${invitedTotalLabel(total)} in ${vaults[0].name}`;
-  return `${invitedTotalLabel(total)} across ${vaults.length} vaults`;
+  if (vaults.length === 1) return t("{count} invited in {name}", { count: total, name: vaults[0].name });
+  return t("{count} invited across {vaults} vaults", { count: total, vaults: vaults.length });
 }
 
 /**
@@ -888,5 +945,5 @@ export function invitedVaultAction(input: {
 
 /** The toast for the Vaults-tab fallback. */
 export function invitedVaultFallbackToast(name: string): string {
-  return `Open ${name} to manage its invitations.`;
+  return t("Open {name} to manage its invitations.", { name });
 }

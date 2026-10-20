@@ -26,6 +26,7 @@ import { GalaxyRenderer, type GalaxyNode } from "../lib/graph/galaxyRenderer";
 import { buildGalaxyLayout, FAST_GALAXY_THRESHOLD, starRandom, type GalaxyPosition } from "../lib/graph/galaxyLayout";
 import { SimClient } from "../lib/graph/simClient";
 import { useStore } from "../store";
+import { useT } from "../lib/i18n";
 import { GraphControls } from "./GraphControls";
 import { Spinner } from "./Spinner";
 import "./graph.css";
@@ -449,6 +450,7 @@ function neighborhoodIds(graph: Graph, startId: string, depth: number): Set<stri
 }
 
 export function GraphView({ onClose }: { onClose: () => void }) {
+  const t = useT();
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   // The renderer owns a fresh GPU canvas per mount; Canvas2D remains the fallback/input surface.
@@ -1566,18 +1568,18 @@ export function GraphView({ onClose }: { onClose: () => void }) {
   return (
     <div className="graph-view" ref={wrapRef}>
       <div className="graph-header">
-        <span className="graph-title">Your universe</span>
+        <span className="graph-title">{t("Your universe")}</span>
         <span className="graph-counts">
           {counts.total > counts.nodes
-            ? `${counts.nodes.toLocaleString()} of ${counts.total.toLocaleString()} notes`
-            : `${counts.nodes} ${counts.nodes === 1 ? "note" : "notes"}`}{" "}
-          · {counts.edges} {counts.edges === 1 ? "link" : "links"}
+            ? t("{nodes} of {total} notes", { nodes: counts.nodes.toLocaleString(), total: counts.total.toLocaleString() })
+            : t(counts.nodes === 1 ? "{count} note" : "{count} notes", { count: counts.nodes })}{" "}
+          · {t(counts.edges === 1 ? "{count} link" : "{count} links", { count: counts.edges })}
         </span>
         <span className="graph-header-spacer" />
         <button
           className={`graph-icon-btn${showControls ? " is-active" : ""}`}
-          title="Graph settings"
-          aria-label="Graph settings"
+          title={t("Graph settings")}
+          aria-label={t("Graph settings")}
           aria-pressed={showControls}
           onClick={() => setShowControls((v) => !v)}
         >
@@ -1585,16 +1587,16 @@ export function GraphView({ onClose }: { onClose: () => void }) {
         </button>
         <button
           className={`graph-icon-btn${refreshSpin ? " is-spinning" : ""}`}
-          title="Refresh graph"
-          aria-label="Refresh graph"
+          title={t("Refresh graph")}
+          aria-label={t("Refresh graph")}
           onClick={handleRefresh}
         >
           ↻
         </button>
         <button
           className="graph-icon-btn"
-          title="Close graph"
-          aria-label="Close graph"
+          title={t("Close graph")}
+          aria-label={t("Close graph")}
           onClick={onClose}
         >
           ✕
@@ -1609,7 +1611,7 @@ export function GraphView({ onClose }: { onClose: () => void }) {
         className={`graph-canvas-wrap graph-intro${settling ? " is-settling" : ""}`}
       >
         <canvas className="graph-canvas" ref={canvasRef} tabIndex={0}
-          aria-label="Note universe. Drag to orbit, right drag to pan, scroll to zoom. Arrow keys select notes, Enter opens a note."
+          aria-label={t("Note universe. Drag to orbit, right drag to pan, scroll to zoom. Arrow keys select notes, Enter opens a note.")}
           aria-describedby="galaxy-help" />
         <div ref={webglCanvasRef} className="graph-galaxy-host"
           style={{ display: settings.scope === "global" && !webglError ? "block" : "none" }} />
@@ -1617,17 +1619,17 @@ export function GraphView({ onClose }: { onClose: () => void }) {
           <span>INFINITE BRAIN</span>
           {settings.theme === "neuron" ? (
             <>
-              <h1>A network of ideas.</h1>
-              <p>Every note a neuron. Every link a signal.</p>
+              <h1>{t("A network of ideas.")}</h1>
+              <p>{t("Every note a neuron. Every link a signal.")}</p>
             </>
           ) : (
             <>
-              <h1>A universe of ideas.</h1>
-              <p>Every note a star. Every connection a new constellation.</p>
+              <h1>{t("A universe of ideas.")}</h1>
+              <p>{t("Every note a star. Every connection a new constellation.")}</p>
             </>
           )}
         </div>
-        <p className="graph-galaxy-help" id="galaxy-help">Drag to orbit · Right drag to pan · Scroll to explore · {settings.theme === "neuron" ? "Click a neuron to open" : "Click a star to open"}</p>
+        <p className="graph-galaxy-help" id="galaxy-help">{t("Drag to orbit")} · {t("Right drag to pan")} · {t("Scroll to explore")} · {settings.theme === "neuron" ? t("Click a neuron to open") : t("Click a star to open")}</p>
         {settings.scope === "global" && webglError && (
           <div
             style={{
@@ -1644,7 +1646,7 @@ export function GraphView({ onClose }: { onClose: () => void }) {
               zIndex: 5,
             }}
           >
-            3D unavailable — showing the 2D graph.
+            {t("3D unavailable — showing the 2D graph.")}
           </div>
         )}
         {import.meta.env.DEV && WEBGL_ENABLED && settings.scope === "global" && diag && (
@@ -1701,21 +1703,21 @@ export function GraphView({ onClose }: { onClose: () => void }) {
 
         {loading && (
           <div className="graph-state">
-            <div className="graph-state-card">Loading graph…</div>
+            <div className="graph-state-card">{t("Loading graph…")}</div>
           </div>
         )}
         {settling && !loading && (
           <div className="graph-settling-status" role="status">
             <div className="graph-state-card graph-settling">
               <Spinner size="sm" tone="accent" />
-              Arranging {counts.nodes.toLocaleString()} stars — you can explore now…
+              {t("Arranging {count} stars — you can explore now…", { count: counts.nodes.toLocaleString() })}
             </div>
           </div>
         )}
         {error && !loading && (
           <div className="graph-state">
             <div className="graph-state-card">
-              <strong>Couldn't load the graph</strong>
+              <strong>{t("Couldn't load the graph")}</strong>
               {error}
             </div>
           </div>
@@ -1734,10 +1736,10 @@ export function GraphView({ onClose }: { onClose: () => void }) {
                   <circle cx="36" cy="36" r="7" className="ge-node ge-node-hub" />
                 </svg>
               </div>
-              <strong>Your graph is empty</strong>
+              <strong>{t("Your graph is empty")}</strong>
               <span>
-                Write a note, then link notes with{" "}
-                <code>[[wikilinks]]</code> to grow a living map of your ideas.
+                {t("Write a note, then link notes with")}{" "}
+                <code>[[wikilinks]]</code>{t(" to grow a living map of your ideas.")}
               </span>
             </div>
           </div>

@@ -16,6 +16,7 @@
 // an empty forward stretch the vault grows into.
 
 import { activityLevel } from "./format";
+import { t } from "../i18n";
 
 /**
  * How many whole months past the current one the strip reaches.
@@ -184,7 +185,10 @@ export function heatmapRangeLabel(range: HeatmapRange): string {
   const b = new Date(range.end);
   const from =
     a.getFullYear() === b.getFullYear()
-      ? MONTH_SHORT[a.getMonth()]
-      : `${MONTH_SHORT[a.getMonth()]} ${a.getFullYear()}`;
-  return `${from} – ${MONTH_SHORT[b.getMonth()]} ${b.getFullYear()}`;
+      ? t(MONTH_SHORT[a.getMonth()])
+      : t("{month} {year}", { month: t(MONTH_SHORT[a.getMonth()]), year: a.getFullYear() });
+  return t("{from} – {to}", {
+    from,
+    to: t("{month} {year}", { month: t(MONTH_SHORT[b.getMonth()]), year: b.getFullYear() }),
+  });
 }

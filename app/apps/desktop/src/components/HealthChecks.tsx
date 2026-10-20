@@ -27,6 +27,7 @@ import {
 } from "../lib/health/checkActions";
 import type { VaultCheckId, VaultCheckItem, VaultChecks } from "../lib/health/types";
 import { formatBytes } from "../lib/health/format";
+import { useT } from "../lib/i18n";
 import { AsyncButton } from "./AsyncButton";
 import {
   Eyebrow,
@@ -78,6 +79,7 @@ export function HealthChecks({
   focus?: CheckFocus | null;
   onlyIds?: readonly string[];
 }) {
+  const t = useT();
   if (checks == null) {
     if (loading) {
       return (
@@ -91,7 +93,7 @@ export function HealthChecks({
         </ul>
       );
     }
-    return <p className="muted">Checks are not available for this vault.</p>;
+    return <p className="muted">{t("Checks are not available for this vault.")}</p>;
   }
 
   const allRows = checkRows(checks).filter(row => !onlyIds || onlyIds.includes(row.def.id));
@@ -117,7 +119,7 @@ export function HealthChecks({
       {groups.map(({ group, rows: inGroup }) =>
         inGroup.length === 0 ? null : (
           <div className="health-check-group" key={group}>
-            <Eyebrow>{CHECK_GROUP_LABELS[group]}</Eyebrow>
+            <Eyebrow>{t(CHECK_GROUP_LABELS[group])}</Eyebrow>
             <ul className="health-checks">
               {inGroup.map((row) => (
                 <CheckItem
@@ -150,6 +152,7 @@ function IgnoredChecks({
   rows: CheckRow[];
   onRestore?: (id: VaultCheckId) => void;
 }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   return (
     <div className="health-ignored">
@@ -162,17 +165,17 @@ function IgnoredChecks({
         <span className="health-chevron" data-open={open ? "" : undefined} aria-hidden="true">
           <Glyph name="chevron" />
         </span>
-        Ignored · {rows.length}
+        {t("Ignored · {count}", { count: rows.length })}
       </button>
       {open && (
         <ul className="health-ignored-list">
           {rows.map((r) => (
             <li key={r.def.id}>
-              <span className="health-ignored-label">{r.def.label}</span>
+              <span className="health-ignored-label">{t(r.def.label)}</span>
               <span className="health-ignored-count">{r.result.count.toLocaleString()}</span>
               {onRestore && (
                 <button type="button" className="link-btn" onClick={() => onRestore(r.def.id)}>
-                  Show again
+                  {t("Show again")}
                 </button>
               )}
             </li>
@@ -211,6 +214,7 @@ function CheckItem({
   onIgnore?: (id: VaultCheckId) => void;
   focus: CheckFocus | null;
 }) {
+  const t = useT();
   // Seeded from `focus` so a row asked for at mount is open in the first
   // render (the page is tested with static markup, where effects never run).
   const [open, setOpen] = useState(focus != null);
@@ -251,8 +255,8 @@ function CheckItem({
           <CheckBadge def={def} state={state} />
           {/* The label carries what the check looks for as its tooltip, so a
               passing row is two words instead of a sentence. */}
-          <span className="health-check-label" title={def.looksFor}>
-            {def.label}
+          <span className="health-check-label" title={t(def.looksFor)}>
+            {t(def.label)}
           </span>
           {failed && (
             <>
@@ -266,7 +270,7 @@ function CheckItem({
                   brief steps aside instead of repeating its first sentence. */}
               {!open && (
                 <span className="health-check-why-line">
-                  {firstSentence(def.whyItMatters)}
+                  {firstSentence(t(def.whyItMatters))}
                 </span>
               )}
               <span className="health-chevron" data-open={open ? "" : undefined} aria-hidden="true">
@@ -274,17 +278,17 @@ function CheckItem({
               </span>
             </>
           )}
-          {state === "unknown" && <span className="health-check-note">Not run</span>}
+          {state === "unknown" && <span className="health-check-note">{t("Not run")}</span>}
         </button>
         {failed && <CheckActions row={row} handlers={handlers} />}
         {failed && onIgnore && (
           <button
             type="button"
             className="link-btn health-check-ignore"
-            title="Stop showing this check for this vault on this device — it waits in the Ignored list"
+            title={t("Stop showing this check for this vault on this device — it waits in the Ignored list")}
             onClick={() => onIgnore(def.id)}
           >
-            Ignore
+            {t("Ignore")}
           </button>
         )}
       </div>
@@ -296,19 +300,26 @@ function CheckItem({
 
       {failed && open && (
         <div className="health-check-panel" id={panelId}>
-          <p className="health-check-why">{def.whyItMatters}</p>
-          <Eyebrow>What to do</Eyebrow>
+          <p className="health-check-why">{t(def.whyItMatters)}</p>
+          <Eyebrow>{t("What to do")}</Eyebrow>
           <ol className="health-fixes">
             {def.howToFix.map((fix, i) => (
-              <li key={i}>{fix}</li>
+              <li key={i}>{t(fix)}</li>
             ))}
           </ol>
           {isTrash && (
             <p className="muted">
-              {result.count.toLocaleString()} {result.count === 1 ? "file" : "files"} in{" "}
-              {result.items.length.toLocaleString()}
-              {result.items.length >= 25 ? " or more" : ""}{" "}
-              {result.items.length === 1 ? "recovery set" : "recovery sets"}.
+              {t("{files} in {sets}.", {
+                files: t(result.count === 1 ? "{count} file" : "{count} files", { count: result.count.toLocaleString() }),
+                sets: t(
+                  result.items.length >= 25
+                    ? "{count} or more recovery sets"
+                    : result.items.length === 1
+                      ? "{count} recovery set"
+                      : "{count} recovery sets",
+                  { count: result.items.length.toLocaleString() },
+                ),
+              })}
             </p>
           )}
           {result.items.length > 0 && (
@@ -329,7 +340,7 @@ function CheckItem({
               ))}
             </ul>
           )}
-          {more > 0 && <p className="muted">and {more.toLocaleString()} more</p>}
+          {more > 0 && <p className="muted">{t("and {count} more", { count: more.toLocaleString() })}</p>}
         </div>
       )}
     </li>
@@ -345,20 +356,21 @@ function CheckItem({
  * takes up almost no attention at all.
  */
 function CheckBadge({ def, state }: { def: CheckRow["def"]; state: CheckState }) {
+  const t = useT();
   if (state === "passed") {
     return (
-      <span className="health-check-tick" aria-label="Passed">
+      <span className="health-check-tick" aria-label={t("Passed")}>
         <Glyph name="check" size={14} />
       </span>
     );
   }
   if (state === "unknown") {
-    return <span className="health-check-dot" data-hollow="" aria-label="Not run" />;
+    return <span className="health-check-dot" data-hollow="" aria-label={t("Not run")} />;
   }
   return (
     <span
       className="health-check-badge"
-      aria-label={def.severity === "error" ? "Error" : "Warning"}
+      aria-label={def.severity === "error" ? t("Error") : t("Warning")}
     >
       <Glyph name="alert" size={13} />
     </span>
@@ -375,6 +387,7 @@ function CheckBadge({ def, state }: { def: CheckRow["def"]; state: CheckState })
  * check whose items it could not delete.
  */
 function CheckActions({ row, handlers }: { row: CheckRow; handlers: HealthHandlers }) {
+  const t = useT();
   const plans = checkActionPlans(row);
   if (plans.length === 0) return null;
   const run = handlers.checkRuns[row.def.id] ?? null;
@@ -391,7 +404,7 @@ function CheckActions({ row, handlers }: { row: CheckRow; handlers: HealthHandle
               : `ghost-pill sm${plan.confirm?.tone === "danger" ? " danger" : ""}`
           }
           disabled={busy}
-          title={healTitle(plan)}
+          title={healTitle(plan, t)}
           onClick={() => handlers.runCheck(plan)}
         >
           {plan.kind === "heal" && <Glyph name="spark" size={13} />}
@@ -403,12 +416,12 @@ function CheckActions({ row, handlers }: { row: CheckRow; handlers: HealthHandle
 }
 
 /** What the button is about to do, in the exact numbers, before it is pressed. */
-function healTitle(plan: CheckActionPlan): string {
+function healTitle(plan: CheckActionPlan, t: ReturnType<typeof useT>): string {
   if (plan.wholeVault) return plan.label;
-  const bits = [`${plan.label}: ${plan.targets.length.toLocaleString()} listed`];
-  if (plan.skipped.length > 0) bits.push(`${plan.skipped.length.toLocaleString()} left alone`);
+  const bits = [t("{label}: {count} listed", { label: plan.label, count: plan.targets.length.toLocaleString() })];
+  if (plan.skipped.length > 0) bits.push(t("{count} left alone", { count: plan.skipped.length.toLocaleString() }));
   if (plan.unlisted > 0) {
-    bits.push(`${plan.unlisted.toLocaleString()} more are not listed and stay as they are`);
+    bits.push(t("{count} more are not listed and stay as they are", { count: plan.unlisted.toLocaleString() }));
   }
   return bits.join(" · ");
 }
@@ -419,16 +432,18 @@ function healTitle(plan: CheckActionPlan): string {
  * of 12, 1 failed") is a finding of its own, which a toast throws away.
  */
 function CheckRunLine({ run }: { run: CheckRun }) {
+  const t = useT();
   const { plan, outcome } = run;
   if (run.running) {
-    const progress =
-      run.total > 0
-        ? ` ${run.done.toLocaleString()} of ${run.total.toLocaleString()}`
-        : "";
     return (
       <p className="health-check-run" data-state="running" aria-live="polite">
-        {plan.gerund}
-        {progress}…
+        {run.total > 0
+          ? t("{action} {done} of {total}…", {
+              action: plan.gerund,
+              done: run.done.toLocaleString(),
+              total: run.total.toLocaleString(),
+            })
+          : t("{action}…", { action: plan.gerund })}
       </p>
     );
   }
@@ -450,7 +465,7 @@ function CheckRunLine({ run }: { run: CheckRun }) {
             </li>
           ))}
           {outcome.errors.length > 5 && (
-            <li className="muted">and {(outcome.errors.length - 5).toLocaleString()} more</li>
+            <li className="muted">{t("and {count} more", { count: (outcome.errors.length - 5).toLocaleString() })}</li>
           )}
         </ul>
       )}
@@ -463,7 +478,7 @@ function CheckRunLine({ run }: { run: CheckRun }) {
             </li>
           ))}
           {outcome.skipped.length > 5 && (
-            <li className="muted">and {(outcome.skipped.length - 5).toLocaleString()} more</li>
+            <li className="muted">{t("and {count} more", { count: (outcome.skipped.length - 5).toLocaleString() })}</li>
           )}
         </ul>
       )}
@@ -480,18 +495,19 @@ function ItemAction({
   item: VaultCheckItem;
   handlers: HealthHandlers;
 }) {
+  const t = useT();
   const { actions, confirm, openNote } = handlers;
   switch (action) {
     case "open":
       return (
         <button type="button" className="ghost-pill sm" onClick={() => openNote(item.path)}>
-          Open
+          {t("Open")}
         </button>
       );
     case "reveal":
       return (
         <AsyncButton className="ghost-pill sm" onClick={() => actions.reveal(item.path)}>
-          Reveal
+          {t("Reveal")}
         </AsyncButton>
       );
     case "delete":
@@ -501,13 +517,13 @@ function ItemAction({
           className="ghost-pill sm danger"
           onClick={() => confirm({ kind: "delete", path: item.path })}
         >
-          Delete
+          {t("Delete")}
         </button>
       );
     case "export-copy":
       return (
         <AsyncButton className="link-btn" onClick={() => actions.exportCopy(item.path)}>
-          Save a copy
+          {t("Save a copy")}
         </AsyncButton>
       );
     case "reset-history":
@@ -521,7 +537,7 @@ function ItemAction({
             confirm({ kind: "reset", docId: item.docId as string, path: item.path })
           }
         >
-          Reset history
+          {t("Reset history")}
         </button>
       ) : null;
     default:

@@ -7,6 +7,7 @@ import type { HistoryFootprint, SizedFile, VaultStats } from "../lib/health/type
 import { activityCellTitle, formatBytes, relativeTime } from "../lib/health/format";
 import { buildHeatmap, heatmapRangeLabel } from "../lib/health/heatmapRange";
 import { MAX_NOTE_BYTES } from "../lib/sync/contentUpload";
+import { useT } from "../lib/i18n";
 import { AsyncButton } from "./AsyncButton";
 import { PathText, type HealthHandlers } from "./HealthShared";
 
@@ -40,11 +41,18 @@ export function HealthActivity({
   /** Fixes which weekday "today" is; injectable for tests. */
   now?: number;
 }) {
+  const t = useT();
   const days = activity.days ?? [];
   const grid = buildHeatmap(days, now);
-  const caption =
-    `${activity.modifiedLast7d.toLocaleString()} ${activity.modifiedLast7d === 1 ? "note" : "notes"} ` +
-    `edited in the last 7 days · ${activity.modifiedLast30d.toLocaleString()} in 30 days`;
+  const caption = t(
+    activity.modifiedLast7d === 1
+      ? "{week} note edited in the last 7 days · {month} in 30 days"
+      : "{week} notes edited in the last 7 days · {month} in 30 days",
+    {
+      week: activity.modifiedLast7d.toLocaleString(),
+      month: activity.modifiedLast30d.toLocaleString(),
+    },
+  );
   // Counted over the DRAWN days, not the whole census: the label describes the
   // strip a reader is looking at.
   const active = grid.cells.filter((c) => !c.future && c.count > 0).length;
@@ -53,12 +61,17 @@ export function HealthActivity({
     <div className="health-activity">
       <p className="health-activity-lead">{caption}</p>
       {grid.columns === 0 ? (
-        <p className="muted">No per-day activity is available for this vault.</p>
+        <p className="muted">{t("No per-day activity is available for this vault.")}</p>
       ) : (
         <div
           className="health-heatmap"
           role="img"
-          aria-label={`Notes edited per day, ${heatmapRangeLabel(grid.range)}: ${active} active ${active === 1 ? "day" : "days"}. ${caption}`}
+          aria-label={t(
+            active === 1
+              ? "Notes edited per day, {range}: {active} active day. {caption}"
+              : "Notes edited per day, {range}: {active} active days. {caption}",
+            { range: heatmapRangeLabel(grid.range), active, caption },
+          )}
           style={{ ["--heat-cols" as string]: grid.columns }}
         >
           {grid.months.map((m) => (
@@ -68,17 +81,17 @@ export function HealthActivity({
               style={{ gridColumn: m.col + 2, gridRow: 1 }}
               aria-hidden="true"
             >
-              {m.label}
+              {t(m.label)}
             </span>
           ))}
           <span className="health-heat-day" style={{ gridRow: 3 }} aria-hidden="true">
-            Mon
+            {t("Mon")}
           </span>
           <span className="health-heat-day" style={{ gridRow: 5 }} aria-hidden="true">
-            Wed
+            {t("Wed")}
           </span>
           <span className="health-heat-day" style={{ gridRow: 7 }} aria-hidden="true">
-            Fri
+            {t("Fri")}
           </span>
           {grid.cells.map((c) => (
             <span
@@ -94,11 +107,11 @@ export function HealthActivity({
             />
           ))}
           <div className="health-heatmap-legend" aria-hidden="true">
-            <span>Less</span>
+            <span>{t("Less")}</span>
             {[0, 1, 2, 3, 4].map((l) => (
               <span key={l} className="health-heatcell" data-level={l} />
             ))}
-            <span>More</span>
+            <span>{t("More")}</span>
           </div>
         </div>
       )}
@@ -128,16 +141,17 @@ export function HealthLargest({
   stats: VaultStats;
   handlers: HealthHandlers;
 }) {
+  const t = useT();
   const [pane, setPane] = useState<Pane>("notes");
   const panes: Array<[Pane, string, number]> = [
-    ["notes", "Notes", stats.largestNotes.length],
-    ["files", "Files", stats.largestFiles.length],
-    ["history", "History", stats.heaviestHistory.length],
+    ["notes", t("Notes"), stats.largestNotes.length],
+    ["files", t("Files"), stats.largestFiles.length],
+    ["history", t("History"), stats.heaviestHistory.length],
   ];
 
   return (
     <div className="health-largest">
-      <div className="segmented health-segmented" role="tablist" aria-label="Largest by kind">
+      <div className="segmented health-segmented" role="tablist" aria-label={t("Largest by kind")}>
         {panes.map(([id, label]) => (
           <button
             key={id}
@@ -157,7 +171,7 @@ export function HealthLargest({
       ) : (
         <FileTable
           rows={pane === "notes" ? stats.largestNotes : stats.largestFiles}
-          empty={pane === "notes" ? "No notes yet." : "No attachments or other files."}
+          empty={pane === "notes" ? t("No notes yet.") : t("No attachments or other files.")}
           openable={pane === "notes"}
           handlers={handlers}
         />
@@ -177,19 +191,20 @@ function FileTable({
   openable: boolean;
   handlers: HealthHandlers;
 }) {
+  const t = useT();
   if (rows.length === 0) return <p className="muted">{empty}</p>;
   return (
     <table className="health-table">
       <thead>
         <tr>
-          <th scope="col">Name</th>
+          <th scope="col">{t("Name")}</th>
           <th scope="col" className="health-num">
-            Size
+            {t("Size")}
           </th>
           <th scope="col" className="health-num health-modified">
-            Modified
+            {t("Modified")}
           </th>
-          <th scope="col" aria-label="Actions" />
+          <th scope="col" aria-label={t("Actions")} />
         </tr>
       </thead>
       <tbody>
@@ -205,7 +220,7 @@ function FileTable({
                 {formatBytes(row.bytes)}
                 {badge && (
                   <span className="health-size-badge">
-                    {badge === "bad" ? "over the limit" : "near the limit"}
+                    {badge === "bad" ? t("over the limit") : t("near the limit")}
                   </span>
                 )}
               </td>
@@ -219,14 +234,14 @@ function FileTable({
                     className="link-btn"
                     onClick={() => handlers.openNote(row.path)}
                   >
-                    Open
+                    {t("Open")}
                   </button>
                 )}
                 <AsyncButton
                   className="link-btn"
                   onClick={() => handlers.actions.reveal(row.path)}
                 >
-                  Reveal
+                  {t("Reveal")}
                 </AsyncButton>
               </td>
             </tr>
@@ -244,21 +259,22 @@ function HistoryTable({
   stats: VaultStats;
   handlers: HealthHandlers;
 }) {
+  const t = useT();
   if (stats.heaviestHistory.length === 0) {
-    return <p className="muted">No local edit history yet.</p>;
+    return <p className="muted">{t("No local edit history yet.")}</p>;
   }
   return (
     <table className="health-table">
       <thead>
         <tr>
-          <th scope="col">Note</th>
+          <th scope="col">{t("Note")}</th>
           <th scope="col" className="health-num">
-            Updates
+            {t("Updates")}
           </th>
           <th scope="col" className="health-num">
-            Size
+            {t("Size")}
           </th>
-          <th scope="col" aria-label="Actions" />
+          <th scope="col" aria-label={t("Actions")} />
         </tr>
       </thead>
       <tbody>
@@ -268,7 +284,7 @@ function HistoryTable({
               {row.path ? (
                 <PathText path={row.path} />
               ) : (
-                <span className="muted">orphan · {row.docId.slice(0, 8)}</span>
+                <span className="muted">{t("orphan · {id}", { id: row.docId.slice(0, 8) })}</span>
               )}
             </td>
             <td className="health-num">{row.updates.toLocaleString()}</td>
@@ -282,7 +298,7 @@ function HistoryTable({
                     handlers.confirm({ kind: "reset", docId: row.docId, path: row.path })
                   }
                 >
-                  Reset history
+                  {t("Reset history")}
                 </button>
               )}
             </td>

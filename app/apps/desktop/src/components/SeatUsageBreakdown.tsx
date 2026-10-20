@@ -8,6 +8,7 @@ import {
   type InvitedVault,
 } from "../lib/billing";
 import type { MyBillingAccount } from "../lib/api";
+import { useT } from "../lib/i18n";
 import { placeMenu, type Placement } from "../lib/menuPlacement";
 
 /**
@@ -36,6 +37,7 @@ export function SeatUsageBreakdown({
   invitedByVault?: InvitedVault[] | null;
   onOpenInvitedVault?: (vault: InvitedVault) => void;
 }) {
+  const t = useT();
   const b = seatBreakdown(seats);
   const vaults = invitedVaults(invitedByVault);
   return (
@@ -43,10 +45,10 @@ export function SeatUsageBreakdown({
       <table className="members-table seat-breakdown-table">
         <thead>
           <tr>
-            <th>Seats</th>
-            <th>Claimed</th>
-            <th>Invited</th>
-            <th>Available</th>
+            <th>{t("Seats")}</th>
+            <th>{t("Claimed")}</th>
+            <th>{t("Invited")}</th>
+            <th>{t("Available")}</th>
           </tr>
         </thead>
         <tbody>
@@ -69,7 +71,7 @@ export function SeatUsageBreakdown({
       {canManage && showManage && (
         <div className="vault-row-actions">
           <button className="secondary billing-action" onClick={onManage}>
-            Add or change seats
+            {t("Add or change seats")}
           </button>
         </div>
       )}
@@ -105,6 +107,7 @@ function InvitedCount({
   vaults: InvitedVault[];
   onOpenVault?: (vault: InvitedVault) => void;
 }) {
+  useT();
   const [open, setOpen] = useState(false);
   // Pinned by a click / Enter / Space: hover-out and blur no longer close it.
   const [pinned, setPinned] = useState(false);
@@ -303,10 +306,11 @@ export function InvitedSeatsMenuItems({
   vaults: InvitedVault[];
   onChoose: (vault: InvitedVault) => void;
 }) {
+  const t = useT();
   return (
     <>
       <li className="menu-heading" role="presentation">
-        <span>Invited</span>
+        <span>{t("Invited")}</span>
         <span className="seat-invited-total">{invitedTotalLabel(total)}</span>
       </li>
       {vaults.map((v) => (
@@ -315,7 +319,7 @@ export function InvitedSeatsMenuItems({
           role="menuitem"
           tabIndex={-1}
           className="seat-invited-row"
-          title={`Open ${v.name}'s members and invitations`}
+          title={t("Open {name}'s members and invitations", { name: v.name })}
           onClick={() => onChoose(v)}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
@@ -329,7 +333,7 @@ export function InvitedSeatsMenuItems({
         </li>
       ))}
       <li className="menu-note" role="presentation">
-        Pending invitations hold a seat until they're accepted or expire.
+        {t("Pending invitations hold a seat until they're accepted or expire.")}
       </li>
     </>
   );

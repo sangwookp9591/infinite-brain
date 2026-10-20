@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useStore } from "../store";
+import { useT } from "../lib/i18n";
 import { useNoticeSlot } from "./useNoticeSlot";
 import { Banner } from "./Banner";
 import { UpgradeDialog } from "./UpgradeDialog";
@@ -25,6 +26,7 @@ export function AttachmentLocalOnlyNoticeView({
   showUpgrade: boolean;
   onUpgrade?: () => void;
 }) {
+  const t = useT();
   return (
     <Banner
       show={show}
@@ -39,17 +41,16 @@ export function AttachmentLocalOnlyNoticeView({
       </span>
       <span className="attachment-sync-copy">
         <strong className="attachment-sync-title">
-          Standalone files require Team to sync
+          {t("Standalone files require Team to sync")}
         </strong>
         <span className="attachment-sync-body">
-          Notes and their embedded attachments still sync. Standalone files stay on
-          this device and remain available to preview locally.
+          {t("Notes and their embedded attachments still sync. Standalone files stay on this device and remain available to preview locally.")}
         </span>
       </span>
       {showUpgrade && onUpgrade && (
         <div className="banner-actions">
           <button className="primary sm attachment-sync-cta" onClick={onUpgrade}>
-            Upgrade to Team
+            {t("Upgrade to Team")}
           </button>
         </div>
       )}

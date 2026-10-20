@@ -7,7 +7,7 @@ import { SpringCheck } from "./kit/SpringCheck";
    the app, split out of `AccountMenu.tsx` so it can load on demand. Nothing
    here is on the first screen: the sidebar footer (identity bar + popovers)
    stays eager, and this chunk lands when someone actually opens settings. */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   ApiError,
   type BillingUsage,
@@ -18,10 +18,11 @@ import {
   type UnsyncPreview,
   type VaultCheckpoint,
 } from "../lib/api";
-import { AI_TARGETS, CONNECTION_STEPS, connectionSnippet, codexSnippet, connectionScopes, connectionTools, isConnected, relTime, type AiTarget } from "../lib/aiConnection";
+import { AI_TARGETS, CONNECTION_STEPS, connectionSnippet, codexSnippet, connectionScopes, connectionTools, isConnected, type AiTarget } from "../lib/aiConnection";
 import { toast } from "../lib/toast";
-import { agoFromIso, checkpointTitle, noteCountLabel } from "./versionFormat";
+import { agoFromIso } from "./versionFormat";
 import { authManager } from "../lib/auth/authManager";
+import { t, useT } from "../lib/i18n";
 import {
   classifyLimitError,
   formatBytes,
@@ -70,6 +71,19 @@ import { AccountVaultsTab } from "./AccountVaultsTab";
 export type { SettingsTab } from "../lib/settingsTabs";
 import type { SettingsTab } from "../lib/settingsTabs";
 import { PlanHeader } from "./PlanHeader";
+
+/** Fill `{name}` slots in a translated sentence with elements, so one sentence stays one key. */
+function fill(text: string, slots: Record<string, ReactNode>): ReactNode[] {
+  return text.split(/(\{\w+\})/).map((part, i) => {
+    const m = /^\{(\w+)\}$/.exec(part);
+    return m && m[1] in slots ? <Fragment key={i}>{slots[m[1]]}</Fragment> : part;
+  });
+}
+
+/** "1 note" / "2 notes": English picks the key by count, Korean has one form. */
+function count(n: number, one: string, many: string): string {
+  return t(n === 1 ? one : many, { count: n });
+}
 
 // Sections that only make sense once the vault is synced to an org. On a
 // local vault they're shown but locked, with a "Turn on sync" gate.
@@ -229,15 +243,16 @@ export function VaultSettingsDialog({
   const vault = useStore((s) => s.vault);
   const syncEnabled = useStore((s) => s.syncEnabled);
   const locals = useLocalVaults();
+  const t = useT();
 
-  const visibleTab = (t: SettingsTab): SettingsTab =>
-    (!SHOW_AI_TAB && t === "ai") || (t === "vaults" && session) ? "general" : t;
+  const visibleTab = (id: SettingsTab): SettingsTab =>
+    (!SHOW_AI_TAB && id === "ai") || (id === "vaults" && session) ? "general" : id;
   const [tab, setTabRaw] = useState<SettingsTab>(visibleTab(initialTab ?? "general"));
   /** Bumped when the active nav item is clicked again, so a tab can return to its first page. */
   const [tabReset, setTabReset] = useState(0);
   const contentRef = useRef<HTMLElement>(null);
   useEffect(() => { if (contentRef.current) contentRef.current.scrollTop = 0; }, [tab, tabReset]);
-  const setTab = (t: SettingsTab) => setTabRaw(visibleTab(t));
+  const setTab = (id: SettingsTab) => setTabRaw(visibleTab(id));
 
   // Esc, click-away, focus and the backdrop all live in `SettingsModal`.
   const activeOrg =
@@ -266,9 +281,9 @@ export function VaultSettingsDialog({
   const tabs = useMemo(() => {
     const out = SHOW_AI_TAB ? [GENERAL_TAB, AI_TAB] : [GENERAL_TAB];
     if (showVaults) out.push(...SETTINGS_TABS);
-    else out.push(...SETTINGS_TABS.filter((t) => t.id !== "vaults"));
+    else out.push(...SETTINGS_TABS.filter((item) => item.id !== "vaults"));
     if (billingEnabled) {
-      const idx = out.findIndex((t) => t.id === "dashboards");
+      const idx = out.findIndex((item) => item.id === "dashboards");
       out.splice(
         idx >= 0 ? idx + 1 : out.length,
         0,
@@ -292,7 +307,7 @@ export function VaultSettingsDialog({
   // copy for everyone, so an admin may not do it (the server agrees — 403
   // `owner_only`) and the control simply isn't drawn for them.
   const isOwner = myMember?.role === "owner";
-  const activeTab = tabs.find((t) => t.id === tab) ?? tabs[0];
+  const activeTab = tabs.find((item) => item.id === tab) ?? tabs[0];
   const lockedTab = TEAM_TABS.has(activeTab.id) && !isSynced;
   // Render what the nav shows: a requested tab that is not offered yet (the
   // signed-out Vaults list before the recents load) paints the first tab.
@@ -300,41 +315,41 @@ export function VaultSettingsDialog({
 
   return (
     <SettingsModal
-      label={isSynced ? "Vault settings" : "Local vault settings"}
+      label={isSynced ? t("Vault settings") : t("Local vault settings")}
       onClose={onClose}
     >
       <header className="settings-page-header">
         <div className="settings-title">
           <span className="settings-eyebrow">
-            {isSynced ? "Vault settings" : "Local vault"}
+            {isSynced ? t("Vault settings") : t("Local vault")}
           </span>
           {/* The session's active org outlives a switch to a local folder, so
               its name only titles the dialog while that vault is the synced one. */}
-          <h1>{(isSynced ? activeOrg?.name : null) ?? vault?.name ?? "Vault"}</h1>
+          <h1>{(isSynced ? activeOrg?.name : null) ?? vault?.name ?? t("Vault")}</h1>
         </div>
-        <button className="icon-btn" onClick={onClose} aria-label="Close settings" title="Close (Esc)">
+        <button className="icon-btn" onClick={onClose} aria-label={t("Close settings")} title={t("Close (Esc)")}>
           ✕
         </button>
       </header>
 
       <div className="settings-body">
-        <nav className="settings-nav" aria-label="Settings sections">
-          {tabs.map((t) => {
-            const locked = TEAM_TABS.has(t.id) && !isSynced;
+        <nav className="settings-nav" aria-label={t("Settings sections")}>
+          {tabs.map((item) => {
+            const locked = TEAM_TABS.has(item.id) && !isSynced;
             return (
               <button
-                key={t.id}
+                key={item.id}
                 type="button"
-                className={`menu-item${t.id === "ai" ? " settings-ai-item" : ""}${tab === t.id ? " active" : ""}${locked ? " locked" : ""}`}
+                className={`menu-item${item.id === "ai" ? " settings-ai-item" : ""}${tab === item.id ? " active" : ""}${locked ? " locked" : ""}`}
                 onClick={() => {
                   // Re-clicking the active item resets its sub-pages (#308).
-                  if (tab === t.id) setTabReset((n) => n + 1);
-                  else setTab(t.id);
+                  if (tab === item.id) setTabReset((n) => n + 1);
+                  else setTab(item.id);
                 }}
-                title={locked ? "Turn on sync to unlock" : undefined}
+                title={locked ? t("Turn on sync to unlock") : undefined}
               >
-                {t.icon}
-                <span className="menu-item-label">{t.id === "ai" ? "AI (Beta)" : t.label}</span>
+                {item.icon}
+                <span className="menu-item-label">{item.id === "ai" ? t("AI (Beta)") : t(item.label)}</span>
                 {locked && (
                   <svg
                     className="nav-lock"
@@ -355,16 +370,16 @@ export function VaultSettingsDialog({
           })}
           {session && (
             <SettingsCrossLink
-              label="Account settings"
+              label={t("Account settings")}
               onOpen={() => useStore.getState().requestAccountSettings("profile")}
             />
           )}
         </nav>
 
-        <section ref={contentRef} className="settings-content" aria-label={activeTab.label}>
+        <section ref={contentRef} className="settings-content" aria-label={t(activeTab.label)}>
           {/* Members and access swaps its title for a back link while a profile
               is open. */}
-          {!(shown === "members" && !lockedTab) && <h2 className="settings-section-title">{activeTab.label}</h2>}
+          {!(shown === "members" && !lockedTab) && <h2 className="settings-section-title">{t(activeTab.label)}</h2>}
           <FeatureHelp tab={shown} />
           {shown === "general" ? (
             <GeneralTab
@@ -432,6 +447,7 @@ function GeneralTab({
   activeOrgName: string | null;
   onRequestSignIn?: () => void;
 }) {
+  const t = useT();
   const vault = useStore((s) => s.vault);
   const authStatus = useStore((s) => s.authStatus);
   // The sidebar paints before the session restore finishes, so this page can be
@@ -481,7 +497,7 @@ function GeneralTab({
         // The inline line can be scrolled out of view, and the button simply
         // returns to idle — which reads as "nothing happened". A sticky toast is
         // always visible (#85).
-        toast(`Couldn't turn on sync — ${message}`, "error");
+        toast(t("Couldn't turn on sync — {message}", { message }), "error");
       }
     } finally {
       setBusy(false);
@@ -507,20 +523,18 @@ function GeneralTab({
         <>
           <div className="muted">
             {activeOrgName
-              ? "You're viewing a local folder. Turn on sync to keep this vault on your account and across devices."
-              : "This vault lives only on this computer. Turn on sync to reach it from other devices — or invite people to it."}
+              ? t("You're viewing a local folder. Turn on sync to keep this vault on your account and across devices.")
+              : t("This vault lives only on this computer. Turn on sync to reach it from other devices — or invite people to it.")}
           </div>
 
           <div className="sync-promo">
-            <h3 className="sync-promo-title">Turn on sync &amp; sharing</h3>
+            <h3 className="sync-promo-title">{t("Turn on sync & sharing")}</h3>
             <p className="sync-promo-desc">
-              Keeps the notes and folders already here — nothing to re-import.
-              Enables live collaboration and lets you invite people. Everyone in the
-              vault can edit by default; you choose who sees what.
+              {t("Keeps the notes and folders already here — nothing to re-import. Enables live collaboration and lets you invite people. Everyone in the vault can edit by default; you choose who sees what.")}
             </p>
             <div className="row invite-bar">
               <input
-                placeholder="Vault name"
+                placeholder={t("Vault name")}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 onKeyDown={(e) => {
@@ -538,14 +552,14 @@ function GeneralTab({
                 {busy
                   ? "…"
                   : authPending
-                    ? "Checking your account…"
+                    ? t("Checking your account…")
                     : authStatus === "signed-in"
-                      ? "Turn on sync"
-                      : "Sign in to turn on"}
+                      ? t("Turn on sync")
+                      : t("Sign in to turn on")}
               </button>
             </div>
             {!authPending && authStatus !== "signed-in" && (
-              <div className="muted">You'll need to sign in first — this button will prompt you.</div>
+              <div className="muted">{t("You'll need to sign in first — this button will prompt you.")}</div>
             )}
             {error && <div className="auth-error">{error}</div>}
             {limitNudge && (
@@ -562,7 +576,7 @@ function GeneralTab({
       {isSynced && canManage && <FreezeRootRow canManage={canManage} />}
 
       <div className="menu-sep" />
-      <div className="subhead">Folder on disk</div>
+      <div className="subhead">{t("Folder on disk")}</div>
       <div className="join-code-row">
         <code className="vault-root-path" title={vault?.path ?? ""}>
           {vault?.path ?? "—"}
@@ -587,6 +601,7 @@ function GeneralTab({
  * checkpoints, public links, MCP tokens), none of which the local index can see.
  */
 function UnsyncDangerZone() {
+  const t = useT();
   const orgId = useStore((s) => s.session?.activeOrganizationId ?? null);
   const orgName = useStore(
     (s) =>
@@ -620,7 +635,7 @@ function UnsyncDangerZone() {
   return (
     <>
       <div className="menu-sep" />
-      <div className="subhead">Danger zone</div>
+      <div className="subhead">{t("Danger zone")}</div>
       {reset.available && (
         <div className="vault-local-only-card">
           <span className="vault-local-only-icon" aria-hidden="true">
@@ -630,14 +645,20 @@ function UnsyncDangerZone() {
             </svg>
           </span>
           <div className="vault-local-only-copy">
-            <strong>Reset local copy</strong>
+            <strong>{t("Reset local copy")}</strong>
             <span className="field-hint">
-              Delete {folder ? <>the <strong>{folder}</strong> folder</> : "this vault's folder"} on this
-              device and download a fresh copy from {serverHost(serverUrl)}. Nothing changes for your team.
+              {folder
+                ? fill(t("Delete the {folder} folder on this device and download a fresh copy from {host}. Nothing changes for your team."), {
+                    folder: <strong>{folder}</strong>,
+                    host: serverHost(serverUrl),
+                  })
+                : t("Delete this vault's folder on this device and download a fresh copy from {host}. Nothing changes for your team.", {
+                    host: serverHost(serverUrl),
+                  })}
             </span>
           </div>
           <button className="vault-local-only-action" onClick={reset.start}>
-            Reset
+            {t("Reset")}
           </button>
         </div>
       )}
@@ -649,31 +670,35 @@ function UnsyncDangerZone() {
           </svg>
         </span>
         <div className="vault-local-only-copy">
-          <strong>Make this vault local only</strong>
+          <strong>{t("Make this vault local only")}</strong>
           <span className="field-hint">
-            {folder ? (
-              <>
-                Keep the <strong>{folder}</strong> folder on this device and remove its synced copy
-                from {serverHost(serverUrl)}.
-              </>
-            ) : (
-              <>Keep the local folder on this device and remove its synced copy from {serverHost(serverUrl)}.</>
-            )}{" "}
+            {folder
+              ? fill(t("Keep the {folder} folder on this device and remove its synced copy from {host}."), {
+                  folder: <strong>{folder}</strong>,
+                  host: serverHost(serverUrl),
+                })
+              : t("Keep the local folder on this device and remove its synced copy from {host}.", {
+                  host: serverHost(serverUrl),
+                })}{" "}
             {preview ? (
               <>
-                The server copy of {preview.notes} note{plural(preview.notes)} and {preview.files} file
-                {plural(preview.files)}, version history, and sharing will be deleted.{" "}
+                {t("The server copy of {notes} and {files}, version history, and sharing will be deleted.", {
+                  notes: count(preview.notes, "{count} note", "{count} notes"),
+                  files: count(preview.files, "{count} file", "{count} files"),
+                })}{" "}
                 {preview.members > 0
-                  ? `${preview.members} teammate${plural(preview.members)} lose access.`
-                  : "No teammates currently have access."}
+                  ? t("{teammates} lose access.", {
+                      teammates: count(preview.members, "{count} teammate", "{count} teammates"),
+                    })
+                  : t("No teammates currently have access.")}
               </>
             ) : (
-              "Checking what will be removed…"
+              t("Checking what will be removed…")
             )}
           </span>
         </div>
         <button className="vault-local-only-action" onClick={() => setConfirming(true)}>
-          Make local only
+          {t("Make local only")}
         </button>
       </div>
       {reset.dialog}
@@ -689,11 +714,6 @@ function UnsyncDangerZone() {
       )}
     </>
   );
-}
-
-/** "1 note" / "2 notes", without reaching for a formatting library. */
-function plural(n: number): string {
-  return n === 1 ? "" : "s";
 }
 
 /** Just the host of the server URL — the whole URL is noise inside a sentence. */
@@ -735,6 +755,7 @@ export function UnsyncConfirmDialog({
   onCancel: () => void;
   onDone: () => void;
 }) {
+  const t = useT();
   const serverUrl = useStore((s) => s.serverUrl);
   const [preview, setPreview] = useState<UnsyncPreview | null>(seed ?? null);
   const [loading, setLoading] = useState(!seed);
@@ -769,7 +790,7 @@ export function UnsyncConfirmDialog({
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       setError(message);
-      toast(`Couldn't make the vault local only — ${message}`, "error");
+      toast(t("Couldn't make the vault local only — {message}", { message }), "error");
     }
   };
 
@@ -780,8 +801,9 @@ export function UnsyncConfirmDialog({
 
   return (
     <ConfirmDialog
-      title={`Make ${orgName} local only?`}
-      confirmLabel="Make local only"
+      title={t("Make {name} local only?", { name: orgName })}
+      confirmLabel={t("Make local only")}
+      cancelLabel={t("Cancel")}
       // The name has to match exactly. The server re-checks it too (409
       // `name_mismatch`), so a slip here can't get past either gate.
       confirmDisabled={loading || typed.trim() !== orgName}
@@ -789,46 +811,51 @@ export function UnsyncConfirmDialog({
       onConfirm={run}
     >
       <p>
-        Your files stay where they are.{" "}
-        {folderName ? (
-          <>
-            <strong>{folderName}</strong> on this device keeps every note and
-            attachment as ordinary files.
-          </>
-        ) : (
-          "This device keeps every note and attachment as ordinary files."
-        )}
+        {t("Your files stay where they are.")}{" "}
+        {folderName
+          ? fill(t("{folder} on this device keeps every note and attachment as ordinary files."), {
+              folder: <strong>{folderName}</strong>,
+            })
+          : t("This device keeps every note and attachment as ordinary files.")}
       </p>
       <p>
-        <strong>Deleted from {serverHost(serverUrl)}, permanently:</strong>
+        <strong>{t("Deleted from {host}, permanently:", { host: serverHost(serverUrl) })}</strong>
       </p>
       {loading && !preview ? (
-        <p className="muted">Counting what would be deleted…</p>
+        <p className="muted">{t("Counting what would be deleted…")}</p>
       ) : preview ? (
         <ul className="confirm-list">
           <li>
-            {preview.notes} note{plural(preview.notes)} and {preview.files} file
-            {plural(preview.files)}, with all of their edit history
             {preview.checkpoints > 0
-              ? ` and ${preview.checkpoints} version checkpoint${plural(preview.checkpoints)}`
-              : ""}
+              ? t("{notes} and {files}, with all of their edit history and {checkpoints}", {
+                  notes: count(preview.notes, "{count} note", "{count} notes"),
+                  files: count(preview.files, "{count} file", "{count} files"),
+                  checkpoints: count(preview.checkpoints, "{count} version checkpoint", "{count} version checkpoints"),
+                })
+              : t("{notes} and {files}, with all of their edit history", {
+                  notes: count(preview.notes, "{count} note", "{count} notes"),
+                  files: count(preview.files, "{count} file", "{count} files"),
+                })}
           </li>
           {preview.members > 0 && (
             <li>
-              {preview.members} teammate{plural(preview.members)} lose access
-              immediately; their own local copies are kept
+              {t("{teammates} lose access immediately; their own local copies are kept", {
+                teammates: count(preview.members, "{count} teammate", "{count} teammates"),
+              })}
             </li>
           )}
           {preview.publicLinks > 0 && (
             <li>
-              {preview.publicLinks} public share link{plural(preview.publicLinks)} stop
-              working
+              {t("{links} stop working", {
+                links: count(preview.publicLinks, "{count} public share link", "{count} public share links"),
+              })}
             </li>
           )}
           {preview.mcpTokens > 0 && (
             <li>
-              {preview.mcpTokens} MCP token{plural(preview.mcpTokens)} stop working — AI
-              clients lose access
+              {t("{tokens} stop working — AI clients lose access", {
+                tokens: count(preview.mcpTokens, "{count} MCP token", "{count} MCP tokens"),
+              })}
             </li>
           )}
         </ul>
@@ -836,14 +863,16 @@ export function UnsyncConfirmDialog({
       {sub && (
         <p>
           {sub.currentPeriodEnd
-            ? `Pro ends on ${formatDate(sub.currentPeriodEnd)} — until then you can move the subscription to another vault from Billing.`
-            : "Pro ends when the current period does — until then you can move the subscription to another vault from Billing."}
+            ? t("Pro ends on {date} — until then you can move the subscription to another vault from Billing.", {
+                date: formatDate(sub.currentPeriodEnd),
+              })
+            : t("Pro ends when the current period does — until then you can move the subscription to another vault from Billing.")}
         </p>
       )}
-      <p>This cannot be undone. Teammates cannot get the vault back from us.</p>
+      <p>{t("This cannot be undone. Teammates cannot get the vault back from us.")}</p>
       <label className="confirm-type">
         <span>
-          Type <strong>{orgName}</strong> to confirm
+          {fill(t("Type {name} to confirm"), { name: <strong>{orgName}</strong> })}
         </span>
         <input
           autoFocus
@@ -872,6 +901,7 @@ export function UnsyncConfirmDialog({
  * its real state, disabled, so the rule is visible rather than mysterious.
  */
 function FreezeRootRow({ canManage }: { canManage: boolean }) {
+  const t = useT();
   const rootFrozen = useStore((s) => s.rootFrozen);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -893,19 +923,16 @@ function FreezeRootRow({ canManage }: { canManage: boolean }) {
       <div className="menu-sep" />
       <label className="menu-row toggle-row">
         <span className="menu-row-label">
-          Freeze vault root
+          {t("Freeze vault root")}
           <span className="field-hint">
-            Stops anything new being created at the top level of this vault —
-            new notes and folders have to go inside an existing folder. Applies
-            to everyone, including you; only an owner or admin can turn it off.
-            Nothing already at the root is moved, renamed, or hidden.
+            {t("Stops anything new being created at the top level of this vault — new notes and folders have to go inside an existing folder. Applies to everyone, including you; only an owner or admin can turn it off. Nothing already at the root is moved, renamed, or hidden.")}
           </span>
         </span>
         <Switch
           checked={rootFrozen}
           disabled={!canManage || busy}
-          ariaLabel="Freeze vault root"
-          title={canManage ? undefined : "Only an owner or admin can change this"}
+          ariaLabel={t("Freeze vault root")}
+          title={canManage ? undefined : t("Only an owner or admin can change this")}
           onChange={(next) => void flip(next)}
         />
       </label>
@@ -916,6 +943,7 @@ function FreezeRootRow({ canManage }: { canManage: boolean }) {
 
 /** Locked-section gate shown for a team tab on a local vault. */
 function SyncGate({ label, onGoToSync }: { label: string; onGoToSync: () => void }) {
+  const t = useT();
   return (
     <div className="sync-gate">
       <svg
@@ -931,13 +959,12 @@ function SyncGate({ label, onGoToSync }: { label: string; onGoToSync: () => void
         <rect x="4" y="11" width="16" height="10" rx="2" />
         <path d="M8 11V7a4 4 0 0 1 8 0v4" />
       </svg>
-      <h3>{label} unlocks with sync</h3>
+      <h3>{t("{label} unlocks with sync", { label: t(label) })}</h3>
       <p className="muted">
-        Turn on sync for this vault to invite people, set sharing and
-        permissions, and connect AI clients.
+        {t("Turn on sync for this vault to invite people, set sharing and permissions, and connect AI clients.")}
       </p>
       <button className="primary" onClick={onGoToSync}>
-        Turn on sync &amp; sharing →
+        {t("Turn on sync & sharing →")}
       </button>
     </div>
   );
@@ -955,7 +982,7 @@ interface UsageTile {
 /** "1.2 MB" → { value: "1.2", unit: "MB" }; plain bytes read as "bytes". */
 function splitBytes(n: number): { value: string; unit: string } {
   const [value, unit] = formatBytes(n).split(" ");
-  return { value, unit: unit === "B" ? "bytes" : unit };
+  return { value, unit: unit === "B" ? t("bytes") : unit };
 }
 
 /**
@@ -981,6 +1008,7 @@ function TeamVaultBillingCard({
   vaultAccountId: string | null;
   onMoved: () => Promise<unknown>;
 }) {
+  const t = useT();
   // Only an owner can move, so only an owner needs (or lazily creates) their account.
   const [myAccount, setMyAccount] = useState<MyBillingAccount | null>(null);
   const myAccountId = myAccount?.id ?? null;
@@ -1037,7 +1065,7 @@ function TeamVaultBillingCard({
   });
 
   const elsewhere = isOwner && !!myAccountId && !!vaultAccountId && vaultAccountId !== myAccountId;
-  const label = vaultName ?? "this vault";
+  const label = vaultName ?? t("this vault");
 
   const runMove = async () => {
     if (!orgId || !myAccountId) return;
@@ -1047,7 +1075,7 @@ function TeamVaultBillingCard({
       await authManager.api.moveVault(orgId, myAccountId);
       setConfirming(false);
       await onMoved();
-      toast(`${vaultName ?? "The vault"} is now on your account.`);
+      toast(t("{name} is now on your account.", { name: vaultName ?? t("The vault") }));
     } catch (e) {
       const body = e instanceof ApiError && e.body && typeof e.body === "object"
         ? (e.body as Record<string, unknown>)
@@ -1069,7 +1097,7 @@ function TeamVaultBillingCard({
       }
       const message = e instanceof Error ? e.message : String(e);
       setError(message);
-      toast(`Couldn't move the vault — ${message}`, "error");
+      toast(t("Couldn't move the vault — {message}", { message }), "error");
     }
   };
 
@@ -1081,12 +1109,12 @@ function TeamVaultBillingCard({
   const tiles: UsageTile[] = [
     {
       key: "people",
-      caption: "People",
+      caption: t("People"),
       value: loading ? "…" : String(usageRow?.people ?? 0),
       sub:
         usage?.limits.people != null
-          ? `of ${usage.limits.people} on this account`
-          : (usageRow?.people ?? 0) === 1 ? "person" : "people",
+          ? t("of {limit} on this account", { limit: usage.limits.people })
+          : (usageRow?.people ?? 0) === 1 ? t("person") : t("people"),
       meter:
         usage?.limits.people != null && usageRow
           ? { used: usageRow.people, limit: usage.limits.people }
@@ -1094,33 +1122,33 @@ function TeamVaultBillingCard({
     },
     {
       key: "notes",
-      caption: "Notes",
+      caption: t("Notes"),
       value: loading ? "…" : String(usageRow?.notes ?? 0),
-      sub: "in this vault",
+      sub: t("in this vault"),
     },
     {
       key: "attachments",
-      caption: "Attachments",
+      caption: t("Attachments"),
       value: loading ? "…" : (bytes?.value ?? "0"),
-      sub: bytes?.unit ?? "bytes",
+      sub: bytes?.unit ?? t("bytes"),
     },
     {
       key: "files",
-      caption: "Files",
+      caption: t("Files"),
       value: loading ? "…" : String(usageRow?.files ?? 0),
-      sub: "in this vault",
+      sub: t("in this vault"),
     },
   ];
   const freeBase = useStore.getState().billingConfig?.free?.syncedVaults ?? null;
   if (usage?.limits.vaults != null) {
     tiles.push({
       key: "vaults",
-      caption: "Synced vaults",
+      caption: t("Synced vaults"),
       value: String(syncedVaults),
       sub:
         freeBase != null && usage.limits.vaults > freeBase
-          ? `of ${usage.limits.vaults} on this account · includes vaults you had before`
-          : `of ${usage.limits.vaults} on this account`,
+          ? t("of {vaults} on this account · includes vaults you had before", { vaults: usage.limits.vaults })
+          : t("of {vaults} on this account", { vaults: usage.limits.vaults }),
       meter: { used: syncedVaults, limit: usage.limits.vaults },
     });
   }
@@ -1129,29 +1157,32 @@ function TeamVaultBillingCard({
     <>
       <div className="billing-card vault-usage">
         <div className={`plan-header${planLine.plan === "Team" ? " is-team" : ""}`}>
-          <PlanHeader name={planLine.plan} pill={planLine.status} />
-          {planLine.billedOn && <div className="billing-section-note muted">{planLine.billedOn}</div>}
+          <PlanHeader
+            name={t(planLine.plan)}
+            pill={planLine.status && { ...planLine.status, label: t(planLine.status.label) }}
+          />
+          {planLine.billedOn && <div className="billing-section-note muted">{t(planLine.billedOn)}</div>}
         </div>
         {loading || (usageRow && usage) ? (
           <div className="vault-usage-tiles">
-            {tiles.map((t) => {
-              const full = !!t.meter && t.meter.limit > 0 && t.meter.used >= t.meter.limit;
-              const pct = t.meter && t.meter.limit > 0
-                ? Math.min(100, Math.round((t.meter.used / t.meter.limit) * 100))
+            {tiles.map((tile) => {
+              const full = !!tile.meter && tile.meter.limit > 0 && tile.meter.used >= tile.meter.limit;
+              const pct = tile.meter && tile.meter.limit > 0
+                ? Math.min(100, Math.round((tile.meter.used / tile.meter.limit) * 100))
                 : 0;
               return (
-                <div key={t.key} className="vault-usage-tile">
-                  <span className="vault-usage-caption">{t.caption}</span>
-                  <span className="vault-usage-value">{t.value}</span>
-                  <span className="vault-usage-sub">{t.sub}</span>
-                  {t.meter && !loading && (
+                <div key={tile.key} className="vault-usage-tile">
+                  <span className="vault-usage-caption">{tile.caption}</span>
+                  <span className="vault-usage-value">{tile.value}</span>
+                  <span className="vault-usage-sub">{tile.sub}</span>
+                  {tile.meter && !loading && (
                     <div
                       className={`vault-usage-meter${full ? " is-full" : ""}`}
                       role="meter"
-                      aria-label={t.caption}
+                      aria-label={tile.caption}
                       aria-valuemin={0}
-                      aria-valuemax={t.meter.limit}
-                      aria-valuenow={t.meter.used}
+                      aria-valuemax={tile.meter.limit}
+                      aria-valuenow={tile.meter.used}
                     >
                       <span style={{ width: `${pct}%` }} />
                     </div>
@@ -1161,20 +1192,20 @@ function TeamVaultBillingCard({
             })}
           </div>
         ) : (
-          <div className="muted">Usage isn't available for this vault right now.</div>
+          <div className="muted">{t("Usage isn't available for this vault right now.")}</div>
         )}
         <div className="vault-usage-footer is-end">
           <button
             className="secondary billing-action"
             onClick={() => useStore.getState().requestAccountSettings("plan")}
           >
-            Open Plan &amp; Billing
+            {t("Open Plan & Billing")}
           </button>
         </div>
         {elsewhere && (
           <div className="vault-usage-footer">
             <span className="vault-usage-footer-label">
-              Bill it on your own account instead.
+              {t("Bill it on your own account instead.")}
             </span>
             <button
               className="secondary billing-action"
@@ -1184,7 +1215,7 @@ function TeamVaultBillingCard({
                 setConfirming(true);
               }}
             >
-              Move to my account
+              {t("Move to my account")}
             </button>
           </div>
         )}
@@ -1199,15 +1230,14 @@ function TeamVaultBillingCard({
         {confirming && (
           <ConfirmDialog
             tone="accent"
-            title={`Move ${label} to your account?`}
-            confirmLabel="Move to my account"
+            title={t("Move {name} to your account?", { name: label })}
+            confirmLabel={t("Move to my account")}
+            cancelLabel={t("Cancel")}
             onCancel={() => setConfirming(false)}
             onConfirm={runMove}
           >
             <p>
-              Its people and limits will count on your account from now on, and it
-              stops counting on the account it is on today. Notes, members and access
-              stay exactly as they are.
+              {t("Its people and limits will count on your account from now on, and it stops counting on the account it is on today. Notes, members and access stay exactly as they are.")}
             </p>
           </ConfirmDialog>
         )}
@@ -1231,6 +1261,7 @@ function TeamVaultBillingCard({
  * which is why this tab is no longer in TEAM_TABS.
  */
 function BillingTab({ canManage, isSynced }: { canManage: boolean; isSynced: boolean }) {
+  const t = useT();
   const billingConfig = useStore((s) => s.billingConfig);
   const orgBilling = useStore((s) => s.orgBilling);
   const myBilling = useStore((s) => s.myBilling);
@@ -1290,17 +1321,17 @@ function BillingTab({ canManage, isSynced }: { canManage: boolean; isSynced: boo
   const runTransfer = async () => {
     if (!transfer || !transfer.targetOrgId) return;
     const { sourceOrgId, targetOrgId } = transfer;
-    const targetName = vaults.find((v) => v.orgId === targetOrgId)?.name ?? "the vault";
+    const targetName = vaults.find((v) => v.orgId === targetOrgId)?.name ?? t("the vault");
     setError(null);
     try {
       await authManager.api.transferSubscription(sourceOrgId, targetOrgId);
       setTransfer(null);
       await refreshAll();
-      toast(`Pro moved to ${targetName}.`);
+      toast(t("Pro moved to {name}.", { name: targetName }));
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       setError(message);
-      toast(`Couldn't move the subscription — ${message}`, "error");
+      toast(t("Couldn't move the subscription — {message}", { message }), "error");
     }
   };
 
@@ -1312,17 +1343,17 @@ function BillingTab({ canManage, isSynced }: { canManage: boolean; isSynced: boo
       await authManager.api.cancelSubscription(target, "now");
       setCancelling(null);
       await refreshAll();
-      toast(`Subscription for ${label} canceled.`);
+      toast(t("Subscription for {name} canceled.", { name: label }));
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       setError(message);
-      toast(`Couldn't cancel the subscription — ${message}`, "error");
+      toast(t("Couldn't cancel the subscription — {message}", { message }), "error");
     }
   };
 
   if (!billingConfig?.enabled) {
     return (
-      <div className="muted perm-empty">Billing isn't enabled on this server.</div>
+      <div className="muted perm-empty">{t("Billing isn't enabled on this server.")}</div>
     );
   }
 
@@ -1362,9 +1393,9 @@ function BillingTab({ canManage, isSynced }: { canManage: boolean; isSynced: boo
         <button
           className="link-btn"
           disabled
-          title="Nowhere to move it — you need another vault you own that isn't already on Pro."
+          title={t("Nowhere to move it — you need another vault you own that isn't already on Pro.")}
         >
-          Transfer
+          {t("Transfer")}
         </button>
       );
     }
@@ -1373,7 +1404,7 @@ function BillingTab({ canManage, isSynced }: { canManage: boolean; isSynced: boo
         type="button"
         className="link-btn"
         disabled={busy}
-        aria-label={`Move ${sourceLabel}'s subscription to another vault`}
+        aria-label={t("Move {name}'s subscription to another vault", { name: sourceLabel })}
         onClick={() => {
           setError(null);
           setTransfer({
@@ -1383,7 +1414,7 @@ function BillingTab({ canManage, isSynced }: { canManage: boolean; isSynced: boo
           });
         }}
       >
-        Transfer
+        {t("Transfer")}
       </button>
     );
   };
@@ -1396,7 +1427,7 @@ function BillingTab({ canManage, isSynced }: { canManage: boolean; isSynced: boo
   const renderTransferDialog = () => {
     if (!transfer) return null;
     const targets = transferTargets(vaults, transfer.sourceOrgId);
-    const target = targets.find((t) => t.orgId === transfer.targetOrgId) ?? null;
+    const target = targets.find((tv) => tv.orgId === transfer.targetOrgId) ?? null;
     // Owned vaults that are NOT offered, so the list's gaps are explained.
     const skipped = vaults.filter(
       (v) => v.orgId !== transfer.sourceOrgId && v.role === "owner" && !targets.includes(v),
@@ -1404,34 +1435,38 @@ function BillingTab({ canManage, isSynced }: { canManage: boolean; isSynced: boo
     return (
       <ConfirmDialog
         tone="accent"
-        title={`Move Pro from ${transfer.sourceLabel}`}
-        confirmLabel={target ? `Move Pro to ${target.name}` : "Move subscription"}
+        title={t("Move Pro from {name}", { name: transfer.sourceLabel })}
+        confirmLabel={target ? t("Move Pro to {name}", { name: target.name }) : t("Move subscription")}
+        cancelLabel={t("Cancel")}
         confirmDisabled={!target}
         onCancel={() => setTransfer(null)}
         onConfirm={runTransfer}
       >
         <p>
-          Choose the vault that becomes Pro. It keeps the same billing period and
-          price. <strong>{transfer.sourceLabel}</strong> drops to Free — its members
-          and notes stay, but its attachments stop syncing. Every local copy remains
-          available on its device.
+          {fill(
+            t("Choose the vault that becomes Pro. It keeps the same billing period and price. {source} drops to Free — its members and notes stay, but its attachments stop syncing. Every local copy remains available on its device."),
+            { source: <strong>{transfer.sourceLabel}</strong> },
+          )}
         </p>
-        <div className="transfer-targets" role="radiogroup" aria-label="Destination vault">
-          {targets.map((t) => {
-            const used = t.seats.members + t.seats.pendingInvitations;
-            const selected = t.orgId === transfer.targetOrgId;
+        <div className="transfer-targets" role="radiogroup" aria-label={t("Destination vault")}>
+          {targets.map((tv) => {
+            const used = tv.seats.members + tv.seats.pendingInvitations;
+            const selected = tv.orgId === transfer.targetOrgId;
             return (
               <button
-                key={t.orgId}
+                key={tv.orgId}
                 type="button"
                 role="radio"
                 aria-checked={selected}
                 className={`upgrade-plan-card transfer-target${selected ? " selected" : ""}`}
-                onClick={() => setTransfer({ ...transfer, targetOrgId: t.orgId })}
+                onClick={() => setTransfer({ ...transfer, targetOrgId: tv.orgId })}
               >
-                <span className="transfer-target-name">{t.name}</span>
+                <span className="transfer-target-name">{tv.name}</span>
                 <span className="transfer-target-meta">
-                  {used} of {t.seats.limit ?? "∞"} member{used === 1 ? "" : "s"} · Free
+                  {t(used === 1 ? "{used} of {limit} member · Free" : "{used} of {limit} members · Free", {
+                    used,
+                    limit: tv.seats.limit ?? "∞",
+                  })}
                 </span>
               </button>
             );
@@ -1439,7 +1474,7 @@ function BillingTab({ canManage, isSynced }: { canManage: boolean; isSynced: boo
         </div>
         {skipped > 0 && (
           <p className="transfer-targets-note">
-            Only vaults you own that aren't already on Pro are listed.
+            {t("Only vaults you own that aren't already on Pro are listed.")}
           </p>
         )}
         {error && <div className="auth-error">{error}</div>}
@@ -1458,13 +1493,12 @@ function BillingTab({ canManage, isSynced }: { canManage: boolean; isSynced: boo
       return (
         <div className="billing-card">
           <div className="muted">
-            This vault isn't synced, so it has no plan of its own. The vaults on
-            your account are listed below.
+            {t("This vault isn't synced, so it has no plan of its own. The vaults on your account are listed below.")}
           </div>
         </div>
       );
     }
-    if (!orgBilling) return <div className="muted">Loading…</div>;
+    if (!orgBilling) return <div className="muted">{t("Loading…")}</div>;
 
     if (orgBilling.plan === "pro") {
       return (
@@ -1473,19 +1507,19 @@ function BillingTab({ canManage, isSynced }: { canManage: boolean; isSynced: boo
             <span className="billing-plan-name">Pro</span>
             <span className={`billing-status ${orgBilling.status}`}>
               {orgBilling.status === "past_due"
-                ? "Past due"
+                ? t("Past due")
                 : orgBilling.status === "canceled"
-                  ? "Canceled"
-                  : "Active"}
+                  ? t("Canceled")
+                  : t("Active")}
             </span>
           </div>
           <div className="muted">
-            Attachment sync is active across devices and with your team.
+            {t("Attachment sync is active across devices and with your team.")}
           </div>
           {orgBilling.currentPeriodEnd && (
             <div className="menu-row">
               <span className="menu-row-label">
-                {orgBilling.cancelAtPeriodEnd ? "Access until" : "Renews"}
+                {orgBilling.cancelAtPeriodEnd ? t("Access until") : t("Renews")}
               </span>
               <span>{formatDate(orgBilling.currentPeriodEnd)}</span>
             </div>
@@ -1493,7 +1527,7 @@ function BillingTab({ canManage, isSynced }: { canManage: boolean; isSynced: boo
           {orgBilling.cancelAtPeriodEnd && (
             <div className="limit-nudge">
               <span>
-                Your subscription is set to cancel at the end of the current period.
+                {t("Your subscription is set to cancel at the end of the current period.")}
               </span>
             </div>
           )}
@@ -1503,10 +1537,10 @@ function BillingTab({ canManage, isSynced }: { canManage: boolean; isSynced: boo
               disabled={busy}
               onClick={() => openPortal(orgId)}
             >
-              Manage subscription
+              {t("Manage subscription")}
             </AsyncButton>
           ) : (
-            <div className="muted">Ask an owner or admin to manage the subscription.</div>
+            <div className="muted">{t("Ask an owner or admin to manage the subscription.")}</div>
           )}
         </div>
       );
@@ -1517,36 +1551,37 @@ function BillingTab({ canManage, isSynced }: { canManage: boolean; isSynced: boo
     return (
       <div className="billing-card">
         <div className="billing-plan-head">
-          <span className="billing-plan-name">Free</span>
+          <span className="billing-plan-name">{t("Free")}</span>
         </div>
         <div className="menu-row">
-          <span className="menu-row-label">Members</span>
+          <span className="menu-row-label">{t("Members")}</span>
           <span>
-            {used} of {limit ?? "∞"}
-            {limit != null && used >= limit ? " · full" : ""}
+            {t("{used} of {limit}", { used, limit: limit ?? "∞" })}
+            {limit != null && used >= limit ? t(" · full") : ""}
           </span>
         </div>
         {pendingInvitations > 0 && (
           <div className="muted">
-            Includes {pendingInvitations} pending invitation
-            {pendingInvitations === 1 ? "" : "s"}.
+            {t(pendingInvitations === 1 ? "Includes {count} pending invitation." : "Includes {count} pending invitations.", {
+              count: pendingInvitations,
+            })}
           </div>
         )}
 
-        <div className="subhead">Upgrade to Pro unlocks</div>
+        <div className="subhead">{t("Upgrade to Pro unlocks")}</div>
         <div className="muted">{legacyFreePlanExplanation(billingConfig.freeLimits)}</div>
         <ul className="upgrade-features">
           {LEGACY_PRO_BENEFITS.map((benefit) => (
-            <li key={benefit}>{benefit}</li>
+            <li key={benefit}>{t(benefit)}</li>
           ))}
         </ul>
 
         {canManage ? (
           <button className="primary billing-action" onClick={() => setUpgradeOrg(orgId)}>
-            Upgrade to Pro
+            {t("Upgrade to Pro")}
           </button>
         ) : (
-          <div className="muted">Ask an owner or admin to upgrade this vault.</div>
+          <div className="muted">{t("Ask an owner or admin to upgrade this vault.")}</div>
         )}
       </div>
     );
@@ -1560,8 +1595,11 @@ function BillingTab({ canManage, isSynced }: { canManage: boolean; isSynced: boo
     // reader. A row is a name and a fact line, so the list scans vertically.
     const meta = [
       subscriptionStatusLine(v, LINE_FORMAT),
-      `${seatsUsed} of ${v.seats.limit ?? "∞"} member${seatsUsed === 1 ? "" : "s"}`,
-      !v.canManage && v.billingOwner ? `Billed to ${v.billingOwner.name}` : null,
+      t(seatsUsed === 1 ? "{used} of {limit} member" : "{used} of {limit} members", {
+        used: seatsUsed,
+        limit: v.seats.limit ?? "∞",
+      }),
+      !v.canManage && v.billingOwner ? t("Billed to {name}", { name: v.billingOwner.name }) : null,
     ]
       .filter(Boolean)
       .join(" · ");
@@ -1572,15 +1610,15 @@ function BillingTab({ canManage, isSynced }: { canManage: boolean; isSynced: boo
             <span className="billing-sub-vault">{v.name}</span>
             {/* A pill, not muted trailing text: it labels the row the reader
                 arrived from, so it has to survive the name's ellipsis. */}
-            {v.orgId === orgId && <span className="member-role">Current</span>}
+            {v.orgId === orgId && <span className="member-role">{t("Current")}</span>}
           </span>
           {meta && <span className="billing-sub-meta">{meta}</span>}
         </span>
         {/* Owner is the default for a vault you are billed for, and the row
             already carries Current + plan pills plus up to three actions — so
             the role pill only appears when the role is worth saying. */}
-        {v.role !== "owner" && <span className={`member-role ${v.role}`}>{v.role}</span>}
-        <span className={`billing-status ${v.status}`}>{planPillLabel(v)}</span>
+        {v.role !== "owner" && <span className={`member-role ${v.role}`}>{t(ROLE_LABEL[v.role] ?? v.role)}</span>}
+        <span className={`billing-status ${v.status}`}>{t(planPillLabel(v))}</span>
         <span className="vault-row-actions">
           {v.canManage && v.plan === "free" && (
             <AsyncButton
@@ -1588,7 +1626,7 @@ function BillingTab({ canManage, isSynced }: { canManage: boolean; isSynced: boo
               disabled={busy}
               onClick={() => setUpgradeOrg(v.orgId)}
             >
-              Upgrade
+              {t("Upgrade")}
             </AsyncButton>
           )}
           {v.canManage && v.plan === "pro" && (
@@ -1597,7 +1635,7 @@ function BillingTab({ canManage, isSynced }: { canManage: boolean; isSynced: boo
               disabled={busy}
               onClick={() => openPortal(v.orgId)}
             >
-              Manage
+              {t("Manage")}
             </AsyncButton>
           )}
           {v.canTransfer && transferControl(v.orgId, v.name)}
@@ -1611,10 +1649,10 @@ function BillingTab({ canManage, isSynced }: { canManage: boolean; isSynced: boo
       {renderVaultCard()}
 
       {/* ---- 2. Every vault on the account ---- */}
-      <div className="subhead">Subscriptions</div>
+      <div className="subhead">{t("Subscriptions")}</div>
       {vaults.length === 0 ? (
         <div className="muted perm-empty">
-          {myBilling ? "No vaults on this account yet." : "Loading…"}
+          {myBilling ? t("No vaults on this account yet.") : t("Loading…")}
         </div>
       ) : (
         <ul className="member-list">{vaults.map(renderVaultRow)}</ul>
@@ -1623,20 +1661,18 @@ function BillingTab({ canManage, isSynced }: { canManage: boolean; isSynced: boo
       {/* ---- 3. Tombstones: paid time that outlived its vault ---- */}
       {orphaned.length > 0 && (
         <>
-          <div className="subhead">From deleted vaults</div>
+          <div className="subhead">{t("From deleted vaults")}</div>
           <div className="billing-section-note">
-            These subscriptions belonged to vaults that were deleted. They still
-            bill until they end — move one to a vault to use the time you've paid
-            for, or cancel it now.
+            {t("These subscriptions belonged to vaults that were deleted. They still bill until they end — move one to a vault to use the time you've paid for, or cancel it now.")}
           </div>
           <ul className="member-list">
             {orphaned.map((o) => {
-              const label = o.orgName ?? "Deleted vault";
+              const label = o.orgName ?? t("Deleted vault");
               // Same two-line shape as a live vault row: the name leads, and
               // when it was deleted is a fact on the meta line, not a
               // parenthetical that competes with the name for the ellipsis.
               const meta = [
-                `Deleted ${formatDate(o.deletedAt)}`,
+                t("Deleted {date}", { date: formatDate(o.deletedAt) }),
                 subscriptionStatusLine(o, LINE_FORMAT),
               ]
                 .filter(Boolean)
@@ -1650,7 +1686,7 @@ function BillingTab({ canManage, isSynced }: { canManage: boolean; isSynced: boo
                     <span className="billing-sub-meta">{meta}</span>
                   </span>
                   <span className={`billing-status ${o.status}`}>
-                    {o.status === "past_due" ? "Past due" : "Pro"}
+                    {o.status === "past_due" ? t("Past due") : "Pro"}
                   </span>
                   <span className="vault-row-actions">
                     {transferControl(o.orgId, label)}
@@ -1662,14 +1698,14 @@ function BillingTab({ canManage, isSynced }: { canManage: boolean; isSynced: boo
                         setCancelling({ orgId: o.orgId, label });
                       }}
                     >
-                      Cancel now
+                      {t("Cancel now")}
                     </AsyncButton>
                     <AsyncButton
                       className="link-btn"
                       disabled={busy}
                       onClick={() => openPortal(o.orgId)}
                     >
-                      Manage
+                      {t("Manage")}
                     </AsyncButton>
                   </span>
                 </li>
@@ -1682,9 +1718,9 @@ function BillingTab({ canManage, isSynced }: { canManage: boolean; isSynced: boo
       {/* ---- 4. What the free tier allows ---- */}
       {freeLimits && (
         <div className="menu-row settings-footer-row">
-          <span className="menu-row-label">Free vaults</span>
+          <span className="menu-row-label">{t("Free vaults")}</span>
           <span>
-            {freeLimits.freeVaultsUsed} of {freeLimits.vaultsPerUser} used
+            {t("{used} of {limit} used", { used: freeLimits.freeVaultsUsed, limit: freeLimits.vaultsPerUser })}
           </span>
         </div>
       )}
@@ -1699,19 +1735,17 @@ function BillingTab({ canManage, isSynced }: { canManage: boolean; isSynced: boo
 
       {cancelling && (
         <ConfirmDialog
-          title={`Cancel the subscription for ${cancelling.label}?`}
-          confirmLabel="Cancel subscription"
-          cancelLabel="Keep it"
+          title={t("Cancel the subscription for {name}?", { name: cancelling.label })}
+          confirmLabel={t("Cancel subscription")}
+          cancelLabel={t("Keep it")}
           onCancel={() => setCancelling(null)}
           onConfirm={runCancelNow}
         >
           <p>
-            Billing stops now and the rest of the period is given up. There is no
-            vault left to use it on, so nothing else is lost.
+            {t("Billing stops now and the rest of the period is given up. There is no vault left to use it on, so nothing else is lost.")}
           </p>
           <p>
-            If you'd rather keep the time you've paid for, move it to another vault
-            instead.
+            {t("If you'd rather keep the time you've paid for, move it to another vault instead.")}
           </p>
           {error && <div className="auth-error">{error}</div>}
         </ConfirmDialog>
@@ -1719,6 +1753,9 @@ function BillingTab({ canManage, isSynced }: { canManage: boolean; isSynced: boo
     </>
   );
 }
+
+/** Wire role → the English label the dictionary knows; shown through `t()`. */
+const ROLE_LABEL: Record<string, string> = { owner: "Owner", admin: "Admin", member: "Member", guest: "Guest" };
 
 /** Compact absolute date for renewal/period-end lines. */
 export function formatDate(iso: string): string {
@@ -1750,6 +1787,7 @@ const LINE_FORMAT = {
  * away could take checkpoints and not use them.
  */
 function VersioningTab({ canManage }: { canManage: boolean }) {
+  const t = useT();
   const checkpoints = useStore((s) => s.checkpoints);
   const [label, setLabel] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -1781,14 +1819,26 @@ function VersioningTab({ canManage }: { canManage: boolean }) {
     }
   };
 
+  /** `checkpointTitle`, but through the dictionary: a label is the user's own text. */
+  const cpTitle = (cp: VaultCheckpoint) => {
+    const trimmed = cp.label?.trim();
+    if (trimmed) return trimmed;
+    return t(cp.kind === "manual" ? "Manual checkpoint · {ago}" : "Daily checkpoint · {ago}", {
+      ago: agoFromIso(cp.createdAt, now),
+    });
+  };
+
   const revert = async (cp: VaultCheckpoint) => {
     setError(null);
     try {
       const result = await useStore.getState().revertVaultToCheckpoint(cp.id);
       setConfirming(null);
       toast(
-        `Vault reverted — ${result.docsChanged} notes changed, ` +
-          `${result.docsRestored} restored, ${result.docsDeleted} removed`,
+        t("Vault reverted — {changed} notes changed, {restored} restored, {removed} removed", {
+          changed: result.docsChanged,
+          restored: result.docsRestored,
+          removed: result.docsDeleted,
+        }),
         "success",
       );
     } catch (e) {
@@ -1799,37 +1849,35 @@ function VersioningTab({ canManage }: { canManage: boolean }) {
   return (
     <div className="versioning-tab">
       <div className="muted">
-        A checkpoint captures every note in this vault — content and folder
-        structure. One is taken automatically each day the vault changes; the
-        vault keeps its 5 most recent. Reverting rolls every member's vault back
-        and broadcasts live.
+        {t("A checkpoint captures every note in this vault — content and folder structure. One is taken automatically each day the vault changes; the vault keeps its 5 most recent. Reverting rolls every member's vault back and broadcasts live.")}
       </div>
       <div className="menu-sep" />
       {canManage && (
         <>
-          <div className="subhead">Create checkpoint</div>
+          <div className="subhead">{t("Create checkpoint")}</div>
           <div className="row invite-bar">
             <input
               type="text"
-              placeholder="Label (optional) — e.g. Before the big reorg"
+              placeholder={t("Label (optional) — e.g. Before the big reorg")}
               value={label}
               onChange={(e) => setLabel(e.target.value)}
             />
             <AsyncButton className="primary" onClick={create}>
-              Create
+              {t("Create")}
             </AsyncButton>
           </div>
           <div className="menu-sep" />
         </>
       )}
-      <div className="subhead">Checkpoints</div>
+      <div className="subhead">{t("Checkpoints")}</div>
       {error && <div className="auth-error">{error}</div>}
       {checkpoints == null ? (
-        <div className="muted perm-empty">Loading…</div>
+        <div className="muted perm-empty">{t("Loading…")}</div>
       ) : checkpoints.length === 0 ? (
         <div className="muted perm-empty">
-          No checkpoints yet. One is captured automatically within a day of the
-          vault changing{canManage ? ", or create one above" : ""}.
+          {canManage
+            ? t("No checkpoints yet. One is captured automatically within a day of the vault changing, or create one above.")
+            : t("No checkpoints yet. One is captured automatically within a day of the vault changing.")}
         </div>
       ) : (
         <ul className="checkpoint-list">
@@ -1837,21 +1885,21 @@ function VersioningTab({ canManage }: { canManage: boolean }) {
             <li key={cp.id} className="checkpoint-row">
               <span className="checkpoint-main">
                 <span className="checkpoint-title">
-                  {checkpointTitle(cp.label, cp.kind, cp.createdAt, now)}
+                  {cpTitle(cp)}
                 </span>
                 <span className="checkpoint-sub">
-                  {agoFromIso(cp.createdAt, now)} · {noteCountLabel(cp.noteCount)}
-                  {cp.createdByName ? ` · by ${cp.createdByName}` : ""}
+                  {agoFromIso(cp.createdAt, now)} · {count(cp.noteCount, "{count} note", "{count} notes")}
+                  {cp.createdByName ? ` · ${t("by {name}", { name: cp.createdByName })}` : ""}
                 </span>
               </span>
               {canManage && (
                 <button className="link-btn" onClick={() => setConfirming(cp)}>
-                  Revert
+                  {t("Revert")}
                 </button>
               )}
               {canManage && (
                 <AsyncButton className="link-btn danger" onClick={() => remove(cp.id)}>
-                  Delete
+                  {t("Delete")}
                 </AsyncButton>
               )}
             </li>
@@ -1860,40 +1908,34 @@ function VersioningTab({ canManage }: { canManage: boolean }) {
       )}
       {!canManage && (
         <div className="muted checkpoint-note">
-          Only a vault owner or admin can revert to a checkpoint.
+          {t("Only a vault owner or admin can revert to a checkpoint.")}
         </div>
       )}
       {confirming && (
         <div className="modal-backdrop" onClick={() => setConfirming(null)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>Revert the entire vault?</h2>
+              <h2>{t("Revert the entire vault?")}</h2>
             </div>
             <p className="muted">
-              Every note goes back to{" "}
-              <strong>
-                {checkpointTitle(
-                  confirming.label,
-                  confirming.kind,
-                  confirming.createdAt,
-                  now,
-                )}
-              </strong>{" "}
-              ({agoFromIso(confirming.createdAt, now)}) — content, names and
-              folders — for every member, live. Notes created since then are
-              moved to trash. Attachments are not reverted. A checkpoint of the
-              current state is taken first, so this can be undone.
+              {fill(
+                t("Every note goes back to {title} ({ago}) — content, names and folders — for every member, live. Notes created since then are moved to trash. Attachments are not reverted. A checkpoint of the current state is taken first, so this can be undone."),
+                {
+                  title: <strong>{cpTitle(confirming)}</strong>,
+                  ago: agoFromIso(confirming.createdAt, now),
+                },
+              )}
             </p>
             <div className="banner-actions">
               <button className="secondary" onClick={() => setConfirming(null)}>
-                Cancel
+                {t("Cancel")}
               </button>
               <AsyncButton
                 className="primary danger"
                 spinnerTone="on-accent"
                 onClick={() => revert(confirming)}
               >
-                Revert vault
+                {t("Revert vault")}
               </AsyncButton>
             </div>
           </div>
@@ -1904,6 +1946,7 @@ function VersioningTab({ canManage }: { canManage: boolean }) {
 }
 
 function McpTab({ canManage }: { canManage: boolean }) {
+  const t = useT();
   const session = useStore((s) => s.session);
   const serverUrl = useStore((s) => s.serverUrl);
 
@@ -1968,7 +2011,7 @@ function McpTab({ canManage }: { canManage: boolean }) {
       setCopied(tag);
       window.setTimeout(() => setCopied((c) => (c === tag ? null : c)), 1500);
     } catch {
-      setError("Clipboard unavailable. Select and copy the text manually.");
+      setError(t("Clipboard unavailable. Select and copy the text manually."));
     }
   };
 
@@ -1986,7 +2029,7 @@ function McpTab({ canManage }: { canManage: boolean }) {
       setError(message);
       // Otherwise the button just returns to idle and the user clicks again,
       // minting duplicate tokens on a server that is actually failing (#85).
-      toast(`Couldn't create the MCP token — ${message}`, "error");
+      toast(t("Couldn't create the MCP token — {message}", { message }), "error");
     } finally {
       setBusy(false);
     }
@@ -1998,7 +2041,7 @@ function McpTab({ canManage }: { canManage: boolean }) {
     try {
       await authManager.api.revokeMcpConnection(connection.kind, connection.id);
       if (connection.kind === "token") setJustCreated((current) => current?.id === connection.id ? null : current);
-      setConnections((prev) => prev.filter((t) => t.kind !== connection.kind || t.id !== connection.id));
+      setConnections((prev) => prev.filter((c) => c.kind !== connection.kind || c.id !== connection.id));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -2009,7 +2052,7 @@ function McpTab({ canManage }: { canManage: boolean }) {
   if (!hasVault) {
     return (
       <div className="muted perm-empty">
-        MCP needs an active vault — create or switch to one first.
+        {t("MCP needs an active vault — create or switch to one first.")}
       </div>
     );
   }
@@ -2018,46 +2061,48 @@ function McpTab({ canManage }: { canManage: boolean }) {
 
   return (
     <>
-      <div className="muted">Connect an AI to this vault. Choose its access when you sign in; your existing sharing permissions still apply.</div>
-      <label className="subhead" htmlFor="ai-connect-target">Choose your AI</label>
+      <div className="muted">{t("Connect an AI to this vault. Choose its access when you sign in; your existing sharing permissions still apply.")}</div>
+      <label className="subhead" htmlFor="ai-connect-target">{t("Choose your AI")}</label>
       <select id="ai-connect-target" value={target} onChange={(e) => setTarget(e.target.value as AiTarget)}>
-        {AI_TARGETS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+        {AI_TARGETS.map((item) => <option key={item.id} value={item.id}>{t(item.label)}</option>)}
       </select>
-      <ol className="ai-connect-steps">{CONNECTION_STEPS[target].map((step) => <li key={step}>{step}</li>)}</ol>
-      <div className="subhead">Connector URL</div>
+      <ol className="ai-connect-steps">{CONNECTION_STEPS[target].map((step) => <li key={step}>{t(step)}</li>)}</ol>
+      <div className="subhead">{t("Connector URL")}</div>
       <div className="join-code-row">
         <code className="vault-root-path" title={mcpUrl}>{mcpUrl}</code>
-        <button className="link-btn" onClick={() => void copy(mcpUrl, "url")}>{copied === "url" ? "Copied ✓" : "Copy URL"}</button>
+        <button className="link-btn" onClick={() => void copy(mcpUrl, "url")}>{copied === "url" ? t("Copied ✓") : t("Copy URL")}</button>
       </div>
       {snippet && <div className="join-code-row">
         <code className="mcp-snippet">{snippet}</code>
-        <button className="link-btn" onClick={() => void copy(snippet, "snippet")}>{copied === "snippet" ? "Copied ✓" : "Copy settings"}</button>
+        <button className="link-btn" onClick={() => void copy(snippet, "snippet")}>{copied === "snippet" ? t("Copied ✓") : t("Copy settings")}</button>
       </div>}
       {target === "cli" && <div className="join-code-row">
         <code className="mcp-snippet">{codexSnippet(mcpUrl)}</code>
-        <button className="link-btn" onClick={() => void copy(codexSnippet(mcpUrl), "codex")}>{copied === "codex" ? "Copied ✓" : "Copy Codex settings"}</button>
+        <button className="link-btn" onClick={() => void copy(codexSnippet(mcpUrl), "codex")}>{copied === "codex" ? t("Copied ✓") : t("Copy Codex settings")}</button>
       </div>}
       {error && <div className="auth-error">{error}</div>}
 
       <div className="menu-sep" />
       <details className="ai-connect-advanced">
-        <summary>Advanced · Access tokens</summary>
+        <summary>{t("Advanced · Access tokens")}</summary>
         <div className="muted">
-          A token authenticates the client and scopes it to you in this vault.
-          Add it as an <code>Authorization: Bearer</code> header. Revoke any time.
+          {fill(
+            t("A token authenticates the client and scopes it to you in this vault. Add it as an {header} header. Revoke any time."),
+            { header: <code>Authorization: Bearer</code> },
+          )}
         </div>
 
-        <label className="subhead" htmlFor="ai-token-scope">Token access</label>
+        <label className="subhead" htmlFor="ai-token-scope">{t("Token access")}</label>
         <select id="ai-token-scope" value={preset} onChange={(e) => setPreset(e.target.value)}>
-          <option value="read">Read only</option>
-          <option value="write">Read + write</option>
-          <option value="delete">Read + write + delete/move</option>
+          <option value="read">{t("Read only")}</option>
+          <option value="write">{t("Read + write")}</option>
+          <option value="delete">{t("Read + write + delete/move")}</option>
         </select>
-        {canManage && <SpringCheck label="Manage team access (off by default)" checked={manageAccess} onChange={setManageAccess} />}
+        {canManage && <SpringCheck label={t("Manage team access (off by default)")} checked={manageAccess} onChange={setManageAccess} />}
         <div className="row invite-bar">
           <input
-            aria-label="Token name"
-            placeholder="Token name, e.g. Claude Desktop"
+            aria-label={t("Token name")}
+            placeholder={t("Token name, e.g. Claude Desktop")}
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => {
@@ -2065,13 +2110,13 @@ function McpTab({ canManage }: { canManage: boolean }) {
             }}
           />
           <button className="primary" disabled={busy} onClick={() => void create()}>
-            Create token
+            {t("Create token")}
           </button>
         </div>
 
         {justCreated && (
           <div className="mcp-new-token">
-            <div className="subhead">Copy your token now — it won't be shown again</div>
+            <div className="subhead">{t("Copy your token now — it won't be shown again")}</div>
             <div className="join-code-row">
               <code className="join-code mcp-token-value" title={justCreated.token}>
                 {justCreated.token}
@@ -2080,70 +2125,70 @@ function McpTab({ canManage }: { canManage: boolean }) {
                 className="link-btn"
                 onClick={() => void copy(justCreated.token, "token")}
               >
-                {copied === "token" ? "Copied ✓" : "Copy"}
+                {copied === "token" ? t("Copied ✓") : t("Copy")}
               </button>
             </div>
             <button className="link-btn" onClick={() => setJustCreated(null)}>
-              Done
+              {t("Done")}
             </button>
           </div>
         )}
 
         <div className="menu-sep" />
       </details>
-      <div className="subhead">Connections</div>
-      <div className="muted">OAuth and token connections. Disconnect to stop their next request. Status reflects recent requests, not a live socket.</div>
+      <div className="subhead">{t("Connections")}</div>
+      <div className="muted">{t("OAuth and token connections. Disconnect to stop their next request. Status reflects recent requests, not a live socket.")}</div>
 
       {loading ? (
-        <div className="muted">Loading…</div>
+        <div className="muted">{t("Loading…")}</div>
       ) : connections.length === 0 ? (
-        <div className="muted">No connections yet.</div>
+        <div className="muted">{t("No connections yet.")}</div>
       ) : (
         <ul className="mcp-conn-list">
-          {connections.map((t) => {
-            const key = `${t.kind}:${t.id}`;
-            const allowedTools = connectionTools(t.scopes, tools);
-            const live = isConnected(t.lastUsedAt);
+          {connections.map((conn) => {
+            const key = `${conn.kind}:${conn.id}`;
+            const allowedTools = connectionTools(conn.scopes, tools);
+            const live = isConnected(conn.lastUsedAt);
             const open = expanded === key;
             return (
               <li key={key} className={`mcp-conn${open ? " open" : ""}`}>
                 <div className="mcp-conn-head">
                   <span
                     className={`mcp-dot ${live ? "on" : "off"}`}
-                    title={live ? "Connected" : "Disconnected"}
+                    title={live ? t("Connected") : t("Disconnected")}
                     aria-hidden="true"
                   />
                   <div className="mcp-conn-main">
                     <div className="mcp-conn-title">
-                      {t.name}
+                      {conn.name}
                       <span className={`mcp-status ${live ? "on" : "off"}`}>
-                        {live ? "Connected" : "Disconnected"}
+                        {live ? t("Connected") : t("Disconnected")}
                       </span>
                     </div>
                     <div className="mcp-conn-sub muted">
-                      {clientLabel(t.lastClient)}
+                      {clientLabel(conn.lastClient)}
                       {" · "}
-                      {t.kind === "oauth" ? "OAuth" : t.tokenPrefix}
+                      {conn.kind === "oauth" ? "OAuth" : conn.tokenPrefix}
                       {" · "}
-                      {t.useCount} {t.useCount === 1 ? "call" : "calls"}
+                      {count(conn.useCount, "{count} call", "{count} calls")}
                       {" · "}
-                      {t.lastUsedAt ? `last active ${relTime(t.lastUsedAt)}` : "never used"}
+                      {conn.lastUsedAt ? t("last active {ago}", { ago: relTimeAgo(conn.lastUsedAt) }) : t("never used")}
                     </div>
-                    <div className="mcp-conn-scopes">{t.scopes?.join(" · ") ?? "Full access (legacy)"}</div>
+                    <div className="mcp-conn-scopes">{conn.scopes?.join(" · ") ?? t("Full access (legacy)")}</div>
                   </div>
                   <button
                     className="link-btn"
                     aria-expanded={open}
                     onClick={() => setExpanded((e) => (e === key ? null : key))}
                   >
-                    {open ? "Hide tools" : `Tools · ${allowedTools.length}`}
+                    {open ? t("Hide tools") : t("Tools · {count}", { count: allowedTools.length })}
                   </button>
                   <AsyncButton
                     className="link-btn danger"
                     disabled={busy}
-                    onClick={() => revoke(t)}
+                    onClick={() => revoke(conn)}
                   >
-                    Disconnect
+                    {t("Disconnect")}
                   </AsyncButton>
                 </div>
                 {open && (
@@ -2152,10 +2197,10 @@ function McpTab({ canManage }: { canManage: boolean }) {
                       <li key={tool.name} title={tool.description}>
                         <span className={`mcp-tool-badge ${tool.access}`}>
                           {tool.access === "read"
-                            ? "read"
+                            ? t("read")
                             : tool.access === "destructive"
-                              ? "delete"
-                              : "write"}
+                              ? t("delete")
+                              : t("write")}
                         </span>
                         <code>{tool.name}</code>
                       </li>
@@ -2173,20 +2218,33 @@ function McpTab({ canManage }: { canManage: boolean }) {
 
 /** Best-effort human name for a client from its User-Agent. */
 function clientLabel(ua: string | null): string {
-  if (!ua) return "Unknown client";
+  if (!ua) return t("Unknown client");
   const s = ua.toLowerCase();
   if (s.includes("claude-code") || s.includes("claude code")) return "Claude Code";
   if (s.includes("claude")) return "Claude";
   if (s.includes("cursor")) return "Cursor";
-  if (s.includes("node")) return "Node client";
+  if (s.includes("node")) return t("Node client");
   // Fall back to the leading token of the UA (e.g. "MyApp/1.2" → "MyApp").
-  return ua.split(/[\s/]/)[0].slice(0, 40) || "Unknown client";
+  return ua.split(/[\s/]/)[0].slice(0, 40) || t("Unknown client");
+}
+
+/** `relTime` from `lib/aiConnection`, through the dictionary. */
+function relTimeAgo(iso: string, now = Date.now()): string {
+  const diff = now - new Date(iso).getTime();
+  if (diff < 60_000) return t("{n}s ago", { n: Math.max(0, Math.floor(diff / 1000)) });
+  const m = Math.floor(diff / 60_000);
+  if (m < 60) return t("{n}m ago", { n: m });
+  const h = Math.floor(m / 60);
+  if (h < 24) return t("{n}h ago", { n: h });
+  const d = Math.floor(h / 24);
+  if (d < 7) return t("{n}d ago", { n: d });
+  return new Date(iso).toLocaleDateString();
 }
 
 
 function importSummaryText(s: ipc.ImportSummary): string {
-  const parts = [`Imported ${s.files} file${s.files === 1 ? "" : "s"}`];
-  if (s.skipped > 0) parts.push(`${s.skipped} skipped`);
+  const parts = [count(s.files, "Imported {count} file", "Imported {count} files")];
+  if (s.skipped > 0) parts.push(t("{count} skipped", { count: s.skipped }));
   return parts.join(" · ") + ".";
 }
 
@@ -2196,6 +2254,7 @@ function importSummaryText(s: ipc.ImportSummary): string {
  * back the sidebar ⋮ menu and drag-and-drop, so behavior is identical everywhere.
  */
 function ImportExportTab() {
+  const t = useT();
   const [busy, setBusy] = useState<null | "files" | "folder" | "export">(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -2250,40 +2309,39 @@ function ImportExportTab() {
       const dest = await ipc.pickFolder();
       if (!dest) return null;
       await ipc.exportPath("", dest, epoch);
-      return "Exported the vault.";
+      return t("Exported the vault.");
     });
 
   return (
     <div className="io-tab">
       <section className="io-section">
-        <h3 className="io-heading">Import</h3>
+        <h3 className="io-heading">{t("Import")}</h3>
         <p className="io-desc">
-          Bring existing files and folders into this vault — any format. Markdown and text
-          become notes; everything else is kept as-is, with its folder structure. Existing
-          names are never overwritten.
+          {t("Bring existing files and folders into this vault — any format. Markdown and text become notes; everything else is kept as-is, with its folder structure. Existing names are never overwritten.")}
         </p>
         <div className="io-actions">
           <button className="primary" disabled={busy !== null} onClick={() => void importFiles()}>
-            {busy === "files" ? "Importing…" : "Import files…"}
+            {busy === "files" ? t("Importing…") : t("Import files…")}
           </button>
           <button className="primary" disabled={busy !== null} onClick={() => void importFolder()}>
-            {busy === "folder" ? "Importing…" : "Import folder…"}
+            {busy === "folder" ? t("Importing…") : t("Import folder…")}
           </button>
         </div>
         <p className="io-hint">
-          You can also right-click any folder in the sidebar, or drag files straight onto it.
+          {t("You can also right-click any folder in the sidebar, or drag files straight onto it.")}
         </p>
       </section>
 
       <section className="io-section">
-        <h3 className="io-heading">Export</h3>
+        <h3 className="io-heading">{t("Export")}</h3>
         <p className="io-desc">
-          Save a copy of this whole vault to a folder on your computer. The hidden{" "}
-          <code>.context</code> index is skipped.
+          {fill(t("Save a copy of this whole vault to a folder on your computer. The hidden {context} index is skipped."), {
+            context: <code>.context</code>,
+          })}
         </p>
         <div className="io-actions">
           <button className="primary" disabled={busy !== null} onClick={() => void exportVault()}>
-            {busy === "export" ? "Exporting…" : "Export entire vault…"}
+            {busy === "export" ? t("Exporting…") : t("Export entire vault…")}
           </button>
         </div>
       </section>
@@ -2298,6 +2356,7 @@ function ImportExportTab() {
 }
 
 function AppearanceTab({ canManage, isSynced }: { canManage: boolean; isSynced: boolean }) {
+  const t = useT();
   const orgId = useStore((s) => s.session?.activeOrganizationId ?? null);
   const settings = useStore((s) => (orgId ? s.vaultAppearance[orgId] : undefined)) ?? EMPTY_APPEARANCE;
   // Sliders fire on every pixel of a drag: apply locally at once, PUT once
@@ -2317,11 +2376,13 @@ function AppearanceTab({ canManage, isSynced }: { canManage: boolean; isSynced: 
       const body = e instanceof ApiError ? (e.body as { error?: string; key?: string } | undefined) : undefined;
       const reason =
         body?.error === "invalid_appearance"
-          ? `the server refused ${body.key ? `"${body.key}"` : "a value"}`
+          ? body.key
+            ? t('the server refused "{key}"', { key: body.key })
+            : t("the server refused a value")
           : e instanceof Error
             ? e.message
             : String(e);
-      toast(`Couldn't save the vault's appearance, so it was put back: ${reason}.`, "error");
+      toast(t("Couldn't save the vault's appearance, so it was put back: {reason}.", { reason }), "error");
     });
   }
   function flush() {
@@ -2361,11 +2422,11 @@ function AppearanceTab({ canManage, isSynced }: { canManage: boolean; isSynced: 
       {isSynced && orgId ? (
         <>
           <div className="subhead appearance-defaults-head">
-            Defaults for everyone in this vault
-            {!canManage && <span className="appearance-tag">Set by the vault owner</span>}
+            {t("Defaults for everyone in this vault")}
+            {!canManage && <span className="appearance-tag">{t("Set by the vault owner")}</span>}
           </div>
           <div className="muted">
-            People can still override these in their own Appearance settings.
+            {t("People can still override these in their own Appearance settings.")}
           </div>
           <AppearanceRows
             mode="vault"
@@ -2375,13 +2436,13 @@ function AppearanceTab({ canManage, isSynced }: { canManage: boolean; isSynced: 
           />
           {canManage && (
             <button className="link-btn" onClick={resetToDefaults}>
-              Reset to defaults
+              {t("Reset to defaults")}
             </button>
           )}
         </>
       ) : (
         <div className="menu-row">
-          <span className="menu-row-label">Theme</span>
+          <span className="menu-row-label">{t("Theme")}</span>
           <ThemeToggle />
         </div>
       )}

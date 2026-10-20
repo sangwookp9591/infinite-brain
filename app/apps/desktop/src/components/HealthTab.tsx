@@ -25,6 +25,7 @@ import type {
 import { formatBytes } from "../lib/health/format";
 import { dedupeDifferences, localFilesBytes, runEach } from "../lib/health/attention";
 import { toast } from "../lib/toast";
+import { useT } from "../lib/i18n";
 import { AsyncButton } from "./AsyncButton";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { LocalOnlyGroup, RemoteOnlyGroup } from "./HealthPlaceGroups";
@@ -37,6 +38,7 @@ import { HealthActivity, HealthLargest } from "./HealthStats";
 import {
   Glyph,
   Section,
+  withCode,
   type CheckRun,
   type ConfirmState,
   type HealthHandlers,
@@ -84,6 +86,7 @@ export function HealthView({
   onGoToGeneral?: () => void;
   onClose?: () => void;
 }) {
+  const t = useT();
   const { report, stats, checks, loading, log, refresh, actions } = snapshot;
   // Relative times go stale while the dialog sits open; a slow tick is enough
   // and costs one render a minute.
@@ -158,8 +161,8 @@ export function HealthView({
     if (outcome.failed.length === 0) {
       toast(
         verb === "delete"
-          ? `Deleted ${outcome.done.toLocaleString()} local ${outcome.done === 1 ? "copy" : "copies"}`
-          : `Re-registered ${outcome.done.toLocaleString()} ${outcome.done === 1 ? "file" : "files"} — content is uploading now`,
+          ? t(outcome.done === 1 ? "Deleted {count} local copy" : "Deleted {count} local copies", { count: outcome.done.toLocaleString() })
+          : t(outcome.done === 1 ? "Re-registered {count} file — content is uploading now" : "Re-registered {count} files — content is uploading now", { count: outcome.done.toLocaleString() }),
       );
     }
     refresh();
@@ -211,7 +214,7 @@ export function HealthView({
       {mode !== "diagnostics" && <>
       <div className="health-page-head">
         {title && <h2 className="settings-section-title">{title}</h2>}
-        {demo && <span className="health-pill health-demo-chip" data-tone="warn">Demo data</span>}
+        {demo && <span className="health-pill health-demo-chip" data-tone="warn">{t("Demo data")}</span>}
         <PageActions
           snapshot={snapshot}
           onRefresh={refresh}
@@ -232,7 +235,7 @@ export function HealthView({
       />
 
       <Section
-        title="Needs attention"
+        title={t("Needs attention")}
       >
         <HealthIssues
           before={
@@ -261,8 +264,8 @@ export function HealthView({
       {mode !== "overview" && <details className="health-advanced" open={mode === "diagnostics" ? true : undefined}>
         <summary>
           <span>
-            <strong>{mode === "diagnostics" ? "Checks & repair tools" : "Advanced diagnostics"}</strong>
-            <small>Inspect one note, verify local files, and review sync history</small>
+            <strong>{mode === "diagnostics" ? t("Checks & repair tools") : t("Advanced diagnostics")}</strong>
+            <small>{t("Inspect one note, verify local files, and review sync history")}</small>
           </span>
           <span className="health-advanced-summary-meta">
             <AdvancedSummary snapshot={snapshot} />
@@ -271,16 +274,16 @@ export function HealthView({
         </summary>
         <div className="health-advanced-body">
           <DiagnosticsToolbar snapshot={snapshot} />
-          {mode === "diagnostics" && report.issues.length > 0 && <Section title="Sync findings">
+          {mode === "diagnostics" && report.issues.length > 0 && <Section title={t("Sync findings")}>
             <HealthIssues issues={report.issues} handlers={handlers} syncEnabled={report.counts != null} focusKey={focusIssue}
               dismissed={ignores.issues} onDismiss={ignores.dismissIssue} onRestore={ignores.restoreIssue} />
           </Section>}
 
           <div className="health-diagnostic-card health-diagnostic-inspector">
             <DiagnosticHeading
-              eyebrow="Single note"
-              title="Inspect a note"
-              description="Search by name or path to see its local and Remote Vault state."
+              eyebrow={t("Single note")}
+              title={t("Inspect a note")}
+              description={t("Search by name or path to see its local and Remote Vault state.")}
             />
             <HealthInspector
               notes={notes}
@@ -292,9 +295,9 @@ export function HealthView({
 
           <div className="health-diagnostic-card health-diagnostic-checks">
             <DiagnosticHeading
-              eyebrow="Vault files"
-              title="Integrity checks"
-              description="Review what Infinite Brain verified on this computer and fix individual findings."
+              eyebrow={t("Vault files")}
+              title={t("Integrity checks")}
+              description={t("Review what Infinite Brain verified on this computer and fix individual findings.")}
             />
             <HealthChecks
               checks={checks}
@@ -311,17 +314,17 @@ export function HealthView({
             <div className="health-diagnostic-grid">
               <div className="health-diagnostic-card">
                 <DiagnosticHeading
-                  eyebrow="Local activity"
-                  title="Editing activity"
-                  description="See when notes in this vault changed."
+                  eyebrow={t("Local activity")}
+                  title={t("Editing activity")}
+                  description={t("See when notes in this vault changed.")}
                 />
                 <HealthActivity activity={stats.activity} />
               </div>
               <div className="health-diagnostic-card">
                 <DiagnosticHeading
-                  eyebrow="Local storage"
-                  title="Largest items"
-                  description="Find files and history using the most space."
+                  eyebrow={t("Local storage")}
+                  title={t("Largest items")}
+                  description={t("Find files and history using the most space.")}
                 />
                 <HealthLargest stats={stats} handlers={handlers} />
               </div>
@@ -330,9 +333,9 @@ export function HealthView({
 
           <div className="health-diagnostic-card">
             <DiagnosticHeading
-              eyebrow="This app session"
-              title="Recent sync activity"
-              description="Review connection, upload, and retry events since Infinite Brain launched. Select a note path to inspect it."
+              eyebrow={t("This app session")}
+              title={t("Recent sync activity")}
+              description={t("Review connection, upload, and retry events since Infinite Brain launched. Select a note path to inspect it.")}
             />
             <HealthTimeline
               log={log}
@@ -357,6 +360,7 @@ export function HealthView({
 }
 
 function AdvancedSummary({ snapshot }: { snapshot: VaultHealthSnapshot }) {
+  const t = useT();
   const reported = snapshot.checks?.results.length ?? 0;
   const findings =
     snapshot.checks?.results.reduce((sum, result) => sum + result.count, 0) ?? 0;
@@ -364,24 +368,25 @@ function AdvancedSummary({ snapshot }: { snapshot: VaultHealthSnapshot }) {
   return (
     <>
       {snapshot.loading ? (
-        <span className="health-advanced-summary-pill">Checking…</span>
+        <span className="health-advanced-summary-pill">{t("Checking…")}</span>
       ) : snapshot.checks ? (
         <span
           className="health-advanced-summary-pill"
           data-tone={findings > 0 ? "warn" : "good"}
         >
           {findings > 0
-            ? `${findings.toLocaleString()} ${findings === 1 ? "finding" : "findings"}`
-            : `${reported.toLocaleString()} checks passed`}
+            ? t(findings === 1 ? "{count} finding" : "{count} findings", { count: findings.toLocaleString() })
+            : t("{count} checks passed", { count: reported.toLocaleString() })}
         </span>
       ) : (
-        <span className="health-advanced-summary-pill">Checks unavailable</span>
+        <span className="health-advanced-summary-pill">{t("Checks unavailable")}</span>
       )}
     </>
   );
 }
 
 function DiagnosticsToolbar({ snapshot }: { snapshot: VaultHealthSnapshot }) {
+  const t = useT();
   const [feedback, setFeedback] = useState<{
     tone: "good" | "bad";
     message: string;
@@ -398,7 +403,7 @@ function DiagnosticsToolbar({ snapshot }: { snapshot: VaultHealthSnapshot }) {
     } catch (error) {
       setFeedback({
         tone: "bad",
-        message: error instanceof Error ? error.message : "That action could not be completed.",
+        message: error instanceof Error ? error.message : t("That action could not be completed."),
       });
       throw error;
     }
@@ -407,11 +412,10 @@ function DiagnosticsToolbar({ snapshot }: { snapshot: VaultHealthSnapshot }) {
   return (
     <div className="health-diagnostics-toolbar">
       <div className="health-diagnostics-toolbar-copy">
-        <span className="health-kicker">Diagnostic tools</span>
-        <h3>Run a fresh check or share a report</h3>
+        <span className="health-kicker">{t("Diagnostic tools")}</span>
+        <h3>{t("Run a fresh check or share a report")}</h3>
         <p>
-          Checks read this vault without changing your notes. Sync retry uses the normal safe
-          Remote Vault reconciliation flow.
+          {t("Checks read this vault without changing your notes. Sync retry uses the normal safe Remote Vault reconciliation flow.")}
         </p>
       </div>
       <div className="health-diagnostics-actions">
@@ -425,7 +429,7 @@ function DiagnosticsToolbar({ snapshot }: { snapshot: VaultHealthSnapshot }) {
             refresh();
           }}
         >
-          {loading ? "Running checks…" : "Run all checks"}
+          {loading ? t("Running checks…") : t("Run all checks")}
         </button>
         <AsyncButton
           className="ghost-pill sm"
@@ -434,28 +438,28 @@ function DiagnosticsToolbar({ snapshot }: { snapshot: VaultHealthSnapshot }) {
             run(async () => {
               await actions.syncNow();
               refresh();
-            }, "Sync check started. Results will update as notes are confirmed.")
+            }, t("Sync check started. Results will update as notes are confirmed."))
           }
         >
-          Retry sync
+          {t("Retry sync")}
         </AsyncButton>
         <AsyncButton
           className="ghost-pill sm"
           confirm
-          onClick={() => run(() => actions.copyDiagnostics(), "Diagnostic report copied.")}
+          onClick={() => run(() => actions.copyDiagnostics(), t("Diagnostic report copied."))}
         >
-          Copy report
+          {t("Copy report")}
         </AsyncButton>
       </div>
       {!syncAvailable && (
         <p className="health-diagnostics-hint">
           {report.verdict === "local"
-            ? "Sync retry is unavailable because this vault is local only."
+            ? t("Sync retry is unavailable because this vault is local only.")
             : report.verdict === "signed-out"
-              ? "Sign in before retrying sync."
+              ? t("Sign in before retrying sync.")
               : report.verdict === "no-access"
-                ? "Sync retry is unavailable until access is restored."
-                : "Sync retry is not available yet."}
+                ? t("Sync retry is unavailable until access is restored.")
+                : t("Sync retry is not available yet.")}
         </p>
       )}
       {feedback && (
@@ -467,7 +471,7 @@ function DiagnosticsToolbar({ snapshot }: { snapshot: VaultHealthSnapshot }) {
       {!feedback && statsError && (
         <p className="health-diagnostics-feedback" data-tone="bad" role="alert">
           <Glyph name="alert" size={14} />
-          Checks could not finish: {statsError}
+          {t("Checks could not finish: {error}", { error: statsError })}
         </p>
       )}
     </div>
@@ -516,6 +520,7 @@ function InventoryComparison({
   /** The Remote Vault's file/attachment bytes; null when unknown. */
   serverStorage?: ServerStorage | null;
 }) {
+  const t = useT();
   const differences =
     inventory.deviceOnlyNotes.length +
     inventory.serverOnlyNotes.length +
@@ -545,34 +550,34 @@ function InventoryComparison({
   const comparisonUpdating = report.verdict === "syncing";
   const differenceSummaries = [
     inventory.deviceOnlyNotes.length > 0
-      ? `${inventory.deviceOnlyNotes.length.toLocaleString()} text ${inventory.deviceOnlyNotes.length === 1 ? "note is" : "notes are"} missing from the Remote Vault`
+      ? t(inventory.deviceOnlyNotes.length === 1 ? "{count} text note is missing from the Remote Vault" : "{count} text notes are missing from the Remote Vault", { count: inventory.deviceOnlyNotes.length.toLocaleString() })
       : null,
     inventory.serverOnlyNotes.length > 0
-      ? `${inventory.serverOnlyNotes.length.toLocaleString()} text ${inventory.serverOnlyNotes.length === 1 ? "note is" : "notes are"} missing from this computer`
+      ? t(inventory.serverOnlyNotes.length === 1 ? "{count} text note is missing from this computer" : "{count} text notes are missing from this computer", { count: inventory.serverOnlyNotes.length.toLocaleString() })
       : null,
     inventory.deviceOnlyFolders.length > 0
-      ? `${inventory.deviceOnlyFolders.length.toLocaleString()} ${inventory.deviceOnlyFolders.length === 1 ? "folder is" : "folders are"} missing from the Remote Vault`
+      ? t(inventory.deviceOnlyFolders.length === 1 ? "{count} folder is missing from the Remote Vault" : "{count} folders are missing from the Remote Vault", { count: inventory.deviceOnlyFolders.length.toLocaleString() })
       : null,
     inventory.serverOnlyFolders.length > 0
-      ? `${inventory.serverOnlyFolders.length.toLocaleString()} ${inventory.serverOnlyFolders.length === 1 ? "folder is" : "folders are"} missing from this computer`
+      ? t(inventory.serverOnlyFolders.length === 1 ? "{count} folder is missing from this computer" : "{count} folders are missing from this computer", { count: inventory.serverOnlyFolders.length.toLocaleString() })
       : null,
     !standaloneFileSyncBlocked && inventory.deviceOnlyFiles.length > 0
-      ? `${inventory.deviceOnlyFiles.length.toLocaleString()} ${inventory.deviceOnlyFiles.length === 1 ? "file is" : "files are"} missing from the Remote Vault`
+      ? t(inventory.deviceOnlyFiles.length === 1 ? "{count} file is missing from the Remote Vault" : "{count} files are missing from the Remote Vault", { count: inventory.deviceOnlyFiles.length.toLocaleString() })
       : null,
     inventory.serverOnlyFiles.length > 0
-      ? `${inventory.serverOnlyFiles.length.toLocaleString()} ${inventory.serverOnlyFiles.length === 1 ? "file is" : "files are"} missing from this computer`
+      ? t(inventory.serverOnlyFiles.length === 1 ? "{count} file is missing from this computer" : "{count} files are missing from this computer", { count: inventory.serverOnlyFiles.length.toLocaleString() })
       : null,
   ].filter((summary): summary is string => summary != null);
   const confirmed = report.counts?.synced ?? 0;
   const totalTextNotes = report.counts?.total ?? inventory.local.notes;
   const stateLabel =
     comparisonUpdating
-      ? "Updating"
+      ? t("Updating")
       : inventory.serverState === "current"
-      ? "Current"
+      ? t("Current")
       : inventory.serverState === "last-known"
-        ? "Last known"
-        : "Unavailable";
+        ? t("Last known")
+        : t("Unavailable");
 
   // The quiet "everything matches" case says nothing the two equal cards do not
   // already show, so the strip only appears when it has something to report.
@@ -622,47 +627,47 @@ function InventoryComparison({
         <div className="health-inventory-result-copy">
           <strong>
             {comparisonUpdating
-              ? "Sync is still updating your local copy"
+              ? t("Sync is still updating your local copy")
               : !inventory.server
-              ? "A Remote Vault comparison is not available"
+              ? t("A Remote Vault comparison is not available")
               : comparisonPending
-                ? "Still counting notes on this computer"
+                ? t("Still counting notes on this computer")
                 : differenceSummaries.length > 0
-                ? `${differenceSummaries.join(" · ")}${comparisonStale ? " (based on the last known Remote Vault view)" : ""}`
+                ? `${differenceSummaries.join(" · ")}${comparisonStale ? ` ${t("(based on the last known Remote Vault view)")}` : ""}`
                 : countsDiffer
-                  ? "The latest note and folder counts do not match yet"
+                  ? t("The latest note and folder counts do not match yet")
                   : localOnlyFormatNotes > 0
-                    ? `${localOnlyFormatNotes.toLocaleString()} ${localOnlyFormatNotes === 1 ? "file stays" : "files stay"} on this computer`
+                    ? t(localOnlyFormatNotes === 1 ? "{count} file stays on this computer" : "{count} files stay on this computer", { count: localOnlyFormatNotes.toLocaleString() })
                   : comparisonStale
-                    ? "The current Remote Vault contents cannot be confirmed"
+                    ? t("The current Remote Vault contents cannot be confirmed")
                   : restrictedNotes > 0
-                    ? `${restrictedNotes.toLocaleString()} notes have restricted access`
-                    : "Notes and folders match"}
+                    ? t("{count} notes have restricted access", { count: restrictedNotes.toLocaleString() })
+                    : t("Notes and folders match")}
           </strong>
           <p>
             {comparisonUpdating
-              ? "Counts are provisional until sync finishes."
+              ? t("Counts are provisional until sync finishes.")
               : inventory.server
               ? comparisonPending
-                ? "The comparison will appear when the supported vault file list is ready."
+                ? t("The comparison will appear when the supported vault file list is ready.")
                 : standaloneFileSyncBlocked && inventory.serverOnlyFiles.length > 0
-                ? "This server requires Team to download files, including previously uploaded files. Review differences for available actions."
+                ? t("This server requires Team to download files, including previously uploaded files. Review differences for available actions.")
                 : localOnlyFormatNotes > 0
                 ? comparisonStale
-                  ? "Syncing these file types requires Team. The Remote Vault view is last known and may be out of date."
-                  : "Syncing these file types requires Team. They remain available to preview locally."
+                  ? t("Syncing these file types requires Team. The Remote Vault view is last known and may be out of date.")
+                  : t("Syncing these file types requires Team. They remain available to preview locally.")
                 : comparisonStale
-                  ? "The Remote Vault is unavailable, so this last-known comparison may be out of date."
+                  ? t("The Remote Vault is unavailable, so this last-known comparison may be out of date.")
                 : restrictedNotes > 0
-                  ? `${restrictedNotes.toLocaleString()} notes with restricted access remain on the server.`
-                  : `${confirmed.toLocaleString()} of ${totalTextNotes.toLocaleString()} text notes have confirmed content on the Remote Vault.`
-              : "Your local files remain available on this computer."}
+                  ? t("{count} notes with restricted access remain on the server.", { count: restrictedNotes.toLocaleString() })
+                  : t("{confirmed} of {total} text notes have confirmed content on the Remote Vault.", { confirmed: confirmed.toLocaleString(), total: totalTextNotes.toLocaleString() })
+              : t("Your local files remain available on this computer.")}
           </p>
         </div>
         {!comparisonUpdating && inventory.server && countsDiffer && (
           <div className="health-inventory-actions">
             <AsyncButton className="primary sm" onClick={() => handlers.actions.syncNow()}>
-              Check again
+              {t("Check again")}
             </AsyncButton>
           </div>
         )}
@@ -698,15 +703,15 @@ function InventoryComparison({
     <section className="health-inventory" aria-labelledby="health-inventory-title">
       <div className="health-inventory-head">
         <div>
-          <span className="health-kicker">Your copies</span>
-          <h3 id="health-inventory-title">This computer and the Remote Vault</h3>
+          <span className="health-kicker">{t("Your copies")}</span>
+          <h3 id="health-inventory-title">{t("This computer and the Remote Vault")}</h3>
           <p>
-            {stored ? "Server totals include notes not everyone can open." : "Remote counts include only notes you can access."}
+            {stored ? t("Server totals include notes not everyone can open.") : t("Remote counts include only notes you can access.")}
           </p>
         </div>
         {inventory.server && (
           <span className="health-freshness" data-state={inventory.serverState}>
-            {stateLabel} Remote Vault view
+            {t("{state} Remote Vault view", { state: stateLabel })}
           </span>
         )}
       </div>
@@ -714,8 +719,8 @@ function InventoryComparison({
       <div className="health-inventory-grid">
         <InventoryPlace
           icon="disk"
-          title="This computer"
-          subtitle="Stored locally"
+          title={t("This computer")}
+          subtitle={t("Stored locally")}
           counts={inventory.local}
           countsReady={inventory.localReady}
           bytes={localBytes == null ? "—" : formatBytes(localBytes)}
@@ -731,8 +736,8 @@ function InventoryComparison({
         {inventory.server ? (
           <InventoryPlace
             icon="database"
-            title="Remote Vault"
-            subtitle={stored ? "Stored on server" : "Accessible to you"}
+            title={t("Remote Vault")}
+            subtitle={stored ? t("Stored on server") : t("Accessible to you")}
             counts={stored ?? inventory.server}
             bytes={
               serverStorage == null
@@ -746,11 +751,11 @@ function InventoryComparison({
           <div className="health-place is-unavailable">
             <span className="health-place-icon"><Glyph name="database" size={18} /></span>
             <div>
-              <strong>Remote Vault</strong>
+              <strong>{t("Remote Vault")}</strong>
               <p>
                 {report.verdict === "local"
-                  ? "Sync is off for this vault."
-                  : "No Remote Vault inventory has been received yet."}
+                  ? t("Sync is off for this vault.")
+                  : t("No Remote Vault inventory has been received yet.")}
               </p>
             </div>
           </div>
@@ -796,6 +801,7 @@ function InventoryPlace({
   /** "Files & attachments" size, already formatted; "—" when unknown. */
   bytes: string;
 }) {
+  const t = useT();
   const shown = (count: number) => (countsReady ? count.toLocaleString() : "—");
   return (
     <div className="health-place">
@@ -806,19 +812,19 @@ function InventoryPlace({
       {/* Notes means text notes (NOTE_EXTS) and nothing else; every other
           supported format is a File, counted beside it. */}
       <strong className="health-place-primary">{shown(counts.notes)}</strong>
-      <span className="health-place-primary-label">Notes</span>
+      <span className="health-place-primary-label">{t("Notes")}</span>
       <dl>
         <div>
-          <dt title="PDFs, images, data, and other supported files">Files</dt>
+          <dt title={t("PDFs, images, data, and other supported files")}>{t("Files")}</dt>
           <dd>{shown(counts.files)}</dd>
         </div>
         <div>
-          <dt>Folders</dt>
+          <dt>{t("Folders")}</dt>
           <dd>{shown(counts.folders)}</dd>
         </div>
         <div>
-          <dt title="Embedded attachments and standalone files; excludes note text, the local index and edit history">
-            Files &amp; attachments
+          <dt title={t("Embedded attachments and standalone files; excludes note text, the local index and edit history")}>
+            {t("Files & attachments")}
           </dt>
           <dd>{bytes}</dd>
         </div>
@@ -846,14 +852,15 @@ function Confirms({
   /** Start the Left-on-disk group's confirmed delete; its bar reports on it. */
   onDeleteLeftBehind?: (paths: string[]) => Promise<void>;
 }) {
+  const t = useT();
   if (!confirming) return null;
 
   switch (confirming.kind) {
     case "delete":
       return (
         <ConfirmDialog
-          title="Delete this note?"
-          confirmLabel="Delete"
+          title={t("Delete this note?")}
+          confirmLabel={t("Delete")}
           onCancel={onDone}
           onConfirm={async () => {
             await actions.deleteNote(confirming.path);
@@ -861,46 +868,44 @@ function Confirms({
           }}
         >
           <p className="muted">
-            <code>{confirming.path}</code> is removed from this vault, and from every
-            device that syncs it. A vault checkpoint can bring it back.
+            {withCode(t("{code} is removed from this vault, and from every device that syncs it. A vault checkpoint can bring it back."), confirming.path)}
           </p>
         </ConfirmDialog>
       );
     case "reset":
       return (
         <ConfirmDialog
-          title="Reset this note's history?"
-          confirmLabel="Reset history"
+          title={t("Reset this note's history?")}
+          confirmLabel={t("Reset history")}
           onCancel={onDone}
           onConfirm={async () => {
             const { bytesFreed } = await actions.resetHistory(confirming.docId);
             onDone();
-            toast(`History reset · ${formatBytes(bytesFreed)} freed`);
+            toast(t("History reset · {size} freed", { size: formatBytes(bytesFreed) }));
           }}
         >
           <p className="muted">
-            {confirming.path ? <code>{confirming.path}</code> : "This document"} starts over
-            from the file on disk. The text you have now is kept, but the edit history
-            behind it is discarded on every device, and undo cannot reach past this point.
+            {confirming.path
+              ? withCode(t("{code} starts over from the file on disk. The text you have now is kept, but the edit history behind it is discarded on every device, and undo cannot reach past this point."), confirming.path)
+              : t("This document starts over from the file on disk. The text you have now is kept, but the edit history behind it is discarded on every device, and undo cannot reach past this point.")}
           </p>
         </ConfirmDialog>
       );
     case "reregister":
       return (
         <ConfirmDialog
-          title="Put this file back on the Remote Vault?"
-          confirmLabel="Re-register"
+          title={t("Put this file back on the Remote Vault?")}
+          confirmLabel={t("Re-register")}
           tone="accent"
           onCancel={onDone}
           onConfirm={async () => {
             await actions.reregister(confirming.path);
             onDone();
-            toast("Registered — its content is uploading now");
+            toast(t("Registered — its content is uploading now"));
           }}
         >
           <p className="muted">
-            Registers <code>{confirming.path}</code> with the Remote Vault as a note again and
-            uploads its content. Everyone with access to this vault will see it.
+            {withCode(t("Registers {code} with the Remote Vault as a note again and uploads its content. Everyone with access to this vault will see it."), confirming.path)}
           </p>
         </ConfirmDialog>
       );
@@ -908,8 +913,8 @@ function Confirms({
       const n = confirming.paths.length;
       return (
         <ConfirmDialog
-          title={`Delete ${n.toLocaleString()} local ${n === 1 ? "copy" : "copies"}?`}
-          confirmLabel="Delete all"
+          title={t(n === 1 ? "Delete {count} local copy?" : "Delete {count} local copies?", { count: n.toLocaleString() })}
+          confirmLabel={t("Delete all")}
           onCancel={onDone}
           onConfirm={() => {
             onDone();
@@ -917,10 +922,9 @@ function Confirms({
           }}
         >
           <p className="muted">
-            {n === 1 ? "This file is" : `These ${n.toLocaleString()} files are`} no longer on the
-            Remote Vault, and this device never confirmed {n === 1 ? "its" : "their"} content
-            there. {n === 1 ? "It may be the only copy." : "They may be the only copies."}{" "}
-            Deleting removes {n === 1 ? "it" : "them"} from this computer.
+            {n === 1
+              ? t("This file is no longer on the Remote Vault, and this device never confirmed its content there. It may be the only copy. Deleting removes it from this computer.")
+              : t("These {count} files are no longer on the Remote Vault, and this device never confirmed their content there. They may be the only copies. Deleting removes them from this computer.", { count: n.toLocaleString() })}
           </p>
         </ConfirmDialog>
       );
@@ -928,24 +932,21 @@ function Confirms({
     case "empty-trash":
       return (
         <ConfirmDialog
-          title="Empty the recovery copies?"
-          confirmLabel="Empty trash"
+          title={t("Empty the recovery copies?")}
+          confirmLabel={t("Empty trash")}
           onCancel={onDone}
           onConfirm={async () => {
             const { filesRemoved, bytesFreed } = await actions.emptyTrash();
             onDone();
             toast(
               filesRemoved === 0
-                ? "Nothing to empty"
-                : `Removed ${filesRemoved.toLocaleString()} ${
-                    filesRemoved === 1 ? "copy" : "copies"
-                  } · ${formatBytes(bytesFreed)} freed`,
+                ? t("Nothing to empty")
+                : t(filesRemoved === 1 ? "Removed {count} copy · {size} freed" : "Removed {count} copies · {size} freed", { count: filesRemoved.toLocaleString(), size: formatBytes(bytesFreed) }),
             );
           }}
         >
           <p className="muted">
-            These files can include unsent local edits and deleted-note copies kept by earlier
-            versions. Emptying permanently removes them. Notes still in the vault are untouched.
+            {t("These files can include unsent local edits and deleted-note copies kept by earlier versions. Emptying permanently removes them. Notes still in the vault are untouched.")}
           </p>
         </ConfirmDialog>
       );
@@ -968,15 +969,12 @@ function Confirms({
           <p className="muted">{plan.confirm?.body}</p>
           {plan.unlisted > 0 && (
             <p className="muted">
-              Only the {plan.targets.length.toLocaleString()} shown are touched —{" "}
-              {plan.unlisted.toLocaleString()} more were found but not listed. Run the
-              checks again afterwards to reach them.
+              {t("Only the {shown} shown are touched — {more} more were found but not listed. Run the checks again afterwards to reach them.", { shown: plan.targets.length.toLocaleString(), more: plan.unlisted.toLocaleString() })}
             </p>
           )}
           {plan.skipped.length > 0 && (
             <p className="muted">
-              {plan.skipped.length.toLocaleString()}{" "}
-              {plan.skipped.length === 1 ? "item is" : "items are"} left alone.
+              {t(plan.skipped.length === 1 ? "{count} item is left alone." : "{count} items are left alone.", { count: plan.skipped.length.toLocaleString() })}
             </p>
           )}
         </ConfirmDialog>
@@ -985,19 +983,18 @@ function Confirms({
     case "rebuild-index":
       return (
         <ConfirmDialog
-          title="Rebuild the search index?"
-          confirmLabel="Rebuild"
+          title={t("Rebuild the search index?")}
+          confirmLabel={t("Rebuild")}
           tone="accent"
           onCancel={onDone}
           onConfirm={async () => {
             await actions.rebuildIndex();
             onDone();
-            toast("Index rebuilt");
+            toast(t("Index rebuilt"));
           }}
         >
           <p className="muted">
-            Reads every note again and builds search, tags and backlinks from scratch.
-            Search may be briefly incomplete while it runs. Your notes are not touched.
+            {t("Reads every note again and builds search, tags and backlinks from scratch. Search may be briefly incomplete while it runs. Your notes are not touched.")}
           </p>
         </ConfirmDialog>
       );
@@ -1020,6 +1017,7 @@ function PageActions({
   /** Where sync is turned on; a local vault's primary button leads there. */
   onGoToGeneral?: () => void;
 }) {
+  const t = useT();
   const { report, actions } = snapshot;
   const syncing = report.verdict === "syncing" || report.verdict === "connecting";
   const local = report.verdict === "local";
@@ -1036,13 +1034,13 @@ function PageActions({
           className="primary sm"
           onClick={() => actions.requestSignIn()}
         >
-          Sign in
+          {t("Sign in")}
         </button>
       ) : local && onGoToGeneral ? (
         // A local folder has nothing to sync "now"; the useful button is the
         // one that turns sync on, which lives on the General tab.
         <button type="button" className="primary sm" onClick={onGoToGeneral}>
-          Turn on sync
+          {t("Turn on sync")}
         </button>
       ) : (
         <AsyncButton
@@ -1050,11 +1048,11 @@ function PageActions({
           spinnerTone="on-accent"
           disabled={syncing || local}
           title={
-            local ? "This folder does not sync" : syncing ? "Already syncing" : undefined
+            local ? t("This folder does not sync") : syncing ? t("Already syncing") : undefined
           }
           onClick={() => actions.syncNow()}
         >
-          Sync now
+          {t("Sync now")}
         </AsyncButton>
       )}
       <button
@@ -1063,7 +1061,7 @@ function PageActions({
         disabled={loading}
         onClick={onRefresh}
       >
-        Refresh
+        {t("Refresh")}
       </button>
     </div>
   );

@@ -32,6 +32,12 @@ import { app } from "./app";
 import { search } from "./search";
 import { help } from "./help";
 import { shortcuts } from "./shortcuts";
+import { settings } from "./settings";
+import { vaultTabs } from "./vaulttabs";
+import { health } from "./health";
+import { billing } from "./billing";
+import { graph } from "./graph";
+import { dashboards } from "./dashboards";
 
-export const ko: Record<string, string> = { ...common, ...welcome, ...sidebar, ...sharing, ...app, ...search, ...help, ...shortcuts };
-export const KO_PARTS = { common, welcome, sidebar, sharing, app, search, help, shortcuts };
+export const ko: Record<string, string> = { ...common, ...welcome, ...sidebar, ...sharing, ...app, ...search, ...help, ...shortcuts, ...settings, ...vaultTabs, ...health, ...billing, ...graph, ...dashboards };
+export const KO_PARTS = { common, welcome, sidebar, sharing, app, search, help, shortcuts, settings, vaultTabs, health, billing, graph, dashboards };

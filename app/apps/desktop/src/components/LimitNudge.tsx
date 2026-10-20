@@ -1,4 +1,5 @@
-import { teamVaultLimitCopy, vaultLimitReason, type LimitKind } from "../lib/billing";
+import { vaultLimitReason, type LimitKind } from "../lib/billing";
+import { useT } from "../lib/i18n";
 import { useStore } from "../store";
 
 /**
@@ -15,6 +16,7 @@ export function LimitNudge({
   limit: number | null;
   onUpgrade: () => void;
 }) {
+  const t = useT();
   const freeLimits = useStore((s) => s.billingConfig?.freeLimits);
   const teamMode = useStore((s) => s.billingConfig?.model === "team");
   // The server is the authority (the 402 carries `limit`, and billingConfig
@@ -30,12 +32,18 @@ export function LimitNudge({
   // the button opens the plan comparison right here rather than a settings tab.
   const teamVault = teamMode && kind === "vault_limit";
   const message = teamVault
-    ? teamVaultLimitCopy(n)
-    : kind === "note_limit" ? (teamMode ? "This vault has reached its sync limit. Upgrade to Team to lift it." : `This Free vault has reached ${n.toLocaleString()} synced notes. Upgrade to Team to sync more; additional notes stay on this device.`) : kind === "member_limit"
-      ? `Free plan limit reached — this vault allows ${n} member${n === 1 ? "" : "s"}.`
+    ? n === 1
+      ? t("Free includes {count} synced vault on your account. Upgrade to Team for unlimited synced vaults.", { count: n })
+      : t("Free includes {count} synced vaults on your account. Upgrade to Team for unlimited synced vaults.", { count: n })
+    : kind === "note_limit" ? (teamMode ? t("This vault has reached its sync limit. Upgrade to Team to lift it.") : t("This Free vault has reached {count} synced notes. Upgrade to Team to sync more; additional notes stay on this device.", { count: n.toLocaleString() })) : kind === "member_limit"
+      ? n === 1
+        ? t("Free plan limit reached — this vault allows {count} member.", { count: n })
+        : t("Free plan limit reached — this vault allows {count} members.", { count: n })
       : // The cap counts FREE vaults only: a Team vault leaves the count, so
         // upgrading one of them opens a slot for another free vault.
-        `You're using all ${n} free vault${n === 1 ? "" : "s"}. Move one to a Team account ($10/seat/month, minimum 3 seats) — Team vaults don't count toward that limit — and you can create another.`;
+        n === 1
+          ? t("You're using all {count} free vault. Move one to a Team account ($10/seat/month, minimum 3 seats) — Team vaults don't count toward that limit — and you can create another.", { count: n })
+          : t("You're using all {count} free vaults. Move one to a Team account ($10/seat/month, minimum 3 seats) — Team vaults don't count toward that limit — and you can create another.", { count: n });
   return (
     <div className="limit-nudge">
       <span>{message}</span>
@@ -44,11 +52,11 @@ export function LimitNudge({
           className="link-btn"
           onClick={() => useStore.getState().requestUpgradeDialog({ reason: vaultLimitReason(n) })}
         >
-          Upgrade to Team
+          {t("Upgrade to Team")}
         </button>
       ) : (
         <button className="link-btn" onClick={onUpgrade}>
-          Upgrade →
+          {t("Upgrade →")}
         </button>
       )}
     </div>

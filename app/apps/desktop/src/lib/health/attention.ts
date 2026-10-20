@@ -3,6 +3,7 @@
 // Kept apart from the hooks so each decision is testable without React.
 
 import type { HealthFailures } from "./model";
+import { t } from "../i18n";
 import type { HealthInventory, HealthIssue, HealthIssueKind, VaultStats } from "./types";
 
 /**
@@ -93,41 +94,43 @@ export function dedupeDifferences(
   };
 }
 
+/** Picks the singular or plural sentence (both are dictionary keys) and fills
+ *  `{count}`; Korean gives the two the same text. */
 const plural = (n: number, one: string, many: string) =>
-  `${n.toLocaleString()} ${n === 1 ? one : many}`;
+  t(n === 1 ? one : many, { count: n.toLocaleString() });
 
 /** The group header for one kind of issue, in plain words. The rows under it
  *  then need nothing but their path. */
 export function issueGroupTitle(kind: HealthIssueKind, n: number): string {
   switch (kind) {
     case "too-large":
-      return `${plural(n, "note", "notes")} too large to sync`;
+      return plural(n, "{count} note too large to sync", "{count} notes too large to sync");
     case "no-write-access":
-      return `${plural(n, "edit", "edits")} blocked by read-only access`;
+      return plural(n, "{count} edit blocked by read-only access", "{count} edits blocked by read-only access");
     case "upload-failed":
-      return `${plural(n, "note", "notes")} couldn't upload`;
+      return plural(n, "{count} note couldn't upload", "{count} notes couldn't upload");
     case "register-failed":
-      return `${plural(n, "item", "items")} couldn't be added to the Remote Vault`;
+      return plural(n, "{count} item couldn't be added to the Remote Vault", "{count} items couldn't be added to the Remote Vault");
     case "limit":
-      return "Plan limit reached";
+      return t("Plan limit reached");
     case "unregistered":
-      return `${plural(n, "note isn't", "notes aren't")} registered`;
+      return plural(n, "{count} note isn't registered", "{count} notes aren't registered");
     case "no-access":
-      return "No access";
+      return t("No access");
     case "left-behind":
-      return `${plural(n, "note", "notes")} left on disk`;
+      return plural(n, "{count} note left on disk", "{count} notes left on disk");
     case "materialize-failed":
-      return `${plural(n, "note", "notes")} couldn't be written to this computer`;
+      return plural(n, "{count} note couldn't be written to this computer", "{count} notes couldn't be written to this computer");
     case "inbound-blocked":
-      return `${plural(n, "local change", "local changes")} held for safety`;
+      return plural(n, "{count} local change held for safety", "{count} local changes held for safety");
     case "orphan-history":
-      return "Leftover edit history";
+      return t("Leftover edit history");
     case "linked-paths":
-      return "Linked paths ignored by sync";
+      return t("Linked paths ignored by sync");
     case "shared-file":
-      return `${plural(n, "file", "files")} shared by more than one note`;
+      return plural(n, "{count} file shared by more than one note", "{count} files shared by more than one note");
     case "sync-paused":
-      return "Sync paused";
+      return t("Sync paused");
   }
 }
 
@@ -135,13 +138,13 @@ export function issueGroupTitle(kind: HealthIssueKind, n: number): string {
 export function issueRowSentence(issue: Pick<HealthIssue, "kind" | "title">): string {
   switch (issue.kind) {
     case "no-access":
-      return "You don't have access to this vault";
+      return t("You don't have access to this vault");
     case "limit":
-      return "Your plan's limit stopped new notes from syncing";
+      return t("Your plan's limit stopped new notes from syncing");
     case "orphan-history":
-      return "History kept for notes this vault no longer has";
+      return t("History kept for notes this vault no longer has");
     case "sync-paused":
-      return "Many notes were emptied at once, so sync is paused for a while";
+      return t("Many notes were emptied at once, so sync is paused for a while");
     default:
       return issue.title;
   }

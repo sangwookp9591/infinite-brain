@@ -13,6 +13,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { HealthIssue, HealthIssueKind, HealthRemedy } from "../lib/health/types";
 import { issueGroupTitle, issueRowSentence } from "../lib/health/attention";
 import { toast } from "../lib/toast";
+import { useT } from "../lib/i18n";
 import { AsyncButton } from "./AsyncButton";
 import { Spinner } from "./Spinner";
 import { Glyph, PathText, type HealthHandlers } from "./HealthShared";
@@ -47,9 +48,10 @@ export function HealthIssues({
   onDismiss?: (key: string) => void;
   onRestore?: (key: string) => void;
 }) {
+  const t = useT();
   const [pageSize, setPageSize] = useState(100);
   const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set<string>());
-  const [bulk, setBulk] = useState<{ verb: string; done: number; total: number } | null>(null);
+  const [bulk, setBulk] = useState<{ done: number; total: number } | null>(null);
   const rows = useRef(new Map<string, HTMLLIElement>());
 
   // Everything below counts and lists `live`; a dismissed row is out of the
@@ -103,13 +105,13 @@ export function HealthIssues({
             <Glyph name="check" size={18} />
           </span>
           <div>
-            <strong>Nothing needs attention</strong>
+            <strong>{t("Nothing needs attention")}</strong>
             <p className="muted">
               {hidden.length > 0
-                ? `${hidden.length} ${hidden.length === 1 ? "row is" : "rows are"} dismissed below.`
+                ? t(hidden.length === 1 ? "{count} row is dismissed below." : "{count} rows are dismissed below.", { count: hidden.length })
                 : syncEnabled
-                  ? "No sync errors reported."
-                  : "Sync is off, so there is nothing to report here."}
+                  ? t("No sync errors reported.")
+                  : t("Sync is off, so there is nothing to report here.")}
             </p>
           </div>
         </div>}
@@ -125,14 +127,14 @@ export function HealthIssues({
     apply(next);
   };
 
+  // Retry is the only bulk verb, so its wording lives here, not in state.
   const runBulk = async (
-    verb: string,
     list: HealthIssue[],
     run: (issue: HealthIssue) => Promise<unknown>,
   ) => {
     let done = 0;
     let failed = 0;
-    setBulk({ verb, done, total: list.length });
+    setBulk({ done, total: list.length });
     for (const issue of list) {
       try {
         await run(issue);
@@ -140,14 +142,14 @@ export function HealthIssues({
         failed++;
       }
       done++;
-      setBulk({ verb, done, total: list.length });
+      setBulk({ done, total: list.length });
     }
     setBulk(null);
     setSelected(new Set());
     toast(
       failed === 0
-        ? `${verb} ${done} ${done === 1 ? "note" : "notes"}`
-        : `${verb} ${done - failed} of ${done}; ${failed} failed`,
+        ? t(done === 1 ? "Retried {count} note" : "Retried {count} notes", { count: done })
+        : t("Retried {ok} of {done}; {failed} failed", { ok: done - failed, done, failed }),
     );
   };
 
@@ -155,22 +157,22 @@ export function HealthIssues({
     <div className="health-attention-list">
       {before}
       {(picked.length > 0 || bulk) && (
-        <div className="health-bulkbar" role="group" aria-label="Actions for selected issues">
+        <div className="health-bulkbar" role="group" aria-label={t("Actions for selected issues")}>
           <span className="health-bulk-count">
             {bulk
-              ? `${bulk.verb} ${bulk.done} of ${bulk.total}…`
-              : `${picked.length} selected`}
+              ? t("Retried {done} of {total}…", { done: bulk.done, total: bulk.total })
+              : t("{count} selected", { count: picked.length })}
           </span>
           {!bulk && retryable.length > 0 && (
             <AsyncButton
               className="ghost-pill sm"
               onClick={() =>
-                runBulk("Retried", retryable, (i) =>
+                runBulk(retryable, (i) =>
                   handlers.actions.retryDoc(i.docId as string),
                 )
               }
             >
-              Retry selected
+              {t("Retry selected")}
             </AsyncButton>
           )}
           {!bulk && deletable.length > 0 && (
@@ -182,12 +184,12 @@ export function HealthIssues({
               }
               title={
                 deletable.length > 1
-                  ? "Deleting more than one at a time is not offered here — delete them one by one so each confirm names the note"
+                  ? t("Deleting more than one at a time is not offered here — delete them one by one so each confirm names the note")
                   : undefined
               }
               disabled={deletable.length > 1}
             >
-              Delete selected
+              {t("Delete selected")}
             </button>
           )}
           {!bulk && onDismiss && (
@@ -199,12 +201,12 @@ export function HealthIssues({
                 setSelected(new Set());
               }}
             >
-              Ignore selected
+              {t("Ignore selected")}
             </button>
           )}
           {!bulk && (
             <button type="button" className="link-btn" onClick={() => setSelected(new Set())}>
-              Clear
+              {t("Clear")}
             </button>
           )}
         </div>
@@ -223,7 +225,7 @@ export function HealthIssues({
               )
             }
           />
-          Select all visible
+          {t("Select all visible")}
         </label>
       )}
 
@@ -262,7 +264,7 @@ export function HealthIssues({
       {leftBehindPaths.length === 0 && <LeftBehindErrors handlers={handlers} standalone />}
       {shown.length < matching.length && (
         <button type="button" onClick={() => setPageSize((size) => size + 100)}>
-          {`Show more (${matching.length - shown.length} remaining)`}
+          {t("Show more ({count} remaining)", { count: matching.length - shown.length })}
         </button>
       )}
       {hidden.length > 0 && <DismissedIssues rows={hidden} onRestore={onRestore} />}
@@ -293,17 +295,18 @@ function LeftBehindActions({
   paths: string[];
   handlers: HealthHandlers;
 }) {
+  const t = useT();
   const group = handlers.leftBehind;
   if (!group || paths.length === 0) return null;
   const running = group.run?.running ? group.run.verb : null;
   return (
-    <span className="health-group-actions" role="group" aria-label="Left on disk">
+    <span className="health-group-actions" role="group" aria-label={t("Left on disk")}>
       <AsyncButton
         className="ghost-pill sm"
         disabled={running != null}
         onClick={() => group.start("reregister", paths)}
       >
-        Re-register all
+        {t("Re-register all")}
       </AsyncButton>
       <button
         type="button"
@@ -312,7 +315,7 @@ function LeftBehindActions({
         aria-busy={running === "delete" || undefined}
         onClick={() => handlers.confirm({ kind: "delete-left-behind", paths })}
       >
-        <span className="async-btn-label">Delete all local copies</span>
+        <span className="async-btn-label">{t("Delete all local copies")}</span>
         {running === "delete" && <Spinner size="xs" tone="inherit" />}
       </button>
     </span>
@@ -329,13 +332,17 @@ function LeftBehindErrors({
   handlers: HealthHandlers;
   standalone?: boolean;
 }) {
+  const t = useT();
   const run = handlers.leftBehind?.run;
   if (!run || run.running || run.failed.length === 0) return null;
-  const verbed = run.verb === "delete" ? "Deleted" : "Re-registered";
   const list = (
     <ul className="health-group-errors" role="alert">
       <li className="health-group-status">
-        {`${verbed} ${(run.done - run.failed.length).toLocaleString()} of ${run.done.toLocaleString()}; ${run.failed.length.toLocaleString()} failed`}
+        {t(run.verb === "delete" ? "Deleted {ok} of {done}; {failed} failed" : "Re-registered {ok} of {done}; {failed} failed", {
+          ok: (run.done - run.failed.length).toLocaleString(),
+          done: run.done.toLocaleString(),
+          failed: run.failed.length.toLocaleString(),
+        })}
       </li>
       {run.failed.slice(0, 20).map((f) => (
         <li key={f.path}>
@@ -344,13 +351,13 @@ function LeftBehindErrors({
         </li>
       ))}
       {run.failed.length > 20 && (
-        <li className="muted">And {(run.failed.length - 20).toLocaleString()} more.</li>
+        <li className="muted">{t("And {count} more.", { count: (run.failed.length - 20).toLocaleString() })}</li>
       )}
     </ul>
   );
   return standalone ? (
     <div className="health-difference-group health-issue-group">
-      <div className="health-difference-grouphead"><h4>Left on disk</h4></div>
+      <div className="health-difference-grouphead"><h4>{t("Left on disk")}</h4></div>
       {list}
     </div>
   ) : list;
@@ -365,6 +372,7 @@ function DismissedIssues({
   rows: HealthIssue[];
   onRestore?: (key: string) => void;
 }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   return (
     <div className="health-ignored">
@@ -377,7 +385,7 @@ function DismissedIssues({
         <span className="health-chevron" data-open={open ? "" : undefined} aria-hidden="true">
           <Glyph name="chevron" />
         </span>
-        Ignored · {rows.length}
+        {t("Ignored · {count}", { count: rows.length })}
       </button>
       {open && (
         <ul className="health-ignored-list">
@@ -387,7 +395,7 @@ function DismissedIssues({
               {i.path && <PathText path={i.path} />}
               {onRestore && (
                 <button type="button" className="link-btn" onClick={() => onRestore(i.key)}>
-                  Show again
+                  {t("Show again")}
                 </button>
               )}
             </li>
@@ -428,6 +436,7 @@ function IssueRow({
   /** Hide this row (per vault, this device). Absent ⇒ no button. */
   onDismiss?: () => void;
 }) {
+  const t = useT();
   // The first remedy the issue can act on, plus a Re-register or Open beside
   // it when the issue offers one — at most two buttons on the line.
   const usable = issue.remedies.filter((r) => hasData(issue, r));
@@ -453,12 +462,12 @@ function IssueRow({
           className="health-issue-check"
           checked={selected}
           onChange={onSelect}
-          aria-label={`Select ${issue.title}${issue.path ? ` — ${issue.path}` : ""}`}
+          aria-label={issue.path ? t("Select {title} — {path}", { title: issue.title, path: issue.path }) : t("Select {title}", { title: issue.title })}
         />
         <span className="health-issue-summary" title={issue.why}>
           <span
             className="health-issue-badge"
-            aria-label={issue.severity === "error" ? "Error" : "Warning"}
+            aria-label={issue.severity === "error" ? t("Error") : t("Warning")}
           >
             <Glyph name="alert" size={13} />
           </span>
@@ -482,10 +491,10 @@ function IssueRow({
           <button
             type="button"
             className="link-btn health-issue-dismiss"
-            title="Hide this row for this vault on this device — it waits in the Ignored list"
+            title={t("Hide this row for this vault on this device — it waits in the Ignored list")}
             onClick={onDismiss}
           >
-            Ignore
+            {t("Ignore")}
           </button>
         )}
       </div>
@@ -525,6 +534,7 @@ function Remedy({
   /** The collapsed row's single button: a pill, not a text link. */
   emphasis?: boolean;
 }) {
+  const t = useT();
   const { actions, confirm, openNote } = handlers;
   const [copied, setCopied] = useState(false);
   const pill = emphasis ? "ghost-pill sm" : "link-btn";
@@ -536,19 +546,19 @@ function Remedy({
           className={pill}
           onClick={() => actions.retryDoc(issue.docId as string)}
         >
-          Retry
+          {t("Retry")}
         </AsyncButton>
       );
     case "open":
       return (
         <button type="button" className={pill} onClick={() => openNote(issue.path as string)}>
-          Open
+          {t("Open")}
         </button>
       );
     case "reveal":
       return (
         <AsyncButton className={pill} onClick={() => actions.reveal(issue.path as string)}>
-          Reveal
+          {t("Reveal")}
         </AsyncButton>
       );
     case "delete":
@@ -558,13 +568,13 @@ function Remedy({
           className={emphasis ? "ghost-pill sm danger" : "link-btn danger"}
           onClick={() => confirm({ kind: "delete", path: issue.path as string })}
         >
-          Delete
+          {t("Delete")}
         </button>
       );
     case "upgrade":
       return (
         <button type="button" className="primary sm" onClick={() => actions.openUpgrade()}>
-          Upgrade
+          {t("Upgrade")}
         </button>
       );
     case "reset-history":
@@ -576,13 +586,13 @@ function Remedy({
             confirm({ kind: "reset", docId: issue.docId as string, path: issue.path })
           }
         >
-          Reset history
+          {t("Reset history")}
         </button>
       );
     case "sign-in":
       return (
         <button type="button" className="primary sm" onClick={() => actions.requestSignIn()}>
-          Sign in
+          {t("Sign in")}
         </button>
       );
     case "export-copy":
@@ -591,7 +601,7 @@ function Remedy({
           className={pill}
           onClick={() => actions.exportCopy(issue.path as string)}
         >
-          Save a copy
+          {t("Save a copy")}
         </AsyncButton>
       );
     case "copy-details":
@@ -604,7 +614,7 @@ function Remedy({
             window.setTimeout(() => setCopied(false), 1500);
           }}
         >
-          {copied ? "Copied ✓" : "Copy details"}
+          {copied ? t("Copied ✓") : t("Copy details")}
         </AsyncButton>
       );
     case "reregister":
@@ -614,7 +624,7 @@ function Remedy({
           className={pill}
           onClick={() => confirm({ kind: "reregister", path: issue.path as string })}
         >
-          Re-register
+          {t("Re-register")}
         </button>
       );
     case "contact-owner":
@@ -626,12 +636,12 @@ function Remedy({
             const out = await actions.contactOwner();
             toast(
               out.owner
-                ? `Request copied — send it to ${out.owner.name} (${out.owner.email})`
-                : "Request copied to clipboard. This vault's owner is not known on this device yet.",
+                ? t("Request copied — send it to {name} ({email})", { name: out.owner.name, email: out.owner.email })
+                : t("Request copied to clipboard. This vault's owner is not known on this device yet."),
             );
           }}
         >
-          Contact the owner
+          {t("Contact the owner")}
         </AsyncButton>
       );
     default:
