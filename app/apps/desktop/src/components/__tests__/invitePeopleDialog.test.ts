@@ -8,7 +8,7 @@ import { InvitePeopleDialog } from "../InvitePeopleDialog";
 import { useStore } from "../../store";
 
 const api = vi.hoisted(() => ({ listVaults:vi.fn(),listAccessTree:vi.fn(),getJoinCodeDetails: vi.fn(), rotateJoinCode: vi.fn(), getAccessDefault: vi.fn(), setAccessDefault: vi.fn(), inviteMany: vi.fn() }));
-vi.mock("../../lib/auth/authManager", () => ({ authManager: { api, getServerUrl: () => "http://test.invalid" } }));
+vi.mock("../../lib/auth/authManager", () => ({ authManager: { api, getServerUrl: () => "https://test.invalid" } }));
 vi.mock("../../store", async () => {
   const { create } = await import("zustand");
   return { useStore: create(() => ({})) };
@@ -22,7 +22,7 @@ describe("Invite people dialog", () => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
     vi.clearAllMocks();
     (useStore as unknown as { setState: (s: Record<string, unknown>) => void }).setState({
-      serverUrl: "http://test.invalid", refreshVault: vi.fn().mockResolvedValue(undefined),
+      serverUrl: "https://test.invalid", refreshVault: vi.fn().mockResolvedValue(undefined),
     });
     api.getJoinCodeDetails.mockResolvedValue({ code: "2TG7KNEA", expiresAt: "2026-11-01T00:00:00Z" });
     api.rotateJoinCode.mockResolvedValue({ code: "NEWCODEA", expiresAt: "2026-11-08T00:00:00Z" });
@@ -96,7 +96,7 @@ describe("Invite people dialog", () => {
     const copy = document.body.querySelector<HTMLButtonElement>('button[aria-label="Copy invitation link for maya@team.com"]');
     expect(document.body.textContent).toContain("You can also share this link");
     await act(async () => copy?.click());
-    expect(writeText).toHaveBeenCalledWith("http://test.invalid/invite/invite-1");
+    expect(writeText).toHaveBeenCalledWith("https://test.invalid/invite/invite-1");
   });
 
   it("shows a shareable link when the server does not send email", async () => {
@@ -105,7 +105,7 @@ describe("Invite people dialog", () => {
     await type("maya@team.com");
     await act(async () => send().click());
     expect(document.body.textContent).toContain("Share this link with maya@team.com");
-    expect(document.body.querySelector(".invite-notice-link code")?.textContent).toBe("http://test.invalid/invite/invite-1");
+    expect(document.body.querySelector(".invite-notice-link code")?.textContent).toBe("https://test.invalid/invite/invite-1");
   });
 
   it("keeps the email failure reason beside the shareable link", async () => {
@@ -114,7 +114,7 @@ describe("Invite people dialog", () => {
     await type("maya@team.com");
     await act(async () => send().click());
     expect(document.body.textContent).toContain("couldn't be sent (smtp_unavailable)");
-    expect(document.body.querySelector(".invite-notice-link code")?.textContent).toBe("http://test.invalid/invite/invite-1");
+    expect(document.body.querySelector(".invite-notice-link code")?.textContent).toBe("https://test.invalid/invite/invite-1");
   });
 
   it("updates the existing New members default from the invite dialog", async () => {

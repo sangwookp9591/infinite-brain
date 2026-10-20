@@ -146,6 +146,10 @@ docker compose up -d
 
 Then, in the app, choose **your own server** when you sign in (or go to **Settings → Connection**) and enter its URL. Send teammates `https://<your server>/open/connect` and the app connects to the server on its own.
 
+### On the same Wi-Fi, without HTTPS
+
+A team in one office can run the server on one computer and connect over the local network. Set `BETTER_AUTH_URL` to that computer's LAN address, for example `http://192.168.1.20:3010`, and enter the same address in the app. Plain `http` is accepted only for this computer and local-network addresses (private IPv4 ranges, IPv6 local addresses and `.local` names); anything on the public internet must use `https`, so a session token never crosses the internet unencrypted.
+
 The full guide, covering HTTPS, email, file storage and backups, is in [`docs/DEPLOY.md`](docs/DEPLOY.md).
 
 ## 🧠 How it works

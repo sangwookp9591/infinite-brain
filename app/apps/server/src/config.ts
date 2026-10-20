@@ -69,15 +69,36 @@ function optional(name: string): string | undefined {
   return v === undefined || v === "" ? undefined : v;
 }
 
+/**
+ * Hosts a plain-http server origin may use: this machine, or the local network
+ * (private IPv4, IPv6 unique-local/link-local, `.local`). A team on one Wi-Fi
+ * runs the server on one computer and the others join it by its LAN address;
+ * over the public internet the origin must be https. Same rule as the desktop's
+ * `lib/localNetwork.ts`.
+ */
+export function isLocalNetworkHost(hostname: string): boolean {
+  const host = hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (host === "localhost" || host.endsWith(".local")) return true;
+  const v4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
+  if (v4) {
+    const [a, b] = [Number(v4[1]), Number(v4[2])];
+    return a === 127 || a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 169 && b === 254);
+  }
+  return host === "::1" || /^f[cd][0-9a-f]{2}:/.test(host) || /^fe[89ab][0-9a-f]:/.test(host);
+}
+
 /** Public server origin is explicit; forwarded headers and path-prefix aliases are unsupported. */
-function publicServerUrl(): string {
-  const value = required("BETTER_AUTH_URL", "http://localhost:3010");
+export function parsePublicServerUrl(value: string): string {
   const url = new URL(value);
   if (url.username || url.password || url.search || value.includes("#") || url.pathname !== "/"
-    || !(url.protocol === "https:" || (url.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)))) {
-    throw new Error("BETTER_AUTH_URL must be a public HTTPS origin (HTTP loopback allowed for development)");
+    || !(url.protocol === "https:" || (url.protocol === "http:" && isLocalNetworkHost(url.hostname)))) {
+    throw new Error("BETTER_AUTH_URL must be an HTTPS origin, or plain HTTP on this machine or the local network");
   }
   return url.origin;
+}
+
+function publicServerUrl(): string {
+  return parsePublicServerUrl(required("BETTER_AUTH_URL", "http://localhost:3010"));
 }
 
 export const config = {

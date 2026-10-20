@@ -6,6 +6,7 @@ import { rememberAvatarImage } from "./avatarIdentity";
 import { parseHealth, type ServerHealth } from "./serverFeatures";
 import { CLIENT_OUTDATED_CODE, CLIENT_VERSION, CLIENT_VERSION_PARAM } from "./clientVersion";
 import { APP_CHANNEL, APP_SCHEME } from "./deepLinkScheme";
+import { isLocalNetworkHost } from "./localNetwork";
 
 /**
  * Which build starts a checkout, so the server's success page hands back to
@@ -47,7 +48,11 @@ import type {
 // ALL remote traffic in packaged builds while dev kept working, which surfaced as
 // a missing "Continue with Google" button (the capability probe below fails
 // closed) plus "Load failed" on sign-in. Since self-hosting means the server URL
-// is not knowable at build time, connect-src allows `https:`/`wss:` broadly;
+// is not knowable at build time, connect-src allows `https:`/`wss:` broadly, and
+// `http:`/`ws:` too so a team can run a server on one machine and join it over
+// the same Wi-Fi. CSP cannot express "private IPs only", so that rule lives in
+// code: `normalizeServerUrl` and `resolveServerUrl` refuse plain http to any host
+// that is not this computer or the local network (`lib/localNetwork.ts`).
 // `script-src 'self'` stays the actual XSS boundary.
 export const LOCAL_SERVER_URL = "http://localhost:3010";
 // TODO(M0): point this at the hosted server after its endpoint is decided.
@@ -78,6 +83,14 @@ export const DEFAULT_SERVER_URL =
 export function resolveServerUrl(persisted: string | null | undefined): string {
   const clean = stripTrailingSlash((persisted ?? "").trim());
   if (!clean) return DEFAULT_SERVER_URL;
+  // A saved plain-http address on the public internet is never used: http is
+  // for this computer and the local network only (`isLocalNetworkHost`).
+  try {
+    const url = new URL(clean);
+    if (url.protocol === "http:" && !isLocalNetworkHost(url.hostname)) return DEFAULT_SERVER_URL;
+  } catch {
+    return DEFAULT_SERVER_URL;
+  }
   if (import.meta.env.DEV && !ENV_SERVER_URL && clean === PRODUCTION_SERVER_URL) {
     return DEFAULT_SERVER_URL;
   }

@@ -14,6 +14,9 @@
 // exactly like `resolveServerUrl` next door.
 
 import { DEFAULT_SERVER_URL } from "../api";
+import { isLocalNetworkHost } from "../localNetwork";
+
+export { isLocalNetworkHost };
 
 /**
  * What the user answered, persisted per device (`lib/prefs.ts`).
@@ -58,6 +61,8 @@ export function normalizeServerUrl(input: string): string | null {
   }
   if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return null;
   if (!parsed.hostname) return null;
+  // Plain http only on this computer or the local network (see above).
+  if (parsed.protocol === "http:" && !isLocalNetworkHost(parsed.hostname)) return null;
   const prefix = parsed.pathname.replace(/\/+$/, "");
   return `${parsed.origin}${prefix}`;
 }
@@ -96,11 +101,8 @@ export function plainHttpHint(url: string): string | null {
     return null;
   }
   if (parsed.protocol !== "http:") return null;
-  const host = parsed.hostname;
-  if (host === "localhost" || host === "127.0.0.1" || host === "[::1]" || host === "::1") {
-    return null;
-  }
-  return "Installed builds can only use plain http on localhost — this server needs https.";
+  if (isLocalNetworkHost(parsed.hostname)) return null;
+  return "Plain http works only on this computer or your local network — this server needs https.";
 }
 
 /**
