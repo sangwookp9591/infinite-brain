@@ -271,72 +271,23 @@ available. Browser simulation covers the host layout only, not native rendering.
 
 ## Development verification
 
-### Imported template library and previews
+### Original template library and previews
 
-The library contains 26 templates: 20 upstream dashboard templates, three original
-Infinite Brain Agentic OS templates (Orbit, Waystation, and Meridian), and three adapted
-user-supplied deployments (Cosmos, Sales OS, and Marketing OS). Bundled HTML,
-styles, scripts, fonts and images live in `app/apps/desktop/public/dashboard-templates/`.
-`SOURCES.json` records repositories, revisions, source-page hashes and final artifact
-hashes for the upstream imports; adjacent license files retain attribution. The
-20 imports preserve their upstream designs. Legacy personal starter files remain
-in source but are not in this catalog.
+The dashboard gallery contains eight original Infinite Brain templates: Daily,
+Team Hub, Projects, Research, Knowledge Map, Weekly Review, Meetings, and Blank.
+Each self-contained HTML file and its WebP thumbnail live under
+`app/apps/desktop/public/`. Templates use the optional read-only SDK for vault
+notes; without the SDK they render clearly labeled sample data. The sandbox
+blocks network access, and templates preserve dark/light themes and responsive
+layouts.
 
-The three deployment adaptations retain the supplied interfaces and replace the
-original business/customer data with fictional sample workspaces. `DEPLOYMENTS.json`
-records source URLs and hashes; `deployed-os-NOTICE.txt` records attribution and
-bundled dependency licenses. Cosmos preserves the orbital graph, search, inspectors,
-briefing, radar, and command console. Sales OS has seven sections with call briefs,
-pipeline charts, decisions, context, and playbooks. Marketing OS has ten pages,
-six palettes, and the original canvas core. They make no network requests and do
-not connect to the original services. Demo decisions, captures, and tasks last for
-the current visit only. Playbook actions display copyable prompts for use with a
-separately configured agent. Cosmos and Marketing OS start dark; Sales OS starts
-light. Each includes an explicit theme control. Reduced-motion preferences and
-motion controls are preserved.
+Gallery cards lazy-load their static thumbnails and do not start dashboard
+scripts. Only clicking Preview mounts the interactive sandboxed HTML; returning
+to the library unmounts it. A saved dashboard is recognized by an exact
+`infinitebrain-template-id: <id>` line in its header comment.
 
-Orbit is a self-contained HTML note with Command, Missions, Skills, Memory,
-Signals and Activity pages. It includes dark/light themes, an original Canvas
-particle sculpture, sample reports and session-only simulated skill runs. Its
-`DEMO` object is the customization entry point. It makes no network requests,
-launches no agents and does not modify vault data. Saved copies start in dark mode
-regardless of the host theme; the user can choose light mode for that visit. Animation uses a single
-timestamp-based `requestAnimationFrame` loop, precomputed edges, capped pixel
-density, visibility gating and the system reduced-motion preference; a pause
-control is also available. Fonts and their OFL notices are embedded in the HTML.
-
-Design research: the [Agentic OS walkthrough](https://www.youtube.com/watch?v=EOdXR6lU5ZA)
-informed the separation of workflows, knowledge and outputs. Orbit is an original
-implementation, not a copy of its UI or source. Animation decisions follow
-[MDN performance guidance](https://developer.mozilla.org/en-US/docs/Web/Performance/Guides/Fundamentals)
-and [reduced-motion support](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/At-rules/%40media/prefers-reduced-motion).
-
-Gallery cards use 900 × 900 WebP screenshots in `public/dashboard-thumbnails/`.
-They are captured from the corresponding bundled HTML at a 1200 × 1200 viewport,
-then downsampled and compressed. Regenerate the matching thumbnail when updating
-a template. Card images are lazy-loaded and asynchronously decoded. No card mounts
-an iframe or starts chart scripts. Only clicking Preview mounts the interactive,
-sandboxed HTML; returning to the library unmounts it. For a recognized saved
-dashboard, the expanded preview opens the vault file so edits remain visible.
-Card images represent the original template, not a live snapshot of user edits.
-
-Native template previews use the separate `infinitebrain-view` protocol's fixed
-`/__infinitebrain/template/<id>` allowlist and guest CSP, without a vault SDK bridge.
-The simulator serves the same bundled HTML directly. Public assets avoid Vite
-rewriting these self-contained pages as application entry points. Existing vault
-HTML with the old template-credit banner has that banner hidden during rendering.
-
-Bundling preserves upstream design and license notices, inlines dependencies,
-removes remote tracking, and provides session-only storage for opaque previews.
-Webpack eval wrappers are expanded into scoped functions to fit the guest CSP.
-Tabler uses MIT-licensed ApexCharts 4.2.0 (its license is included). Malformed font
-source declarations and Light Bootstrap's leftover Sass sidebar-width expression
-are repaired for browser parsing. Agent prompts require replacing demo values with
-supported vault facts rather than inventing metrics.
-
-Validate imported CSS, inline JavaScript, offline dependencies, size limits and
-thumbnail availability with `node scripts/verify-dashboard-templates.mjs` from
-`app/apps/desktop/`.
+Validate the registered set, inline CSS/JavaScript and thumbnail formats with
+`node scripts/verify-dashboard-templates.mjs` from `app/apps/desktop/`.
 
 ### Checks
 
@@ -358,38 +309,4 @@ DOM overlays.
 Dashboard chat closes on outside clicks, including the embedded page, while keeping
 its draft and any running update. Chat and Activity replace each other. Sending a
 message clears the composer immediately; the next draft stays editable and survives
-completion. Paper and Material templates receive a scoped 24px top inset in both
-new templates and rendered saved copies; rendering does not rewrite vault files.
-
-
-### Waystation and Meridian
-
-Alongside Orbit, the Agentic OS category includes two more original Apache-2.0
-HTML templates. All three start dark independently of the host and have an explicit
-light-mode toggle. Their sample interactions last for the current visit only.
-
-- **Waystation** is an original SVG isometric studio: six selectable stations,
-  four walking couriers, a work queue, routine toggles, and a searchable archive.
-  A demo request clears the composer, moves through draft/review, and adds a sample
-  artifact. Selecting either a desk or a roster entry selects the same station.
-- **Meridian** organizes apps, routines, memory, and skills around an interactive
-  artifact atlas. It includes a sample calendar and inbox, live timezone clocks,
-  a filtered artifact library, memory collections, agent/effort selectors and
-  simulated skill runs that add reviewable outputs.
-
-Neither template executes agents, schedules background tasks, connects accounts,
-changes permissions, or sends network requests. Their `DEMO` objects and top-of-file
-comments are the customization entry points. Both embed their fonts and license
-notices. Motion can be paused, respects reduced-motion settings, and stops when
-hidden or out of view. Waystation uses a timestamp-based animation loop; Meridian
-uses CSS transforms for its orbital markers.
-
-Concept research: the user-provided isometric workspace screenshot and
-[the RoboNuggets Agentic OS walkthrough](https://www.youtube.com/watch?v=8NSyI-npJCU),
-reviewed through its full transcript and dashboard visuals. The four-part structure
-informed Meridian; the artwork, names, layouts, code and sample content are original.
-
-The shared template-spacing stylesheet also restores symmetric responsive gutters
-for Star Admin, Purple Admin, Majestic, Sneat, and PlainAdmin. Majestic's header,
-tabs, report button and charts share the same outer inset. The native renderer
-injects the current rules into saved templates without rewriting the vault file.
+completion. Rendering does not rewrite vault files.

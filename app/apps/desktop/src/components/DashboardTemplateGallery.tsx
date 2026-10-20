@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { useEffect, useRef, useState } from "react";
 import { DASHBOARD_TEMPLATES, type DashboardTemplate } from "../lib/dashboard/templates";
+import { useT } from "../lib/i18n";
 import "./DashboardTemplateGallery.css";
 import { GlowCard } from "./kit/GlowCard";
 import { VaultDashboardPreview } from "./VaultDashboardPreview";
@@ -13,6 +14,7 @@ export async function templateHtml(template: DashboardTemplate): Promise<string>
 // Previews are opaque, network-free frames. They never receive the vault bridge.
 const PREVIEW_CSP = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; connect-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'";
 export function DashboardTemplatePreview({ template, expanded = false }: { template: DashboardTemplate; expanded?: boolean }) {
+  const t = useT();
   const host = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
   const [html, setHtml] = useState<string | null>(null);
@@ -44,9 +46,9 @@ export function DashboardTemplatePreview({ template, expanded = false }: { templ
   const frameWidth = expanded ? Math.max(720, width) : 1200;
   const scale = width / frameWidth;
   return <div ref={host} className={`dashboard-template-preview${expanded ? " expanded" : ""}`}>
-    {visible && (html || url) ? <iframe title={`${template.name} preview`} scrolling={expanded ? "auto" : "no"} sandbox="allow-scripts" referrerPolicy="no-referrer" src={url || undefined} srcDoc={url ? undefined : html ?? undefined} tabIndex={-1} aria-hidden={!expanded}
+    {visible && (html || url) ? <iframe title={t("{name} preview", { name: t(template.name) })} scrolling={expanded ? "auto" : "no"} sandbox="allow-scripts" referrerPolicy="no-referrer" src={url || undefined} srcDoc={url ? undefined : html ?? undefined} tabIndex={-1} aria-hidden={!expanded}
       style={{ width: frameWidth, height: expanded ? height / scale : 1200, transform: `scale(${scale})` }} />
-      : <div className="dashboard-preview-placeholder" style={{ background: template.palette?.[2] }}><span>{error ? "Preview unavailable" : "Loading preview…"}</span></div>}
+      : <div className="dashboard-preview-placeholder" style={{ background: template.palette?.[2] }}><span>{error ? t("Preview unavailable") : t("Loading preview…")}</span></div>}
   </div>;
 }
 
@@ -54,38 +56,40 @@ export function DashboardTemplateGallery({ selectedId, onUse, disabled = false, 
   selectedId?: string; onUse: (template: DashboardTemplate) => void; disabled?: boolean;
   saved?: Record<string, string>; currentId?: string; onOpen?: (path: string) => void; onUnset?: () => void;
 }) {
+  const t = useT();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All styles");
   const [preview, setPreview] = useState<DashboardTemplate | null>(null);
-  const categories = ["All styles", ...new Set(DASHBOARD_TEMPLATES.map((t) => t.category).filter(Boolean))];
-  const templates = DASHBOARD_TEMPLATES.filter((t) => (category === "All styles" || t.category === category) && `${t.name} ${t.author ?? ""} ${t.description}`.toLowerCase().includes(query.toLowerCase()));
+  const categories = ["All styles", ...new Set(DASHBOARD_TEMPLATES.map((tpl) => tpl.category).filter(Boolean))];
+  // Search matches the English wire text and what the user sees.
+  const templates = DASHBOARD_TEMPLATES.filter((tpl) => (category === "All styles" || tpl.category === category) && `${tpl.name} ${t(tpl.name)} ${tpl.author ?? ""} ${tpl.description} ${t(tpl.description)}`.toLowerCase().includes(query.toLowerCase()));
   if (preview) return <div className="dashboard-gallery-expanded">
     <div className="dashboard-gallery-toolbar">
-      <button type="button" className="secondary" onClick={() => setPreview(null)}>← All templates</button>
-      <span><strong>{preview.name}</strong> · {preview.author}</span>
+      <button type="button" className="secondary" onClick={() => setPreview(null)}>{t("← All templates")}</button>
+      <span><strong>{t(preview.name)}</strong> · {preview.author}</span>
       <div className="dashboard-gallery-preview-actions">
         {currentId === preview.id ? <>
-          {onOpen && <button type="button" className="primary" onClick={() => onOpen(saved[preview.id])}>Open</button>}
-          {onUnset && <button type="button" className="secondary" disabled={disabled} onClick={onUnset}>Unset Home</button>}
-        </> : <button type="button" className="primary" disabled={disabled} onClick={() => { onUse(preview); setPreview(null); }}>Use this template</button>}
+          {onOpen && <button type="button" className="primary" onClick={() => onOpen(saved[preview.id])}>{t("Open")}</button>}
+          {onUnset && <button type="button" className="secondary" disabled={disabled} onClick={onUnset}>{t("Unset Home")}</button>}
+        </> : <button type="button" className="primary" disabled={disabled} onClick={() => { onUse(preview); setPreview(null); }}>{t("Use this template")}</button>}
       </div>
     </div>
     {saved[preview.id] ? <VaultDashboardPreview path={saved[preview.id]} /> : <DashboardTemplatePreview template={preview} expanded />}
   </div>;
   return <div className="dashboard-gallery">
-    <div className="dashboard-gallery-toolbar"><div className="dashboard-gallery-filters" aria-label="Template styles">{categories.map((c) => <button key={c} type="button" aria-pressed={category === c} onClick={() => setCategory(c)}>{c}</button>)}</div><input aria-label="Search dashboard templates" placeholder="Search templates or designers…" value={query} onChange={(e) => setQuery(e.target.value)} /></div>
-    <div className="dashboard-gallery-grid" role="group" aria-label="Dashboard template">
+    <div className="dashboard-gallery-toolbar"><div className="dashboard-gallery-filters" aria-label={t("Template styles")}>{categories.map((c) => <button key={c} type="button" aria-pressed={category === c} onClick={() => setCategory(c)}>{t(c)}</button>)}</div><input aria-label={t("Search dashboard templates")} placeholder={t("Search templates or designers…")} value={query} onChange={(e) => setQuery(e.target.value)} /></div>
+    <div className="dashboard-gallery-grid" role="group" aria-label={t("Dashboard template")}>
       {templates.map((template) => <GlowCard key={template.id} className={`dashboard-gallery-card${selectedId === template.id || currentId === template.id ? " selected" : ""}`}>
         <div className="dashboard-gallery-picture">
-          {template.thumbnailUrl ? <img className="dashboard-template-thumbnail" src={template.thumbnailUrl} alt="" width={900} height={900} loading="lazy" decoding="async" draggable={false} /> : <div className="dashboard-preview-placeholder" style={{ background: template.palette?.[2] }}>Preview available on click</div>}
+          {template.thumbnailUrl ? <img className="dashboard-template-thumbnail" src={template.thumbnailUrl} alt="" width={900} height={900} loading="lazy" decoding="async" draggable={false} /> : <div className="dashboard-preview-placeholder" style={{ background: template.palette?.[2] }}>{t("Preview available on click")}</div>}
         </div>
-        <h3 className="dashboard-gallery-card-name">{template.name}{currentId === template.id && <span className="dashboard-current-badge">Current Home</span>}</h3>
+        <h3 className="dashboard-gallery-card-name">{t(template.name)}{currentId === template.id && <span className="dashboard-current-badge">{t("Current Home")}</span>}</h3>
         <div className="dashboard-gallery-card-actions">
-          <button type="button" className="secondary" aria-label={`Show preview of ${template.name}`} onClick={() => setPreview(template)}>Show preview</button>
-          {currentId !== template.id && <button type="button" className="primary" disabled={disabled} aria-pressed={selectedId === template.id} aria-label={`Use ${template.name}`} onClick={() => onUse(template)}>{selectedId === template.id ? "Selected ✓" : "Use template"}</button>}
+          <button type="button" className="secondary" aria-label={t("Show preview of {name}", { name: t(template.name) })} onClick={() => setPreview(template)}>{t("Show preview")}</button>
+          {currentId !== template.id && <button type="button" className="primary" disabled={disabled} aria-pressed={selectedId === template.id} aria-label={t("Use {name}", { name: t(template.name) })} onClick={() => onUse(template)}>{selectedId === template.id ? t("Selected ✓") : t("Use template")}</button>}
         </div>
       </GlowCard>)}
-      {templates.length === 0 && <p className="dashboard-gallery-empty">No templates match. Try another style or search.</p>}
+      {templates.length === 0 && <p className="dashboard-gallery-empty">{t("No templates match. Try another style or search.")}</p>}
     </div>
   </div>;
 }

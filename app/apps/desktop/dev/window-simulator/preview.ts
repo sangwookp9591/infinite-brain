@@ -11,7 +11,7 @@ import {
 import { fixtureIpc } from "./fixture-ipc";
 import { registerDevTools } from "../webmcp";
 import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
-import dailyDashboard from "../../src/dashboards/templates/daily-home.html?raw";
+import dailyDashboard from "../../public/dashboard-templates/ib-daily.html?raw";
 const params = new URLSearchParams(location.search);
 const surface = params.get("surface");
 document.documentElement.dataset.platform = params.get("platform") === "macos" ? "macos" : "windows";
@@ -344,7 +344,7 @@ if (surface === "onboarding") {
 } else {
   await import("/src/main.tsx");
   if (surface === "dashboard-dialog") {
-    window.setTimeout(() => window.dispatchEvent(new CustomEvent("infinitebrain:new-dashboard", { detail: { templateId: "daily" } })), 100);
+    window.setTimeout(() => window.dispatchEvent(new CustomEvent("infinitebrain:new-dashboard", { detail: { templateId: "ib-daily" } })), 100);
   } else if (surface === "dashboard-manage") {
     window.setTimeout(() => window.dispatchEvent(new CustomEvent("infinitebrain:new-dashboard", { detail: { manage: true } })), 100);
   }

@@ -66,33 +66,17 @@ pub fn handle_request<R: tauri::Runtime>(
     });
 }
 
+// The bundled gallery templates (public/dashboard-templates/), the only ids this
+// route serves. Keep in step with DASHBOARD_TEMPLATES in src/lib/dashboard/templates.ts.
 const TEMPLATE_IDS: &[&str] = &[
-    "orbit-agentic-os",
-    "waystation-agentic-os",
-    "meridian-agentic-os",
-    "cosmos-agentic-os",
-    "sales-os",
-    "marketing-os",
-    "startbootstrap-sb-admin",
-    "material-dashboard-v3",
-    "mazer",
-    "corona-free-dark-bootstrap-admin-template",
-    "StarAdmin-Free-Bootstrap-Admin-Template",
-    "materio-bootstrap-html-admin-template-free",
-    "sneat-html-admin-template-free",
-    "PurpleAdmin-Free-Admin-Template",
-    "startbootstrap-sb-admin-2",
-    "light-bootstrap-dashboard",
-    "AdminLTE",
-    "plainadmin",
-    "argon-dashboard",
-    "tabler",
-    "now-ui-dashboard",
-    "paper-dashboard",
-    "adminkit",
-    "MajesticAdmin-Free-Bootstrap-Admin-Template",
-    "soft-ui-dashboard",
-    "black-dashboard"
+    "ib-daily",
+    "ib-team-hub",
+    "ib-projects",
+    "ib-research",
+    "ib-knowledge-map",
+    "ib-weekly-review",
+    "ib-meetings",
+    "ib-blank",
 ];
 
 fn serve_template<R: tauri::Runtime>(app: &tauri::AppHandle<R>, id: &str, method: &str) -> AppResult<Response<Vec<u8>>> {

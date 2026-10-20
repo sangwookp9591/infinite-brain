@@ -3,6 +3,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import * as ipc from "../lib/ipc";
 import { useStore } from "../store";
+import { useT } from "../lib/i18n";
 import {
   DASHBOARD_TEMPLATES,
   copyDashboardPrompt,
@@ -50,8 +51,8 @@ function availableName(
 }
 
 function templateName(id: string): string {
-  if (id === "daily") return "Home";
-  if (id === "blank") return "Dashboard";
+  if (id === "ib-daily") return "Home";
+  if (id === "ib-blank") return "Dashboard";
   return (
     DASHBOARD_TEMPLATES.find((template) => template.id === id)?.name ?? "Home"
   );
@@ -85,6 +86,7 @@ function DashboardFolderPicker({
   disabled: boolean;
   onChange: (folder: string) => void;
 }) {
+  const t = useT();
   const id = useId();
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
@@ -150,7 +152,7 @@ function DashboardFolderPicker({
         type="button"
         className="dashboard-folder-trigger"
         disabled={disabled}
-        aria-label={`Folder: ${value || "Vault root"}`}
+        aria-label={t("Folder: {folder}", { folder: value || t("Vault root") })}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={open ? id : undefined}
@@ -163,7 +165,7 @@ function DashboardFolderPicker({
         }}
       >
         <FolderIcon />
-        <span>{value || "Vault root"}</span>
+        <span>{value || t("Vault root")}</span>
         <svg
           className="dashboard-folder-chevron"
           viewBox="0 0 16 16"
@@ -181,7 +183,7 @@ function DashboardFolderPicker({
           className="dashboard-folder-options"
           style={{ maxHeight: menuHeight }}
           role="listbox"
-          aria-label="Folder"
+          aria-label={t("Folder")}
         >
           {folders.map((path, index) => (
             <button
@@ -193,7 +195,7 @@ function DashboardFolderPicker({
               role="option"
               aria-selected={value === path}
               tabIndex={active === index ? 0 : -1}
-              title={path || "Vault root"}
+              title={path || t("Vault root")}
               onFocus={() => setActive(index)}
               onClick={() => {
                 onChange(path);
@@ -201,7 +203,7 @@ function DashboardFolderPicker({
               }}
             >
               <FolderIcon />
-              <span>{path || "Vault root"}</span>
+              <span>{path || t("Vault root")}</span>
               <span className="dashboard-folder-check" aria-hidden="true">
                 {value === path ? "✓" : ""}
               </span>
@@ -214,6 +216,7 @@ function DashboardFolderPicker({
 }
 
 export function HomeDashboardDialog() {
+  const t = useT();
   const vault = useStore((s) => s.vault);
   const tree = useStore((s) => s.tree);
   const titles = useStore((s) => s.titles);
@@ -348,7 +351,7 @@ export function HomeDashboardDialog() {
       /[\\/:*?"<>|\x00-\x1f]/.test(name) ||
       name.trim().startsWith(".")
     ) {
-      setNameError("Choose a valid file name.");
+      setNameError(t("Choose a valid file name."));
       nameInput.current?.focus();
       return;
     }
@@ -359,13 +362,13 @@ export function HomeDashboardDialog() {
     try {
       path = dashboardPath(folder ? `${folder}/${fileName}` : fileName);
     } catch (error) {
-      setNameError(error instanceof Error ? error.message : "Choose a valid file name.");
+      setNameError(error instanceof Error ? error.message : t("Choose a valid file name."));
       nameInput.current?.focus();
       return;
     }
     if (!created && existingPaths().has(path.toLowerCase())) {
       setNameError(
-        "A file with this name already exists in this folder. Choose another name.",
+        t("A file with this name already exists in this folder. Choose another name."),
       );
       nameInput.current?.focus();
       return;
@@ -376,12 +379,12 @@ export function HomeDashboardDialog() {
     try {
       if (!created) {
         if (!folder && useStore.getState().rootFrozen)
-          throw new Error("This vault’s root is frozen. Choose a folder.");
+          throw new Error(t("This vault’s root is frozen. Choose a folder."));
         const content = kind === "link" ? internetShortcut(url) : await templateHtml(selected);
         if (!current()) return;
         if (folder.toLowerCase() === "dashboards") {
           if (useStore.getState().rootFrozen && !useStore.getState().tree?.children?.some((node) => node.isDir && node.path.toLowerCase() === folder.toLowerCase()))
-            throw new Error("This vault’s root is frozen. Choose an existing folder.");
+            throw new Error(t("This vault’s root is frozen. Choose an existing folder."));
           if (!current()) return;
           await ipc.ensureFolder(folder, requestEpoch);
           if (!current()) return;
@@ -394,7 +397,7 @@ export function HomeDashboardDialog() {
         if (!current()) return;
         if (!wasCreated) {
           setNameError(
-            "A file with this name already exists in this folder. Choose another name.",
+            t("A file with this name already exists in this folder. Choose another name."),
           );
           nameInput.current?.focus();
           return;
@@ -476,15 +479,15 @@ export function HomeDashboardDialog() {
         <div className="dashboard-dialog-heading">
           <h2 id="new-dashboard-title">
             {created
-              ? "Your dashboard is ready"
+              ? t("Your dashboard is ready")
               : kind === "link"
-                ? "Add dashboard from link"
-                : manage ? "Home & dashboards" : configuring ? `Set up ${selected.name}` : "New dashboard"}
+                ? t("Add dashboard from link")
+                : manage ? t("Home & dashboards") : configuring ? t("Set up {name}", { name: t(selected.name) }) : t("New dashboard")}
           </h2>
           <button
             type="button"
             className="icon-btn"
-            aria-label="Close"
+            aria-label={t("Close")}
             disabled={busy}
             onClick={close}
           >
@@ -503,21 +506,21 @@ export function HomeDashboardDialog() {
         {manage ? <VaultDashboardsTab onClose={close} onNew={(id) => { if (id) setTemplateId(id); setManage(false); setConfiguring(true); }} /> : created && setAsHome ? (
           <>
             <p className="dashboard-dialog-description">
-              {busy ? "Setting up your Home…" : `${created} was created. Finish setting it as your Home.`}
+              {busy ? t("Setting up your Home…") : t("{name} was created. Finish setting it as your Home.", { name: created })}
             </p>
             <div className="dashboard-dialog-footer">
               <button type="button" className="primary" disabled={busy} onClick={() => void create()}>
-                {busy ? "Setting Home…" : "Retry setting Home"}
+                {busy ? t("Setting Home…") : t("Retry setting Home")}
               </button>
             </div>
           </>
         ) : created ? (
           <>
             <p className="dashboard-dialog-description">
-              <strong>{created}</strong> is an ordinary file in your vault.{" "}
+              <strong>{created}</strong>{t(" is an ordinary file in your vault.")}{" "}
               {kind === "html"
-                ? "Ask your agent to replace the examples using your notes."
-                : "Share and pin it like any note. Some sites open in your browser."}
+                ? t("Ask your agent to replace the examples using your notes.")
+                : t("Share and pin it like any note. Some sites open in your browser.")}
             </p>
             <div className="dashboard-dialog-footer">
               {agents?.map((agent) => (
@@ -529,7 +532,7 @@ export function HomeDashboardDialog() {
                     setKind(null);
                     requestDashboardAgent({ agent: agent.agent, path: created, expectedEpoch });
                   }}>
-                  Update with {agent.agent === "claude" ? "Claude" : "Codex"}
+                  {t("Update with {agent}", { agent: agent.agent === "claude" ? "Claude" : "Codex" })}
                 </button>
               ))}
               {agents?.length === 0 && kind === "html" && (
@@ -547,7 +550,7 @@ export function HomeDashboardDialog() {
                       .catch((e) => setError(String(e)))
                   }
                 >
-                  {copied ? "Prompt copied" : "Copy agent prompt"}
+                  {copied ? t("Prompt copied") : t("Copy agent prompt")}
                 </button>
               )}
               <button
@@ -562,10 +565,10 @@ export function HomeDashboardDialog() {
                     .catch((e) => setError(String(e)))
                 }
               >
-                Set as my home
+                {t("Set as my home")}
               </button>
               <button type="button" className="primary" disabled={busy} onClick={close}>
-                Done
+                {t("Done")}
               </button>
             </div>
           </>
@@ -573,15 +576,15 @@ export function HomeDashboardDialog() {
           <>
             <p className="dashboard-dialog-description">
               {kind === "html"
-                ? configuring ? "Give your dashboard a name and choose where to save it." : "Choose an original dashboard design. Preview it, then let Claude or Codex connect it to your vault."
-                : "Save a link to a dashboard or artifact in your vault."}
+                ? configuring ? t("Give your dashboard a name and choose where to save it.") : t("Choose an original dashboard design. Preview it, then let Claude or Codex connect it to your vault.")
+                : t("Save a link to a dashboard or artifact in your vault.")}
             </p>
             {kind === "html" && !configuring && (
               <DashboardTemplateGallery selectedId={templateId} disabled={busy} onUse={(template) => { setTemplateId(template.id); setConfiguring(true); }} />
             )}
             {configuring && <div className="dashboard-file-fields">
               <div className="dashboard-field">
-                <label htmlFor={`${fieldId}-name`}>File name</label>
+                <label htmlFor={`${fieldId}-name`}>{t("File name")}</label>
                 <div
                   className={`dashboard-name-input${nameError ? " is-invalid" : ""}`}
                 >
@@ -616,7 +619,7 @@ export function HomeDashboardDialog() {
                 )}
               </div>
               <div className="dashboard-field">
-                <span className="dashboard-field-label">Folder</span>
+                <span className="dashboard-field-label">{t("Folder")}</span>
                 <DashboardFolderPicker
                   value={folder}
                   folders={folders}
@@ -631,7 +634,7 @@ export function HomeDashboardDialog() {
             }
             {kind === "link" && (
               <div className="dashboard-field dashboard-url-field">
-                <label htmlFor={`${fieldId}-url`}>Dashboard URL</label>
+                <label htmlFor={`${fieldId}-url`}>{t("Dashboard URL")}</label>
                 <input
                   id={`${fieldId}-url`}
                   type="url"
@@ -655,7 +658,7 @@ export function HomeDashboardDialog() {
                 disabled={busy}
                 onClick={close}
               >
-                Cancel
+                {t("Cancel")}
               </button>
               {configuring && <button
                 type="button"
@@ -665,7 +668,7 @@ export function HomeDashboardDialog() {
                 }
                 onClick={() => void create()}
               >
-                {busy ? "Adding…" : setAsHome ? "Set as Home" : "Add to vault"}
+                {busy ? t("Adding…") : setAsHome ? t("Set as Home") : t("Add to vault")}
               </button>}
             </div>
           </>
