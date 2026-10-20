@@ -56,6 +56,11 @@ const MAX_CHUNKS: usize = 16;
 /// How many vector hits join a search. More than this from a 768-d cosine
 /// ranking is mostly noise: unrelated text still scores ~0.6 (B0 §4.6).
 const SEMANTIC_HITS: usize = 12;
+/// A vector hit must score within this of the best one. Absolute thresholds do
+/// not work here (unrelated text scores 0.6-0.72, same-topic 0.85-0.93, B0
+/// §4.6), so the cut is relative: without it a small vault returns every note.
+/// ponytail: a starting value; tune with the B1 retrieval evaluation.
+const RELATIVE_MARGIN: f32 = 0.08;
 /// Notes embedded per pass of the background loop, between which the index
 /// lock is free and a search can run.
 const BATCH_NOTES: usize = 8;
@@ -71,14 +76,15 @@ pub enum Status {
     /// This build has no engine (Windows and Linux for now).
     Unsupported,
     /// Off. `downloaded` says whether turning it on needs the 310 MB again.
+    /// `model_bytes` everywhere is what is on disk now, a partial download included.
     Off { downloaded: bool, model_bytes: u64 },
     Downloading { received: u64, total: u64 },
     /// Loading the model and compiling the GPU shaders once.
     Preparing,
     On { model_bytes: u64, indexed: u64, total: u64 },
     /// The device cannot run it; `reason` is "memory" or "storage".
-    Limited { reason: String, needed_bytes: u64 },
-    Failed { message: String },
+    Limited { reason: String, needed_bytes: u64, model_bytes: u64 },
+    Failed { message: String, model_bytes: u64 },
 }
 
 #[derive(Default)]
@@ -109,6 +115,19 @@ fn model_path(app: &AppHandle) -> AppResult<PathBuf> {
     Ok(models_dir(app)?.join(MODEL_FILE))
 }
 
+fn part_path(app: &AppHandle) -> AppResult<PathBuf> {
+    Ok(models_dir(app)?.join(format!("{MODEL_FILE}.part")))
+}
+
+/// Bytes the feature holds on disk: the model and any partial download.
+fn disk_bytes(app: &AppHandle) -> u64 {
+    [model_path(app), part_path(app)]
+        .into_iter()
+        .filter_map(|p| p.ok().and_then(|p| std::fs::metadata(p).ok()))
+        .map(|m| m.len())
+        .sum()
+}
+
 fn downloaded(app: &AppHandle) -> bool {
     model_path(app).map(|p| p.is_file()).unwrap_or(false)
 }
@@ -126,6 +145,7 @@ pub fn status(app: &AppHandle) -> Status {
     if !engine::SUPPORTED {
         return Status::Unsupported;
     }
+    let model_bytes = disk_bytes(app);
     match &*PHASE.lock().unwrap() {
         Phase::Downloading { received } => {
             return Status::Downloading { received: *received, total: MODEL_BYTES }
@@ -135,14 +155,14 @@ pub fn status(app: &AppHandle) -> Status {
             return Status::Limited {
                 reason: (*reason).into(),
                 needed_bytes: if *reason == "memory" { MIN_MEMORY_BYTES } else { MODEL_BYTES },
+                model_bytes,
             }
         }
-        Phase::Failed(message) => return Status::Failed { message: message.clone() },
+        Phase::Failed(message) => return Status::Failed { message: message.clone(), model_bytes },
         Phase::Idle => {}
     }
-    let model_bytes = if downloaded(app) { MODEL_BYTES } else { 0 };
     if !enabled(app) {
-        return Status::Off { downloaded: model_bytes > 0, model_bytes };
+        return Status::Off { downloaded: downloaded(app), model_bytes };
     }
     let (indexed, total) = with_index(app, |ix| progress(ix)).unwrap_or((0, 0));
     Status::On { model_bytes, indexed, total }
@@ -162,9 +182,17 @@ pub async fn enable(app: AppHandle) -> Status {
     if !engine::SUPPORTED {
         return Status::Unsupported;
     }
-    if matches!(*PHASE.lock().unwrap(), Phase::Downloading { .. } | Phase::Preparing) {
-        return status(&app);
+    {
+        // Check and claim in one lock: a card click and the Settings toggle at
+        // once must not start two downloads into the same `.part`.
+        let mut phase = PHASE.lock().unwrap();
+        if matches!(*phase, Phase::Downloading { .. } | Phase::Preparing) {
+            drop(phase);
+            return status(&app);
+        }
+        *phase = Phase::Preparing;
     }
+    engine::accept(true);
     if physical_memory().is_some_and(|m| m < MIN_MEMORY_BYTES) {
         set_phase(&app, Phase::Limited("memory"));
         return status(&app);
@@ -215,18 +243,23 @@ pub fn disable(app: &AppHandle) -> AppResult<Status> {
     if marker.exists() {
         std::fs::remove_file(marker)?;
     }
+    // Refuse work before unloading, so an indexing pass already under way cannot
+    // load the model again behind the user's "off".
+    engine::accept(false);
     engine::unload();
     set_phase(app, Phase::Idle);
     Ok(status(app))
 }
 
-/// Clear: off, the model file gone, and this vault's vectors gone (F8.3a, F8.8).
-/// Other vaults drop theirs the next time they open (`reconcile` sees no model).
+/// Clear: off, the model and any partial download gone, and this vault's
+/// vectors gone (F8.3a, F8.8). Other vaults drop theirs when the indexer next
+/// sees them open with no model on disk (`reconcile`).
 pub fn clear(app: &AppHandle) -> AppResult<Status> {
     disable(app)?;
-    let path = model_path(app)?;
-    if path.exists() {
-        std::fs::remove_file(path)?;
+    for path in [model_path(app)?, part_path(app)?] {
+        if path.exists() {
+            std::fs::remove_file(path)?;
+        }
     }
     let _ = with_index(app, |ix| {
         ix.conn().execute("DELETE FROM note_vectors", [])?;
@@ -236,11 +269,19 @@ pub fn clear(app: &AppHandle) -> AppResult<Status> {
     Ok(status(app))
 }
 
-/// At launch: if it was on, start indexing again. The model loads lazily.
+/// At launch. A `.part` left by a quit mid-download is dropped (nothing is
+/// downloading yet). The indexer always runs: while on it embeds, and while off
+/// it still deletes vectors of deleted notes, and all of them once the model is
+/// gone (F8.7, F8.8). The model itself loads lazily.
 pub fn resume(app: &AppHandle) {
-    if engine::SUPPORTED && enabled(app) {
-        start_indexer(app);
+    if !engine::SUPPORTED {
+        return;
     }
+    if let Ok(part) = part_path(app) {
+        let _ = std::fs::remove_file(part);
+    }
+    engine::accept(enabled(app));
+    start_indexer(app);
 }
 
 // ---- download ----------------------------------------------------------------
@@ -454,29 +495,46 @@ fn start_indexer(app: &AppHandle) {
         return;
     }
     let app = app.clone();
-    let _ = std::thread::Builder::new().name("smart-search-index".into()).spawn(move || loop {
-        // ponytail: polls every 2 s instead of hooking the watcher; a hook is the
-        // upgrade if the idle query ever shows up in a profile.
-        let pause = match reconcile(&app) {
-            Ok(true) => Duration::from_millis(50),
-            Ok(false) => Duration::from_secs(2),
-            Err(e) => {
-                log::warn!("[smart-search] indexing paused: {e}");
-                Duration::from_secs(10)
-            }
-        };
-        std::thread::sleep(pause);
+    let _ = std::thread::Builder::new().name("smart-search-index".into()).spawn(move || {
+        let mut failures = 0;
+        loop {
+            // ponytail: polls every 2 s instead of hooking the watcher; a hook is
+            // the upgrade if the idle query ever shows up in a profile.
+            let pause = match reconcile(&app) {
+                Ok(more) => {
+                    failures = 0;
+                    if more { Duration::from_millis(50) } else { Duration::from_secs(2) }
+                }
+                Err(e) => {
+                    log::warn!("[smart-search] indexing paused: {e}");
+                    failures += 1;
+                    // A model that keeps failing to load is a state the user
+                    // should see, not a 310 MB retry every 10 s behind "On".
+                    if failures >= 3 && enabled(&app) {
+                        failures = 0;
+                        set_phase(&app, Phase::Failed(e.to_string()));
+                    }
+                    Duration::from_secs(10)
+                }
+            };
+            std::thread::sleep(pause);
+        }
     });
 }
 
 /// One pass: drop stale rows, embed up to `BATCH_NOTES` notes. `Ok(true)` when
 /// there may be more to do right away.
 fn reconcile(app: &AppHandle) -> AppResult<bool> {
-    if !enabled(app) || !matches!(*PHASE.lock().unwrap(), Phase::Idle) {
-        return Ok(false);
-    }
     // No vault open is not an error, just nothing to do.
     let Ok(index) = current_index(app) else { return Ok(false) };
+    if !enabled(app) || !matches!(*PHASE.lock().unwrap(), Phase::Idle) {
+        // Off still deletes: a deleted note's chunk text must not outlive it,
+        // and with no model on disk no vector may stay (F8.7, F8.8).
+        if prune(&index, downloaded(app))? > 0 {
+            let _ = app.emit("smart-search", status(app));
+        }
+        return Ok(false);
+    }
     let more = reconcile_with(&index, &model_path(app)?)?;
     if more {
         let _ = app.emit("smart-search", status(app));
@@ -484,16 +542,29 @@ fn reconcile(app: &AppHandle) -> AppResult<bool> {
     Ok(more)
 }
 
-fn reconcile_with(index: &Arc<Mutex<Index>>, path: &Path) -> AppResult<bool> {
-    let todo: Vec<(String, String, String, String)> = {
-        let ix = index.lock().unwrap();
-        let removed = ix.conn().execute(
+/// Delete rows of other model versions and of notes that are gone; every row
+/// when the model is not on disk. Returns how many went.
+fn prune(index: &Arc<Mutex<Index>>, model_on_disk: bool) -> AppResult<usize> {
+    let ix = index.lock().unwrap();
+    let removed = if model_on_disk {
+        ix.conn().execute(
             "DELETE FROM note_vectors WHERE version <> ?1 OR note_id NOT IN (SELECT id FROM notes)",
             [INDEX_VERSION],
-        )?;
-        if removed > 0 {
-            invalidate_cache();
-        }
+        )?
+    } else {
+        ix.conn().execute("DELETE FROM note_vectors", [])?
+    };
+    if removed > 0 {
+        invalidate_cache();
+    }
+    Ok(removed)
+}
+
+/// One pass while on. `Ok(true)` when something changed and more may follow.
+fn reconcile_with(index: &Arc<Mutex<Index>>, path: &Path) -> AppResult<bool> {
+    let removed = prune(index, true)?;
+    let todo: Vec<(String, String, String, String)> = {
+        let ix = index.lock().unwrap();
         let mut stmt = ix.conn().prepare(
             "SELECT n.id, COALESCE(n.title, ''), COALESCE(n.sha256, ''), COALESCE(f.body, '')
                FROM notes n LEFT JOIN notes_fts f ON f.rowid = n.rowid
@@ -510,7 +581,7 @@ fn reconcile_with(index: &Arc<Mutex<Index>>, path: &Path) -> AppResult<bool> {
         rows
     };
     if todo.is_empty() {
-        return Ok(false);
+        return Ok(removed > 0);
     }
     let mut done: Vec<(String, String, Vec<(String, Vec<f32>)>)> = Vec::new();
     for (id, title, sha, body) in todo {
@@ -614,7 +685,9 @@ fn semantic_hits(index: &Arc<Mutex<Index>>, path: &Path, query: &str) -> AppResu
         }
     }
     let mut ranked: Vec<(&str, f32, u32)> = best.into_iter().map(|(id, (s, c))| (id, s, c)).collect();
-    ranked.sort_by(|a, b| b.1.total_cmp(&a.1));
+    ranked.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(b.0)));
+    let floor = ranked.first().map_or(f32::MIN, |r| r.1 - RELATIVE_MARGIN);
+    ranked.retain(|r| r.1 >= floor);
     ranked.truncate(SEMANTIC_HITS);
     let mut out = Vec::new();
     for (id, _, chunk) in ranked {
@@ -653,13 +726,27 @@ fn excerpt(text: &str) -> String {
 /// file name is exactly the query stays first, as it would without this feature.
 fn merge(keyword: Vec<SearchResult>, semantic: Vec<SearchResult>, query: &str) -> Vec<SearchResult> {
     const K: f32 = 60.0;
-    let mut score: HashMap<String, f32> = HashMap::new();
-    let mut rows: HashMap<String, SearchResult> = HashMap::new();
-    for (list, weight) in [(keyword, 1.0f32), (semantic, 1.0f32)] {
+    // While words matched something, a note found only by meaning counts half,
+    // so it cannot push a keyword match down the list (F8.6: keyword search is
+    // the regression baseline). With no keyword hit, meaning is all there is.
+    let semantic_weight = if keyword.is_empty() { 1.0 } else { 0.5 };
+    // First-seen order (keyword rank, then vector rank) breaks ties, so the same
+    // query always lists the same way.
+    let mut rows: Vec<SearchResult> = Vec::new();
+    let mut score: Vec<f32> = Vec::new();
+    let mut at: HashMap<String, usize> = HashMap::new();
+    for (list, weight) in [(keyword, 1.0f32), (semantic, semantic_weight)] {
         for (rank, r) in list.into_iter().enumerate() {
-            *score.entry(r.id.clone()).or_default() += weight / (K + rank as f32 + 1.0);
-            // The keyword row wins the slot: its snippet highlights the match.
-            rows.entry(r.id.clone()).or_insert(r);
+            let s = weight / (K + rank as f32 + 1.0);
+            match at.get(&r.id) {
+                Some(&i) => score[i] += s,
+                // The keyword row wins the slot: its snippet highlights the match.
+                None => {
+                    at.insert(r.id.clone(), rows.len());
+                    rows.push(r);
+                    score.push(s);
+                }
+            }
         }
     }
     let q = query.trim().to_lowercase();
@@ -668,9 +755,12 @@ fn merge(keyword: Vec<SearchResult>, semantic: Vec<SearchResult>, query: &str) -
         let stem = name.rsplit_once('.').map_or(name, |(s, _)| s);
         stem.to_lowercase() == q
     };
-    let mut out: Vec<SearchResult> = rows.into_values().collect();
-    out.sort_by(|a, b| exact(b).cmp(&exact(a)).then(score[&b.id].total_cmp(&score[&a.id])));
-    out
+    let mut order: Vec<usize> = (0..rows.len()).collect();
+    order.sort_by(|&a, &b| {
+        exact(&rows[b]).cmp(&exact(&rows[a])).then(score[b].total_cmp(&score[a])).then(a.cmp(&b))
+    });
+    let mut slots: Vec<Option<SearchResult>> = rows.into_iter().map(Some).collect();
+    order.into_iter().filter_map(|i| slots[i].take()).collect()
 }
 
 // ---- the engine ------------------------------------------------------------
@@ -695,6 +785,13 @@ mod engine {
     }
 
     static TX: Lazy<Mutex<Option<mpsc::Sender<Msg>>>> = Lazy::new(|| Mutex::new(None));
+    /// False while smart search is off or the app is quitting: requests are
+    /// refused instead of loading the model again.
+    static ACCEPTING: AtomicBool = AtomicBool::new(false);
+
+    pub fn accept(on: bool) {
+        ACCEPTING.store(on, Ordering::SeqCst);
+    }
 
     fn sender() -> Result<mpsc::Sender<Msg>, String> {
         let mut tx = TX.lock().unwrap();
@@ -733,6 +830,7 @@ mod engine {
     /// `GGML_ASSERT([rsets->data count] == 0)` in a static destructor, which
     /// turns every quit into a crash report.
     pub fn unload_and_wait() {
+        ACCEPTING.store(false, Ordering::SeqCst);
         let Some(tx) = TX.lock().unwrap().clone() else { return };
         let (ack, done) = mpsc::channel();
         if tx.send(Msg::Unload(Some(ack))).is_ok() {
@@ -761,6 +859,10 @@ mod engine {
         // Wait for work, load, serve until Unload, drop the model, repeat.
         while let Ok(first) = recv.recv() {
             let (path, texts, reply) = match first {
+                Msg::Embed(_, _, reply) if !ACCEPTING.load(Ordering::SeqCst) => {
+                    let _ = reply.send(Err("smart search is off".into()));
+                    continue;
+                }
                 Msg::Embed(path, texts, reply) => (path, texts, reply),
                 Msg::Unload(ack) => {
                     ack.map(|a| a.send(()));
@@ -825,13 +927,16 @@ mod engine {
     pub fn embed(_: &Path, _: Vec<String>) -> AppResult<Vec<Vec<f32>>> {
         Err(AppError::new("smart search is not available on this platform yet"))
     }
+    pub fn accept(_: bool) {}
     pub fn unload() {}
     pub fn unload_and_wait() {}
 }
 
 // ---- commands ----------------------------------------------------------------
 
-#[tauri::command]
+// async: it may wait on the index lock, which a vault open holds for the whole
+// rebuild; a plain command would wait on the main thread and freeze the window.
+#[tauri::command(async)]
 pub fn smart_search_status(app: AppHandle) -> Status {
     status(&app)
 }
@@ -846,12 +951,16 @@ pub fn smart_search_cancel() {
     cancel();
 }
 
-#[tauri::command]
+// async: it may wait on the index lock, which a vault open holds for the whole
+// rebuild; a plain command would wait on the main thread and freeze the window.
+#[tauri::command(async)]
 pub fn smart_search_disable(app: AppHandle) -> AppResult<Status> {
     disable(&app)
 }
 
-#[tauri::command]
+// async: it may wait on the index lock, which a vault open holds for the whole
+// rebuild; a plain command would wait on the main thread and freeze the window.
+#[tauri::command(async)]
 pub fn smart_search_clear(app: AppHandle) -> AppResult<Status> {
     clear(&app)
 }
@@ -904,12 +1013,30 @@ mod tests {
     }
 
     #[test]
+    fn merge_keeps_keyword_order_and_is_deterministic() {
+        let keyword = || vec![hit("a", "a.md"), hit("b", "b.md")];
+        let semantic = || vec![hit("x", "x.md"), hit("y", "y.md"), hit("a", "a.md")];
+        let first: Vec<String> = merge(keyword(), semantic(), "q").into_iter().map(|r| r.id).collect();
+        assert_eq!(first, ["a", "b", "x", "y"], "a vector-only note must not outrank a keyword match");
+        for _ in 0..50 {
+            let again: Vec<String> = merge(keyword(), semantic(), "q").into_iter().map(|r| r.id).collect();
+            assert_eq!(again, first);
+        }
+        // Nothing matched by words: meaning alone ranks.
+        let only: Vec<String> = merge(vec![], semantic(), "q").into_iter().map(|r| r.id).collect();
+        assert_eq!(only, ["x", "y", "a"]);
+    }
+
+    #[test]
     fn prompts_follow_the_model_card() {
         assert_eq!(doc_text(" ", "x"), "title: none | text: x");
         assert_eq!(doc_text("Plan", "x"), "title: Plan | text: x");
         assert_eq!(query_text("q"), "task: search result | query: q");
     }
 
+    /// The two real-model tests share one engine and each unloads it at the end,
+    /// so run them with `--test-threads=1`.
+    ///
     /// Runs the real model when it is on disk (`IB_SMART_SEARCH_MODEL=<gguf>`):
     /// a Korean query finds the Korean and the English note on its topic first.
     #[test]
@@ -917,6 +1044,7 @@ mod tests {
     fn real_model_ranks_by_meaning() {
         let Ok(path) = std::env::var("IB_SMART_SEARCH_MODEL") else { return };
         let path = PathBuf::from(path);
+        engine::accept(true);
         let docs = [
             doc_text("회의", "다음 주 분기 계획 회의 일정을 정리했다. 참석자와 안건을 확인한다."),
             doc_text("Recipe", "Simmer the tomatoes with garlic and basil for twenty minutes."),
@@ -938,6 +1066,7 @@ mod tests {
     fn real_model_end_to_end() {
         let Ok(model) = std::env::var("IB_SMART_SEARCH_MODEL") else { return };
         let model = PathBuf::from(model);
+        engine::accept(true);
         let dir = tempfile::tempdir().unwrap();
         let notes = [
             ("회의록.md", "# 회의록\n\n다음 분기 계획을 논의했다. 참석자와 안건, 결정 사항을 정리한다."),

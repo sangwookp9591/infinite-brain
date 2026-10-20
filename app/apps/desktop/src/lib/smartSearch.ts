@@ -19,6 +19,8 @@ function start() {
   if (started) return;
   started = true;
   void ipc.onSmartSearch(set).catch(() => {});
+  // A vault switch changes the counts without any smart-search event.
+  void ipc.onIndexReady(() => void refreshSmartSearch()).catch(() => {});
   void refreshSmartSearch();
 }
 
@@ -62,6 +64,29 @@ export const megabytes = (bytes: number) => Math.round(bytes / 1_000_000);
 
 /** The download size shown before anything is downloaded (Q8_0, `semantic.rs`). */
 export const MODEL_MB = 310;
+
+// ---- the corner card ------------------------------------------------------------
+
+// The first-run card and the star ask share a corner; the star waits while
+// this card is open, whatever it is showing.
+let cardOpen = false;
+const cardListeners = new Set<() => void>();
+
+export function setSmartSearchCardOpen(open: boolean): void {
+  if (cardOpen === open) return;
+  cardOpen = open;
+  cardListeners.forEach((l) => l());
+}
+
+export function useSmartSearchCardOpen(): boolean {
+  return useSyncExternalStore(
+    (l) => {
+      cardListeners.add(l);
+      return () => cardListeners.delete(l);
+    },
+    () => cardOpen,
+  );
+}
 
 // ---- the first-run question --------------------------------------------------
 

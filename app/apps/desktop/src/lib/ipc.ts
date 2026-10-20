@@ -1244,8 +1244,8 @@ export type SmartSearchStatus =
   | { state: "downloading"; received: number; total: number }
   | { state: "preparing" }
   | { state: "on"; modelBytes: number; indexed: number; total: number }
-  | { state: "limited"; reason: "memory" | "storage"; neededBytes: number }
-  | { state: "failed"; message: string };
+  | { state: "limited"; reason: "memory" | "storage"; neededBytes: number; modelBytes: number }
+  | { state: "failed"; message: string; modelBytes: number };
 
 export const smartSearchStatus = () => invoke<SmartSearchStatus>("smart_search_status");
 /** Resolves once it is on, failed, cancelled or limited; progress arrives on `onSmartSearch`. */

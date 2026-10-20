@@ -8,7 +8,7 @@ import type { SmartSearchStatus } from "../lib/ipc";
 import * as ipc from "../lib/ipc";
 import {
   clearSmartSearch, disableSmartSearch, enableSmartSearch, markSmartSearchAsked, megabytes, MODEL_MB,
-  shouldAskSmartSearch, useSmartSearch,
+  refreshSmartSearch, setSmartSearchCardOpen, shouldAskSmartSearch, useSmartSearch,
 } from "../lib/smartSearch";
 import { t, useT } from "../lib/i18n";
 import { toast } from "../lib/toast";
@@ -80,6 +80,11 @@ export function SmartSearchPrompt() {
     if (answered && status?.state === "on") setOpen(false);
   }, [answered, status]);
 
+  useEffect(() => {
+    setSmartSearchCardOpen(open);
+    return () => setSmartSearchCardOpen(false);
+  }, [open]);
+
   if (!open || !status) return null;
   const close = () => {
     markSmartSearchAsked(window.localStorage);
@@ -140,6 +145,7 @@ export function SmartSearchTab() {
   const status = useSmartSearch();
   const [confirmClear, setConfirmClear] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  useEffect(() => void refreshSmartSearch(), []);
   if (!status) return null;
 
   const run = (fn: () => Promise<unknown>) => {
@@ -157,7 +163,8 @@ export function SmartSearchTab() {
 
   const on = status.state === "on";
   const working = status.state === "downloading" || status.state === "preparing";
-  const usedBytes = status.state === "on" || status.state === "off" ? status.modelBytes : 0;
+  // Failed and Limited carry it too: a model on disk can be cleared whatever went wrong.
+  const usedBytes = "modelBytes" in status ? status.modelBytes : 0;
 
   return (
     <div className="io-tab smart-search-tab">
@@ -227,6 +234,7 @@ export function SmartSearchTab() {
 export function SmartSearchHint({ onOpenSettings }: { onOpenSettings: () => void }) {
   const tr = useT();
   const status = useSmartSearch();
+  useEffect(() => void refreshSmartSearch(), []);
   if (!status) return null;
   if (status.state === "off") {
     return (

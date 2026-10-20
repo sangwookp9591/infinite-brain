@@ -2064,8 +2064,11 @@ pub async fn search_notes(
 ) -> AppResult<Vec<SearchResult>> {
     let (_, index) = require_vault(&state)?;
     let keyword = index.lock().unwrap().search_all(&query)?;
-    // Smart search, when on, blends in notes that match by meaning.
-    Ok(crate::semantic::blend(&app, &index, &query, keyword))
+    // Smart search, when on, blends in notes that match by meaning. Embedding
+    // the query blocks (it queues behind the indexer), so off the async worker.
+    tauri::async_runtime::spawn_blocking(move || crate::semantic::blend(&app, &index, &query, keyword))
+        .await
+        .map_err(|e| AppError::new(e.to_string()))
 }
 
 /// The extracted plain text of one tree binary, by vault-relative path.
