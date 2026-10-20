@@ -100,6 +100,12 @@ submission already paid for in wall-clock.
 (x64) and Windows (x64)** and publishes a GitHub Release with the installers plus
 `latest.json` (the updater manifest).
 
+The macOS-only on-device smart-search engine builds llama.cpp through CMake.
+GitHub's `macos-latest` runners provide CMake, and both release workflows cache
+Cargo dependencies and build outputs with `swatinem/rust-cache`; a cold cache
+may still fetch the pinned `llama-cpp-rs` Git dependency and its llama.cpp
+submodule (about 300 MB).
+
 | Platform | Runner | Artifacts | OS signing |
 | --- | --- | --- | --- |
 | macOS arm64 | `macos-latest` | `.dmg`, `.app.tar.gz` | Developer ID + notarized + stapled |

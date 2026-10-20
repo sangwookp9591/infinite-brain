@@ -19,12 +19,14 @@ GitHub Actions로 내보내는 방법은 [`RELEASE.md`](RELEASE.md)에 있습니
 
 - 유료 Apple Developer 계정. 개인 팀 **SangWook Park(Team ID `QRW9X3848W`)**을 쓴다.
 - Xcode와 Command Line Tools(`xcrun notarytool`, `stapler`)
-- Rust, Node 22 이상, pnpm. Windows 크로스 빌드용으로 다음도 설치한다.
+- Rust, Node 22 이상, pnpm, CMake(`brew install cmake`; macOS의 스마트 검색 엔진을 빌드할 때 필요). Windows 크로스 빌드용으로 다음도 설치한다.
   ```sh
   rustup target add aarch64-apple-darwin x86_64-apple-darwin x86_64-pc-windows-msvc
-  brew install llvm nsis
+  brew install cmake llvm nsis
   cargo install cargo-xwin --locked
   ```
+
+macOS 빌드는 고정된 Git 커밋의 `llama-cpp-rs`와 그 llama.cpp 서브모듈을 가져옵니다. 새 Mac에서 처음 빌드하면 약 300 MB를 내려받을 수 있으며, 이후 Cargo 캐시를 재사용하면 다운로드를 줄일 수 있습니다.
 
 ---
 

@@ -33,6 +33,7 @@ Write on your own computer, edit together in real time, and let your AI read and
 - **Your notes are files.** Every note is a `.md` file in a normal folder. Open it in any editor, back it up any way you like, and keep it if you ever stop using the app.
 - **Works offline.** You write locally first. Changes sync when you are back online, and edits from different people merge instead of overwriting each other.
 - **Built for teams.** Invite people with a link, choose who can edit or only view each folder, and see who is in a note while you write.
+- **Smart search, if you want it.** Turn it on in **Vault settings → Smart search** and search finds notes by meaning, not only by the words you typed, in English and Korean. It is off until you enable it, downloads a one-time 310 MB model, and runs on your computer: your notes never leave it. macOS only for now; elsewhere search keeps matching words.
 - **Asks once for a star.** After about five days of use a small corner card asks whether you'd like to star the repo on GitHub. It appears once, never blocks a note and never comes back after any answer. The same button lives in **Settings → About**.
 - **English and Korean.** Pick the language in **Settings → Appearance** (System, English or 한국어). System follows your computer. Korean covers the sidebar and menus, sign-in, invite and sharing, the sync status and the first-launch tour; the vault settings, health and billing screens are still English.
 - **Starts with a short tour.** The first launch plays a four-scene intro before the welcome screen, and it never shows again.
@@ -53,7 +54,7 @@ The app keeps itself up to date: it installs new versions in the background, res
 
 1. **Open the app and pick a vault.** A vault is a folder of notes. Create a new one, or open a folder of Markdown files you already have.
 2. **Write.** Press **⌘N** (Ctrl+N on Windows) for a new note. Notes save automatically. Link notes with `[[Note name]]`; links and backlinks update when you rename a note.
-3. **Find things.** Use search from the icon rail. It matches note titles and content, including Korean and other languages.
+3. **Find things.** Use search from the icon rail. It matches note titles and content, including Korean and other languages. On a Mac you can also turn on smart search (see above) to find notes by meaning.
 4. **See the shape of your notes.** The graph view draws your notes as a galaxy: each star is a note, and lines are links between notes.
 
 Working alone needs no account and no server. Sign in only when you want to work with others.

@@ -31,6 +31,7 @@
 ## 0.2.1
 
 - Korean: The sidebar, menus, sign-in, sharing and the sync status now speak Korean. Pick English or 한국어 in Settings → Appearance, or leave it on System.
+- Smart search: Turn it on in Vault settings to find notes by meaning, not just words. It downloads a 310 MB model once and runs on your Mac, so your notes never leave it.
 - A star, once: After about five days of use, a small card asks whether you'd like to star Infinite Brain on GitHub. It appears once and never blocks a note.
 - Update card: When the app updates itself, each change now appears as its own row in a card.
 

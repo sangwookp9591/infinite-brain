@@ -28,6 +28,10 @@ mkdir -p "$OUT"
 say() { printf '\n\033[1m== %s\033[0m\n' "$*"; }
 die() { printf '\033[31m✗ %s\033[0m\n' "$*" >&2; exit 1; }
 
+if [ "$WHAT" = all ] || [ "$WHAT" = mac ]; then
+  command -v cmake >/dev/null || die "CMake missing: brew install cmake"
+fi
+
 # The updater artifacts (.tar.gz/.zip + .sig) need the minisign key; the
 # release workflow and in-app updates verify against tauri.conf.json's pubkey.
 KEY_DIR="${UPDATER_KEY_DIR:-$HOME/.infinite-brain}"
