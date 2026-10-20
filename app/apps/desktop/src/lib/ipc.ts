@@ -1247,7 +1247,7 @@ export type SmartSearchStatus =
   | { state: "off"; downloaded: boolean; modelBytes: number; includeImages?: boolean }
   | { state: "downloading"; received: number; total: number; includeImages?: boolean }
   | { state: "preparing" }
-  | { state: "on"; modelBytes: number; indexed: number; total: number; includeImages?: boolean; imagesIndexed?: number; imagesTotal?: number }
+  | { state: "on"; modelBytes: number; indexed: number; total: number; includeImages?: boolean; imagesIndexed?: number; imagesTotal?: number; indexWhen?: "idle" | "manual" }
   | { state: "limited"; reason: "memory" | "storage"; neededBytes: number; modelBytes: number }
   | { state: "failed"; message: string; modelBytes: number };
 
@@ -1257,6 +1257,9 @@ export const smartSearchEnable = (includeImages?: boolean) => invoke<SmartSearch
 export const smartSearchCancel = () => invoke<void>("smart_search_cancel");
 export const smartSearchDisable = () => invoke<SmartSearchStatus>("smart_search_disable");
 export const smartSearchClear = () => invoke<SmartSearchStatus>("smart_search_clear");
+/** "idle": index between writing sessions; "manual": only on "Index now". */
+export const smartSearchSetWhen = (when: "idle" | "manual") => invoke<SmartSearchStatus>("smart_search_set_when", { when });
+export const smartSearchIndexNow = () => invoke<void>("smart_search_index_now");
 export const onSmartSearch = (cb: (status: SmartSearchStatus) => void): Promise<UnlistenFn> =>
   listen<SmartSearchStatus>("smart-search", (event) => cb(event.payload));
 

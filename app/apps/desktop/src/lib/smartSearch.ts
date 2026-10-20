@@ -55,6 +55,10 @@ export async function disableSmartSearch(): Promise<void> {
   set(await ipc.smartSearchDisable());
 }
 
+export async function setSmartSearchWhen(when: "idle" | "manual"): Promise<void> {
+  set(await ipc.smartSearchSetWhen(when));
+}
+
 export async function clearSmartSearch(): Promise<void> {
   set(await ipc.smartSearchClear());
 }

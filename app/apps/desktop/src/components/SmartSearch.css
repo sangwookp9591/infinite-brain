@@ -19,3 +19,5 @@
 .ss-search-thumbnail[hidden] { display: none; }
 .ss-image-copy { min-width: 0; flex: 1; }
 .ss-image-copy .search-label, .ss-image-copy .search-snippet { overflow-wrap: anywhere; }
+.ss-when { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2, 8px); margin-top: var(--sp-2, 8px); }
+.ss-when .io-hint { flex-basis: 100%; margin: 0; }

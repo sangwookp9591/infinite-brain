@@ -8,12 +8,13 @@ import type { SmartSearchStatus } from "../lib/ipc";
 import * as ipc from "../lib/ipc";
 import {
   clearSmartSearch, disableSmartSearch, enableSmartSearch, markSmartSearchAsked, megabytes, MODEL_MB,
-  refreshSmartSearch, setSmartSearchCardOpen, shouldAskSmartSearch, useSmartSearch,
+  refreshSmartSearch, setSmartSearchCardOpen, shouldAskSmartSearch, useSmartSearch, setSmartSearchWhen,
 } from "../lib/smartSearch";
 import { t, useT } from "../lib/i18n";
 import { toast } from "../lib/toast";
 import { useStore } from "../store";
 import { SpringCheck } from "./kit/SpringCheck";
+import { SegmentedChips } from "./kit/SegmentedChips";
 import "./SmartSearch.css";
 
 const ASK_DELAY_MS = 15_000;
@@ -190,6 +191,28 @@ export function SmartSearchTab() {
               ? tr("Ready for all {total} notes", { total: status.total })
               : tr("Read {indexed} of {total} notes", { indexed: status.indexed, total: status.total })}
           </p>
+        )}
+        {on && (
+          <div className="ss-when">
+            <SegmentedChips
+              label={tr("When to read notes")}
+              size="sm"
+              items={[
+                { value: "idle", label: tr("When I'm not writing") },
+                { value: "manual", label: tr("Only when I ask") },
+              ]}
+              value={status.indexWhen ?? "idle"}
+              onChange={(value) => run(() => setSmartSearchWhen(value as "idle" | "manual"))}
+            />
+            <button type="button" className="secondary sm" onClick={() => void ipc.smartSearchIndexNow()}>
+              {tr("Index now")}
+            </button>
+            <p className="io-hint">
+              {(status.indexWhen ?? "idle") === "idle"
+                ? tr("Reads new and changed notes after a minute without edits, then frees its memory.")
+                : tr("Reads new and changed notes only when you press Index now. Deleted notes leave the index right away either way.")}
+            </p>
+          </div>
         )}
         <Progress status={status} />
         {status.state === "downloading" && (

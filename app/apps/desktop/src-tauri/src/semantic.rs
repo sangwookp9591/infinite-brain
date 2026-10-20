@@ -50,6 +50,12 @@ const MODEL_URL: &str = "https://huggingface.co/unsloth/embeddinggemma-2-GGUF/re
 const MODEL_BYTES: u64 = 309_855_520;
 const MODEL_SHA256: &str = "6f1bd4ac6c5df7444f9cca7ca36cafe6cfa34cd6f49fefb1e0b4be8143aed8bc";
 const ON_MARKER: &str = "smart-search.on";
+/// Present (containing "manual") when indexing waits for "Index now".
+const WHEN_FILE: &str = "smart-search.when";
+/// "When I'm not writing": no note saved for this long before a pass runs.
+const IDLE_SECS: i64 = 60;
+/// Unload the model once indexing is done and nobody has searched for this long.
+const UNLOAD_AFTER: Duration = Duration::from_secs(120);
 const IMAGES_MARKER: &str = "smart-search-images.on";
 const VISION_FILE: &str = "mmproj-Q8_0.gguf";
 const VISION_URL: &str = "https://huggingface.co/unsloth/embeddinggemma-2-GGUF/resolve/031f0d4b35536f69ab3509d4893c923264fcf253/mmproj-Q8_0.gguf";
@@ -97,7 +103,7 @@ pub enum Status {
     Downloading { received: u64, total: u64, include_images: bool },
     /// Loading the model and compiling the GPU shaders once.
     Preparing,
-    On { model_bytes: u64, indexed: u64, total: u64, include_images: bool, images_indexed: u64, images_total: u64 },
+    On { model_bytes: u64, indexed: u64, total: u64, include_images: bool, images_indexed: u64, images_total: u64, index_when: String },
     /// The device cannot run it; `reason` is "memory" or "storage".
     Limited { reason: String, needed_bytes: u64, model_bytes: u64 },
     Failed { message: String, model_bytes: u64 },
@@ -187,7 +193,7 @@ pub fn status(app: &AppHandle) -> Status {
     }
     let (indexed, total) = with_index(app, |ix| progress(ix)).unwrap_or((0, 0));
     let (images_indexed, images_total) = with_index(app, images::progress).unwrap_or((0, 0));
-    Status::On { model_bytes, indexed, total, include_images: images_enabled(app), images_indexed, images_total }
+    Status::On { model_bytes, indexed, total, include_images: images_enabled(app), images_indexed, images_total, index_when: index_when(app).into() }
 }
 
 fn set_phase(app: &AppHandle, phase: Phase) {
@@ -552,6 +558,45 @@ fn progress(ix: &Index) -> AppResult<(u64, u64)> {
     Ok((indexed, total))
 }
 
+// ---- when to index ------------------------------------------------------------
+
+/// "idle": a pass runs once no note has been saved for `IDLE_SECS`, so the
+/// model works between writing sessions, not during them. "manual": only after
+/// "Index now". Either way deletions are pruned at once (F8.7).
+fn index_when(app: &AppHandle) -> &'static str {
+    let manual = models_dir(app)
+        .ok()
+        .and_then(|d| std::fs::read_to_string(d.join(WHEN_FILE)).ok())
+        .is_some_and(|s| s.trim() == "manual");
+    if manual { "manual" } else { "idle" }
+}
+
+/// Set by "Index now"; cleared when a pass finds nothing left to do.
+static INDEX_NOW: AtomicBool = AtomicBool::new(false);
+/// Last search or indexing pass that used the model, for the idle unload.
+static LAST_USE: Lazy<Mutex<Option<std::time::Instant>>> = Lazy::new(|| Mutex::new(None));
+
+fn touch_model() {
+    *LAST_USE.lock().unwrap() = Some(std::time::Instant::now());
+}
+
+/// Free the model's memory once indexing is done and search has gone quiet;
+/// the next search or pass loads it again (about half a second).
+fn unload_if_quiet() {
+    let mut last = LAST_USE.lock().unwrap();
+    if last.is_some_and(|t| t.elapsed() >= UNLOAD_AFTER) {
+        *last = None;
+        engine::unload();
+    }
+}
+
+/// True while the user is writing: a note was saved in the last `IDLE_SECS`.
+fn writing_now(index: &Arc<Mutex<Index>>) -> AppResult<bool> {
+    let newest: Option<i64> = index.lock().unwrap().conn().query_row("SELECT MAX(mtime) FROM notes", [], |r| r.get(0))?;
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs() as i64);
+    Ok(newest.is_some_and(|m| now - m < IDLE_SECS))
+}
+
 fn start_indexer(app: &AppHandle) {
     if INDEXER_STARTED.swap(true, Ordering::SeqCst) {
         return;
@@ -597,10 +642,25 @@ fn reconcile(app: &AppHandle) -> AppResult<bool> {
         }
         return Ok(false);
     }
+    let now = INDEX_NOW.load(Ordering::SeqCst);
+    if !now && (index_when(app) == "manual" || writing_now(&index)?) {
+        // Not this moment: keep deletions current, embed nothing, free the model.
+        if prune(&index, true)? > 0 {
+            let _ = app.emit("smart-search", status(app));
+        }
+        unload_if_quiet();
+        return Ok(false);
+    }
+    touch_model();
     let more = reconcile_with(&index, &model_path(app)?)?;
     let image_more = if images_enabled(app) { images::reconcile(&index, &model_path(app)?, &vision_path(app)?)? } else { false };
     if more || image_more {
         let _ = app.emit("smart-search", status(app));
+    } else if now {
+        INDEX_NOW.store(false, Ordering::SeqCst);
+        let _ = app.emit("smart-search", status(app));
+    } else {
+        unload_if_quiet();
     }
     Ok(more || image_more)
 }
@@ -716,6 +776,7 @@ pub fn blend(app: &AppHandle, index: &Arc<Mutex<Index>>, query: &str, keyword: V
     if query.trim().chars().count() < 2 || !ready(app) {
         return keyword;
     }
+    touch_model();
     match model_path(app).and_then(|path| semantic_hits_with_images(index, &path, query, images_enabled(app))) {
         Ok(hits) => merge(keyword, hits, query),
         Err(e) => {
@@ -1079,6 +1140,26 @@ pub async fn smart_search_enable(app: AppHandle, include_images: Option<bool>) -
     enable(app, include_images).await
 }
 
+/// "idle" or "manual" (see `index_when`).
+#[tauri::command(async)]
+pub fn smart_search_set_when(app: AppHandle, when: String) -> AppResult<Status> {
+    let file = models_dir(&app)?.join(WHEN_FILE);
+    if when == "manual" {
+        std::fs::write(file, b"manual")?;
+    } else if file.exists() {
+        std::fs::remove_file(file)?;
+    }
+    let status = status(&app);
+    let _ = app.emit("smart-search", status.clone());
+    Ok(status)
+}
+
+/// Run passes now until nothing is left, whatever the schedule says.
+#[tauri::command]
+pub fn smart_search_index_now() {
+    INDEX_NOW.store(true, Ordering::SeqCst);
+}
+
 #[tauri::command]
 pub fn smart_search_cancel() {
     cancel();
@@ -1171,8 +1252,9 @@ mod tests {
     #[test]
     fn image_status_and_result_use_the_typed_ipc_field_names() {
         let status = serde_json::to_value(Status::On { model_bytes: MODEL_BYTES + VISION_BYTES, indexed: 1, total: 1,
-            include_images: true, images_indexed: 2, images_total: 3 }).unwrap();
+            include_images: true, images_indexed: 2, images_total: 3, index_when: "manual".into() }).unwrap();
         assert_eq!(status["includeImages"], true);
+        assert_eq!(status["indexWhen"], "manual");
         assert_eq!(status["imagesIndexed"], 2);
         assert_eq!(status["imagesTotal"], 3);
         let mut result = hit("image-id", "parent.md");

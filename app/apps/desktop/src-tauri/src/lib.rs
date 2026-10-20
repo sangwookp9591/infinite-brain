@@ -212,6 +212,8 @@ pub fn run() {
             semantic::smart_search_status,
             semantic::smart_search_enable,
             semantic::smart_search_cancel,
+            semantic::smart_search_set_when,
+            semantic::smart_search_index_now,
             semantic::smart_search_disable,
             semantic::smart_search_clear,
             agent_runner::run_agent,

@@ -46,4 +46,12 @@ export const search: Record<string, string> = {
   "Searching by words.": "지금은 단어로 찾아요.",
   "Turn on smart search": "스마트 검색 켜기",
   "Smart search is reading your notes ({indexed}/{total})": "스마트 검색이 메모를 읽고 있어요 ({indexed}/{total})",
+  "When to read notes": "메모를 읽는 시점",
+  "When I'm not writing": "쓰지 않을 때",
+  "Only when I ask": "요청할 때만",
+  "Index now": "지금 색인",
+  "Reads new and changed notes after a minute without edits, then frees its memory.":
+    "1분 동안 편집이 없으면 새 메모와 바뀐 메모를 읽고, 다 읽으면 메모리를 비워요.",
+  "Reads new and changed notes only when you press Index now. Deleted notes leave the index right away either way.":
+    "지금 색인을 누를 때만 새 메모와 바뀐 메모를 읽어요. 지운 메모는 어느 쪽이든 바로 색인에서 빠져요.",
 };
