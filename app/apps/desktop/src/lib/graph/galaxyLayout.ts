@@ -3,11 +3,6 @@ import type { GraphEdge, GraphNode } from './buildGraph';
 
 export const FAST_GALAXY_THRESHOLD = 3000;
 export const GALAXY_RADIUS = 1400;
-export const GALAXY_FULL_SCALE_COUNT = 3000;
-export function galaxyRadiusForCount(count: number): number {
-  if (count <= 0) return GALAXY_RADIUS;
-  return Math.min(GALAXY_RADIUS, Math.max(220, GALAXY_RADIUS * Math.sqrt(count / GALAXY_FULL_SCALE_COUNT)));
-}
 export interface GalaxyPosition { x: number; y: number; z: number; core: boolean; arm: number; arms: number }
 
 export function starRandom(key: string): number {
@@ -29,8 +24,6 @@ export function buildGalaxyLayout(
   nodes: ReadonlyArray<GraphNode & { modified?: number }>, edges: readonly GraphEdge[],
 ): Map<string, GalaxyPosition> {
   const folders = [...new Set(nodes.map((node) => folderOf(node.path)))].sort();
-  const radius = galaxyRadiusForCount(nodes.length);
-  const radiusScale = radius / GALAXY_RADIUS;
   const arms = Math.max(2, Math.min(4, folders.length));
   const folderArm = new Map(folders.map((folder, i) => [folder, i % arms]));
   const byId = new Map(nodes.map((node) => [node.id, node]));
@@ -60,15 +53,14 @@ export function buildGalaxyLayout(
     const seed = node.id;
     const u = starRandom(seed + ':r');
     const local = starRandom(anchor.get(node.id)!.id + ':r');
-    const baseRadius = isCore ? 230 * Math.pow(u, 1.4)
+    const radius = isCore ? 230 * Math.pow(u, 1.4)
       : Math.max(100, Math.min(GALAXY_RADIUS, 100 + 1200 * Math.pow(local, 1.65) + (u - 0.5) * 170));
-    const nodeRadius = baseRadius * radiusScale;
     const angle = isCore ? starRandom(seed + ':a') * Math.PI * 2
-      : spiralAngle(nodeRadius, arm, arms) + (starRandom(seed + ':a') - 0.5) * (0.17 + 40 / nodeRadius)
+      : spiralAngle(radius, arm, arms) + (starRandom(seed + ':a') - 0.5) * (0.17 + 40 / radius)
           + (starRandom(seed + ':field') < 0.07 ? (starRandom(seed + ':drift') - 0.5) * 1.2 : 0);
-    const thickness = isCore ? 100 * (1 - baseRadius / 280) : 18 + 12 * (1 - baseRadius / GALAXY_RADIUS);
+    const thickness = isCore ? 100 * (1 - radius / 280) : 18 + 12 * (1 - radius / GALAXY_RADIUS);
     result.set(node.id, {
-      x: Math.cos(angle) * nodeRadius, y: Math.sin(angle) * nodeRadius,
+      x: Math.cos(angle) * radius, y: Math.sin(angle) * radius,
       z: (starRandom(seed + ':z') - 0.5) * thickness,
       core: isCore, arm, arms,
     });

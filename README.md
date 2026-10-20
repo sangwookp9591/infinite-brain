@@ -279,4 +279,6 @@ The desktop app and the server are released separately. The server (`app/apps/se
 
 ## 📄 License
 
+Infinite Brain is a derivative work based on [Baalda](https://baalda.com) 0.1.83, used under the Apache License 2.0. It is developed and maintained independently and is not affiliated with or endorsed by the Baalda project.
+
 [Apache License 2.0](LICENSE). See [`NOTICE`](NOTICE) for attributions. The design kit's interactions are adapted from [React Bits](https://reactbits.dev) under the MIT + Commons Clause license; see [`app/apps/desktop/src/components/kit/LICENSE-react-bits.md`](app/apps/desktop/src/components/kit/LICENSE-react-bits.md).

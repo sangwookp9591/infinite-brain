@@ -7,7 +7,7 @@ import { bloom } from 'three/addons/tsl/display/BloomNode.js';
 import { LineSegments2 } from 'three/addons/lines/webgpu/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { GALAXY_RADIUS, galaxyRadiusForCount, spiralAngle, recentBrightness, starRandom } from './galaxyLayout';
+import { GALAXY_RADIUS, spiralAngle, recentBrightness, starRandom } from './galaxyLayout';
 
 export interface GalaxyNode {
   id: string;
@@ -34,7 +34,7 @@ interface Callbacks {
 type Distance = ReturnType<typeof unitDistance>;
 const unitDistance = () => uv().sub(0.5).length().mul(2);
 /** Note stars: a bright spike core over a soft halo. */
-const spike = (d: Distance) => d.mul(-7).exp().mul(0.55).add(d.mul(-32).exp().mul(3)).mul(d.oneMinus().max(0));
+const spike = (d: Distance) => d.mul(-6).exp().add(d.mul(-32).exp().mul(3)).mul(d.oneMinus().max(0));
 /** Nebula dust: wide and faint. */
 const haze = (d: Distance) => d.pow(2).mul(-5).exp().mul(d.oneMinus().max(0)).mul(0.045);
 /** Dark dust lanes. */
@@ -66,7 +66,6 @@ function particles(count: number, shape: (d: Distance) => ReturnType<typeof spik
   } };
 }
 type Particles = ReturnType<typeof particles>;
-const GALAXY_FULL_SCALE_BACKGROUND = 1600;
 
 export class GalaxyRenderer {
   readonly scene = new THREE.Scene();
@@ -82,10 +81,10 @@ export class GalaxyRenderer {
   private background = particles(1600, dot);
   private dustGroup = new THREE.Group();
   private lines = new LineSegments2(new LineSegmentsGeometry(), new THREE.Line2NodeMaterial({
-    transparent: true, opacity: 0.085, depthWrite: false, blending: THREE.AdditiveBlending,
+    color: '#779acb', transparent: true, opacity: 0.085, depthWrite: false, blending: THREE.AdditiveBlending,
   }));
   private rays = new LineSegments2(new LineSegmentsGeometry(), new THREE.Line2NodeMaterial({
-    transparent: true, opacity: 0.6, depthWrite: false, blending: THREE.AdditiveBlending,
+    color: '#c2ddff', transparent: true, opacity: 0.6, depthWrite: false, blending: THREE.AdditiveBlending,
   }));
   private nodes: GalaxyNode[] = [];
   private lookup = new Map<string, number>();
@@ -124,16 +123,7 @@ export class GalaxyRenderer {
 
   private constructor(private renderer: THREE.WebGPURenderer, private input: HTMLCanvasElement, private callbacks: Callbacks) {
     this.backend = 'isWebGLBackend' in renderer.backend ? 'WebGL2' : 'WebGPU';
-    // Keep the opaque WebGPU/WebGL scene clear in step with the CSS starfield
-    // palette. The HTML canvas is alpha:false, so the CSS gradient is not
-    // visible behind this renderer.
-    const graphSpace = getComputedStyle(input).getPropertyValue('--graph-space-core').trim();
-    if (graphSpace) this.scene.background = new THREE.Color(graphSpace);
-    const graphStyle = getComputedStyle(input);
-    const edge = graphStyle.getPropertyValue('--graph-edge').trim();
-    const ray = graphStyle.getPropertyValue('--graph-ray').trim();
-    if (edge) this.lines.material.color.set(edge);
-    if (ray) this.rays.material.color.set(ray);
+    this.scene.background = new THREE.Color('#070b1d');
     renderer.onDeviceLost = (info) => { if (!this.disposed) callbacks.fail(new Error(info.message)); };
     renderer.onError = (message) => { if (!this.disposed) callbacks.fail(new Error(String(message))); };
     renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.5));
@@ -156,9 +146,7 @@ export class GalaxyRenderer {
     this.labelLayer.setAttribute('aria-hidden', 'true');
     this.labelLayer.append(...this.labels);
     this.scenePass = pass(this.scene, this.camera);
-    // Strength, radius, threshold. Softer and tighter than the first cut (0.7, 0.55, 0.8),
-    // which merged a small vault's notes into one white blob around the core.
-    this.bloomPass = bloom(this.scenePass.getTextureNode(), 0.42, 0.32, 0.85);
+    this.bloomPass = bloom(this.scenePass.getTextureNode(), 0.7, 0.55, 0.8);
     this.bloomPass.setResolutionScale(0.5);
     this.pipeline = new THREE.RenderPipeline(renderer, this.scenePass.add(this.bloomPass));
     input.addEventListener('pointerdown', this.pointerDown);
@@ -173,15 +161,14 @@ export class GalaxyRenderer {
   private cancelFlight = () => { this.flight = null; };
   private motionChange = () => { this.controls.enableDamping = !this.motion.matches; this.dirty = true; };
 
-  private makeSpace(radius = GALAXY_RADIUS, count = GALAXY_FULL_SCALE_BACKGROUND) {
+  private makeSpace() {
     let seed = 8127;
     const random = () => { seed = Math.imul(seed, 1664525) + 1013904223 | 0; return (seed >>> 0) / 4294967296; };
-    this.background.sprite.count = Math.min(1600, Math.max(48, count));
     for (let i = 0; i < this.background.sprite.count; i++) {
       const angle = random() * Math.PI * 2;
       const z = random() * 2 - 1;
-      const extent = radius * 6;
-      this.background.positions.setXYZ(i, Math.cos(angle) * Math.sqrt(1 - z * z) * extent, Math.sin(angle) * Math.sqrt(1 - z * z) * extent, z * extent);
+      const radius = 8500;
+      this.background.positions.setXYZ(i, Math.cos(angle) * Math.sqrt(1 - z * z) * radius, Math.sin(angle) * Math.sqrt(1 - z * z) * radius, z * radius);
       // Faint enough to stay under the 0.8 bloom threshold in the constructor: only notes glow.
       const light = 0.2 + random() * 0.15;
       this.background.colors.setXYZ(i, light * 0.85, light * 0.92, light);
@@ -210,10 +197,8 @@ export class GalaxyRenderer {
     this.labelScale = labelScale;
     this.lookup.clear();
     const now = Date.now();
-    const layoutRadius = galaxyRadiusForCount(nodes.length);
-    const layoutScale = layoutRadius / GALAXY_RADIUS;
     const sparseScale = Math.max(1, Math.min(3, Math.sqrt(3000 / Math.max(1, nodes.length))));
-    const nebulaDensity = Math.min(1, Math.max(0.3, Math.sqrt(2000 / Math.max(1, nodes.length))));
+    const nebulaDensity = Math.min(1, Math.max(0.3, Math.sqrt(nodes.length / 2000)));
     const arms = nodes[0]?.arms ?? 4;
     nodes.forEach((node, i) => {
       this.lookup.set(node.id, i);
@@ -224,39 +209,37 @@ export class GalaxyRenderer {
       const variation = 0.45 + starRandom(node.id + ':light') ** 3 * 1.4;
       const core = node.core ? 1 : Math.max(0, 1 - radius / 400) * 0.4;
       const dim = node.dim ?? 1;
-      const intensity = light * variation * sparseScale ** 0.25 * (core ? 1.25 : 0.85) * dim * (1 - radius / 2500);
+      const intensity = light * variation * Math.sqrt(sparseScale) * (core ? 1.5 : 0.85) * dim * (1 - radius / 2500);
       const warm = [1, 0.72, 0.42];
       for (let channel = 0; channel < 3; channel++) {
         const pastel = node.color[channel] * 0.35 + 0.46;
         this.stars!.colors.setComponent(i, channel, (pastel * (1 - core) + warm[channel] * core) * intensity);
       }
-      this.stars!.sizes.setX(i, (5 + node.r * 2.5) * sparseScale ** 0.65 * Math.sqrt(light * variation) * (node.core ? 1.2 : 1));
+      this.stars!.sizes.setX(i, (5 + node.r * 2.5) * sparseScale * Math.sqrt(light * variation) * (node.core ? 1.2 : 1));
     });
-    this.makeSpace(layoutRadius, Math.round(nodes.length * 8));
     this.dustGroup.visible = nodes.length > 0;
     for (let i = 0; i < this.dust.sprite.count; i++) {
       const core = i < 180;
-      const radius = (core ? 160 * Math.sqrt(i / 180) : 120 + 1260 * ((i * 137 % 920) / 920) ** 1.3) * layoutScale;
+      const radius = core ? 160 * Math.sqrt(i / 180) : 120 + 1260 * ((i * 137 % 920) / 920) ** 1.3;
       const angle = core ? i * 2.399963 : spiralAngle(radius, i % arms, arms) + Math.sin(i * 78.33) * 0.12;
       this.dust.positions.setXYZ(i, Math.cos(angle) * radius, -Math.sin(angle) * radius, -20);
       const palette = [[0.23, 0.34, 0.48], [0.36, 0.27, 0.42], [0.23, 0.35, 0.4], [0.43, 0.32, 0.28]][i % arms];
-      const color = core ? [0.5, 0.27, 0.11] : palette;
+      const color = core ? [0.85, 0.45, 0.17] : palette;
       this.dust.colors.setXYZ(i, color[0] * nebulaDensity, color[1] * nebulaDensity, color[2] * nebulaDensity);
-      this.dust.sizes.setX(i, (core ? 190 : 110 + radius * 0.16) * layoutScale);
+      this.dust.sizes.setX(i, core ? 250 : 110 + radius * 0.16);
     }
     for (let i = 0; i < this.lanes.sprite.count; i++) {
-      const radius = (260 + 1080 * (i / this.lanes.sprite.count)) * layoutScale;
+      const radius = 260 + 1080 * (i / this.lanes.sprite.count);
       const angle = spiralAngle(radius, i % arms, arms) + 0.14;
       this.lanes.positions.setXYZ(i, Math.cos(angle) * radius, -Math.sin(angle) * radius, 18);
       this.lanes.colors.setXYZ(i, 0.002, 0.003, 0.008);
-      this.lanes.sizes.setX(i, (65 + radius * 0.05) * layoutScale);
+      this.lanes.sizes.setX(i, 65 + radius * 0.05);
     }
     this.dust.positions.needsUpdate = this.dust.colors.needsUpdate = this.dust.sizes.needsUpdate = true;
     this.lanes.positions.needsUpdate = this.lanes.colors.needsUpdate = this.lanes.sizes.needsUpdate = true;
-    this.background.positions.needsUpdate = this.background.colors.needsUpdate = this.background.sizes.needsUpdate = true;
     this.stars.positions.needsUpdate = this.stars.colors.needsUpdate = this.stars.sizes.needsUpdate = true;
     if (nodes.length && fit) {
-      const distance = layoutRadius * 2.45 / Math.min(1, this.camera.aspect);
+      const distance = GALAXY_RADIUS * 2.45 / Math.min(1, this.camera.aspect);
       this.controls.target.set(0, 0, 0);
       this.camera.position.set(0, -distance * Math.sin(Math.PI / 3), distance * Math.cos(Math.PI / 3));
       this.camera.lookAt(this.controls.target);
