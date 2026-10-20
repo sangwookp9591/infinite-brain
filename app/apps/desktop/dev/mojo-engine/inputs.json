@@ -1,0 +1,22 @@
+[
+  "title: Planning | text: Our team meets every Monday morning to review the product roadmap and discuss customer feedback. We document the decisions in a shared notebook, assign clear owners to each action, and check progress at the next meeting. The next release improves search across project notes and makes it easier to find related documents even when the original wording differs from the query. All private notes stay on the device.",
+  "title: 회의록 | text: 월요일 오전 팀 회의에서 제품 출시 일정과 고객 의견을 검토했습니다. 각 작업의 담당자를 정하고 다음 회의에서 진행 상황을 확인합니다.",
+  "title: Recipes | text: Roast the vegetables with olive oil and serve with warm rice.",
+  "title: 여행 계획 | text: 제주도 여행은 다음 달입니다. 비행기와 숙소를 예약하고 바다를 보러 갑니다.",
+  "title: Database | text: Use transactions and parameterized queries to protect stored data.",
+  "title: 보안 점검 | text: 인증 토큰을 로그에 남기지 않고 접근 권한은 서버에서 확인합니다.",
+  "title: Garden | text: Water the plants in the morning and avoid direct afternoon sunlight.",
+  "title: 독서 기록 | text: 이번 책에서는 분산 시스템의 일관성과 장애 복구를 배웠습니다.",
+  "title: none | text: A short note with Unicode café and a number 123.",
+  "title: 검색 | text: 로컬 노트에서 표현이 달라도 의미가 비슷한 내용을 찾습니다.",
+  "task: search result | query: product planning meeting",
+  "task: search result | query: 제품 출시 일정과 담당자",
+  "task: search result | query: how to cook vegetables",
+  "task: search result | query: 제주도 여행 준비",
+  "task: search result | query: secure database transactions",
+  "task: search result | query: 인증 토큰 보안",
+  "task: search result | query: caring for garden plants",
+  "task: search result | query: 분산 시스템 장애 복구",
+  "task: search result | query: café Unicode 123",
+  "task: search result | query: 의미 기반 로컬 검색"
+]
