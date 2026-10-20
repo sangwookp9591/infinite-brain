@@ -1,5 +1,6 @@
 import { SOFT, useSpring } from "./kit/motion";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { LayoutGroup, motion } from "motion/react";
 import { placeMenu, type Placement } from "../lib/menuPlacement";
 import { noteLabel } from "../lib/notePath";
@@ -235,7 +236,11 @@ export function TabBar() {
         </svg>
       </button>
 
-      {menu && (
+      {/* Portalled to <body>. `.main-header` is a size container, and container-type
+          gives it layout containment, which makes it the containing block of every
+          position: fixed descendant: the menu was placed against the header instead
+          of the window and then painted UNDER the editor sheet that follows it. */}
+      {menu && createPortal(
         <ul
           className="context-menu"
           role="menu"
@@ -292,7 +297,8 @@ export function TabBar() {
           >
             Close all
           </li>
-        </ul>
+        </ul>,
+        document.body,
       )}
     </div>
   );
