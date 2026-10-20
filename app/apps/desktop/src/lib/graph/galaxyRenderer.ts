@@ -34,7 +34,7 @@ interface Callbacks {
 type Distance = ReturnType<typeof unitDistance>;
 const unitDistance = () => uv().sub(0.5).length().mul(2);
 /** Note stars: a bright spike core over a soft halo. */
-const spike = (d: Distance) => d.mul(-6).exp().add(d.mul(-32).exp().mul(3)).mul(d.oneMinus().max(0));
+const spike = (d: Distance) => d.mul(-7).exp().mul(0.55).add(d.mul(-32).exp().mul(3)).mul(d.oneMinus().max(0));
 /** Nebula dust: wide and faint. */
 const haze = (d: Distance) => d.pow(2).mul(-5).exp().mul(d.oneMinus().max(0)).mul(0.045);
 /** Dark dust lanes. */
@@ -156,7 +156,9 @@ export class GalaxyRenderer {
     this.labelLayer.setAttribute('aria-hidden', 'true');
     this.labelLayer.append(...this.labels);
     this.scenePass = pass(this.scene, this.camera);
-    this.bloomPass = bloom(this.scenePass.getTextureNode(), 0.7, 0.55, 0.8);
+    // Strength, radius, threshold. Softer and tighter than the first cut (0.7, 0.55, 0.8),
+    // which merged a small vault's notes into one white blob around the core.
+    this.bloomPass = bloom(this.scenePass.getTextureNode(), 0.42, 0.32, 0.85);
     this.bloomPass.setResolutionScale(0.5);
     this.pipeline = new THREE.RenderPipeline(renderer, this.scenePass.add(this.bloomPass));
     input.addEventListener('pointerdown', this.pointerDown);
@@ -222,13 +224,13 @@ export class GalaxyRenderer {
       const variation = 0.45 + starRandom(node.id + ':light') ** 3 * 1.4;
       const core = node.core ? 1 : Math.max(0, 1 - radius / 400) * 0.4;
       const dim = node.dim ?? 1;
-      const intensity = light * variation * Math.sqrt(sparseScale) * (core ? 1.5 : 0.85) * dim * (1 - radius / 2500);
+      const intensity = light * variation * sparseScale ** 0.25 * (core ? 1.25 : 0.85) * dim * (1 - radius / 2500);
       const warm = [1, 0.72, 0.42];
       for (let channel = 0; channel < 3; channel++) {
         const pastel = node.color[channel] * 0.35 + 0.46;
         this.stars!.colors.setComponent(i, channel, (pastel * (1 - core) + warm[channel] * core) * intensity);
       }
-      this.stars!.sizes.setX(i, (5 + node.r * 2.5) * sparseScale * Math.sqrt(light * variation) * (node.core ? 1.2 : 1));
+      this.stars!.sizes.setX(i, (5 + node.r * 2.5) * sparseScale ** 0.65 * Math.sqrt(light * variation) * (node.core ? 1.2 : 1));
     });
     this.makeSpace(layoutRadius, Math.round(nodes.length * 8));
     this.dustGroup.visible = nodes.length > 0;
@@ -238,9 +240,9 @@ export class GalaxyRenderer {
       const angle = core ? i * 2.399963 : spiralAngle(radius, i % arms, arms) + Math.sin(i * 78.33) * 0.12;
       this.dust.positions.setXYZ(i, Math.cos(angle) * radius, -Math.sin(angle) * radius, -20);
       const palette = [[0.23, 0.34, 0.48], [0.36, 0.27, 0.42], [0.23, 0.35, 0.4], [0.43, 0.32, 0.28]][i % arms];
-      const color = core ? [0.85, 0.45, 0.17] : palette;
+      const color = core ? [0.5, 0.27, 0.11] : palette;
       this.dust.colors.setXYZ(i, color[0] * nebulaDensity, color[1] * nebulaDensity, color[2] * nebulaDensity);
-      this.dust.sizes.setX(i, (core ? 250 : 110 + radius * 0.16) * layoutScale);
+      this.dust.sizes.setX(i, (core ? 190 : 110 + radius * 0.16) * layoutScale);
     }
     for (let i = 0; i < this.lanes.sprite.count; i++) {
       const radius = (260 + 1080 * (i / this.lanes.sprite.count)) * layoutScale;
