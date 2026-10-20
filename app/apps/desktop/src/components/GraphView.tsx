@@ -1254,10 +1254,13 @@ export function GraphView({ onClose }: { onClose: () => void }) {
     const webglNodes: GalaxyNode[] = [];
     let lastTree = useStore.getState().tree;
     const modified = new Map<string, number>();
+    const sizes = new Map<string, number>();
     function readModified() {
       modified.clear();
+      sizes.clear();
       const visit = (node: NonNullable<typeof lastTree>) => {
         if (node.modified) modified.set(node.path, node.modified);
+        if (!node.isDir && node.size !== undefined) sizes.set(node.path, node.size);
         node.children?.forEach(visit);
       };
       if (lastTree) visit(lastTree);
@@ -1290,9 +1293,11 @@ export function GraphView({ onClose }: { onClose: () => void }) {
         rn.dim = dim;
         rn.r = n.radius * s.nodeSize * (n.id === hoveredId ? 1.8 : 1);
         rn.modified = modified.get(n.path);
+        rn.size = sizes.get(n.path);
         for (let channel = 0; channel < 3; channel++) rn.color[channel] = color[channel] / 255;
       }
       const edges = S.visEdges.map((edge) => ({ source: (edge.source as SimNode).id, target: (edge.target as SimNode).id }));
+      webgl.setTheme(s.theme);
       webgl.setData(webglNodes, edges, webglNeedsFitRef.current, s.edgeThickness, s.labelScale);
       if (S.useWorker ? !S.workerActive : sim.alpha() <= FIT_LOCK_ALPHA) webglNeedsFitRef.current = false;
       webgl.render();
@@ -1610,10 +1615,19 @@ export function GraphView({ onClose }: { onClose: () => void }) {
           style={{ display: settings.scope === "global" && !webglError ? "block" : "none" }} />
         <div className="graph-galaxy-caption" aria-hidden="true">
           <span>INFINITE BRAIN</span>
-          <h1>A universe of ideas.</h1>
-          <p>Every note a star. Every connection a new constellation.</p>
+          {settings.theme === "neuron" ? (
+            <>
+              <h1>A network of ideas.</h1>
+              <p>Every note a neuron. Every link a signal.</p>
+            </>
+          ) : (
+            <>
+              <h1>A universe of ideas.</h1>
+              <p>Every note a star. Every connection a new constellation.</p>
+            </>
+          )}
         </div>
-        <p className="graph-galaxy-help" id="galaxy-help">Drag to orbit · Right drag to pan · Scroll to explore · Click a star to open</p>
+        <p className="graph-galaxy-help" id="galaxy-help">Drag to orbit · Right drag to pan · Scroll to explore · {settings.theme === "neuron" ? "Click a neuron to open" : "Click a star to open"}</p>
         {settings.scope === "global" && webglError && (
           <div
             style={{

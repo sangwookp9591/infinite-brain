@@ -4,7 +4,7 @@
 // styling lives in graph.css and the shared kit components.
 
 import type { GraphSettings, ColorMode } from "../lib/graph/graphSettings";
-import { SETTING_RANGES } from "../lib/graph/graphSettings";
+import { SETTING_RANGES, type GraphTheme } from "../lib/graph/graphSettings";
 import type { LegendEntry } from "../lib/graph/graphColor";
 import { BarSlider } from "./kit/BarSlider";
 import { SegmentedChips } from "./kit/SegmentedChips";
@@ -30,6 +30,11 @@ const SLIDER_LABELS: Record<SliderKey, string> = {
   labelScale: "Labels",
   minDegree: "Min links",
 };
+
+const THEMES: { value: GraphTheme; label: string }[] = [
+  { value: "space", label: "Space" },
+  { value: "neuron", label: "Neuron" },
+];
 
 const COLOR_MODES: { value: ColorMode; label: string }[] = [
   { value: "folder", label: "Folder" },
@@ -87,6 +92,16 @@ export function GraphControls(props: GraphControlsProps): React.JSX.Element {
 
       <div className="graph-control-group">
         <div className="graph-control-group-title">Appearance</div>
+        <div className="graph-control-row">
+          <span className="graph-control-label">Theme</span>
+          <SegmentedChips
+            label="Graph theme"
+            size="sm"
+            items={THEMES}
+            value={settings.theme}
+            onChange={(value) => onChange({ theme: value as GraphTheme })}
+          />
+        </div>
         {slider("nodeSize")}
         {slider("edgeThickness")}
         {slider("labelScale")}

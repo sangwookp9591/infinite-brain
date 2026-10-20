@@ -26,6 +26,9 @@ pub struct TreeNode {
     /// default arrangement — so this is read for every entry, one extra stat
     /// per `read_dir` entry.
     pub modified: u64,
+    /// Files only: size in bytes (0 for folders or when the OS won't say).
+    /// The graph colours a note's star by it.
+    pub size: u64,
 }
 
 /// A directory entry's mtime in epoch millis, or 0 if it can't be read (a
@@ -57,6 +60,7 @@ pub fn list_tree(vault: &Path) -> AppResult<TreeNode> {
         children: Some(children),
         children_loaded: true,
         modified: modified_millis(std::fs::metadata(vault).ok()),
+        size: 0,
     })
 }
 
@@ -113,6 +117,7 @@ pub fn list_children(vault: &Path, rel: &str) -> AppResult<Vec<TreeNode>> {
                 children: Some(Vec::new()), // lazy marker: expandable, not yet loaded
                 children_loaded: false,
                 modified: modified_millis(entry.metadata().ok()),
+                size: 0,
             });
         } else if file_type.is_file() {
             if !is_allowed_file(&name) {
@@ -126,6 +131,7 @@ pub fn list_children(vault: &Path, rel: &str) -> AppResult<Vec<TreeNode>> {
                 children: None,
                 children_loaded: true,
                 modified: modified_millis(entry.metadata().ok()),
+                size: entry.metadata().map_or(0, |m| m.len()),
             });
         }
     }
@@ -177,6 +183,7 @@ fn walk_dir(dir: &Path, rel_prefix: &str) -> AppResult<Vec<TreeNode>> {
                 children: Some(children),
                 children_loaded: true,
                 modified: modified_millis(entry.metadata().ok()),
+                size: 0,
             });
         } else if file_type.is_file() {
             // Only surface allowed file types (notes/images/PDFs); skip code,
@@ -192,6 +199,7 @@ fn walk_dir(dir: &Path, rel_prefix: &str) -> AppResult<Vec<TreeNode>> {
                 children: None,
                 children_loaded: true,
                 modified: modified_millis(entry.metadata().ok()),
+                size: entry.metadata().map_or(0, |m| m.len()),
             });
         }
     }

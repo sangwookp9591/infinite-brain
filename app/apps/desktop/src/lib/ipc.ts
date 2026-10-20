@@ -148,6 +148,8 @@ export interface TreeNode {
    *  sidebar's "Recently modified" sort. Absent on nodes synthesized client-side
    *  before a refresh lands. */
   modified?: number;
+  /** Files only: size in bytes. Colours the note's star in the graph. */
+  size?: number;
 }
 
 export interface SearchResult {

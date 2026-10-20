@@ -33,12 +33,12 @@ if (params.get('renderer') === '2d') {
     return Reflect.apply(getContext, this, [type, ...args]);
   } as typeof getContext;
 }
-localStorage.setItem('context.graph.settings.v5', JSON.stringify({ colorMode: 'folder', hideOrphans: false, minDegree: 0 }));
+localStorage.setItem('context.graph.settings.v5', JSON.stringify({ colorMode: 'folder', hideOrphans: false, minDegree: 0, theme: params.get('graphTheme') === 'neuron' ? 'neuron' : 'space' }));
 localStorage.setItem('cbk-theme', params.get('theme') ?? 'dark');
 const { useStore } = await import('../../src/store');
 useStore.setState({
   titles,
-  tree: { name: 'Synthetic universe', path: '', isDir: true, children: titles.map((n, i) => ({ name: n.title, path: n.path, isDir: false, modified: Date.now() - (i % 90) * 86400000 })) },
+  tree: { name: 'Synthetic universe', path: '', isDir: true, children: titles.map((n, i) => ({ name: n.title, path: n.path, isDir: false, modified: Date.now() - (i % 90) * 86400000, size: Math.round(300 * Math.exp(((i * 2654435761) % 1000) / 1000 * 6.5)) })) },
   openNoteByPath: async (path: string) => { document.body.dataset.openedNote = path; },
 });
 const { GraphView } = await import('../../src/components/GraphView');

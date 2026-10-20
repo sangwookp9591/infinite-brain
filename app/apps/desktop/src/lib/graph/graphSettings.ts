@@ -8,6 +8,9 @@
 /** How node fill colors are derived. */
 export type ColorMode = "folder" | "degree" | "uniform";
 
+/** The 3D graph's look: a galaxy of stars, or a network of neurons. */
+export type GraphTheme = "space" | "neuron";
+
 /**
  * What the graph draws. **Pinned to `global`** — the graph is the whole vault.
  *
@@ -45,6 +48,8 @@ export interface GraphSettings {
   labelScale: number;
   /** Node fill color strategy. */
   colorMode: ColorMode;
+  /** Space (stars and nebulae) or Neuron (cells, axons and travelling signals). */
+  theme: GraphTheme;
 
   // ---- Filter ----
   /** Case-insensitive title substring; non-matches are dimmed (empty = no filter). */
@@ -71,6 +76,7 @@ export const DEFAULT_SETTINGS: GraphSettings = {
   edgeThickness: 1.3,
   labelScale: 0.25,
   colorMode: "folder",
+  theme: "space",
   search: "",
   minDegree: 1,
   hideOrphans: true,

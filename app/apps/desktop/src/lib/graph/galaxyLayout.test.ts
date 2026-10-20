@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from 'vitest';
-import { buildGalaxyLayout, GALAXY_RADIUS, recentBrightness } from './galaxyLayout';
+import { buildGalaxyLayout, clusterCenter, GALAXY_RADIUS, recentBrightness } from './galaxyLayout';
 
 const nodes = Array.from({ length: 200 }, (_, i) => ({ id: `n${i}`, path: `Folder ${i % 4}/${i}.md`, title: `${i}`, linkCount: i % 20 === 0 ? 30 : 2 }));
 const edges = nodes.slice(4).map((node, i) => ({ source: node.id, target: nodes[i % 4].id }));
 
 describe('galaxy presentation', () => {
-  it('produces identical geometry for shuffled input and bounded thin spiral arms', () => {
+  it('produces identical geometry for shuffled input, inside the galaxy, one cluster per folder', () => {
     const layout = buildGalaxyLayout(nodes, edges);
     const shuffled = buildGalaxyLayout([...nodes].reverse(), [...edges].reverse());
     expect(layout.size).toBe(nodes.length);
@@ -19,15 +19,21 @@ describe('galaxy presentation', () => {
     expect([...layout.values()].filter((p) => p.core)).toHaveLength(30);
     expect(layout.get('n0')!.core).toBe(true);
   });
-  it('keeps connected nodes in the same local radial neighborhood', () => {
+  it('gathers each folder round its own centre, with no spiral', () => {
     const layout = buildGalaxyLayout(nodes, edges);
-    const arm = [...layout.entries()].filter(([, p]) => !p.core && p.arm === 0).map(([, p]) => Math.hypot(p.x, p.y));
-    expect(Math.max(...arm) - Math.min(...arm)).toBeLessThan(180);
+    for (let arm = 0; arm < 4; arm++) {
+      const points = [...layout.values()].filter((p) => !p.core && p.arm === arm);
+      const c = clusterCenter(arm, 4);
+      const mean = points.reduce((m, p) => ({ x: m.x + p.x / points.length, y: m.y + p.y / points.length }), { x: 0, y: 0 });
+      // The cluster's middle sits near its centre, and its notes stay close to it.
+      expect(Math.hypot(mean.x - c.x, mean.y - c.y)).toBeLessThan(140);
+      expect(Math.max(...points.map((p) => Math.hypot(p.x - c.x, p.y - c.y)))).toBeLessThan(700);
+    }
     expect(buildGalaxyLayout([], [])).toEqual(new Map());
   });
-  it('forms two stellar arms even when every note is in the root folder', () => {
+  it('still forms a few clusters when every note is in the root folder', () => {
     const layout = buildGalaxyLayout(nodes.map((node) => ({ ...node, path: `${node.id}.md` })), edges);
-    expect(new Set([...layout.values()].filter((point) => !point.core).map((point) => point.arm)).size).toBe(2);
+    expect(new Set([...layout.values()].filter((point) => !point.core).map((point) => point.arm)).size).toBeGreaterThanOrEqual(2);
   });
   it('brightens recent edits without making missing timestamps look recent', () => {
     const now = 1800000000000;

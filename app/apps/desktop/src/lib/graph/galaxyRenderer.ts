@@ -7,7 +7,7 @@ import { bloom } from 'three/addons/tsl/display/BloomNode.js';
 import { LineSegments2 } from 'three/addons/lines/webgpu/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { GALAXY_RADIUS, spiralAngle, recentBrightness, starRandom } from './galaxyLayout';
+import { GALAXY_RADIUS, recentBrightness, starRandom } from './galaxyLayout';
 
 export interface GalaxyNode {
   id: string;
@@ -18,6 +18,8 @@ export interface GalaxyNode {
   r: number;
   color: [number, number, number];
   modified?: number;
+  /** File size in bytes, when the tree knows it: sets the star's temperature. */
+  size?: number;
   z?: number;
   core?: boolean;
   arm?: number;
@@ -66,6 +68,12 @@ function particles(count: number, shape: (d: Distance) => ReturnType<typeof spik
   } };
 }
 type Particles = ReturnType<typeof particles>;
+/** Signals drawn at once in the Neuron theme; the rest of the links stay still. */
+const SIGNALS = 420;
+
+function mixRgb(a: number[], b: number[], t: number): number[] {
+  return a.map((v, i) => v + (b[i] - v) * t);
+}
 
 export class GalaxyRenderer {
   readonly scene = new THREE.Scene();
@@ -81,10 +89,10 @@ export class GalaxyRenderer {
   private background = particles(1600, dot);
   private dustGroup = new THREE.Group();
   private lines = new LineSegments2(new LineSegmentsGeometry(), new THREE.Line2NodeMaterial({
-    color: '#779acb', transparent: true, opacity: 0.085, depthWrite: false, blending: THREE.AdditiveBlending,
+    transparent: true, opacity: 0.085, depthWrite: false, blending: THREE.AdditiveBlending,
   }));
   private rays = new LineSegments2(new LineSegmentsGeometry(), new THREE.Line2NodeMaterial({
-    color: '#c2ddff', transparent: true, opacity: 0.6, depthWrite: false, blending: THREE.AdditiveBlending,
+    transparent: true, opacity: 0.6, depthWrite: false, blending: THREE.AdditiveBlending,
   }));
   private nodes: GalaxyNode[] = [];
   private lookup = new Map<string, number>();
@@ -106,6 +114,14 @@ export class GalaxyRenderer {
   private labelLayer = document.createElement('div');
   private labels = Array.from({ length: 12 }, () => document.createElement('span'));
   private pendingPointer: { x: number; y: number } | null = null;
+  /** Space: stars and nebulae. Neuron: cells, bright axons and signals that
+   *  travel along the links (`setTheme`). */
+  private theme: 'space' | 'neuron' = 'space';
+  private spaceBackground = new THREE.Color('#070b1d');
+  private spaceEdge = new THREE.Color('#779acb');
+  /** One signal per sampled link, gliding from source to target. */
+  private signals = particles(SIGNALS, spike);
+  private signalEdges = new Uint32Array(SIGNALS);
 
   static async create(host: HTMLElement, input: HTMLCanvasElement, callbacks: Callbacks, forceWebGL = false) {
     const canvas = document.createElement('canvas');
@@ -123,7 +139,16 @@ export class GalaxyRenderer {
 
   private constructor(private renderer: THREE.WebGPURenderer, private input: HTMLCanvasElement, private callbacks: Callbacks) {
     this.backend = 'isWebGLBackend' in renderer.backend ? 'WebGL2' : 'WebGPU';
-    this.scene.background = new THREE.Color('#070b1d');
+    // Colours come from the --graph-* tokens (graph.css), so the scene follows
+    // the app palette. The canvas is opaque (alpha:false): the CSS starfield
+    // behind it never shows, so the clear colour must match it.
+    const graphStyle = getComputedStyle(input);
+    const token = (name: string, fallback: string) => graphStyle.getPropertyValue(name).trim() || fallback;
+    this.spaceBackground.set(token('--graph-space-core', '#070b1d'));
+    this.spaceEdge.set(token('--graph-edge', '#779acb'));
+    this.scene.background = this.spaceBackground.clone();
+    this.lines.material.color.copy(this.spaceEdge);
+    this.rays.material.color.set(token('--graph-ray', '#c2ddff'));
     renderer.onDeviceLost = (info) => { if (!this.disposed) callbacks.fail(new Error(info.message)); };
     renderer.onError = (message) => { if (!this.disposed) callbacks.fail(new Error(String(message))); };
     renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.5));
@@ -137,7 +162,9 @@ export class GalaxyRenderer {
     this.controls.addEventListener('change', this.markDirty);
     this.controls.addEventListener('start', this.cancelFlight);
     this.motion.addEventListener('change', this.motionChange);
-    this.scene.add(this.lines, this.rays, this.background.sprite, this.dustGroup);
+    this.scene.add(this.lines, this.rays, this.background.sprite, this.dustGroup, this.signals.sprite);
+    this.signals.sprite.visible = false;
+    this.signals.sprite.count = 0;
     this.dustGroup.add(this.dust.sprite, this.lanes.sprite);
     this.lanes.sprite.material.blending = THREE.NormalBlending;
     this.lanes.sprite.renderOrder = 2;
@@ -177,6 +204,21 @@ export class GalaxyRenderer {
     for (let i = 0; i < this.dust.sprite.count; i++) this.dust.sizes.setX(i, 0.12 + random() * 0.22);
   }
 
+  /** Switch the look without rebuilding the scene. Neuron hides the starfield
+   *  and nebulae, darkens the space, brightens the links into axons and sends
+   *  signals along them (still when the system asks for reduced motion). */
+  setTheme(theme: 'space' | 'neuron') {
+    if (theme === this.theme) return;
+    this.theme = theme;
+    const neuron = theme === 'neuron';
+    this.background.sprite.visible = !neuron;
+    this.dustGroup.visible = !neuron && this.nodes.length > 0;
+    (this.scene.background as THREE.Color).set(neuron ? '#03050b' : this.spaceBackground);
+    this.lines.material.color.set(neuron ? '#4fd8ff' : this.spaceEdge);
+    this.signals.sprite.visible = neuron;
+    this.dirty = true;
+  }
+
   resize(width: number, height: number) {
     this.width = Math.max(1, width); this.height = Math.max(1, height);
     this.camera.aspect = this.width / this.height;
@@ -198,8 +240,19 @@ export class GalaxyRenderer {
     this.lookup.clear();
     const now = Date.now();
     const sparseScale = Math.max(1, Math.min(3, Math.sqrt(3000 / Math.max(1, nodes.length))));
+    // A small vault's notes are a handful of points on a full-size galaxy: draw
+    // them larger so each reads as a star, without brightening them (brightness
+    // is what the bloom turns into a blob). Fades out by 300 notes.
+    const fewNotes = 1 + 1.4 * Math.max(0, 1 - nodes.length / 300);
     const nebulaDensity = Math.min(1, Math.max(0.3, Math.sqrt(nodes.length / 2000)));
-    const arms = nodes[0]?.arms ?? 4;
+    // Each note's place among this vault's file sizes, 0 (smallest) to 1.
+    const sized = nodes.filter((node) => node.size !== undefined).map((node) => node.size!).sort((a, b) => a - b);
+    const sizeRank = (size: number | undefined) => {
+      if (size === undefined || sized.length < 2) return 0.5;
+      let lo = 0, hi = sized.length;
+      while (lo < hi) { const mid = (lo + hi) >> 1; if (sized[mid] < size) lo = mid + 1; else hi = mid; }
+      return lo / (sized.length - 1);
+    };
     nodes.forEach((node, i) => {
       this.lookup.set(node.id, i);
       const z = node.z ?? 0;
@@ -207,34 +260,43 @@ export class GalaxyRenderer {
       const light = recentBrightness(node.modified, now);
       const radius = Math.hypot(node.x, node.y);
       const variation = 0.45 + starRandom(node.id + ':light') ** 3 * 1.4;
-      const core = node.core ? 1 : Math.max(0, 1 - radius / 400) * 0.4;
       const dim = node.dim ?? 1;
-      const intensity = light * variation * Math.sqrt(sparseScale) * (core ? 1.5 : 0.85) * dim * (1 - radius / 2500);
-      const warm = [1, 0.72, 0.42];
+      const intensity = light * variation * Math.sqrt(sparseScale) * (node.core ? 1.5 : 0.85) * dim * (1 - radius / 2500);
+      // Hue from the note's folder colour (the graph's own colouring), kept
+      // saturated; temperature from its file size, like a real star: small
+      // notes burn orange, mid-sized white, the largest blue.
+      const rank = sizeRank(node.size);
+      const temperature = rank < 0.5
+        ? mixRgb([1, 0.58, 0.38], [1, 0.95, 0.88], rank * 2)
+        : mixRgb([1, 0.95, 0.88], [0.66, 0.8, 1], (rank - 0.5) * 2);
       for (let channel = 0; channel < 3; channel++) {
-        const pastel = node.color[channel] * 0.35 + 0.46;
-        this.stars!.colors.setComponent(i, channel, (pastel * (1 - core) + warm[channel] * core) * intensity);
+        const hue = node.color[channel] * 0.8 + 0.2;
+        this.stars!.colors.setComponent(i, channel, (hue * 0.62 + temperature[channel] * 0.38) * intensity);
       }
-      this.stars!.sizes.setX(i, (5 + node.r * 2.5) * sparseScale * Math.sqrt(light * variation) * (node.core ? 1.2 : 1));
+      this.stars!.sizes.setX(i, (5 + node.r * 2.5) * sparseScale * fewNotes * Math.sqrt(light * variation) * (0.85 + rank * 0.4) * (node.core ? 1.2 : 1));
     });
-    this.dustGroup.visible = nodes.length > 0;
+    this.dustGroup.visible = nodes.length > 0 && this.theme === 'space';
+    // Nebula: a warm glow at the core, then soft clouds tinted by the folder
+    // colour of the notes they gather around, so each cluster has its own haze.
+    // No spiral and no dust lanes.
+    const outer = nodes.filter((node) => !node.core);
     for (let i = 0; i < this.dust.sprite.count; i++) {
-      const core = i < 180;
-      const radius = core ? 160 * Math.sqrt(i / 180) : 120 + 1260 * ((i * 137 % 920) / 920) ** 1.3;
-      const angle = core ? i * 2.399963 : spiralAngle(radius, i % arms, arms) + Math.sin(i * 78.33) * 0.12;
-      this.dust.positions.setXYZ(i, Math.cos(angle) * radius, -Math.sin(angle) * radius, -20);
-      const palette = [[0.23, 0.34, 0.48], [0.36, 0.27, 0.42], [0.23, 0.35, 0.4], [0.43, 0.32, 0.28]][i % arms];
-      const color = core ? [0.85, 0.45, 0.17] : palette;
-      this.dust.colors.setXYZ(i, color[0] * nebulaDensity, color[1] * nebulaDensity, color[2] * nebulaDensity);
-      this.dust.sizes.setX(i, core ? 250 : 110 + radius * 0.16);
+      const host = outer.length ? outer[(i * 7919) % outer.length] : undefined;
+      if (i < 180 || !host) {
+        const radius = 170 * Math.sqrt((i % 180) / 180);
+        const angle = i * 2.399963;
+        this.dust.positions.setXYZ(i, Math.cos(angle) * radius, -Math.sin(angle) * radius, -20);
+        this.dust.colors.setXYZ(i, 0.85 * nebulaDensity, 0.45 * nebulaDensity, 0.17 * nebulaDensity);
+        this.dust.sizes.setX(i, 250);
+        continue;
+      }
+      const jitter = 60 + starRandom(`dust:${i}:r`) * 170, angle = starRandom(`dust:${i}:a`) * Math.PI * 2;
+      this.dust.positions.setXYZ(i, host.x + Math.cos(angle) * jitter, -(host.y + Math.sin(angle) * jitter), -20);
+      const tint = 0.32 * nebulaDensity;
+      this.dust.colors.setXYZ(i, host.color[0] * tint, host.color[1] * tint, host.color[2] * tint);
+      this.dust.sizes.setX(i, 150 + starRandom(`dust:${i}:s`) * 140);
     }
-    for (let i = 0; i < this.lanes.sprite.count; i++) {
-      const radius = 260 + 1080 * (i / this.lanes.sprite.count);
-      const angle = spiralAngle(radius, i % arms, arms) + 0.14;
-      this.lanes.positions.setXYZ(i, Math.cos(angle) * radius, -Math.sin(angle) * radius, 18);
-      this.lanes.colors.setXYZ(i, 0.002, 0.003, 0.008);
-      this.lanes.sizes.setX(i, 65 + radius * 0.05);
-    }
+    this.lanes.sprite.visible = false;
     this.dust.positions.needsUpdate = this.dust.colors.needsUpdate = this.dust.sizes.needsUpdate = true;
     this.lanes.positions.needsUpdate = this.lanes.colors.needsUpdate = this.lanes.sizes.needsUpdate = true;
     this.stars.positions.needsUpdate = this.stars.colors.needsUpdate = this.stars.sizes.needsUpdate = true;
@@ -273,7 +335,22 @@ export class GalaxyRenderer {
     this.lines.material.linewidth = edgeThickness;
     this.rays.material.linewidth = edgeThickness * 1.2;
     this.lines.frustumCulled = false;
-    this.lines.material.opacity = Math.min(0.22, edgeThickness * 0.023) * Math.min(1, 1200 / Math.max(1, nodes.length));
+    const edgeOpacity = Math.min(0.22, edgeThickness * 0.023) * Math.min(1, 1200 / Math.max(1, nodes.length));
+    // Neuron: links are the subject, so brighter, but thinned as they multiply
+    // so a large vault reads as a network rather than a hairball.
+    this.lines.material.opacity = this.theme === 'neuron'
+      ? Math.min(0.55, edgeOpacity * 3.2 + 0.08 * Math.min(1, 300 / Math.max(1, nodes.length)))
+      : edgeOpacity;
+    // Spread the signals evenly over the links this frame draws.
+    const links = offset / 6;
+    this.signals.sprite.count = Math.min(SIGNALS, links);
+    for (let i = 0; i < this.signals.sprite.count; i++) {
+      this.signalEdges[i] = Math.floor((i + 0.5) * links / this.signals.sprite.count);
+      this.signals.sizes.setX(i, 9 + starRandom('signal:' + i) * 8);
+      const hue = starRandom('signal-hue:' + i);
+      this.signals.colors.setXYZ(i, 0.55 + hue * 0.45, 0.9, 1.6 - hue * 0.4);
+    }
+    this.signals.sizes.needsUpdate = this.signals.colors.needsUpdate = true;
     if (this.rayArray.length !== rays.length) {
       this.rayArray = new Float32Array(rays.length);
       this.rays.geometry.dispose(); this.rays.geometry = new LineSegmentsGeometry();
@@ -286,6 +363,23 @@ export class GalaxyRenderer {
     this.rays.visible = rays.length > 0;
     this.rays.frustumCulled = false;
     this.dirty = true;
+  }
+
+  /** Each signal runs its link source → target in ~1.6 s, staggered. Reduced
+   *  motion parks them mid-link: the axons still read as live, nothing moves. */
+  private moveSignals(now: number) {
+    const still = this.motion.matches;
+    for (let i = 0; i < this.signals.sprite.count; i++) {
+      const base = this.signalEdges[i] * 6;
+      const t = still ? 0.5 : ((now / 1600) + starRandom('signal-phase:' + i)) % 1;
+      const ease = t * t * (3 - 2 * t);
+      for (let axis = 0; axis < 3; axis++) {
+        const a = this.edgeArray[base + axis], b = this.edgeArray[base + 3 + axis];
+        this.signals.positions.setComponent(i, axis, a + (b - a) * ease);
+      }
+    }
+    this.signals.positions.needsUpdate = true;
+    if (!still) this.dirty = true;
   }
 
   render() {
@@ -307,6 +401,7 @@ export class GalaxyRenderer {
       this.pendingPointer = null;
       this.hover(this.pick(x, y), x, y);
     }
+    if (this.theme === 'neuron' && this.signals.sprite.count > 0) this.moveSignals(now);
     if (!this.dirty) return;
     this.dirty = false;
     this.camera.updateMatrixWorld();
@@ -424,6 +519,7 @@ export class GalaxyRenderer {
     this.input.removeEventListener('keydown', this.keyDown);
     this.stars?.dispose(); this.dust.dispose(); this.lanes.dispose(); this.background.dispose();
     this.lines.geometry.dispose(); this.lines.material.dispose(); this.rays.geometry.dispose(); this.rays.material.dispose();
+    this.signals.dispose();
     this.bloomPass.dispose(); this.scenePass.dispose(); this.pipeline.dispose();
     this.renderer.dispose(); this.renderer.domElement.remove(); this.labelLayer.remove();
   }
