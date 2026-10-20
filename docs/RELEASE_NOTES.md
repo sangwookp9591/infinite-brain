@@ -28,6 +28,10 @@
     (every app still installs it). Ask before each release: silent, or notes?
 -->
 
+## 0.2.2
+
+- Same Wi-Fi: Run a team server on one computer and join it from the others by its local address, like http://192.168.1.20:3010, without setting up HTTPS. Plain http works only on your local network.
+
 ## 0.2.1
 
 - Smart search: Turn it on in Vault settings to find notes by meaning, and pictures in your notes by what they show. It works on your Mac while you're not writing, so your notes never leave it.
