@@ -35,7 +35,11 @@ Write on your own computer, edit together in real time, and let your AI read and
 - **Built for teams.** Invite people with a link, choose who can edit or only view each folder, and see who is in a note while you write.
 - **Smart search, if you want it.** Turn it on in **Vault settings → Smart search** and search finds notes by meaning, not only by the words you typed, in English and Korean. It is off until you enable it, downloads a one-time 310 MB model, and runs on your computer: your notes never leave it. macOS only for now; elsewhere search keeps matching words.
 - **Asks once for a star.** After about five days of use a small corner card asks whether you'd like to star the repo on GitHub. It appears once, never blocks a note and never comes back after any answer. The same button lives in **Settings → About**.
-- **English and Korean.** Pick the language in **Settings → Appearance** (System, English or 한국어). System follows your computer. Korean covers the sidebar and menus, sign-in, invite and sharing, the sync status and the first-launch tour; the vault settings, health and billing screens are still English.
+- **English and Korean.** Pick the language in **Settings → Appearance** (System, English or 한국어). System follows your computer, and the whole app follows the choice: menus, sign-in, sharing, vault settings, health, billing, the graph and the dashboards.
+- **Two ways to see your notes.** The graph view draws the vault as a **Space** of stars, one cluster per folder with a haze in that folder's colour and each star's colour set by the note's file size, or as a **Neuron** network whose links glow like axons and carry travelling signals. Switch in the graph's settings.
+- **Home dashboards made for notes.** Start a vault Home from eight original templates (Daily, Team Hub, Projects, Research, Knowledge Map, Weekly Review, Meetings, Blank), each with its own look and a dark mode. They fill themselves from your notes and show labelled samples until they can.
+- **Every shortcut in one place.** **Vault settings → Keyboard shortcuts** lists them all, written for your computer (⌘ on a Mac, Ctrl on Windows).
+- **A ? beside each setting that matters for teams.** Smart search, Members and access, AI connections and Versioning say in three lines what they do, where they apply and how a team uses them.
 - **Starts with a short tour.** The first launch plays a four-scene intro before the welcome screen, and it never shows again.
 - **AI that you can undo.** Connect Claude or ChatGPT to a vault. Every change an AI makes is recorded, shown as a diff and can be undone.
 
@@ -54,12 +58,15 @@ The app keeps itself up to date: it installs new versions in the background, res
 
 1. **Open the app and pick a vault.** A vault is a folder of notes. Create a new one, or open a folder of Markdown files you already have.
 2. **Write.** Press **⌘N** (Ctrl+N on Windows) for a new note. Notes save automatically. Link notes with `[[Note name]]`; links and backlinks update when you rename a note.
-3. **Find things.** Use search from the icon rail. It matches note titles and content, including Korean and other languages. On a Mac you can also turn on smart search (see above) to find notes by meaning.
-4. **See the shape of your notes.** The graph view draws your notes as a galaxy: each star is a note, and lines are links between notes.
+3. **Find things.** Press **⌘P** (Ctrl+P) to search every note, or **⌘F** (Ctrl+F) to find inside the open one. Search matches titles and content, including Korean and other languages. On a Mac you can also turn on smart search (see above) to find notes by meaning.
+4. **See the shape of your notes.** Press **⌘G** (Ctrl+G) for the graph: every note is a star (or a neuron), clustered by folder, and lines are the links between notes.
+5. **Give the vault a Home.** Pick a template for the vault's Home page; it fills itself from your notes.
 
 Working alone needs no account and no server. Sign in only when you want to work with others.
 
-<img src="docs/galaxy/macos-20000-dark-v2.png" alt="The galaxy graph view rendering 20,000 notes and their links as a spiral galaxy" width="100%">
+<img src="docs/assets/ui/graph-space.jpg" alt="The graph view in the Space theme: one star cluster per folder around a bright core" width="49%"> <img src="docs/assets/ui/graph-neuron.jpg" alt="The same notes in the Neuron theme: cells joined by glowing links" width="49%">
+
+<img src="docs/assets/ui/templates.jpg" alt="The eight Home dashboard templates: Daily, Team Hub, Projects, Research, Knowledge Map, Weekly Review, Meetings and Blank" width="100%">
 
 ## 👥 Working as a team
 
