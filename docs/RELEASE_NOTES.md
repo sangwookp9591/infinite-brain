@@ -30,11 +30,11 @@
 
 ## 0.2.1
 
-- Korean: The sidebar, menus, sign-in, sharing and the sync status now speak Korean. Pick English or 한국어 in Settings → Appearance, or leave it on System.
-- Smart search: Turn it on in Vault settings to find notes by meaning, not just words. It downloads a 310 MB model once and runs on your Mac, so your notes never leave it.
-- A star, once: After about five days of use, a small card asks whether you'd like to star Infinite Brain on GitHub. It appears once and never blocks a note.
-- Update card: When the app updates itself, each change now appears as its own row in a card.
-- Feature help: A ? beside Smart search, Members and access, AI connections and Versioning says what each does, where it applies and how your team uses it.
+- Smart search: Turn it on in Vault settings to find notes by meaning, and pictures in your notes by what they show. It works on your Mac while you're not writing, so your notes never leave it.
+- Korean: The whole app now speaks Korean, settings and billing included. Pick English or 한국어 in Settings → Appearance, or leave it on System.
+- Graph themes: The graph clusters your notes by folder and colours each by size. Switch to Neuron in its settings for a network of glowing links.
+- Home templates: Eight new templates for a vault's Home, from Daily to Meetings, each with its own look and a dark mode.
+- Shortcuts: Vault settings lists every shortcut for your computer, Shift-Enter stays in its list item, and a ? beside key settings explains them for your team.
 
 ## 0.2.0
 
