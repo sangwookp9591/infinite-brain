@@ -1,0 +1,11 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/* Vault settings → Keyboard shortcuts. Tokens only. */
+.shortcut-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: var(--fs-sm); }
+.shortcut-table thead th:first-child { width: 44%; }
+.shortcut-table th, .shortcut-table td { padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.shortcut-table thead th { font-size: var(--fs-xs); font-weight: 600; color: var(--text-tertiary); }
+.shortcut-table tbody th { font-weight: 400; color: var(--text-primary); word-break: keep-all; }
+.shortcut-table td { white-space: nowrap; color: var(--text-tertiary); }
+.shortcut-table td.this-computer { color: var(--text-primary); }
+.shortcut-kbd { display: inline-block; min-width: 1.6em; padding: 1px 6px; border-radius: var(--radius-sm, 4px); background: var(--bg-subtle); font: inherit; font-size: var(--fs-xs); font-variant-numeric: tabular-nums; text-align: center; }
+.shortcut-check { width: 100%; margin-top: var(--sp-2, 8px); }

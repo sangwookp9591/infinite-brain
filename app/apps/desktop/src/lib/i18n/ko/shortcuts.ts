@@ -1,0 +1,42 @@
+// SPDX-License-Identifier: Apache-2.0
+// Korean strings: Vault settings → Keyboard shortcuts (components/ShortcutsTab.tsx,
+// lib/shortcuts.ts). "New note" lives in sidebar.ts.
+export const shortcuts: Record<string, string> = {
+  "Keyboard shortcuts": "단축키",
+  "The same shortcuts work on Mac and Windows: ⌘ on a Mac is Ctrl on Windows, and ⌥ is Alt.":
+    "Mac과 Windows에서 같은 단축키를 써요. Mac의 ⌘는 Windows의 Ctrl, ⌥는 Alt예요.",
+  "Action": "동작",
+  "App": "앱",
+  "Writing": "글쓰기",
+  "Close the current tab": "지금 탭 닫기",
+  "Next / previous tab": "다음 / 이전 탭",
+  "Search all notes": "모든 메모 검색",
+  "Toggle the graph": "그래프 열기 / 닫기",
+  "Home (outside a note)": "홈 (메모 밖에서)",
+  "Switch to vault 1–9": "1–9번 볼트로 바꾸기",
+  "Save now": "지금 저장",
+  "Reload the app": "앱 새로 고침",
+  "Line break inside the same item": "같은 항목 안에서 줄 바꾸기",
+  "Next list item": "다음 목록 항목",
+  "Indent / outdent a list item": "목록 들여쓰기 / 내어쓰기",
+  "Bold": "굵게",
+  "Italic": "기울임",
+  "Inline code": "인라인 코드",
+  "Strikethrough": "취소선",
+  "Highlight": "형광펜",
+  "Insert a link": "링크 넣기",
+  "Heading level 1–6": "제목 1–6단계",
+  "Tick / create a task": "할 일 체크 / 만들기",
+  "Add a property": "속성 추가",
+  "Find in this note": "이 메모에서 찾기",
+  "Select the next match": "같은 단어 하나 더 선택",
+  "Undo": "실행 취소",
+  "Redo": "다시 실행",
+  "Check a shortcut": "단축키 확인",
+  "Click the box and press the keys. If nothing appears, another app or the system took them before Infinite Brain.":
+    "칸을 누르고 키를 눌러 보세요. 아무것도 나오지 않으면 다른 앱이나 시스템이 Infinite Brain보다 먼저 키를 가져간 거예요.",
+  "Press keys here": "여기에서 키를 눌러 보세요",
+  "The app received {keys}.": "앱이 {keys} 키를 받았어요.",
+  "It came while a Korean letter was still being composed, and a note ignores shortcuts then. Finish the letter first (a space or an arrow key), then press the shortcut.":
+    "한글 글자를 조합하는 중에 들어와서, 메모에서는 이 단축키가 무시돼요. 먼저 글자를 끝낸 뒤(스페이스나 방향키) 단축키를 눌러 보세요.",
+};

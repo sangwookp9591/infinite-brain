@@ -22,6 +22,7 @@ export type SettingsTab =
   | "versioning"
   | "import-export"
   | "smart-search"
+  | "shortcuts"
   | "appearance";
 
 /** Account settings stay separate from vault settings but use the same

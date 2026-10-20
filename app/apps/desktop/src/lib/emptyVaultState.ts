@@ -8,6 +8,8 @@
  * (signed out, local vault, channel not live, an older server that never
  * answered `hiddenContent`) falls back to `none`, the ordinary prompt.
  */
+import { keyLabel } from "./shortcuts";
+
 export type EmptyVaultState = "none" | "empty-vault" | "nothing-shared";
 
 export interface EmptyVaultInput {
@@ -40,7 +42,8 @@ export function nothingSharedBody(ownerName: string | null | undefined, vaultNam
   return `${owner} hasn't given you access to any folders or notes in ${vault}. Ask them to share something with you.`;
 }
 
-/** The editor's resting prompt; never mentions ⌘N when a root create would be refused. */
-export function editorEmptyPrompt(canCreateRoot: boolean | null): string {
-  return canCreateRoot === false ? "Select a note." : "Select a note, or press ⌘N to create one.";
+/** The editor's resting prompt; never mentions ⌘N when a root create would be refused.
+ *  `newNote` is the key as this computer spells it (⌘N, Ctrl+N). */
+export function editorEmptyPrompt(canCreateRoot: boolean | null, newNote = keyLabel("Mod-n")): string {
+  return canCreateRoot === false ? "Select a note." : `Select a note, or press ${newNote} to create one.`;
 }

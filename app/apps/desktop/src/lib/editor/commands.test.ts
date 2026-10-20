@@ -64,6 +64,7 @@ function press(
     altKey: !!mods.alt,
   });
   view.contentDOM.dispatchEvent(event);
+  return event;
 }
 
 function text(view: EditorView): string {
@@ -163,10 +164,37 @@ describe("inline formatting", () => {
     view.destroy();
   });
 
-  it("inserts a hard break on Shift-Enter, not a new list item", () => {
+  it("inserts a hard break on Shift-Enter, not a new list item, and stays in the item", () => {
     const view = mount("- line one", 10);
     press(view, "Enter", { shift: true });
-    expect(text(view)).toBe("- line one  \n");
+    expect(text(view)).toBe("- line one  \n  ");
+    expect(view.state.selection.main.head).toBe(text(view).length);
+    view.destroy();
+  });
+
+  it("lines a Shift-Enter up with a task's text, a quote's marker and a continued line", () => {
+    for (const [doc, want] of [
+      ["- [ ] a", "- [ ] a  \n      "],
+      ["> a", "> a  \n> "],
+      ["  more", "  more  \n  "],
+      ["plain", "plain  \n"],
+    ]) {
+      const view = mount(doc, doc.length);
+      press(view, "Enter", { shift: true });
+      expect(text(view)).toBe(want);
+      view.destroy();
+    }
+  });
+});
+
+describe("app shortcuts the editor must not swallow", () => {
+  // Settings → Keyboard shortcuts promises these work while typing in a note
+  // (lib/shortcuts.ts). Mod-g used to be CodeMirror's find-next.
+  it("leaves new note, close tab, search, graph and save to the app", () => {
+    const view = mount("text", 4);
+    for (const key of ["n", "w", "p", "g", "s"]) {
+      expect(press(view, key, { mod: true }).defaultPrevented, `Mod-${key}`).toBe(false);
+    }
     view.destroy();
   });
 });

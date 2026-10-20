@@ -7,8 +7,8 @@ export const help: Record<string, string> = {
   "With your team": "팀과 함께",
   "Read the guide": "자세한 안내 보기",
 
-  "Finds notes with a similar meaning, not just the same words, in search (⌘F).":
-    "검색(⌘F)에서 같은 단어가 없어도 뜻이 비슷한 메모까지 찾아 줘요.",
+  "Finds notes with a similar meaning, not just the same words, in Search notes.":
+    "메모 검색에서 같은 단어가 없어도 뜻이 비슷한 메모까지 찾아 줘요.",
   "Only on this computer. It downloads its model once (310 MB) and reads this computer's copy of your notes. Nothing is sent anywhere.":
     "이 컴퓨터에만 적용돼요. 모델을 한 번 내려받고(310MB) 이 컴퓨터에 있는 메모를 읽어요. 어디로도 보내지 않아요.",
   "Nothing is shared. Each teammate turns it on on their own computer, and it only searches notes they can already open.":

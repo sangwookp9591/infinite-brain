@@ -1,5 +1,6 @@
 import { SecurityHistoryTab } from "./SecurityHistoryTab";
 import { SmartSearchTab } from "./SmartSearch";
+import { ShortcutsTab } from "./ShortcutsTab";
 import { FeatureHelp } from "./FeatureHelp";
 import { SpringCheck } from "./kit/SpringCheck";
 /* The vault-settings dialog and its nine tabs — the whole settings surface of
@@ -169,6 +170,16 @@ const SETTINGS_TABS: Array<{ id: SettingsTab; label: string; icon: React.ReactNo
         <circle cx="11" cy="11" r="7" />
         <path d="m20 20-3.5-3.5" />
         <path d="M11 8v6M8 11h6" />
+      </MenuIcon>
+    ),
+  },
+  {
+    id: "shortcuts",
+    label: "Keyboard shortcuts",
+    icon: (
+      <MenuIcon>
+        <rect x="2" y="6" width="20" height="12" rx="2" />
+        <path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8" />
       </MenuIcon>
     ),
   },
@@ -390,6 +401,8 @@ export function VaultSettingsDialog({
             <ImportExportTab />
           ) : shown === "smart-search" ? (
             <SmartSearchTab />
+          ) : shown === "shortcuts" ? (
+            <ShortcutsTab />
           ) : (
             <AppearanceTab canManage={canManage} isSynced={isSynced} />
           )}

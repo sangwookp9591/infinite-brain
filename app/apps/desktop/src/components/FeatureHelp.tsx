@@ -13,7 +13,7 @@ type Help = { what: string; where: string; team: string; doc: string };
 /** English is the i18n key; Korean lives in lib/i18n/ko/help.ts. */
 export const FEATURE_HELP: Partial<Record<SettingsTab, Help>> = {
   "smart-search": {
-    what: "Finds notes with a similar meaning, not just the same words, in search (⌘F).",
+    what: "Finds notes with a similar meaning, not just the same words, in Search notes.",
     where: "Only on this computer. It downloads its model once (310 MB) and reads this computer's copy of your notes. Nothing is sent anywhere.",
     team: "Nothing is shared. Each teammate turns it on on their own computer, and it only searches notes they can already open.",
     doc: "docs/SMART-SEARCH.md",

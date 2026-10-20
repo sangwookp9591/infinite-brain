@@ -128,10 +128,23 @@ const insertLink: Command = (view) => {
   return true;
 };
 
-/** A markdown hard break: two spaces then the newline. */
+/** Leading space, then a list marker (and task box) or a quote's `>`. */
+const ITEM_HEAD_RE = /^(\s*)(?:([-*+]|\d+[.)])(\s+(?:\[[ xX]\]\s+)?)|(>\s?))?/;
+
+/** What the line after a hard break starts with to stay in the same item: the
+ *  line's own indent, out to a list item's text, or the quote's `>`. */
+function continuation(lineText: string): string {
+  const [, indent, marker, gap, quote] = ITEM_HEAD_RE.exec(lineText)!;
+  if (quote) return indent + quote;
+  return " ".repeat(indent.length + (marker ? marker.length + gap.length : 0));
+}
+
+/** A markdown hard break: two spaces then the newline, then the indent that
+ *  keeps the caret inside the list item or quote it started in. */
 const hardBreak: Command = (view) => {
   if (view.state.readOnly) return false;
-  view.dispatch(view.state.replaceSelection("  \n"), {
+  const line = view.state.doc.lineAt(view.state.selection.main.head);
+  view.dispatch(view.state.replaceSelection(`  \n${continuation(line.text)}`), {
     scrollIntoView: true,
     userEvent: "input.hardbreak",
   });

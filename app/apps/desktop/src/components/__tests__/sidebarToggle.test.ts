@@ -5,6 +5,7 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { SidebarToggle } from "../SidebarToggle";
+import { keyLabel } from "../../lib/shortcuts";
 
 describe("SidebarToggle", () => {
   let host: HTMLDivElement;
@@ -44,7 +45,8 @@ describe("SidebarToggle", () => {
     expect(button.getAttribute("aria-expanded")).toBe("false");
     expect(onToggle).not.toHaveBeenCalled();
     const search = host.querySelector<HTMLButtonElement>(".titlebar-search")!;
-    expect(search.title).toBe("Search notes (⌘F)");
+    // ⌘P on a Mac, Ctrl+P elsewhere: the label follows this computer.
+    expect(search.title).toBe(`Search notes (${keyLabel("Mod-p")})`);
     expect(search.getAttribute("aria-pressed")).toBe("true");
     expect(onSearch).not.toHaveBeenCalled();
   });

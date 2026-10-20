@@ -54,7 +54,7 @@ describe("empty-state copy", () => {
   });
   it("drops ⌘N only when the root create is refused", () => {
     expect(editorEmptyPrompt(false)).toBe("Select a note.");
-    expect(editorEmptyPrompt(true)).toBe("Select a note, or press ⌘N to create one.");
-    expect(editorEmptyPrompt(null)).toBe("Select a note, or press ⌘N to create one.");
+    expect(editorEmptyPrompt(true, "⌘N")).toBe("Select a note, or press ⌘N to create one.");
+    expect(editorEmptyPrompt(null, "Ctrl+N")).toBe("Select a note, or press Ctrl+N to create one.");
   });
 });

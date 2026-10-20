@@ -191,20 +191,21 @@ When you're ready, open [[The graph view]] to see how everything connects.
   },
   {
     path: "Getting Started/Keyboard shortcuts.md",
-    body: `The handful worth memorising first:
+    body: `The handful worth memorising first. On Windows, press **Ctrl** for **⌘** and **Alt** for **⌥**. Every shortcut, for Mac and Windows side by side, is in Vault settings → Keyboard shortcuts.
 
 | Action | Shortcut |
 | --- | --- |
 | New note | **⌘N** |
 | Close the current tab | **⌘W** |
 | Switch between open tabs | **Ctrl-Tab** / **Ctrl-Shift-Tab** |
-| Search notes | **⌘F** |
+| Search all notes | **⌘P** |
+| Find in this note | **⌘F** |
 | Toggle the [[The graph view]] | **⌘G** |
 | Bold / italic | **⌘B** / **⌘I** |
 | Highlight | **⌘⇧H** |
 | Heading level 1–6 | **⌘⌥1** … **⌘⌥6** |
 | Tick / create a task | **⌘L** |
-| Line break inside a paragraph | **⇧⏎** |
+| Line break inside the same item | **⇧⏎** |
 | Insert a link | **⌘K** |
 | Add a property (tags, dates…) | **⌘;** |
 | Insert a \`[[wikilink]]\` | type \`[[\` |
