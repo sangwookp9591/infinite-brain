@@ -4,6 +4,8 @@ import * as ipc from "../lib/ipc";
 import { noteLabel } from "../lib/notePath";
 import { useStore } from "../store";
 import { SmartSearchHint } from "./SmartSearch";
+import { convertFileSrc } from "@tauri-apps/api/core";
+import { useT } from "../lib/i18n";
 
 /**
  * Search, as a centered overlay rather than a sidebar panel.
@@ -17,6 +19,7 @@ import { SmartSearchHint } from "./SmartSearch";
 export function SearchPanel({ onClose }: { onClose?: () => void }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
+  const vaultPath = useStore((s) => s.vault?.path ?? null);
   // Bumped when the index extracts more file text, to re-run the live query.
   const [indexTick, setIndexTick] = useState(0);
   // Which result the arrow keys are on. Reset whenever the result set changes,
@@ -141,7 +144,7 @@ export function SearchPanel({ onClose }: { onClose?: () => void }) {
                 onMouseEnter={() => setActive(i)}
                 onClick={() => open(r.path)}
               >
-                <SearchHit result={r} />
+                <SearchHit result={r} vaultPath={vaultPath} />
               </li>
             ))}
           </ul>
@@ -161,7 +164,25 @@ export function SearchPanel({ onClose }: { onClose?: () => void }) {
  * to remove. The row still opens through `store.openNoteByPath`, so the format
  * registry picks the viewer — search does not need to know what a `.xlsx` is.
  */
-export function SearchHit({ result }: { result: SearchResult }) {
+export function SearchHit({ result, vaultPath }: { result: SearchResult; vaultPath?: string | null }) {
+  const tr = useT();
+  if (result.imagePath) {
+    const name = noteLabel(result.imagePath);
+    return (
+      <div className="ss-image-hit">
+        {vaultPath && <img className="ss-search-thumbnail"
+          src={convertFileSrc(`${vaultPath.replace(/\/$/, "")}/${result.imagePath}`)}
+          alt={tr("Preview of {name}", { name })} width={72} height={72} loading="lazy"
+          onError={(e) => { e.currentTarget.hidden = true; }} />}
+        <div className="ss-image-copy">
+          <div className="search-title"><span className="search-label">{name}</span>
+            <span className="ws-badge local search-ext">{result.ext ?? "image"}</span></div>
+          <div className="search-snippet">{result.path === result.imagePath
+            ? tr("Image in vault") : tr("In {note}", { note: noteLabel(result.path) })}</div>
+        </div>
+      </div>
+    );
+  }
   return (
     <>
       {/* The file name, like the tab and the sidebar. `result.title` stays

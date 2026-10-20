@@ -14,3 +14,8 @@
 .ss-chip:hover { background: var(--accent-soft-hover, var(--accent-soft)); }
 .search-smart-hint { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2, 8px); padding: 6px 14px; font-size: var(--fs-xs); color: var(--text-tertiary); border-top: 1px solid var(--border); }
 .smart-search-card .star-prompt-actions { margin-top: var(--sp-3, 12px); }
+.ss-image-hit { display: flex; align-items: center; gap: 14px; width: 100%; }
+.ss-search-thumbnail { flex: 0 0 72px; width: 72px; height: 72px; object-fit: cover; border-radius: 8px; background: var(--bg-hover); }
+.ss-search-thumbnail[hidden] { display: none; }
+.ss-image-copy { min-width: 0; flex: 1; }
+.ss-image-copy .search-label, .ss-image-copy .search-snippet { overflow-wrap: anywhere; }

@@ -45,8 +45,8 @@ export function useSmartSearch(): SmartSearchStatus | null {
 }
 
 /** Turn it on. Progress arrives as events; the result is the final state. */
-export async function enableSmartSearch(): Promise<SmartSearchStatus> {
-  const s = await ipc.smartSearchEnable();
+export async function enableSmartSearch(includeImages?: boolean): Promise<SmartSearchStatus> {
+  const s = await ipc.smartSearchEnable(includeImages);
   set(s);
   return s;
 }

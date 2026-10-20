@@ -167,8 +167,8 @@ pub struct Index {
 mod dashboard_query;
 pub use dashboard_query::{DashboardNote, NoteQuery, NoteSort, PropertyFilter};
 
-/// One search hit, from EITHER tier. `kind` is what tells the panel whether
-/// `id` is a note doc_id or a `files.id`, and whether to badge the row.
+/// A note, file, or image hit. Images use file identity when available and may
+/// open a containing note; `image_path` remains the thumbnail's vault path.
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct SearchResult {
@@ -176,10 +176,13 @@ pub struct SearchResult {
     pub path: String,
     pub title: String,
     pub snippet: String,
-    /// "note" | "file".
+    /// "note" | "file" | "image".
     pub kind: String,
     /// Lowercase extension, no dot — `None` only for a path without one.
     pub ext: Option<String>,
+    /// Image hit: vault-relative thumbnail path; `path` opens its containing note.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub image_path: Option<String>,
 }
 
 /// A hit plus its raw bm25 score, before the two tiers are merged. SQLite's
@@ -547,6 +550,18 @@ impl Index {
                 text    TEXT NOT NULL,
                 vec     BLOB NOT NULL,
                 PRIMARY KEY (note_id, chunk)
+            );
+            CREATE TABLE IF NOT EXISTS image_vectors (
+                path TEXT PRIMARY KEY,
+                stamp TEXT NOT NULL,
+                sha256 TEXT NOT NULL,
+                version TEXT NOT NULL,
+                vec BLOB NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS image_notes (
+                path TEXT NOT NULL,
+                note_id TEXT NOT NULL,
+                PRIMARY KEY (path, note_id)
             );
             "#,
         )?;
@@ -1939,6 +1954,7 @@ impl Index {
                     title: r.get(2)?,
                     snippet: mark_snippet(r.get::<_, String>(3)?),
                     kind: "note".to_string(),
+                    image_path: None,
                 },
             })
         })?;
@@ -2007,6 +2023,7 @@ impl Index {
                     title: r.get(2)?,
                     snippet: mark_snippet(r.get::<_, String>(3)?),
                     kind: "note".to_string(),
+                    image_path: None,
                 },
             })
         })?;
@@ -2046,6 +2063,7 @@ impl Index {
                     title,
                     snippet: mark_snippet(r.get::<_, String>(3)?),
                     kind: "file".to_string(),
+                    image_path: None,
                 },
             })
         })?;
@@ -5203,6 +5221,7 @@ mod tests {
                 snippet: String::new(),
                 kind: kind.to_string(),
                 ext: None,
+                image_path: None,
             },
         };
         // The file's raw score is identical; `search_files_ranked` adds the

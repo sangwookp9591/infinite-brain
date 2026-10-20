@@ -159,9 +159,11 @@ export interface SearchResult {
   snippet: string;
   /** `"note"` — `id` is the CRDT doc_id — or `"file"`, where it is the local
    *  `files.id` of a tree binary and the path is what opens it. */
-  kind: "note" | "file";
+  kind: "note" | "file" | "image";
   /** Lowercase extension, no dot. Badged on file hits. */
   ext: string | null;
+  /** Image hit: local vault thumbnail; `path` opens its containing note or itself. */
+  imagePath?: string;
 }
 
 /** The extracted plain text of one tree binary (`get_file_text`). A DERIVED
@@ -1242,16 +1244,16 @@ export interface FilesIndexed {
  *  card and the search box show it. Sizes are bytes. */
 export type SmartSearchStatus =
   | { state: "unsupported" }
-  | { state: "off"; downloaded: boolean; modelBytes: number }
-  | { state: "downloading"; received: number; total: number }
+  | { state: "off"; downloaded: boolean; modelBytes: number; includeImages?: boolean }
+  | { state: "downloading"; received: number; total: number; includeImages?: boolean }
   | { state: "preparing" }
-  | { state: "on"; modelBytes: number; indexed: number; total: number }
+  | { state: "on"; modelBytes: number; indexed: number; total: number; includeImages?: boolean; imagesIndexed?: number; imagesTotal?: number }
   | { state: "limited"; reason: "memory" | "storage"; neededBytes: number; modelBytes: number }
   | { state: "failed"; message: string; modelBytes: number };
 
 export const smartSearchStatus = () => invoke<SmartSearchStatus>("smart_search_status");
 /** Resolves once it is on, failed, cancelled or limited; progress arrives on `onSmartSearch`. */
-export const smartSearchEnable = () => invoke<SmartSearchStatus>("smart_search_enable");
+export const smartSearchEnable = (includeImages?: boolean) => invoke<SmartSearchStatus>("smart_search_enable", { includeImages });
 export const smartSearchCancel = () => invoke<void>("smart_search_cancel");
 export const smartSearchDisable = () => invoke<SmartSearchStatus>("smart_search_disable");
 export const smartSearchClear = () => invoke<SmartSearchStatus>("smart_search_clear");

@@ -32,6 +32,17 @@ use std::sync::{mpsc, Arc, Mutex};
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
 
+#[cfg(target_os = "macos")]
+#[path = "semantic_vision.rs"]
+mod vision;
+
+#[path = "semantic_images.rs"]
+mod images;
+
+#[cfg(all(test, target_os = "macos"))]
+#[path = "semantic_vision_spike.rs"]
+mod vision_spike;
+
 /// The one artifact this build accepts (B0 §3.2, §6: Q8_0 is the default; Q4
 /// changed top-3 order too often to ship without an evaluation).
 const MODEL_FILE: &str = "embeddinggemma-2-Q8_0.gguf";
@@ -39,6 +50,11 @@ const MODEL_URL: &str = "https://huggingface.co/unsloth/embeddinggemma-2-GGUF/re
 const MODEL_BYTES: u64 = 309_855_520;
 const MODEL_SHA256: &str = "6f1bd4ac6c5df7444f9cca7ca36cafe6cfa34cd6f49fefb1e0b4be8143aed8bc";
 const ON_MARKER: &str = "smart-search.on";
+const IMAGES_MARKER: &str = "smart-search-images.on";
+const VISION_FILE: &str = "mmproj-Q8_0.gguf";
+const VISION_URL: &str = "https://huggingface.co/unsloth/embeddinggemma-2-GGUF/resolve/031f0d4b35536f69ab3509d4893c923264fcf253/mmproj-Q8_0.gguf";
+const VISION_BYTES: u64 = 554_821_120;
+const VISION_SHA256: &str = "90e7b0238009e2954f856f2081dcf7f35af026b64c765e98f4777053e1754460";
 
 /// Everything that changes what a stored vector means (F8.4). Rows written under
 /// another version are deleted, never mixed into a search.
@@ -77,11 +93,11 @@ pub enum Status {
     Unsupported,
     /// Off. `downloaded` says whether turning it on needs the 310 MB again.
     /// `model_bytes` everywhere is what is on disk now, a partial download included.
-    Off { downloaded: bool, model_bytes: u64 },
-    Downloading { received: u64, total: u64 },
+    Off { downloaded: bool, model_bytes: u64, include_images: bool },
+    Downloading { received: u64, total: u64, include_images: bool },
     /// Loading the model and compiling the GPU shaders once.
     Preparing,
-    On { model_bytes: u64, indexed: u64, total: u64 },
+    On { model_bytes: u64, indexed: u64, total: u64, include_images: bool, images_indexed: u64, images_total: u64 },
     /// The device cannot run it; `reason` is "memory" or "storage".
     Limited { reason: String, needed_bytes: u64, model_bytes: u64 },
     Failed { message: String, model_bytes: u64 },
@@ -91,9 +107,9 @@ pub enum Status {
 enum Phase {
     #[default]
     Idle,
-    Downloading { received: u64 },
+    Downloading { received: u64, total: u64, images: bool },
     Preparing,
-    Limited(&'static str),
+    Limited(&'static str, u64),
     Failed(String),
 }
 
@@ -119,9 +135,14 @@ fn part_path(app: &AppHandle) -> AppResult<PathBuf> {
     Ok(models_dir(app)?.join(format!("{MODEL_FILE}.part")))
 }
 
+fn vision_path(app: &AppHandle) -> AppResult<PathBuf> { Ok(models_dir(app)?.join(VISION_FILE)) }
+fn images_enabled(app: &AppHandle) -> bool {
+    models_dir(app).is_ok_and(|d| d.join(IMAGES_MARKER).is_file() && d.join(VISION_FILE).is_file())
+}
+
 /// Bytes the feature holds on disk: the model and any partial download.
 fn disk_bytes(app: &AppHandle) -> u64 {
-    [model_path(app), part_path(app)]
+    [model_path(app), part_path(app), vision_path(app), models_dir(app).map(|d| d.join(format!("{VISION_FILE}.part")))]
         .into_iter()
         .filter_map(|p| p.ok().and_then(|p| std::fs::metadata(p).ok()))
         .map(|m| m.len())
@@ -147,14 +168,14 @@ pub fn status(app: &AppHandle) -> Status {
     }
     let model_bytes = disk_bytes(app);
     match &*PHASE.lock().unwrap() {
-        Phase::Downloading { received } => {
-            return Status::Downloading { received: *received, total: MODEL_BYTES }
+        Phase::Downloading { received, total, images } => {
+            return Status::Downloading { received: *received, total: *total, include_images: *images }
         }
         Phase::Preparing => return Status::Preparing,
-        Phase::Limited(reason) => {
+        Phase::Limited(reason, needed_bytes) => {
             return Status::Limited {
                 reason: (*reason).into(),
-                needed_bytes: if *reason == "memory" { MIN_MEMORY_BYTES } else { MODEL_BYTES },
+                needed_bytes: *needed_bytes,
                 model_bytes,
             }
         }
@@ -162,10 +183,11 @@ pub fn status(app: &AppHandle) -> Status {
         Phase::Idle => {}
     }
     if !enabled(app) {
-        return Status::Off { downloaded: downloaded(app), model_bytes };
+        return Status::Off { downloaded: downloaded(app), model_bytes, include_images: images_enabled(app) };
     }
     let (indexed, total) = with_index(app, |ix| progress(ix)).unwrap_or((0, 0));
-    Status::On { model_bytes, indexed, total }
+    let (images_indexed, images_total) = with_index(app, images::progress).unwrap_or((0, 0));
+    Status::On { model_bytes, indexed, total, include_images: images_enabled(app), images_indexed, images_total }
 }
 
 fn set_phase(app: &AppHandle, phase: Phase) {
@@ -178,7 +200,7 @@ fn set_phase(app: &AppHandle, phase: Phase) {
 /// Turn smart search on: check the device, download if needed, warm the engine,
 /// start indexing. Returns once it is on, failed, cancelled or limited — the UI
 /// follows the `smart-search` events in the meantime.
-pub async fn enable(app: AppHandle) -> Status {
+pub async fn enable(app: AppHandle, include_images: Option<bool>) -> Status {
     if !engine::SUPPORTED {
         return Status::Unsupported;
     }
@@ -192,32 +214,56 @@ pub async fn enable(app: AppHandle) -> Status {
         }
         *phase = Phase::Preparing;
     }
+    CANCEL.store(false, Ordering::SeqCst);
     engine::accept(true);
+    let want_images = include_images.unwrap_or_else(|| images_enabled(&app));
+    engine::accept_images(want_images);
     if physical_memory().is_some_and(|m| m < MIN_MEMORY_BYTES) {
-        set_phase(&app, Phase::Limited("memory"));
+        set_phase(&app, Phase::Limited("memory", MIN_MEMORY_BYTES));
         return status(&app);
     }
     if !downloaded(&app) {
-        if let Err(e) = download(&app).await {
+        if let Err(e) = download(&app, false).await {
             let phase = match e {
-                DownloadError::Cancelled => Phase::Idle,
-                DownloadError::NoSpace => Phase::Limited("storage"),
+                DownloadError::Cancelled => return finish_cancel(&app),
+                DownloadError::NoSpace => Phase::Limited("storage", MODEL_BYTES + 50_000_000),
                 DownloadError::Other(m) => Phase::Failed(m),
             };
             set_phase(&app, phase);
             return status(&app);
         }
     }
+    if want_images && !vision_path(&app).is_ok_and(|p| p.is_file()) {
+        if let Err(e) = download(&app, true).await {
+            let phase = match e {
+                DownloadError::Cancelled => return finish_cancel(&app),
+                DownloadError::NoSpace => Phase::Limited("storage", VISION_BYTES + 50_000_000),
+                DownloadError::Other(m) => Phase::Failed(m),
+            };
+            set_phase(&app, phase);
+            return status(&app);
+        }
+    }
+    if CANCEL.load(Ordering::SeqCst) { return finish_cancel(&app); }
+    if include_images == Some(false) { engine::unload_images(); }
     set_phase(&app, Phase::Preparing);
     let app2 = app.clone();
     let warmed = tauri::async_runtime::spawn_blocking(move || {
         let path = model_path(&app2)?;
-        engine::embed(&path, vec![query_text("warm up")]).map(|_| ())
+        engine::embed(&path, vec![query_text("warm up")])?;
+        Ok::<(), AppError>(())
     })
     .await
     .map_err(|e| AppError::new(e.to_string()))
     .and_then(|r| r);
-    match warmed.and_then(|()| Ok(std::fs::write(models_dir(&app)?.join(ON_MARKER), b"")?)) {
+    if CANCEL.load(Ordering::SeqCst) { return finish_cancel(&app); }
+    match warmed.and_then(|()| {
+        let dir = models_dir(&app)?;
+        std::fs::write(dir.join(ON_MARKER), b"")?;
+        if want_images { std::fs::write(dir.join(IMAGES_MARKER), b"")?; }
+        else if dir.join(IMAGES_MARKER).exists() { std::fs::remove_file(dir.join(IMAGES_MARKER))?; }
+        Ok(())
+    }) {
         Ok(()) => {
             set_phase(&app, Phase::Idle);
             start_indexer(&app);
@@ -230,6 +276,7 @@ pub async fn enable(app: AppHandle) -> Status {
 /// Before the process exits (see `engine::unload_and_wait`).
 pub fn shutdown() {
     CANCEL.store(true, Ordering::SeqCst);
+    engine::accept_images(false);
     engine::unload_and_wait();
 }
 
@@ -237,8 +284,17 @@ pub fn cancel() {
     CANCEL.store(true, Ordering::SeqCst);
 }
 
+fn finish_cancel(app: &AppHandle) -> Status {
+    engine::accept(enabled(app));
+    engine::accept_images(images_enabled(app));
+    if !enabled(app) { engine::unload(); } else { engine::unload_images(); }
+    set_phase(app, Phase::Idle);
+    status(app)
+}
+
 /// Off: keep the download, free the memory, stop indexing and searching by meaning.
 pub fn disable(app: &AppHandle) -> AppResult<Status> {
+    CANCEL.store(true, Ordering::SeqCst);
     let marker = models_dir(app)?.join(ON_MARKER);
     if marker.exists() {
         std::fs::remove_file(marker)?;
@@ -246,6 +302,7 @@ pub fn disable(app: &AppHandle) -> AppResult<Status> {
     // Refuse work before unloading, so an indexing pass already under way cannot
     // load the model again behind the user's "off".
     engine::accept(false);
+    engine::accept_images(false);
     engine::unload();
     set_phase(app, Phase::Idle);
     Ok(status(app))
@@ -256,13 +313,14 @@ pub fn disable(app: &AppHandle) -> AppResult<Status> {
 /// sees them open with no model on disk (`reconcile`).
 pub fn clear(app: &AppHandle) -> AppResult<Status> {
     disable(app)?;
-    for path in [model_path(app)?, part_path(app)?] {
+    for path in [model_path(app)?, part_path(app)?, vision_path(app)?, models_dir(app)?.join(format!("{VISION_FILE}.part")), models_dir(app)?.join(IMAGES_MARKER)] {
         if path.exists() {
             std::fs::remove_file(path)?;
         }
     }
     let _ = with_index(app, |ix| {
         ix.conn().execute("DELETE FROM note_vectors", [])?;
+        images::clear(ix)?;
         Ok(())
     });
     invalidate_cache();
@@ -280,7 +338,9 @@ pub fn resume(app: &AppHandle) {
     if let Ok(part) = part_path(app) {
         let _ = std::fs::remove_file(part);
     }
+    if let Ok(dir) = models_dir(app) { let _ = std::fs::remove_file(dir.join(format!("{VISION_FILE}.part"))); }
     engine::accept(enabled(app));
+    engine::accept_images(images_enabled(app));
     start_indexer(app);
 }
 
@@ -316,18 +376,19 @@ static HTTP: Lazy<Result<reqwest::Client, String>> = Lazy::new(|| {
         .map_err(|e| e.to_string())
 });
 
-async fn download(app: &AppHandle) -> Result<(), DownloadError> {
+async fn download(app: &AppHandle, images: bool) -> Result<(), DownloadError> {
     use tokio::io::AsyncWriteExt;
+    let (name, url, bytes, sha) = if images { (VISION_FILE, VISION_URL, VISION_BYTES, VISION_SHA256) }
+        else { (MODEL_FILE, MODEL_URL, MODEL_BYTES, MODEL_SHA256) };
     let dir = models_dir(app).map_err(|e| DownloadError::Other(e.to_string()))?;
-    if free_space(&dir).is_some_and(|free| free < MODEL_BYTES + 50_000_000) {
+    if free_space(&dir).is_some_and(|free| free < bytes + 50_000_000) {
         return Err(DownloadError::NoSpace);
     }
-    CANCEL.store(false, Ordering::SeqCst);
-    set_phase(app, Phase::Downloading { received: 0 });
-    let part = dir.join(format!("{MODEL_FILE}.part"));
+    set_phase(app, Phase::Downloading { received: 0, total: bytes, images });
+    let part = dir.join(format!("{name}.part"));
     let result: Result<(), DownloadError> = async {
         let client = HTTP.as_ref().map_err(|e| DownloadError::Other(e.clone()))?;
-        let mut res = client.get(MODEL_URL).send().await?.error_for_status()?;
+        let mut res = client.get(url).send().await?.error_for_status()?;
         let mut file = tokio::fs::File::create(&part).await?;
         let mut hasher = Sha256::new();
         let mut received = 0u64;
@@ -337,26 +398,27 @@ async fn download(app: &AppHandle) -> Result<(), DownloadError> {
                 return Err(DownloadError::Cancelled);
             }
             received += chunk.len() as u64;
-            if received > MODEL_BYTES {
+            if received > bytes {
                 return Err(DownloadError::Other("the download is larger than expected".into()));
             }
             hasher.update(&chunk);
             file.write_all(&chunk).await?;
             if received - last_emit >= 2_000_000 {
                 last_emit = received;
-                set_phase(app, Phase::Downloading { received });
+                set_phase(app, Phase::Downloading { received, total: bytes, images });
             }
         }
         file.flush().await?;
         file.sync_all().await?;
         drop(file);
+        if CANCEL.load(Ordering::SeqCst) { return Err(DownloadError::Cancelled); }
         let digest = format!("{:x}", hasher.finalize());
-        if received != MODEL_BYTES || digest != MODEL_SHA256 {
+        if received != bytes || digest != sha {
             return Err(DownloadError::Other(
                 "the downloaded file did not match, so it was not used. Try again.".into(),
             ));
         }
-        tokio::fs::rename(&part, dir.join(MODEL_FILE)).await?;
+        tokio::fs::rename(&part, dir.join(name)).await?;
         Ok(())
     }
     .await;
@@ -536,17 +598,18 @@ fn reconcile(app: &AppHandle) -> AppResult<bool> {
         return Ok(false);
     }
     let more = reconcile_with(&index, &model_path(app)?)?;
-    if more {
+    let image_more = if images_enabled(app) { images::reconcile(&index, &model_path(app)?, &vision_path(app)?)? } else { false };
+    if more || image_more {
         let _ = app.emit("smart-search", status(app));
     }
-    Ok(more)
+    Ok(more || image_more)
 }
 
 /// Delete rows of other model versions and of notes that are gone; every row
 /// when the model is not on disk. Returns how many went.
 fn prune(index: &Arc<Mutex<Index>>, model_on_disk: bool) -> AppResult<usize> {
     let ix = index.lock().unwrap();
-    let removed = if model_on_disk {
+    let mut removed = if model_on_disk {
         ix.conn().execute(
             "DELETE FROM note_vectors WHERE version <> ?1 OR note_id NOT IN (SELECT id FROM notes)",
             [INDEX_VERSION],
@@ -554,6 +617,7 @@ fn prune(index: &Arc<Mutex<Index>>, model_on_disk: bool) -> AppResult<usize> {
     } else {
         ix.conn().execute("DELETE FROM note_vectors", [])?
     };
+    removed += images::prune(&ix, model_on_disk)?;
     if removed > 0 {
         invalidate_cache();
     }
@@ -595,6 +659,7 @@ fn reconcile_with(index: &Arc<Mutex<Index>>, path: &Path) -> AppResult<bool> {
     }
     {
         let ix = index.lock().unwrap();
+        if !engine::accepting() { return Ok(false); }
         let tx = ix.conn().unchecked_transaction()?;
         for (id, sha, rows) in &done {
             // The note changed or vanished while we embedded: skip, the next pass redoes it.
@@ -632,6 +697,8 @@ fn reconcile_with(index: &Arc<Mutex<Index>>, path: &Path) -> AppResult<bool> {
 struct Cache {
     db: PathBuf,
     rows: Vec<(String, u32, Vec<f32>)>,
+    images: Vec<(String, Vec<f32>)>,
+    include_images: bool,
 }
 
 /// Every vector of the open vault, in memory: a search is one pass of dot
@@ -649,7 +716,7 @@ pub fn blend(app: &AppHandle, index: &Arc<Mutex<Index>>, query: &str, keyword: V
     if query.trim().chars().count() < 2 || !ready(app) {
         return keyword;
     }
-    match model_path(app).and_then(|path| semantic_hits(index, &path, query)) {
+    match model_path(app).and_then(|path| semantic_hits_with_images(index, &path, query, images_enabled(app))) {
         Ok(hits) => merge(keyword, hits, query),
         Err(e) => {
             log::warn!("[smart-search] search by meaning failed, keyword only: {e}");
@@ -659,6 +726,10 @@ pub fn blend(app: &AppHandle, index: &Arc<Mutex<Index>>, query: &str, keyword: V
 }
 
 fn semantic_hits(index: &Arc<Mutex<Index>>, path: &Path, query: &str) -> AppResult<Vec<SearchResult>> {
+    semantic_hits_with_images(index, path, query, false)
+}
+
+fn semantic_hits_with_images(index: &Arc<Mutex<Index>>, path: &Path, query: &str, include_images: bool) -> AppResult<Vec<SearchResult>> {
     let q = engine::embed(path, vec![query_text(query)])?
         .pop()
         .and_then(normalize)
@@ -666,14 +737,17 @@ fn semantic_hits(index: &Arc<Mutex<Index>>, path: &Path, query: &str) -> AppResu
     let ix = index.lock().unwrap();
     let db = ix.db_path();
     let mut cache = CACHE.lock().unwrap();
-    if cache.as_ref().is_none_or(|c| c.db != db) {
+    if cache.as_ref().is_none_or(|c| c.db != db || c.include_images != include_images) {
         let mut stmt = ix.conn().prepare(
             "SELECT note_id, chunk, vec FROM note_vectors WHERE version = ?1 AND length(vec) > 0",
         )?;
         let rows = stmt
             .query_map([INDEX_VERSION], |r| Ok((r.get(0)?, r.get(1)?, from_blob(&r.get::<_, Vec<u8>>(2)?))))?
             .collect::<Result<Vec<_>, _>>()?;
-        *cache = Some(Cache { db, rows });
+        let images = if include_images { ix.conn().prepare("SELECT path,vec FROM image_vectors WHERE version=?1 AND length(vec)=3072")?
+            .query_map([images::VERSION], |r| Ok((r.get(0)?, from_blob(&r.get::<_,Vec<u8>>(1)?))))?.collect::<Result<Vec<_>,_>>()?
+        } else { Vec::new() };
+        *cache = Some(Cache { db, rows, images, include_images });
     }
     // Best chunk per note.
     let mut best: HashMap<&str, (f32, u32)> = HashMap::new();
@@ -684,13 +758,20 @@ fn semantic_hits(index: &Arc<Mutex<Index>>, path: &Path, query: &str) -> AppResu
             *e = (s, *chunk);
         }
     }
-    let mut ranked: Vec<(&str, f32, u32)> = best.into_iter().map(|(id, (s, c))| (id, s, c)).collect();
+    let mut ranked: Vec<(&str, f32, Option<u32>)> = best.into_iter().map(|(id, (s, c))| (id, s, Some(c))).collect();
+    if include_images {
+        ranked.extend(cache.as_ref().unwrap().images.iter().map(|(path,v)| (path.as_str(),dot(&q,v),None)));
+    }
     ranked.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(b.0)));
     let floor = ranked.first().map_or(f32::MIN, |r| r.1 - RELATIVE_MARGIN);
     ranked.retain(|r| r.1 >= floor);
     ranked.truncate(SEMANTIC_HITS);
     let mut out = Vec::new();
     for (id, _, chunk) in ranked {
+        let Some(chunk) = chunk else {
+            if let Some(result) = images::result(&ix, id)? { out.push(result); }
+            continue;
+        };
         let row = ix.conn().query_row(
             "SELECT n.path, COALESCE(n.title, ''), v.text FROM notes n
                JOIN note_vectors v ON v.note_id = n.id AND v.chunk = ?2
@@ -706,6 +787,7 @@ fn semantic_hits(index: &Arc<Mutex<Index>>, path: &Path, query: &str) -> AppResu
                 title,
                 snippet: crate::index::html_escape(&excerpt(&text)),
                 kind: "note".into(),
+                image_path: None,
             });
         }
     }
@@ -739,7 +821,14 @@ fn merge(keyword: Vec<SearchResult>, semantic: Vec<SearchResult>, query: &str) -
         for (rank, r) in list.into_iter().enumerate() {
             let s = weight / (K + rank as f32 + 1.0);
             match at.get(&r.id) {
-                Some(&i) => score[i] += s,
+                Some(&i) => {
+                    score[i] += s;
+                    if r.image_path.is_some() {
+                        rows[i].image_path = r.image_path;
+                        rows[i].path = r.path;
+                        rows[i].kind = "image".into();
+                    }
+                }
                 // The keyword row wins the slot: its snippet highlights the match.
                 None => {
                     at.insert(r.id.clone(), rows.len());
@@ -751,7 +840,8 @@ fn merge(keyword: Vec<SearchResult>, semantic: Vec<SearchResult>, query: &str) -
     }
     let q = query.trim().to_lowercase();
     let exact = |r: &SearchResult| {
-        let name = r.path.rsplit('/').next().unwrap_or(&r.path);
+        let path = r.image_path.as_deref().unwrap_or(&r.path);
+        let name = path.rsplit('/').next().unwrap_or(path);
         let stem = name.rsplit_once('.').map_or(name, |(s, _)| s);
         stem.to_lowercase() == q
     };
@@ -778,20 +868,26 @@ mod engine {
     pub const SUPPORTED: bool = true;
 
     type Reply = mpsc::Sender<Result<Vec<Vec<f32>>, String>>;
+    enum Input { Text(Vec<String>), Image(PathBuf, image::RgbImage), UnloadImages }
     enum Msg {
-        Embed(PathBuf, Vec<String>, Reply),
+        Embed(PathBuf, Input, Reply),
         /// Drop the model; the sender, if any, hears once it is gone.
         Unload(Option<mpsc::Sender<()>>),
+        UnloadImages,
     }
 
     static TX: Lazy<Mutex<Option<mpsc::Sender<Msg>>>> = Lazy::new(|| Mutex::new(None));
     /// False while smart search is off or the app is quitting: requests are
     /// refused instead of loading the model again.
     static ACCEPTING: AtomicBool = AtomicBool::new(false);
+    static IMAGES_ACCEPTING: AtomicBool = AtomicBool::new(false);
 
     pub fn accept(on: bool) {
         ACCEPTING.store(on, Ordering::SeqCst);
     }
+    pub fn accepting() -> bool { ACCEPTING.load(Ordering::SeqCst) }
+    pub fn images_accepting() -> bool { accepting() && IMAGES_ACCEPTING.load(Ordering::SeqCst) }
+    pub fn accept_images(on: bool) { IMAGES_ACCEPTING.store(on, Ordering::SeqCst); }
 
     fn sender() -> Result<mpsc::Sender<Msg>, String> {
         let mut tx = TX.lock().unwrap();
@@ -809,9 +905,18 @@ mod engine {
 
     /// Embed `texts` (already prompted) with the model at `path`. Blocks.
     pub fn embed(path: &Path, texts: Vec<String>) -> AppResult<Vec<Vec<f32>>> {
+        request(path, Input::Text(texts))
+    }
+
+    pub fn embed_image(path: &Path, projector: &Path, pixels: image::RgbImage) -> AppResult<Vec<f32>> {
+        request(path, Input::Image(projector.to_path_buf(), pixels))?.pop()
+            .ok_or_else(|| AppError::new("the image produced no vector"))
+    }
+
+    fn request(path: &Path, input: Input) -> AppResult<Vec<Vec<f32>>> {
         let (reply, answer) = mpsc::channel();
         sender()
-            .and_then(|tx| tx.send(Msg::Embed(path.to_path_buf(), texts, reply)).map_err(|e| e.to_string()))
+            .and_then(|tx| tx.send(Msg::Embed(path.to_path_buf(), input, reply)).map_err(|e| e.to_string()))
             .map_err(AppError::new)?;
         answer
             .recv()
@@ -824,8 +929,11 @@ mod engine {
             let _ = tx.send(Msg::Unload(None));
         }
     }
+    pub fn unload_images() {
+        if let Some(tx) = TX.lock().unwrap().as_ref() { let _ = tx.send(Msg::UnloadImages); }
+    }
 
-    /// Drop the model and wait (briefly) until it is gone. Called on exit: a
+    /// Drop all models and wait until they are gone. Called on exit: a
     /// model still loaded when the process exits trips ggml-metal's
     /// `GGML_ASSERT([rsets->data count] == 0)` in a static destructor, which
     /// turns every quit into a crash report.
@@ -834,7 +942,9 @@ mod engine {
         let Some(tx) = TX.lock().unwrap().clone() else { return };
         let (ack, done) = mpsc::channel();
         if tx.send(Msg::Unload(Some(ack))).is_ok() {
-            let _ = done.recv_timeout(Duration::from_secs(5));
+            // A cold vision load can exceed five seconds; exiting before the
+            // acknowledgment leaves Metal resources alive and aborts the app.
+            let _ = done.recv();
         }
     }
 
@@ -858,16 +968,17 @@ mod engine {
         let threads = std::thread::available_parallelism().map_or(2, |n| (n.get() / 2).clamp(1, 4)) as i32;
         // Wait for work, load, serve until Unload, drop the model, repeat.
         while let Ok(first) = recv.recv() {
-            let (path, texts, reply) = match first {
+            let (path, input, reply) = match first {
                 Msg::Embed(_, _, reply) if !ACCEPTING.load(Ordering::SeqCst) => {
                     let _ = reply.send(Err("smart search is off".into()));
                     continue;
                 }
-                Msg::Embed(path, texts, reply) => (path, texts, reply),
+                Msg::Embed(path, input, reply) => (path, input, reply),
                 Msg::Unload(ack) => {
                     ack.map(|a| a.send(()));
                     continue;
                 }
+                Msg::UnloadImages => continue,
             };
             let model = match LlamaModel::load_from_file(&backend, &path, &LlamaModelParams::default().with_n_gpu_layers(999)) {
                 Ok(m) => m,
@@ -902,16 +1013,31 @@ mod engine {
                 let v = ctx.embeddings_seq_ith(0).map_err(|e| e.to_string())?;
                 Ok(v[..dim.min(v.len())].to_vec())
             };
-            let _ = reply.send(texts.iter().map(|t| one(t)).collect());
+            let mut image_model: Option<vision::Model> = None;
+            let mut serve = |input: Input| -> Result<Vec<Vec<f32>>, String> {
+                match input {
+                    Input::Text(texts) => texts.iter().map(|t| one(t)).collect(),
+                    Input::Image(projector, pixels) => {
+                        if !images_accepting() { return Err("image search is off".into()); }
+                        if image_model.is_none() { image_model = Some(vision::Model::load(&path, &projector)?); }
+                        image_model.as_mut().unwrap().embed(&pixels).map(|v| vec![v])
+                    }
+                    Input::UnloadImages => { image_model.take(); Ok(Vec::new()) }
+                }
+            };
+            let _ = reply.send(serve(input));
             let ack = loop {
                 match recv.recv() {
-                    Ok(Msg::Embed(_, texts, reply)) => {
-                        let _ = reply.send(texts.iter().map(|t| one(t)).collect());
+                    Ok(Msg::Embed(_, input, reply)) => {
+                        let _ = reply.send(serve(input));
                     }
                     Ok(Msg::Unload(ack)) => break ack,
+                    Ok(Msg::UnloadImages) => { let _ = serve(Input::UnloadImages); }
                     Err(_) => return,
                 }
             };
+            drop(serve);
+            drop(image_model);
             drop(one);
             drop(ctx);
             drop(model);
@@ -927,8 +1053,15 @@ mod engine {
     pub fn embed(_: &Path, _: Vec<String>) -> AppResult<Vec<Vec<f32>>> {
         Err(AppError::new("smart search is not available on this platform yet"))
     }
+    pub fn embed_image(_: &Path, _: &Path, _: image::RgbImage) -> AppResult<Vec<f32>> {
+        Err(AppError::new("image search is not available on this platform yet"))
+    }
     pub fn accept(_: bool) {}
+    pub fn accepting() -> bool { false }
+    pub fn images_accepting() -> bool { false }
+    pub fn accept_images(_: bool) {}
     pub fn unload() {}
+    pub fn unload_images() {}
     pub fn unload_and_wait() {}
 }
 
@@ -942,8 +1075,8 @@ pub fn smart_search_status(app: AppHandle) -> Status {
 }
 
 #[tauri::command]
-pub async fn smart_search_enable(app: AppHandle) -> Status {
-    enable(app).await
+pub async fn smart_search_enable(app: AppHandle, include_images: Option<bool>) -> Status {
+    enable(app, include_images).await
 }
 
 #[tauri::command]
@@ -977,6 +1110,7 @@ mod tests {
             snippet: String::new(),
             kind: "note".into(),
             ext: Some("md".into()),
+            image_path: None,
         }
     }
 
@@ -1032,6 +1166,113 @@ mod tests {
         assert_eq!(doc_text(" ", "x"), "title: none | text: x");
         assert_eq!(doc_text("Plan", "x"), "title: Plan | text: x");
         assert_eq!(query_text("q"), "task: search result | query: q");
+    }
+
+    #[test]
+    fn image_status_and_result_use_the_typed_ipc_field_names() {
+        let status = serde_json::to_value(Status::On { model_bytes: MODEL_BYTES + VISION_BYTES, indexed: 1, total: 1,
+            include_images: true, images_indexed: 2, images_total: 3 }).unwrap();
+        assert_eq!(status["includeImages"], true);
+        assert_eq!(status["imagesIndexed"], 2);
+        assert_eq!(status["imagesTotal"], 3);
+        let mut result = hit("image-id", "parent.md");
+        result.kind = "image".into(); result.image_path = Some("attachments/photo.png".into());
+        let value = serde_json::to_value(result).unwrap();
+        assert_eq!(value["imagePath"], "attachments/photo.png");
+        assert_eq!(value["path"], "parent.md");
+        assert!(serde_json::to_value(hit("note-id","note.md")).unwrap().get("imagePath").is_none());
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn global_off_refuses_image_work_even_with_a_remembered_image_opt_in() {
+        engine::accept(true); engine::accept_images(true);
+        assert!(engine::images_accepting());
+        engine::accept(false);
+        assert!(!engine::images_accepting());
+        engine::accept_images(false);
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    #[ignore]
+    fn real_model_image_pipeline() {
+        use std::collections::BTreeMap;
+        let model = PathBuf::from(std::env::var("IB_SMART_SEARCH_MODEL").expect("set IB_SMART_SEARCH_MODEL"));
+        let projector = PathBuf::from(std::env::var("IB_SMART_SEARCH_MMPROJ").expect("set IB_SMART_SEARCH_MMPROJ"));
+        let fixtures = PathBuf::from(std::env::var("IB_SMART_SEARCH_IMAGES").expect("set IB_SMART_SEARCH_IMAGES"));
+        struct Unload;
+        impl Drop for Unload { fn drop(&mut self) { engine::unload_and_wait(); } }
+        let _unload = Unload;
+        engine::accept(true);
+        engine::accept_images(true);
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let paths: Vec<_> = ["circle.png", "sea.png", "document.png"].iter().map(|name| {
+            let path = root.join(name); std::fs::copy(fixtures.join(name), &path).unwrap(); path
+        }).collect();
+        let a = root.join("A-shapes.md"); let b = root.join("B-shapes.md");
+        std::fs::write(&a, "# Shapes\n\n![](circle.png)").unwrap();
+        std::fs::write(&b, "# Diagram\n\n![[circle.png|200]]").unwrap();
+        let index = Arc::new(Mutex::new(Index::open(root).unwrap()));
+        index.lock().unwrap().index_notes(root, &[a.clone(),b.clone()]).unwrap();
+        index.lock().unwrap().index_files(root, &paths).unwrap();
+        while reconcile_with(&index, &model).unwrap() {}
+        let peak = || { let mut usage: libc::rusage = unsafe { std::mem::zeroed() }; assert_eq!(unsafe { libc::getrusage(libc::RUSAGE_SELF,&mut usage) },0); usage.ru_maxrss };
+        let resident = || String::from_utf8(std::process::Command::new("/bin/ps").args(["-o","rss=","-p",&std::process::id().to_string()]).output().unwrap().stdout).unwrap().trim().parse::<u64>().unwrap()*1024;
+        eprintln!("text-only peak RSS bytes={}",peak());
+        eprintln!("text-only resident RSS bytes={}",resident());
+        while images::reconcile(&index, &model, &projector).unwrap() {}
+        // Text request is also a queue barrier after the lazy image unload.
+        engine::embed(&model, vec![query_text("ready")]).unwrap();
+        eprintln!("image-indexing peak RSS bytes={}",peak());
+        eprintln!("after lazy image unload resident RSS bytes={}",resident());
+        assert_eq!(images::progress(&index.lock().unwrap()).unwrap(), (3,3));
+        let hits = semantic_hits_with_images(&index, &model, "a red circle", true).unwrap();
+        eprintln!("image search rows={hits:?}");
+        let circle = hits.iter().find(|r|r.image_path.as_deref()==Some("circle.png")).expect("matching image result");
+        assert_eq!(circle.path, "A-shapes.md");
+        assert!(semantic_hits(&index,&model,"a red circle").unwrap().iter().all(|r|r.image_path.is_none()), "image opt-out changes the cached candidate set");
+        let keyword = index.lock().unwrap().search_all("circle").unwrap();
+        let semantic = semantic_hits_with_images(&index,&model,"circle",true).unwrap();
+        let merged = merge(keyword,semantic,"circle");
+        assert_eq!(merged.iter().filter(|r|r.image_path.as_deref()==Some("circle.png")).count(),1,"keyword image is enriched and deduplicated");
+
+        let before: BTreeMap<String,String> = {
+            let ix=index.lock().unwrap();
+            let rows=ix.conn().prepare("SELECT path,sha256 FROM image_vectors ORDER BY path").unwrap().query_map([],|r|Ok((r.get(0)?,r.get(1)?))).unwrap().collect::<Result<_,_>>().unwrap(); rows
+        };
+        std::fs::copy(&paths[1],&paths[0]).unwrap();
+        while images::reconcile(&index,&model,&projector).unwrap() {}
+        let after: BTreeMap<String,String> = {
+            let ix=index.lock().unwrap();
+            let rows=ix.conn().prepare("SELECT path,sha256 FROM image_vectors ORDER BY path").unwrap().query_map([],|r|Ok((r.get(0)?,r.get(1)?))).unwrap().collect::<Result<_,_>>().unwrap(); rows
+        };
+        assert_ne!(before["circle.png"],after["circle.png"]);
+        assert_eq!(before["sea.png"],after["sea.png"]); assert_eq!(before["document.png"],after["document.png"]);
+        std::fs::write(&a,"# Shapes\n\nNo picture.").unwrap();
+        index.lock().unwrap().index_notes(root,&[a]).unwrap();
+        images::reconcile(&index,&model,&projector).unwrap();
+        assert_eq!(images::result(&index.lock().unwrap(),"circle.png").unwrap().unwrap().path,"B-shapes.md");
+        index.lock().unwrap().remove_note(root,&b).unwrap(); std::fs::remove_file(&b).unwrap();
+        images::reconcile(&index,&model,&projector).unwrap();
+        assert_eq!(images::result(&index.lock().unwrap(),"circle.png").unwrap().unwrap().path,"circle.png");
+        index.lock().unwrap().remove_files(root,&paths[0..1]).unwrap(); std::fs::remove_file(&paths[0]).unwrap();
+        images::reconcile(&index,&model,&projector).unwrap();
+        assert!(images::result(&index.lock().unwrap(),"circle.png").unwrap().is_none());
+        let broken=root.join("broken.png"); std::fs::write(&broken,b"invalid image").unwrap();
+        index.lock().unwrap().index_files(root,&[broken]).unwrap();
+        while images::reconcile(&index,&model,&projector).unwrap() {}
+        let ix=index.lock().unwrap();
+        let size:i64=ix.conn().query_row("SELECT length(vec) FROM image_vectors WHERE path='broken.png'",[],|r|r.get(0)).unwrap();
+        assert_eq!(size,0,"corrupt images are skipped and not retried forever");
+        engine::accept_images(false);
+        images::clear(&ix).unwrap();
+        drop(ix);
+        assert!(!images::reconcile(&index,&model,&projector).unwrap(), "off/clear refuses late image writes");
+        let ix=index.lock().unwrap();
+        assert_eq!(ix.conn().query_row("SELECT COUNT(*) FROM image_vectors",[],|r|r.get::<_,i64>(0)).unwrap(),0);
+        assert_eq!(ix.conn().query_row("SELECT COUNT(*) FROM notes",[],|r|r.get::<_,i64>(0)).unwrap(),1,"clearing derived image data preserves notes");
     }
 
     /// The two real-model tests share one engine and each unloads it at the end,

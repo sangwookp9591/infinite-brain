@@ -1,21 +1,21 @@
 # Smart search
 
-Smart search finds notes by meaning, not only by shared words: "meeting agenda" finds a Korean note titled 회의록. It is opt-in, runs entirely on the device, and macOS only for now. Keyword search stays the answer whenever smart search is off, still downloading, or anything in it fails.
+Smart search finds notes by meaning, not only by shared words: "meeting agenda" finds a Korean note titled 회의록. It is opt-in, runs entirely on the device, and macOS only for now. An additional **Include images** switch searches local PNG, JPEG, WebP and GIF images, including images embedded in notes. Keyword search stays the answer whenever smart search is off, still downloading, or anything in it fails.
 
-Code: `app/apps/desktop/src-tauri/src/semantic.rs` (everything below unless noted), the `note_vectors` table in `src-tauri/src/index.rs`, the blend call in `search_notes` (`src-tauri/src/commands.rs`), startup and exit hooks in `src-tauri/src/lib.rs` (`semantic::resume`, `semantic::shutdown`). UI: `src/components/SmartSearch.tsx` (+ `.css`), `src/lib/smartSearch.ts`, the `smart_search_*` commands in `src/lib/ipc.ts`, the Vault settings tab `smart-search`, the hint in `SearchPanel.tsx`, the first-run card mounted in `App.tsx`, Korean strings in `src/lib/i18n/ko/search.ts`.
+Code: `app/apps/desktop/src-tauri/src/semantic.rs` (everything below unless noted), `semantic_images.rs` (bounded decoding, image indexing and references), `semantic_vision.rs` (single-batch multimodal evaluation), the vector tables in `src-tauri/src/index.rs`, the blend call in `search_notes` (`src-tauri/src/commands.rs`), startup and exit hooks in `src-tauri/src/lib.rs` (`semantic::resume`, `semantic::shutdown`). UI: `src/components/SmartSearch.tsx` (+ `.css`), `src/lib/smartSearch.ts`, the `smart_search_*` commands in `src/lib/ipc.ts`, the Vault settings tab `smart-search`, the hint in `SearchPanel.tsx`, the first-run card mounted in `App.tsx`, Korean strings in `src/lib/i18n/ko/search.ts`.
 
 Background and measurements: [`reports/B0-LLAMA-SPIKE.md`](reports/B0-LLAMA-SPIKE.md) (Korean). Requirements: PRD §5.8 in `superpowers/specs/2026-10-15-team-second-brain-prd.md`.
 
 ## How it works
 
-1. **Turn on.** `enable()` refuses on a device with less than 6 GiB of RAM (`Limited("memory")`) or less than model size + 50 MB of free disk (`Limited("storage")`). Otherwise it downloads the model if it is not already there.
-2. **Download and verify.** One pinned file, streamed from a Hugging Face `resolve/<revision>/` URL into `<app data>/models/embeddinggemma-2-Q8_0.gguf.part`. The app uses its own `reqwest` client (the attachment client refuses redirects, and the Hugging Face URL redirects to a CDN): 30 s connect timeout, 60 s read timeout, no overall timeout. The stream is hashed as it arrives; more bytes than `MODEL_BYTES`, a different size, or a SHA-256 other than `MODEL_SHA256` deletes the `.part` file and the model is not used. Only a verified file is renamed into place. Cancel (`smart_search_cancel`) stops between chunks.
+1. **Turn on.** `enable()` refuses on a device with less than 6 GiB of RAM (`Limited`, reason `memory`) or less than model size + 50 MB of free disk (`Limited`, reason `storage`). Otherwise it downloads the model if it is not already there.
+2. **Download and verify.** The text model and optional 555 MB projector stream from pinned Hugging Face `resolve/<revision>/` URLs into `<app data>/models/<filename>.part`. The app uses its own `reqwest` client because the URL redirects to a CDN: 30 s connect timeout, 60 s read timeout, no overall timeout. Each stream is hashed as it arrives; extra bytes, a different size, or a SHA-256 differing from the artifact's pinned value deletes the partial file. Only verified bytes are renamed into place. Cancel is checked during transfer, before committing the file, and before enabling; canceling an image download restores the previous text/image setting. Both artifacts share this machinery.
 3. **Warm up.** The first embed loads the model and compiles the Metal shaders (ggml compiles them at run time and the OS caches them; B0 saw about 10 s the first time). `enable()` does this once before it writes the `smart-search.on` marker, so the first search is not the slow one.
-4. **Engine thread.** One thread named `smart-search-engine` owns llama.cpp (`LlamaBackend`, model, context). Callers send `Embed` or `Unload` over a channel and block on a reply. The model loads on the first `Embed`, and `Unload` drops it. llama.cpp can only be initialised once per process, so turning the feature off unloads the model but keeps the backend and the thread. Threads for the model are half the cores, clamped to 1–4; all layers go to the GPU (`n_gpu_layers` 999).
+4. **Engine thread.** One thread named `smart-search-engine` owns llama.cpp (`LlamaBackend`, model, context). Callers send `Embed` or `Unload` over a channel and block on a reply. The model loads on the first `Embed`, and `Unload` drops it. llama.cpp can only be initialised once per process, so turning the feature off unloads the model but keeps the backend and the thread. Text-model threads are half the cores, clamped to 1–4; all layers go to the GPU (`n_gpu_layers` 999). Image inputs run on this same thread; their lazy model is released after the image queue drains, while text queries continue with the text model.
 5. **Background indexing.** `start_indexer` runs a thread (`smart-search-index`) that calls `reconcile` in a loop: delete vector rows whose version differs from `INDEX_VERSION` or whose note is gone, then embed up to 8 notes whose `sha256` has no matching vector row, then write them in one transaction. It sleeps 50 ms after a batch that did work, 2 s when idle, 10 s after an error; three errors in a row while on (for example a model that will not load) show as Failed instead of retrying behind "On". The thread runs from launch even while the feature is off: then it only deletes rows of notes that are gone, and every row once the model is not on disk (F8.7, F8.8). Turning the feature off also tells the engine to refuse requests, so a pass already under way cannot load the model again. It takes the index lock only to read and to write, never while embedding, so a search is never blocked behind the model. If a note changed while it was being embedded, that note is skipped and the next pass redoes it. A note with no usable vector still gets an empty row, so it is not retried forever. It hooks nothing in the file watcher: it catches up to whatever the index knows.
-6. **Search.** `search_notes` runs keyword search first, then `semantic::blend`. If smart search is ready and the query has at least 2 characters, the query is embedded, compared with every stored vector by dot product (vectors are unit length), the best chunk per note is kept, and notes scoring within `RELATIVE_MARGIN` (0.08) of the best one, at most 12, join the keyword list by reciprocal-rank fusion (`K = 60`, one row per note, the keyword row wins the slot because its snippet highlights the match). While the keyword list is not empty a vector-only note counts half, so it cannot push a keyword match down; ties keep keyword rank, then vector rank, so a query always lists the same way. A note whose file name stem equals the query stays first. Any error in this path logs a warning and returns the keyword results unchanged.
-7. **Off and clear.** *Off* removes the marker and unloads the model; the download stays. *Clear* does that, deletes the model file, and deletes this vault's `note_vectors` rows.
-8. **Exit.** `semantic::shutdown()` runs on `RunEvent::Exit`. It unloads the model and waits up to 5 s.
+6. **Search.** `search_notes` runs keyword search first, then `semantic::blend`. If smart search is ready and the query has at least 2 characters, the query is embedded, compared with every stored vector by dot product (vectors are unit length), the best chunk per note is kept, and notes scoring within `RELATIVE_MARGIN` (0.08) of the best one, at most 12, join the keyword list by reciprocal-rank fusion (`K = 60`, one row per result identity, preserving keyword snippets while enriching matching files with image metadata). While the keyword list is not empty a vector-only note counts half, so it cannot push a keyword match down; ties keep keyword rank, then vector rank, so a query always lists the same way. A note whose file name stem equals the query stays first. Any error in this path logs a warning and returns the keyword results unchanged.
+7. **Off and clear.** *Off* removes the main marker and unloads both models; downloaded files and derived caches stay. Turning off **Include images** keeps its download/cache but excludes image hits and frees its model. *Clear* removes both models, partial downloads, both markers, and this vault's note/image vectors and image references. Notes and image files stay. Writers recheck the enable flags under the index lock so an in-flight pass cannot restore rows after Off/Clear.
+8. **Exit.** `semantic::shutdown()` runs on `RunEvent::Exit`. It waits for the engine acknowledgment after all text and vision model resources have been released; a cold vision load may take longer than five seconds.
 
 ## Files and the table
 
@@ -24,7 +24,10 @@ Background and measurements: [`reports/B0-LLAMA-SPIKE.md`](reports/B0-LLAMA-SPIK
 | Model | `<app data>/models/embeddinggemma-2-Q8_0.gguf`, shared by every vault |
 | Download in progress | `<app data>/models/embeddinggemma-2-Q8_0.gguf.part` |
 | "On" marker | `<app data>/models/smart-search.on` (empty file). On means marker and model both exist |
-| Vectors | `note_vectors` in each vault's `.context/index.sqlite` |
+| Image projector | `<app data>/models/mmproj-Q8_0.gguf` (and `.part` while downloading) |
+| Image opt-in marker | `<app data>/models/smart-search-images.on` |
+| Text vectors | `note_vectors` in each vault's `.context/index.sqlite` |
+| Image vectors / references | `image_vectors` (path, content hash, file stamp, version, vector), `image_notes` (image path, stable note id) in the same private index |
 
 ```sql
 CREATE TABLE note_vectors (
@@ -40,7 +43,7 @@ CREATE TABLE note_vectors (
 
 `note_vectors` is **derived data**. Markdown on disk stays the truth; the table can be deleted at any time and the loop rebuilds it. It lives in `<vault>/.context/index.sqlite`, the private local metadata folder that is never walked as user content, synced or indexed, so nothing syncs it and it never reaches the server or Postgres. It is not part of the note CRDT pipeline, even though the same SQLite file also holds the CRDT log. A row is current only when its `sha256` equals the note's and its `version` equals `INDEX_VERSION`.
 
-Searches keep every vector of the open vault in memory (`CACHE`), loaded on the first search and dropped whenever the loop writes or deletes rows or the vault changes.
+Searches keep vectors of the open vault in memory (`CACHE`), loaded on the first search and dropped whenever the loop writes or deletes rows or the vault changes. Image vectors enter this cache only while Include images is on; changing that flag rebuilds the candidate set. `image_vectors` and `image_notes` are derived local data too, never synced or sent to the server.
 
 ## Constants and why
 
@@ -94,16 +97,57 @@ cargo test --lib semantic
 
 Runs the unit tests: chunking (size and count limits), normalisation (zero and NaN refused, blob round trip), reciprocal-rank merge (dedupe, exact name first, keyword order kept and the same order every time), and the model-card prompts. They need no model.
 
-The two real-model tests are `#[ignore]`d. Point `IB_SMART_SEARCH_MODEL` at the GGUF (the pinned file, which you can take from `<app data>/models/` after turning smart search on, or from the Hugging Face URL above) and include ignored tests:
+The two text real-model tests are `#[ignore]`d. Point `IB_SMART_SEARCH_MODEL` at the GGUF (the pinned file, which you can take from `<app data>/models/` after turning smart search on, or from the Hugging Face URL above) and run each explicitly; the image tests below additionally require the projector and generated PNG fixtures:
 
 ```sh
-IB_SMART_SEARCH_MODEL=/path/to/embeddinggemma-2-Q8_0.gguf cargo test --release --lib semantic -- --ignored --test-threads=1
+IB_SMART_SEARCH_MODEL=/path/to/embeddinggemma-2-Q8_0.gguf cargo test --release --lib real_model_ranks_by_meaning -- --ignored --test-threads=1
+IB_SMART_SEARCH_MODEL=/path/to/embeddinggemma-2-Q8_0.gguf cargo test --release --lib real_model_end_to_end -- --ignored --test-threads=1
 ```
 
 - `real_model_ranks_by_meaning` — a Korean query ranks the Korean and the English note on its topic above an unrelated one, and the vectors are 768-d.
 - `real_model_end_to_end` — notes on disk → index → vectors → a blended search that finds a note sharing no word with the query; an edit re-embeds only that note and a delete drops its vectors.
 
 Both return immediately and pass if the variable is unset, so a green run without it proves nothing. The first run compiles llama.cpp and takes a while.
+
+### Images: opt-in, bounded, and local
+
+**Vault settings → Smart search → Include images** downloads `mmproj-Q8_0.gguf` from the same Unsloth revision as the text model (`031f0d4b35536f69ab3509d4893c923264fcf253`). It is **554,821,120 bytes**, SHA-256 **`90e7b0238009e2954f856f2081dcf7f35af026b64c765e98f4777053e1754460`**, verified against the [revision's blob metadata](https://huggingface.co/api/models/unsloth/embeddinggemma-2-GGUF/revision/031f0d4b35536f69ab3509d4893c923264fcf253?blobs=true) and the downloaded bytes. Settings shows the shared download/cancel controls, image progress, and combined space used; Clear removes the projector too.
+
+The image index combines supported image files in the existing vault file index with local inline Markdown `![](path)` and wiki `![[file.png]]` references. References resolve relative to the note or vault root; a unique indexed basename also resolves wiki-style embeds. URL-escaped paths, angled destinations, and nested parentheses are supported. Remote/data URLs, paths escaping the canonical vault root, and `.context` paths (including symlinks into it) are excluded. Reference-style Markdown and HTML image tags are not associated with their containing note; a supported image file still indexes on its own.
+
+Rust reads at most **32 MB** per file, checks header dimensions before pixel decoding (**24 million pixels** maximum), applies decoder allocation/dimension limits, and downscales to at most **1024×1024**. Alpha is composited on white; GIF uses its first frame. Corrupt or over-limit images get an empty derived row and are skipped until their file stamp changes. The content SHA-256 is stored with each vector; size/mtime changes schedule re-embedding, and the file stamp is rechecked before commit. No image is uploaded or fetched remotely for smart search.
+
+`image_vectors` uses its own `semantic_images::VERSION`, covering the text model, projector/hash, llama.cpp version, single-decode mean pooling, context size, decoder/downscale limits and 768 dimensions. Mismatched rows are pruned. Text `INDEX_VERSION` stays unchanged: production text prompts, evaluation and persisted text vector semantics did not change, and image vectors live in a sibling table.
+
+Images and notes rank in the same [768-dimensional space](https://huggingface.co/google/embeddinggemma-2). A matching image joins the existing rank blend; the result uses the existing scoped asset protocol to show a thumbnail. `imagePath` is the vault-relative thumbnail path and `path` is the click target: the first containing note by path, or the image itself if standalone. `image_notes` preserves all containing-note links by stable note id. A keyword hit for that same file is enriched with its thumbnail and note target rather than duplicated. The CSP is unchanged.
+
+#### Correct multimodal evaluation
+
+The generic `MtmdInputChunks::eval_chunks` helper is unsuitable here: it separately decodes text/image/text chunks, and each decode replaces the pooled sequence output. The first spike produced effectively identical vectors for three different images (all pairwise cosines `0.9999999`, every query tied). This was a rejected call pattern, not a limitation of the multimodal model.
+
+The implementation follows llama.cpp v0.7.0's `tools/server/server-context.cpp` mixed-batch path: tokenize the bare media marker, encode image chunks, add text tokens and image embeddings to **one extended batch**, mark every position for embedding output, and call `llama_process` **once** with non-causal attention and mean pooling. Total tokens must fit the 2048 batch/ubatch. The safe binding does not expose mixed batches or its loaded model pointer, so the implementation uses the same pinned `llama-cpp-sys-2` API and owns a second backbone only while image indexing needs it. Text queries use the original text engine.
+
+On 2026-10-20, three generated 384×384 PNGs (a red circle, sea/sky, and a printed page) ranked correctly for all queries; vectors were normalized and 768-dimensional:
+
+| Query | Expected image, mixed-batch score | Next-best image score | Image-only top score |
+|---|---|---|---|
+| a red circle | Circle, 0.7563081 | Sea, 0.62940544 | 0.69328505 |
+| the sea | Sea, 0.72128123 | Circle, 0.6032968 | 0.65178674 |
+| a page of text | Page, 0.67894113 | Sea, 0.62970114 | 0.6325838 |
+
+The real-engine temporary-vault integration also covers reference changes, image edits/deletion, standalone opening, keyword deduplication, opt-out candidate caches, corrupt images and derived-data clear. The isolated headless pipeline measured text-only peak RSS **493,993,984 bytes**, image-indexing peak **1,339,523,072 bytes**, and resident RSS after lazy image unload **399,753,216 bytes**. The final four-model regression process measured a higher image-indexing peak of **1,495,482,368 bytes** (about **1.50 GB**), with text-only peak 535,855,104 and resident RSS after image unload 653,672,448. These are Apple-silicon test-process measurements, not full GUI memory, Intel-Mac results, or a real-photo retrieval evaluation.
+
+Reproduce with generated PNGs named `circle.png`, `sea.png`, and `document.png` in a fixture directory:
+
+```sh
+IB_SMART_SEARCH_MODEL=/path/to/embeddinggemma-2-Q8_0.gguf \
+IB_SMART_SEARCH_MMPROJ=/path/to/mmproj-Q8_0.gguf \
+IB_SMART_SEARCH_IMAGES=/path/to/generated-pngs \
+CARGO_TARGET_DIR=/private/tmp/infinitebrain-smart-search-e2e-target \
+cargo test --release --lib semantic -- --ignored --nocapture --test-threads=1
+```
+
+`real_model_images_single_decode` prints image-only and mixed-batch rankings. `real_model_image_pipeline` exercises the real engine/index/search/lifecycle and prints memory measurements. Both require all three variables and fail when they are absent. Normal library tests cover vault confinement, parsing, corrupt input, alpha/downscale, first-frame GIF, and a forged oversized PNG header without loading a model.
 
 ## Upgrade paths
 
@@ -128,4 +172,4 @@ Draft only. Not added to any `LICENSE` or `NOTICE` file. B0 §3.2 lists the lega
 >
 > **EmbeddingGemma 2** — by Google, https://huggingface.co/google/embeddinggemma-2. Released under the Apache License 2.0 (https://www.apache.org/licenses/LICENSE-2.0). Smart search downloads the GGUF conversion published by Unsloth (https://huggingface.co/unsloth/embeddinggemma-2-GGUF) when you turn it on; the model is not bundled with the application and no changes were made by Infinite Brain. Use of the model must adhere to the Gemma Prohibited Use Policy, https://ai.google.dev/gemma/prohibited_use_policy. Gemma is a trademark of Google LLC.
 >
-> Smart search runs on your device. Your notes are not sent to Google, Unsloth, Hugging Face or anyone else for it; the only network request is the one-time model download.
+> Smart search runs on your device. Your notes and images are not sent to Google, Unsloth, Hugging Face or anyone else for it; the only network activity is downloading the opted-in model files.

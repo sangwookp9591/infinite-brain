@@ -17,6 +17,7 @@ vi.mock("../../lib/ipc", () => ({
   onFilesIndexed: vi.fn(async () => () => {}),
 }));
 vi.mock("../../store", () => ({ useStore: { getState: () => ({}) } }));
+vi.mock("@tauri-apps/api/core", () => ({ convertFileSrc: (path: string) => `asset://${path}` }));
 
 import { SearchHit } from "../SearchPanel";
 import type { SearchResult } from "../../lib/ipc";
@@ -37,6 +38,21 @@ const render = (result: SearchResult) =>
   renderToStaticMarkup(createElement(SearchHit, { result }));
 
 describe("SearchHit", () => {
+  it("shows a local image thumbnail and the note it opens without rendering image snippets as HTML", () => {
+    const result = hit({ path: "Notes/Meeting.md", imagePath: "attachments/red.png", kind: "image", ext: "png", snippet: "<script>unsafe()</script>" });
+    const out = renderToStaticMarkup(createElement(SearchHit, { result, vaultPath: "/vault" }));
+    expect(out).toContain('src="asset:///vault/attachments/red.png"');
+    expect(out).toContain("ss-search-thumbnail");
+    expect(out).toContain("red.png");
+    expect(out).toContain("In Meeting");
+    expect(out).not.toContain("unsafe()");
+  });
+
+  it("labels a standalone image and does not invent a thumbnail without a vault", () => {
+    const out = render(hit({ path: "red.png", imagePath: "red.png", kind: "image", ext: "png" }));
+    expect(out).toContain("Image in vault");
+    expect(out).not.toContain("<img");
+  });
   it("badges a file hit with its extension and leaves notes unbadged", () => {
     const file = render(
       hit({ path: "Reports/Q3.docx", kind: "file", ext: "docx", title: "Q3" }),

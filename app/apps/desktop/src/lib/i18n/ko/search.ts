@@ -21,6 +21,13 @@ export const search: Record<string, string> = {
   "Couldn't turn on smart search: {message}": "스마트 검색을 켜지 못했어요: {message}",
   "Smart search is on": "스마트 검색을 켰어요",
   "Use smart search": "스마트 검색 사용",
+  "Include images": "이미지도 검색",
+  "Find images in notes and in this vault by meaning. Downloads another 555 MB once; images stay on this device.":
+    "메모 속 이미지와 볼트의 이미지 파일도 뜻으로 찾아요. 약 555MB를 한 번 더 내려받고, 이미지는 이 기기 밖으로 나가지 않아요.",
+  "Read {indexed} of {total} images": "이미지 {total}개 중 {indexed}개를 읽었어요",
+  "In {note}": "{note}에 포함된 이미지",
+  "Image in vault": "볼트의 이미지",
+  "Preview of {name}": "{name} 미리보기",
   "It applies on this device, to every vault.": "이 기기의 모든 볼트에 적용돼요.",
   "Ready for all {total} notes": "메모 {total}개 모두 준비됐어요",
   "Read {indexed} of {total} notes": "메모 {total}개 중 {indexed}개를 읽었어요",
@@ -29,7 +36,7 @@ export const search: Record<string, string> = {
   "Nothing downloaded.": "내려받은 파일이 없어요.",
   "Clear…": "지우기…",
   "Clear": "지우기",
-  "Keep it": "그만두기",
+  "Keep it": "유지",
   "Removes the smart search file and its search data. Your notes stay as they are.":
     "스마트 검색 파일과 검색 정보가 사라져요. 메모는 그대로 남아요.",
   "Model: EmbeddingGemma 2 by Google (Apache 2.0), run on this device with llama.cpp (MIT).":

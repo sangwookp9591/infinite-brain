@@ -49,7 +49,7 @@ function Progress({ status }: { status: SmartSearchStatus }) {
     return (
       <p className="ss-note" role="status">
         {status.reason === "storage"
-          ? tr("Not enough storage to turn it on. Free up at least {size} MB and try again.", { size: MODEL_MB })
+          ? tr("Not enough storage to turn it on. Free up at least {size} MB and try again.", { size: megabytes(status.neededBytes) })
           : tr("This device doesn't have enough memory to turn it on.")}
       </p>
     );
@@ -196,6 +196,22 @@ export function SmartSearchTab() {
           <div className="io-actions">
             <button type="button" className="secondary" onClick={() => void ipc.smartSearchCancel()}>{tr("Cancel")}</button>
           </div>
+        )}
+      </section>
+
+      <section className="io-section">
+        <div className="ss-row">
+          <div>
+            <h3 className="io-heading">{tr("Include images")}</h3>
+            <p className="io-desc">{tr("Find images in notes and in this vault by meaning. Downloads another 555 MB once; images stay on this device.")}</p>
+          </div>
+          <SpringCheck label={tr("Include images")}
+            checked={"includeImages" in status && !!status.includeImages}
+            disabled={!on || working}
+            onChange={(next) => run(() => enableSmartSearch(next))} />
+        </div>
+        {on && status.includeImages && (
+          <p className="io-hint" role="status">{tr("Read {indexed} of {total} images", { indexed: status.imagesIndexed ?? 0, total: status.imagesTotal ?? 0 })}</p>
         )}
       </section>
 
