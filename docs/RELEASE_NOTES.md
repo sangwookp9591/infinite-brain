@@ -34,6 +34,7 @@
 - Smart search: Turn it on in Vault settings to find notes by meaning, not just words. It downloads a 310 MB model once and runs on your Mac, so your notes never leave it.
 - A star, once: After about five days of use, a small card asks whether you'd like to star Infinite Brain on GitHub. It appears once and never blocks a note.
 - Update card: When the app updates itself, each change now appears as its own row in a card.
+- Feature help: A ? beside Smart search, Members and access, AI connections and Versioning says what each does, where it applies and how your team uses it.
 
 ## 0.2.0
 

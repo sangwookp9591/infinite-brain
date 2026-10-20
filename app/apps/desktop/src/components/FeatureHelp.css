@@ -1,0 +1,18 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/* The "?" beside a settings tab title (FeatureHelp.tsx). Tokens only. */
+.feature-help { margin: -4px 0 var(--sp-3, 12px); font-size: var(--fs-sm); }
+.feature-help > summary {
+  display: inline-grid; place-items: center; width: 22px; height: 22px; list-style: none; cursor: pointer;
+  border-radius: var(--radius-pill); background: var(--bg-subtle); color: var(--text-secondary); font-size: var(--fs-xs); font-weight: 600;
+}
+.feature-help > summary::-webkit-details-marker { display: none; }
+.feature-help > summary:hover { color: var(--text-primary); }
+.feature-help > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.feature-help[open] > summary { background: var(--accent-soft); color: var(--accent); }
+.feature-help dl {
+  display: grid; grid-template-columns: max-content 1fr; gap: 6px var(--sp-3, 12px);
+  margin: var(--sp-2, 8px) 0; padding: var(--sp-3, 12px); border-radius: var(--radius-row); background: var(--bg-subtle);
+}
+.feature-help dt { color: var(--text-secondary); font-weight: 600; white-space: nowrap; }
+.feature-help dd { margin: 0; line-height: 1.5; color: var(--text-primary); word-break: keep-all; }
+@media (max-width: 520px) { .feature-help dl { grid-template-columns: 1fr; } }

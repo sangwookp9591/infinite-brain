@@ -30,6 +30,7 @@ import { sidebar } from "./sidebar";
 import { sharing } from "./sharing";
 import { app } from "./app";
 import { search } from "./search";
+import { help } from "./help";
 
-export const ko: Record<string, string> = { ...common, ...welcome, ...sidebar, ...sharing, ...app, ...search };
-export const KO_PARTS = { common, welcome, sidebar, sharing, app, search };
+export const ko: Record<string, string> = { ...common, ...welcome, ...sidebar, ...sharing, ...app, ...search, ...help };
+export const KO_PARTS = { common, welcome, sidebar, sharing, app, search, help };

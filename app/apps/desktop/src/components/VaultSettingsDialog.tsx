@@ -1,5 +1,6 @@
 import { SecurityHistoryTab } from "./SecurityHistoryTab";
 import { SmartSearchTab } from "./SmartSearch";
+import { FeatureHelp } from "./FeatureHelp";
 import { SpringCheck } from "./kit/SpringCheck";
 /* The vault-settings dialog and its nine tabs — the whole settings surface of
    the app, split out of `AccountMenu.tsx` so it can load on demand. Nothing
@@ -353,6 +354,7 @@ export function VaultSettingsDialog({
           {/* Members and access swaps its title for a back link while a profile
               is open. */}
           {!(shown === "members" && !lockedTab) && <h2 className="settings-section-title">{activeTab.label}</h2>}
+          <FeatureHelp tab={shown} />
           {shown === "general" ? (
             <GeneralTab
               isSynced={isSynced}
