@@ -1275,6 +1275,51 @@ mod tests {
         engine::accept_images(false);
     }
 
+    /// Real photographs, not synthetic shapes: each query must rank its photo
+    /// first through the production index and search path. Point
+    /// IB_SMART_SEARCH_PHOTOS at a folder with the six PNGs named below (made
+    /// from macOS's own desktop pictures, see docs/SMART-SEARCH.md).
+    #[cfg(target_os = "macos")]
+    #[test]
+    #[ignore]
+    fn real_model_real_photos() {
+        let model = PathBuf::from(std::env::var("IB_SMART_SEARCH_MODEL").expect("set IB_SMART_SEARCH_MODEL"));
+        let projector = PathBuf::from(std::env::var("IB_SMART_SEARCH_MMPROJ").expect("set IB_SMART_SEARCH_MMPROJ"));
+        let photos = PathBuf::from(std::env::var("IB_SMART_SEARCH_PHOTOS").expect("set IB_SMART_SEARCH_PHOTOS"));
+        struct Unload;
+        impl Drop for Unload { fn drop(&mut self) { engine::unload_and_wait(); } }
+        let _unload = Unload;
+        engine::accept(true);
+        engine::accept_images(true);
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let names = ["big-sur-coastline.png", "big-sur-mountains.png", "big-sur-night-grasses.png",
+            "big-sur-road.png", "catalina-clouds.png", "catalina-sunset.png"];
+        let paths: Vec<_> = names.iter().map(|n| { let p = root.join(n); std::fs::copy(photos.join(n), &p).unwrap(); p }).collect();
+        let index = Arc::new(Mutex::new(Index::open(root).unwrap()));
+        index.lock().unwrap().index_files(root, &paths).unwrap();
+        while images::reconcile(&index, &model, &projector).unwrap() {}
+        let cases = [
+            ("rocky coastline and the ocean", "big-sur-coastline.png"),
+            ("layers of misty mountains", "big-sur-mountains.png"),
+            ("tall grass glowing at night", "big-sur-night-grasses.png"),
+            ("a winding road through the hills", "big-sur-road.png"),
+            ("dark storm clouds over the sea", "catalina-clouds.png"),
+            ("islands in fog at sunset", "catalina-sunset.png"),
+            ("구불구불한 도로", "big-sur-road.png"),
+            ("안개 낀 산맥", "big-sur-mountains.png"),
+            ("밤에 빛나는 풀", "big-sur-night-grasses.png"),
+        ];
+        let mut misses = Vec::new();
+        for (query, want) in cases {
+            let hits = semantic_hits_with_images(&index, &model, query, true).unwrap();
+            let ranked: Vec<&str> = hits.iter().filter_map(|r| r.image_path.as_deref()).collect();
+            eprintln!("{query:<36} -> {ranked:?}");
+            if ranked.first() != Some(&want) { misses.push((query, want, ranked.first().map(|s| s.to_string()))); }
+        }
+        assert!(misses.is_empty(), "queries whose photo was not first: {misses:?}");
+    }
+
     #[cfg(target_os = "macos")]
     #[test]
     #[ignore]

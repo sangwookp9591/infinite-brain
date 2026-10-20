@@ -151,6 +151,15 @@ cargo test --release --lib semantic -- --ignored --nocapture --test-threads=1
 
 `real_model_images_single_decode` prints image-only and mixed-batch rankings. `real_model_image_pipeline` exercises the real engine/index/search/lifecycle and prints memory measurements. Both require all three variables and fail when they are absent. Normal library tests cover vault confinement, parsing, corrupt input, alpha/downscale, first-frame GIF, and a forged oversized PNG header without loading a model.
 
+### Real photographs
+
+`real_model_real_photos` (ignored) runs six real photographs through the production image index and search: macOS's own desktop pictures, converted with `sips -s format png -Z 640 "/System/Library/Desktop Pictures/.thumbnails/<name>.heic" --out <name>.png` for Big Sur Coastline, Big Sur Mountains, Big Sur Night Grasses, Big Sur Road, Catalina Clouds and Catalina Sunset (file names lower-case with dashes). On 2026-10-20 all nine queries, six English and three Korean ("구불구불한 도로", "안개 낀 산맥", "밤에 빛나는 풀"), ranked their photo first.
+
+```sh
+IB_SMART_SEARCH_MODEL=<text gguf> IB_SMART_SEARCH_MMPROJ=<mmproj gguf> IB_SMART_SEARCH_PHOTOS=<folder> \
+  cargo test --release --lib semantic::tests::real_model_real_photos -- --ignored --nocapture --test-threads=1
+```
+
 ## Upgrade paths
 
 The places the code marks with `ponytail:` (a deliberate simplification with a known ceiling):
