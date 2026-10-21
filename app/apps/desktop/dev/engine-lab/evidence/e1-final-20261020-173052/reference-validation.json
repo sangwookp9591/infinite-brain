@@ -1,0 +1,174 @@
+{
+  "available": true,
+  "path": "/private/tmp/ib-mojo-opt/q8-gate.json",
+  "sha256": "b40b20c3a6b0470bc83e9280b24739bd321011268742f90f6fd1d93b5e89d554",
+  "cases": [
+    {
+      "cosine": 1.0,
+      "max_abs_diff": 0.0
+    },
+    {
+      "cosine": 1.0,
+      "max_abs_diff": 0.0
+    },
+    {
+      "cosine": 1.0,
+      "max_abs_diff": 0.0
+    },
+    {
+      "cosine": 1.0,
+      "max_abs_diff": 0.0
+    },
+    {
+      "cosine": 1.0,
+      "max_abs_diff": 0.0
+    },
+    {
+      "cosine": 1.0,
+      "max_abs_diff": 0.0
+    },
+    {
+      "cosine": 1.0,
+      "max_abs_diff": 0.0
+    },
+    {
+      "cosine": 1.0,
+      "max_abs_diff": 0.0
+    },
+    {
+      "cosine": 1.0,
+      "max_abs_diff": 0.0
+    },
+    {
+      "cosine": 1.0,
+      "max_abs_diff": 0.0
+    },
+    {
+      "cosine": 1.0,
+      "max_abs_diff": 0.0
+    },
+    {
+      "cosine": 1.0,
+      "max_abs_diff": 0.0
+    },
+    {
+      "cosine": 1.0,
+      "max_abs_diff": 0.0
+    },
+    {
+      "cosine": 1.0,
+      "max_abs_diff": 0.0
+    },
+    {
+      "cosine": 1.0,
+      "max_abs_diff": 0.0
+    },
+    {
+      "cosine": 1.0,
+      "max_abs_diff": 0.0
+    },
+    {
+      "cosine": 1.0,
+      "max_abs_diff": 0.0
+    },
+    {
+      "cosine": 1.0,
+      "max_abs_diff": 0.0
+    },
+    {
+      "cosine": 1.0,
+      "max_abs_diff": 0.0
+    },
+    {
+      "cosine": 1.0,
+      "max_abs_diff": 0.0
+    }
+  ],
+  "previous_single_ms": 17.339292,
+  "previous_batches": [
+    {
+      "batch_size": 4,
+      "cosine_min": 0.9999999172670738,
+      "median_ms": 1063.601209,
+      "paragraphs_per_second": 94.02020151332867,
+      "trials_ms": [
+        939.725958,
+        1039.974708,
+        1063.601209,
+        1334.857667
+      ]
+    },
+    {
+      "batch_size": 8,
+      "cosine_min": 0.9999998682392903,
+      "median_ms": 945.878958,
+      "paragraphs_per_second": 105.72177248920258,
+      "trials_ms": [
+        1163.340083,
+        944.14875,
+        945.878958,
+        967.9411249999999
+      ]
+    },
+    {
+      "batch_size": 16,
+      "cosine_min": 0.9999993830256797,
+      "median_ms": 1007.0534170000001,
+      "paragraphs_per_second": 99.29959852367989,
+      "trials_ms": [
+        1015.9294590000001,
+        984.962625,
+        1007.0534170000001,
+        1041.5699169999998
+      ]
+    },
+    {
+      "batch_size": 24,
+      "cosine_min": 0.9999993830256797,
+      "median_ms": 1125.2759999999998,
+      "paragraphs_per_second": 88.86708683025321,
+      "trials_ms": [
+        1117.76975,
+        1125.2759999999998,
+        1262.71175,
+        1107.936375
+      ]
+    },
+    {
+      "batch_size": 32,
+      "cosine_min": 0.9999993830256797,
+      "median_ms": 1240.673792,
+      "paragraphs_per_second": 80.60136406911383,
+      "trials_ms": [
+        1189.022875,
+        1240.673792,
+        1173.874458,
+        1267.177375
+      ]
+    },
+    {
+      "batch_size": 64,
+      "cosine_min": 0.9999993830256797,
+      "median_ms": 1359.82975,
+      "paragraphs_per_second": 73.53861761003537,
+      "trials_ms": [
+        1281.93175,
+        1359.82975,
+        1357.884333,
+        1415.701875
+      ]
+    },
+    {
+      "batch_size": 100,
+      "cosine_min": 0.9999993830256797,
+      "median_ms": 1350.811333,
+      "paragraphs_per_second": 74.02958322677915,
+      "trials_ms": [
+        1518.2584160000001,
+        1366.7905839999999,
+        1340.558125,
+        1350.811333
+      ]
+    }
+  ]
+}

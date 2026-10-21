@@ -1,0 +1,216 @@
+{
+  "accuracy": [
+    {
+      "cosine": 0.9999999999999998,
+      "max_abs_diff": 0.0
+    },
+    {
+      "cosine": 1.0000000000000002,
+      "max_abs_diff": 0.0
+    },
+    {
+      "cosine": 1.0,
+      "max_abs_diff": 0.0
+    },
+    {
+      "cosine": 1.0,
+      "max_abs_diff": 0.0
+    },
+    {
+      "cosine": 1.0,
+      "max_abs_diff": 0.0
+    },
+    {
+      "cosine": 1.0,
+      "max_abs_diff": 0.0
+    },
+    {
+      "cosine": 1.0,
+      "max_abs_diff": 0.0
+    },
+    {
+      "cosine": 0.9999999999999999,
+      "max_abs_diff": 0.0
+    },
+    {
+      "cosine": 1.0000000000000002,
+      "max_abs_diff": 0.0
+    },
+    {
+      "cosine": 1.0,
+      "max_abs_diff": 0.0
+    },
+    {
+      "cosine": 0.9999999999999999,
+      "max_abs_diff": 0.0
+    },
+    {
+      "cosine": 0.9999999999999998,
+      "max_abs_diff": 0.0
+    },
+    {
+      "cosine": 1.0,
+      "max_abs_diff": 0.0
+    },
+    {
+      "cosine": 1.0,
+      "max_abs_diff": 0.0
+    },
+    {
+      "cosine": 1.0,
+      "max_abs_diff": 0.0
+    },
+    {
+      "cosine": 1.0000000000000002,
+      "max_abs_diff": 0.0
+    },
+    {
+      "cosine": 0.9999999999999999,
+      "max_abs_diff": 0.0
+    },
+    {
+      "cosine": 0.9999999999999998,
+      "max_abs_diff": 0.0
+    },
+    {
+      "cosine": 1.0,
+      "max_abs_diff": 0.0
+    },
+    {
+      "cosine": 1.0,
+      "max_abs_diff": 0.0
+    }
+  ],
+  "calls": 30,
+  "engine": "llama-cpp-q8-metal",
+  "environment_after": {
+    "cargo": "cargo 1.94.0 (85eff7c80 2026-01-15)",
+    "clang": "Apple clang version 21.0.0 (clang-2100.3.34.2)\nTarget: arm64-apple-darwin27.0.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin",
+    "hardware": "Hardware:\n\n    Hardware Overview:\n\n      Model Name: MacBook Pro\n      Model Identifier: Mac17,2\n      Model Number: Z1KH00020KH/A\n      Chip: Apple M5\n      Total Number of Cores: 10 (4 Super and 6 Efficiency)\n      Memory: 24 GB\n      System Firmware Version: 20457.1.29\n      OS Loader Version: 20457.1.29\n      Activation Lock Status: Enabled\n\nGraphics/Displays:\n\n    Apple M5:\n\n      Chipset Model: Apple M5\n      Type: GPU\n      Bus: Built-In\n      Total Number of Cores: 10\n      Vendor: Apple (0x106b)\n      Metal Support: Metal 4\n      Displays:\n        Color LCD:\n          Display Type: Built-in Liquid Retina XDR Display\n          Resolution: 3024 x 1964 Retina\n          Main Display: Yes\n          Mirror: Off\n          Online: Yes\n          Automatically Adjust Brightness: Yes\n          Connection Type: Internal\n        9632:\n          Resolution: 1920 x 1080 (1080p FHD - Full High Definition)\n          UI Looks like: 1920 x 1080 @ 60.00Hz\n          Mirror: Off\n          Online: Yes\n          Rotation: Supported\n          Television: Yes\n        24MB35:\n          Resolution: 1920 x 1080 (1080p FHD - Full High Definition)\n          UI Looks like: 1920 x 1080 @ 60.00Hz\n          Mirror: Off\n          Online: Yes\n          Rotation: Supported",
+    "mojo": "Mojo 1.2.0rc2 (2016d0cd)",
+    "os": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0.1\nBuildVersion:\t\t26A434",
+    "power": "Now drawing from 'AC Power'\n -InternalBattery-0 (id=7602275)\t100%; charged; 0:00 remaining present: true",
+    "rust": "rustc 1.94.0 (4a4ef493e 2026-03-02)\nbinary: rustc\ncommit-hash: 4a4ef493e3a1488c6e321570238084b38948f6db\ncommit-date: 2026-03-02\nhost: aarch64-apple-darwin\nrelease: 1.94.0\nLLVM version: 21.1.8",
+    "swap": "vm.swapusage: total = 15360.00M  used = 14418.00M  free = 942.00M  (encrypted)",
+    "thermal": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+    "thermal_process_info": "0",
+    "vm_stat": "Mach Virtual Memory Statistics: (page size of 16384 bytes)\nPages free:                                   247715.\nPages active:                                 256537.\nPages inactive:                               249991.\nPages speculative:                              7844.\nPages throttled:                                   0.\nPages wired down:                             342961.\nPages purgeable:                                3107.\n\"Translation faults\":                     5249348810.\nPages copy-on-write:                       224819154.\nPages zero filled:                        2617436950.\nPages reactivated:                        1189281494.\nPages purged:                               73062591.\nFile-backed pages:                            145886.\nAnonymous pages:                              368486.\nPages stored in compressor:                   807072.\nPages occupied by compressor:                 426455.\nDecompressions:                           1051558034.\nCompressions:                             1231242156.\nPageins:                                   150432629.\nPageouts:                                     403404.\nSwapins:                                    10417845.\nSwapouts:                                   14127586.\nPages tagged:                                 140760.\nPages tagged resident:                        117218.\nPages tagged compressed:                       23542.\nPages tag-storage:                             49152.\nPages tag-storage holding tags:                 5295.\nPages tag-storage free:                         2018.\nPages tag-storage non-tag pageable:            41665.\nPages tag-storage non-tag wired:                  77.\nBytes of compressed tags:                    3761856.\nTagged compressions:                        19329715.\nTagged decompressions:                      18548326.",
+    "xcode": "Xcode 27.0\nBuild version 27A266a"
+  },
+  "environment_before": {
+    "cargo": "cargo 1.94.0 (85eff7c80 2026-01-15)",
+    "clang": "Apple clang version 21.0.0 (clang-2100.3.34.2)\nTarget: arm64-apple-darwin27.0.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin",
+    "hardware": "Hardware:\n\n    Hardware Overview:\n\n      Model Name: MacBook Pro\n      Model Identifier: Mac17,2\n      Model Number: Z1KH00020KH/A\n      Chip: Apple M5\n      Total Number of Cores: 10 (4 Super and 6 Efficiency)\n      Memory: 24 GB\n      System Firmware Version: 20457.1.29\n      OS Loader Version: 20457.1.29\n      Activation Lock Status: Enabled\n\nGraphics/Displays:\n\n    Apple M5:\n\n      Chipset Model: Apple M5\n      Type: GPU\n      Bus: Built-In\n      Total Number of Cores: 10\n      Vendor: Apple (0x106b)\n      Metal Support: Metal 4\n      Displays:\n        Color LCD:\n          Display Type: Built-in Liquid Retina XDR Display\n          Resolution: 3024 x 1964 Retina\n          Main Display: Yes\n          Mirror: Off\n          Online: Yes\n          Automatically Adjust Brightness: Yes\n          Connection Type: Internal\n        9632:\n          Resolution: 1920 x 1080 (1080p FHD - Full High Definition)\n          UI Looks like: 1920 x 1080 @ 60.00Hz\n          Mirror: Off\n          Online: Yes\n          Rotation: Supported\n          Television: Yes\n        24MB35:\n          Resolution: 1920 x 1080 (1080p FHD - Full High Definition)\n          UI Looks like: 1920 x 1080 @ 60.00Hz\n          Mirror: Off\n          Online: Yes\n          Rotation: Supported",
+    "mojo": "Mojo 1.2.0rc2 (2016d0cd)",
+    "os": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0.1\nBuildVersion:\t\t26A434",
+    "power": "Now drawing from 'AC Power'\n -InternalBattery-0 (id=7602275)\t100%; charged; 0:00 remaining present: true",
+    "rust": "rustc 1.94.0 (4a4ef493e 2026-03-02)\nbinary: rustc\ncommit-hash: 4a4ef493e3a1488c6e321570238084b38948f6db\ncommit-date: 2026-03-02\nhost: aarch64-apple-darwin\nrelease: 1.94.0\nLLVM version: 21.1.8",
+    "swap": "vm.swapusage: total = 15360.00M  used = 13839.56M  free = 1520.44M  (encrypted)",
+    "thermal": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+    "thermal_process_info": "0",
+    "vm_stat": "Mach Virtual Memory Statistics: (page size of 16384 bytes)\nPages free:                                    17679.\nPages active:                                 400517.\nPages inactive:                               416278.\nPages speculative:                              4725.\nPages throttled:                                   0.\nPages wired down:                             316360.\nPages purgeable:                                2059.\n\"Translation faults\":                     5243261510.\nPages copy-on-write:                       224470739.\nPages zero filled:                        2614341406.\nPages reactivated:                        1187807245.\nPages purged:                               72904597.\nFile-backed pages:                            278108.\nAnonymous pages:                              543412.\nPages stored in compressor:                   739657.\nPages occupied by compressor:                 375944.\nDecompressions:                           1050126192.\nCompressions:                             1229537573.\nPageins:                                   150145744.\nPageouts:                                     403346.\nSwapins:                                    10403755.\nSwapouts:                                   14075718.\nPages tagged:                                 143688.\nPages tagged resident:                        121334.\nPages tagged compressed:                       22354.\nPages tag-storage:                             49152.\nPages tag-storage holding tags:                 5944.\nPages tag-storage free:                          134.\nPages tag-storage non-tag pageable:            42915.\nPages tag-storage non-tag wired:                  73.\nBytes of compressed tags:                    3521088.\nTagged compressions:                        19292886.\nTagged decompressions:                      18514538.",
+    "xcode": "Xcode 27.0\nBuild version 27A266a"
+  },
+  "factors": {
+    "host": "llama.cpp",
+    "kernel": "MSL",
+    "precision": "Q8_0",
+    "submission": "coalesced"
+  },
+  "finished_unix_s": 1792485378.504847,
+  "gate_passed": true,
+  "library": "/Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/harness/target/release/libib_llama.dylib",
+  "library_sha256": "460ef5794d3842d63c2c2d6140f4991ea4e60ade65a826daea734872a7c149a0  /Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/harness/target/release/libib_llama.dylib",
+  "mixed_batch_accuracy": [
+    {
+      "cosine": 0.9999998993411741,
+      "max_abs_diff": 0.000056140124797821045
+    },
+    {
+      "cosine": 0.9999998815858182,
+      "max_abs_diff": 0.00005233101546764374
+    },
+    {
+      "cosine": 0.9999998375202293,
+      "max_abs_diff": 0.00006568268872797489
+    },
+    {
+      "cosine": 0.9999998956127153,
+      "max_abs_diff": 0.000056371092796325684
+    },
+    {
+      "cosine": 0.9999999403103242,
+      "max_abs_diff": 0.00004319101572036743
+    },
+    {
+      "cosine": 0.9999998876030028,
+      "max_abs_diff": 0.00006780633702874184
+    },
+    {
+      "cosine": 0.9999998258267357,
+      "max_abs_diff": 0.00006601959466934204
+    },
+    {
+      "cosine": 0.9999998626204175,
+      "max_abs_diff": 0.00006054248660802841
+    },
+    {
+      "cosine": 0.9999998986810839,
+      "max_abs_diff": 0.000052928924560546875
+    },
+    {
+      "cosine": 0.9999998111582464,
+      "max_abs_diff": 0.00007170625030994415
+    },
+    {
+      "cosine": 0.9999999207895545,
+      "max_abs_diff": 0.000056356191635131836
+    },
+    {
+      "cosine": 0.9999999078862001,
+      "max_abs_diff": 0.00006467103958129883
+    },
+    {
+      "cosine": 0.9999999094540949,
+      "max_abs_diff": 0.000049639493227005005
+    },
+    {
+      "cosine": 0.9999999081285156,
+      "max_abs_diff": 0.0000702887773513794
+    },
+    {
+      "cosine": 0.9999999089417789,
+      "max_abs_diff": 0.000060636550188064575
+    },
+    {
+      "cosine": 0.9999998440092162,
+      "max_abs_diff": 0.00007642246782779694
+    },
+    {
+      "cosine": 0.9999999117598536,
+      "max_abs_diff": 0.00004759058356285095
+    },
+    {
+      "cosine": 0.9999997105088493,
+      "max_abs_diff": 0.00008072704076766968
+    },
+    {
+      "cosine": 0.9999998671587005,
+      "max_abs_diff": 0.00006751436740159988
+    },
+    {
+      "cosine": 0.9999998427898271,
+      "max_abs_diff": 0.0000761914998292923
+    }
+  ],
+  "model": "/Users/iron/.cache/infinite-brain-b0/models/embeddinggemma-2-Q8_0.gguf",
+  "model_manifest": null,
+  "model_sha256": "6f1bd4ac6c5df7444f9cca7ca36cafe6cfa34cd6f49fefb1e0b4be8143aed8bc",
+  "native_batch": true,
+  "pid": 97277,
+  "process": 0,
+  "reference_sha256": "894661873ce9202918b8283e4fe56a2a231bb0e14557eef99de1b511bb4a7d36  /Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/harness/results/e1-final-20261020-173052/reference.json",
+  "started_unix_s": 1792485092.208655,
+  "tokens": 82,
+  "warmup": 10
+}

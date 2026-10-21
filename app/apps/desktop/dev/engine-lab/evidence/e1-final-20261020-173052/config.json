@@ -1,0 +1,60 @@
+{
+  "extra_artifacts": {
+    "/private/tmp/ib-engine-e1/frozen-20261020-a/libib_rust_metal.dylib": "44a4b522d4a35318dc94933fe52a5574ec9414be46c8525e8a79a9ea6d0d803e",
+    "/private/tmp/ib-engine-e1/frozen-20261020-a/mojo.metallib": "7936f430ea9a8930766918e712ec1fce65a2761ba9a157418cd9a5b3e3c9ad3c",
+    "/private/tmp/ib-engine-e1/frozen-20261020-a/kernels.json": "8ba352d22d74c66cab17ac1a7c9353c7fe744e7a169583700df53c4d6ad214f2",
+    "/private/tmp/ib-engine-e1/frozen-20261020-a/aot-manifest.json": "a0ed8e95825f9e8001b11d4fa51f8ca42ea0c4c8c0ea35d04a2bb696e232664e",
+    "/private/tmp/ib-engine-e1/frozen-20261020-a/trace-e1": "eddeeb4a5d93fb28287fa66853f691ad8c02f8b005d285b5e74e1d3a79696d27",
+    "/private/tmp/ib-mojo-spike/weights.bin": "edbf9720b35ccbe13dbea1e74da31d7057ea497e9b3b98ed1944462517009f34"
+  },
+  "backend_env": {
+    "E1_OUT": "/private/tmp/ib-engine-e1/frozen-20261020-a"
+  },
+  "smoke": false,
+  "processes": 5,
+  "calls": 30,
+  "warmup": 10,
+  "bootstrap": 10000,
+  "baseline": "/Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/harness/target/release/libib_llama.dylib",
+  "factors": {
+    "/Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/harness/target/release/libib_llama.dylib": {
+      "kernel": "MSL",
+      "host": "llama.cpp",
+      "precision": "Q8_0",
+      "submission": "coalesced"
+    },
+    "/private/tmp/ib-engine-e1/frozen-20261020-a/libib_rust_metal.dylib": {
+      "kernel": "Mojo AIR",
+      "host": "Rust Metal",
+      "precision": "FP16",
+      "submission": "one-buffer-per-paragraph"
+    }
+  },
+  "engines": [
+    "/Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/harness/target/release/libib_llama.dylib",
+    "/private/tmp/ib-engine-e1/frozen-20261020-a/libib_rust_metal.dylib"
+  ],
+  "models": {
+    "/Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/harness/target/release/libib_llama.dylib": "/Users/iron/.cache/infinite-brain-b0/models/embeddinggemma-2-Q8_0.gguf",
+    "/private/tmp/ib-engine-e1/frozen-20261020-a/libib_rust_metal.dylib": "/private/tmp/ib-mojo-spike/weights.bin"
+  },
+  "llama_cpp_rs_rev": "cb98c630d0fec934a8a379db4fd63cd3622f6984",
+  "mojo_library": "/private/tmp/ib-mojo-opt/optimized-final.dylib",
+  "mojo_library_sha256": null,
+  "source_sha256": {
+    "ib_engine.h": "ba610f6b62d6ce1fef9f311e3a64d2d01f1b0139e8238a3b9cb62df7b5bf17d9",
+    "runner.rs": "f1b1227f4d673b485c69abbe80dad07328aa7d1a127f6c0827f6c0b66ce0ce78",
+    "llama_adapter.rs": "f9cfba353b1b806d5d2be95cf47b322f458006563c38dd6bac5b7c44a31200c2",
+    "mojo_adapter.c": "b8109118684a56b889930a36d552d8477301155103a127b012647af8eb361083",
+    "microbench.mm": "ec4d5b1cb03d3457f23a1c7500c521565a380d0b2a3adf5dbf95833af54cf30d",
+    "pipeline.py": "5a1326eb2c5c52b6713007add453cd1d34a2c15a771fc91f24f452564dfe53f1",
+    "analyze.py": "2e0fa8f92ffa29f64892f6781319fdb152b6ec248b4e6426b8969e7f517d8ed3",
+    "Cargo.lock": "75ee4dc006cdd4525b27ac5bf3382740294af190ab331c9952c50bf494145a9f",
+    "Cargo.toml": "d4b33ade1919ff5db6d0ace9a7ecb663bff23880b2eaf012bf509c355ce087e5",
+    "requirements.txt": "702ca2f5ba3fd105b4a908139c60f83d984ff68ad5b5ed596afd75bf77cc2f3c",
+    "run.sh": "d9d90ce7c78c4d26dc592c0793f9680b4cee069888fbd46cc7a2aea241a69e0f",
+    "thermal.m": "3eaa539b5e88d515fdb969ed33de1bb9fb68fca8494f686fc9664d9ff5d75eef"
+  },
+  "methodology_sha256": "11a2c644f191d5b5184e6f5817c610f8e5a37fe17508be03b19015775e83b660",
+  "inputs_sha256": "1fa81e639754dca9b2df5a9e0e4d967c8559a311866765f676ac894ab3265b5c"
+}

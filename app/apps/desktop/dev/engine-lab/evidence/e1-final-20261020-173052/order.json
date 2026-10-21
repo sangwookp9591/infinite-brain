@@ -1,0 +1,72 @@
+[
+  {
+    "process": 0,
+    "slot": 0,
+    "library": "/Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/harness/target/release/libib_llama.dylib",
+    "pair": "/private/tmp/ib-engine-e1/frozen-20261020-a/libib_rust_metal.dylib",
+    "prefix": "/Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/harness/results/e1-final-20261020-173052/engine-0-p0-slot0"
+  },
+  {
+    "process": 0,
+    "slot": 1,
+    "library": "/private/tmp/ib-engine-e1/frozen-20261020-a/libib_rust_metal.dylib",
+    "pair": "/private/tmp/ib-engine-e1/frozen-20261020-a/libib_rust_metal.dylib",
+    "prefix": "/Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/harness/results/e1-final-20261020-173052/engine-1-p0-slot1"
+  },
+  {
+    "process": 1,
+    "slot": 0,
+    "library": "/Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/harness/target/release/libib_llama.dylib",
+    "pair": "/private/tmp/ib-engine-e1/frozen-20261020-a/libib_rust_metal.dylib",
+    "prefix": "/Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/harness/results/e1-final-20261020-173052/engine-0-p1-slot0"
+  },
+  {
+    "process": 1,
+    "slot": 1,
+    "library": "/private/tmp/ib-engine-e1/frozen-20261020-a/libib_rust_metal.dylib",
+    "pair": "/private/tmp/ib-engine-e1/frozen-20261020-a/libib_rust_metal.dylib",
+    "prefix": "/Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/harness/results/e1-final-20261020-173052/engine-1-p1-slot1"
+  },
+  {
+    "process": 2,
+    "slot": 0,
+    "library": "/Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/harness/target/release/libib_llama.dylib",
+    "pair": "/private/tmp/ib-engine-e1/frozen-20261020-a/libib_rust_metal.dylib",
+    "prefix": "/Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/harness/results/e1-final-20261020-173052/engine-0-p2-slot0"
+  },
+  {
+    "process": 2,
+    "slot": 1,
+    "library": "/private/tmp/ib-engine-e1/frozen-20261020-a/libib_rust_metal.dylib",
+    "pair": "/private/tmp/ib-engine-e1/frozen-20261020-a/libib_rust_metal.dylib",
+    "prefix": "/Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/harness/results/e1-final-20261020-173052/engine-1-p2-slot1"
+  },
+  {
+    "process": 3,
+    "slot": 0,
+    "library": "/Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/harness/target/release/libib_llama.dylib",
+    "pair": "/private/tmp/ib-engine-e1/frozen-20261020-a/libib_rust_metal.dylib",
+    "prefix": "/Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/harness/results/e1-final-20261020-173052/engine-0-p3-slot0"
+  },
+  {
+    "process": 3,
+    "slot": 1,
+    "library": "/private/tmp/ib-engine-e1/frozen-20261020-a/libib_rust_metal.dylib",
+    "pair": "/private/tmp/ib-engine-e1/frozen-20261020-a/libib_rust_metal.dylib",
+    "prefix": "/Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/harness/results/e1-final-20261020-173052/engine-1-p3-slot1"
+  },
+  {
+    "process": 4,
+    "slot": 0,
+    "library": "/Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/harness/target/release/libib_llama.dylib",
+    "pair": "/private/tmp/ib-engine-e1/frozen-20261020-a/libib_rust_metal.dylib",
+    "prefix": "/Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/harness/results/e1-final-20261020-173052/engine-0-p4-slot0"
+  },
+  {
+    "process": 4,
+    "slot": 1,
+    "library": "/private/tmp/ib-engine-e1/frozen-20261020-a/libib_rust_metal.dylib",
+    "pair": "/private/tmp/ib-engine-e1/frozen-20261020-a/libib_rust_metal.dylib",
+    "prefix": "/Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/harness/results/e1-final-20261020-173052/engine-1-p4-slot1"
+  }
+]

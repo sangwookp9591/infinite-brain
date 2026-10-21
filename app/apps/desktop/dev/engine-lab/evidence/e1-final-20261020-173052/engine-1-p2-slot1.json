@@ -1,0 +1,216 @@
+{
+  "accuracy": [
+    {
+      "cosine": 0.9999073653197944,
+      "max_abs_diff": 0.0018277941271662712
+    },
+    {
+      "cosine": 0.9998847875683774,
+      "max_abs_diff": 0.0019035115838050842
+    },
+    {
+      "cosine": 0.9998888894166065,
+      "max_abs_diff": 0.00221929419785738
+    },
+    {
+      "cosine": 0.9999308066134662,
+      "max_abs_diff": 0.0013553258031606674
+    },
+    {
+      "cosine": 0.9999469166664945,
+      "max_abs_diff": 0.0012842791620641947
+    },
+    {
+      "cosine": 0.9999347287971062,
+      "max_abs_diff": 0.0015562698245048523
+    },
+    {
+      "cosine": 0.999933071133747,
+      "max_abs_diff": 0.0013849865645170212
+    },
+    {
+      "cosine": 0.9999037005484469,
+      "max_abs_diff": 0.0016700711857993156
+    },
+    {
+      "cosine": 0.9999611796839971,
+      "max_abs_diff": 0.001057131215929985
+    },
+    {
+      "cosine": 0.9997084341209538,
+      "max_abs_diff": 0.0028562238439917564
+    },
+    {
+      "cosine": 0.9999634296264173,
+      "max_abs_diff": 0.0010320935398340225
+    },
+    {
+      "cosine": 0.9999589377226803,
+      "max_abs_diff": 0.0013557253405451775
+    },
+    {
+      "cosine": 0.9999648874516611,
+      "max_abs_diff": 0.0009882545564323664
+    },
+    {
+      "cosine": 0.9999527892542457,
+      "max_abs_diff": 0.0011412519961595535
+    },
+    {
+      "cosine": 0.9999621098831561,
+      "max_abs_diff": 0.001167217269539833
+    },
+    {
+      "cosine": 0.9999570453191647,
+      "max_abs_diff": 0.0014288965612649918
+    },
+    {
+      "cosine": 0.9999630036776528,
+      "max_abs_diff": 0.0010151006281375885
+    },
+    {
+      "cosine": 0.9999429522527836,
+      "max_abs_diff": 0.001343065407127142
+    },
+    {
+      "cosine": 0.9999562561962924,
+      "max_abs_diff": 0.0010718517005443573
+    },
+    {
+      "cosine": 0.9999461350278621,
+      "max_abs_diff": 0.0011884309351444244
+    }
+  ],
+  "calls": 30,
+  "engine": "rust-metal-mojoair-fp16-one",
+  "environment_after": {
+    "cargo": "cargo 1.94.0 (85eff7c80 2026-01-15)",
+    "clang": "Apple clang version 21.0.0 (clang-2100.3.34.2)\nTarget: arm64-apple-darwin27.0.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin",
+    "hardware": "Hardware:\n\n    Hardware Overview:\n\n      Model Name: MacBook Pro\n      Model Identifier: Mac17,2\n      Model Number: Z1KH00020KH/A\n      Chip: Apple M5\n      Total Number of Cores: 10 (4 Super and 6 Efficiency)\n      Memory: 24 GB\n      System Firmware Version: 20457.1.29\n      OS Loader Version: 20457.1.29\n      Activation Lock Status: Enabled\n\nGraphics/Displays:\n\n    Apple M5:\n\n      Chipset Model: Apple M5\n      Type: GPU\n      Bus: Built-In\n      Total Number of Cores: 10\n      Vendor: Apple (0x106b)\n      Metal Support: Metal 4\n      Displays:\n        Color LCD:\n          Display Type: Built-in Liquid Retina XDR Display\n          Resolution: 3024 x 1964 Retina\n          Main Display: Yes\n          Mirror: Off\n          Online: Yes\n          Automatically Adjust Brightness: Yes\n          Connection Type: Internal\n        9632:\n          Resolution: 1920 x 1080 (1080p FHD - Full High Definition)\n          UI Looks like: 1920 x 1080 @ 60.00Hz\n          Mirror: Off\n          Online: Yes\n          Rotation: Supported\n          Television: Yes\n        24MB35:\n          Resolution: 1920 x 1080 (1080p FHD - Full High Definition)\n          UI Looks like: 1920 x 1080 @ 60.00Hz\n          Mirror: Off\n          Online: Yes\n          Rotation: Supported",
+    "mojo": "Mojo 1.2.0rc2 (2016d0cd)",
+    "os": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0.1\nBuildVersion:\t\t26A434",
+    "power": "Now drawing from 'AC Power'\n -InternalBattery-0 (id=7602275)\t100%; charged; 0:00 remaining present: true",
+    "rust": "rustc 1.94.0 (4a4ef493e 2026-03-02)\nbinary: rustc\ncommit-hash: 4a4ef493e3a1488c6e321570238084b38948f6db\ncommit-date: 2026-03-02\nhost: aarch64-apple-darwin\nrelease: 1.94.0\nLLVM version: 21.1.8",
+    "swap": "vm.swapusage: total = 12288.00M  used = 10737.38M  free = 1550.62M  (encrypted)",
+    "thermal": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+    "thermal_process_info": "0",
+    "vm_stat": "Mach Virtual Memory Statistics: (page size of 16384 bytes)\nPages free:                                     8338.\nPages active:                                 424975.\nPages inactive:                               423384.\nPages speculative:                               787.\nPages throttled:                                   0.\nPages wired down:                             280652.\nPages purgeable:                                6842.\n\"Translation faults\":                     5270974191.\nPages copy-on-write:                       226113867.\nPages zero filled:                        2629286208.\nPages reactivated:                        1193151673.\nPages purged:                               73407842.\nFile-backed pages:                            224221.\nAnonymous pages:                              624925.\nPages stored in compressor:                   767366.\nPages occupied by compressor:                 393367.\nDecompressions:                           1055174577.\nCompressions:                             1235098388.\nPageins:                                   151523699.\nPageouts:                                     403756.\nSwapins:                                    10646143.\nSwapouts:                                   14250760.\nPages tagged:                                 129282.\nPages tagged resident:                        106686.\nPages tagged compressed:                       22596.\nPages tag-storage:                             49152.\nPages tag-storage holding tags:                 5323.\nPages tag-storage free:                          117.\nPages tag-storage non-tag pageable:            43568.\nPages tag-storage non-tag wired:                  76.\nBytes of compressed tags:                    3557824.\nTagged compressions:                        19415621.\nTagged decompressions:                      18629592.",
+    "xcode": "Xcode 27.0\nBuild version 27A266a"
+  },
+  "environment_before": {
+    "cargo": "cargo 1.94.0 (85eff7c80 2026-01-15)",
+    "clang": "Apple clang version 21.0.0 (clang-2100.3.34.2)\nTarget: arm64-apple-darwin27.0.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin",
+    "hardware": "Hardware:\n\n    Hardware Overview:\n\n      Model Name: MacBook Pro\n      Model Identifier: Mac17,2\n      Model Number: Z1KH00020KH/A\n      Chip: Apple M5\n      Total Number of Cores: 10 (4 Super and 6 Efficiency)\n      Memory: 24 GB\n      System Firmware Version: 20457.1.29\n      OS Loader Version: 20457.1.29\n      Activation Lock Status: Enabled\n\nGraphics/Displays:\n\n    Apple M5:\n\n      Chipset Model: Apple M5\n      Type: GPU\n      Bus: Built-In\n      Total Number of Cores: 10\n      Vendor: Apple (0x106b)\n      Metal Support: Metal 4\n      Displays:\n        Color LCD:\n          Display Type: Built-in Liquid Retina XDR Display\n          Resolution: 3024 x 1964 Retina\n          Main Display: Yes\n          Mirror: Off\n          Online: Yes\n          Automatically Adjust Brightness: Yes\n          Connection Type: Internal\n        9632:\n          Resolution: 1920 x 1080 (1080p FHD - Full High Definition)\n          UI Looks like: 1920 x 1080 @ 60.00Hz\n          Mirror: Off\n          Online: Yes\n          Rotation: Supported\n          Television: Yes\n        24MB35:\n          Resolution: 1920 x 1080 (1080p FHD - Full High Definition)\n          UI Looks like: 1920 x 1080 @ 60.00Hz\n          Mirror: Off\n          Online: Yes\n          Rotation: Supported",
+    "mojo": "Mojo 1.2.0rc2 (2016d0cd)",
+    "os": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0.1\nBuildVersion:\t\t26A434",
+    "power": "Now drawing from 'AC Power'\n -InternalBattery-0 (id=7602275)\t100%; charged; 0:00 remaining present: true",
+    "rust": "rustc 1.94.0 (4a4ef493e 2026-03-02)\nbinary: rustc\ncommit-hash: 4a4ef493e3a1488c6e321570238084b38948f6db\ncommit-date: 2026-03-02\nhost: aarch64-apple-darwin\nrelease: 1.94.0\nLLVM version: 21.1.8",
+    "swap": "vm.swapusage: total = 12288.00M  used = 10809.38M  free = 1478.62M  (encrypted)",
+    "thermal": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+    "thermal_process_info": "0",
+    "vm_stat": "Mach Virtual Memory Statistics: (page size of 16384 bytes)\nPages free:                                   199017.\nPages active:                                 284354.\nPages inactive:                               326574.\nPages speculative:                              8511.\nPages throttled:                                   0.\nPages wired down:                             283824.\nPages purgeable:                                5084.\n\"Translation faults\":                     5268750214.\nPages copy-on-write:                       225979620.\nPages zero filled:                        2627899980.\nPages reactivated:                        1192942637.\nPages purged:                               73398586.\nFile-backed pages:                            229804.\nAnonymous pages:                              389635.\nPages stored in compressor:                   815208.\nPages occupied by compressor:                 429223.\nDecompressions:                           1054994733.\nCompressions:                             1234974318.\nPageins:                                   151405478.\nPageouts:                                     403752.\nSwapins:                                    10641210.\nSwapouts:                                   14250760.\nPages tagged:                                 130375.\nPages tagged resident:                        106804.\nPages tagged compressed:                       23571.\nPages tag-storage:                             49152.\nPages tag-storage holding tags:                 5301.\nPages tag-storage free:                         1727.\nPages tag-storage non-tag pageable:            41959.\nPages tag-storage non-tag wired:                  75.\nBytes of compressed tags:                    3770880.\nTagged compressions:                        19412403.\nTagged decompressions:                      18625473.",
+    "xcode": "Xcode 27.0\nBuild version 27A266a"
+  },
+  "factors": {
+    "host": "Rust Metal",
+    "kernel": "Mojo AIR",
+    "precision": "FP16",
+    "submission": "one-buffer-per-paragraph"
+  },
+  "finished_unix_s": 1792486614.491518,
+  "gate_passed": true,
+  "library": "/private/tmp/ib-engine-e1/frozen-20261020-a/libib_rust_metal.dylib",
+  "library_sha256": "44a4b522d4a35318dc94933fe52a5574ec9414be46c8525e8a79a9ea6d0d803e  /private/tmp/ib-engine-e1/frozen-20261020-a/libib_rust_metal.dylib",
+  "mixed_batch_accuracy": [
+    {
+      "cosine": 0.9999067305888594,
+      "max_abs_diff": 0.0018233880400657654
+    },
+    {
+      "cosine": 0.9998844510310689,
+      "max_abs_diff": 0.001933674793690443
+    },
+    {
+      "cosine": 0.9998896618073567,
+      "max_abs_diff": 0.0022359127178788185
+    },
+    {
+      "cosine": 0.9999309536514632,
+      "max_abs_diff": 0.0013205688446760178
+    },
+    {
+      "cosine": 0.9999464431098936,
+      "max_abs_diff": 0.0012888608034700155
+    },
+    {
+      "cosine": 0.9999349465571323,
+      "max_abs_diff": 0.0015543065965175629
+    },
+    {
+      "cosine": 0.9999334973589776,
+      "max_abs_diff": 0.0013911761343479156
+    },
+    {
+      "cosine": 0.9999034597815717,
+      "max_abs_diff": 0.0017025510896928608
+    },
+    {
+      "cosine": 0.9999613084486729,
+      "max_abs_diff": 0.0010630395263433456
+    },
+    {
+      "cosine": 0.9997004069484704,
+      "max_abs_diff": 0.0028913626447319984
+    },
+    {
+      "cosine": 0.9999636937708589,
+      "max_abs_diff": 0.001019040122628212
+    },
+    {
+      "cosine": 0.9999591098975773,
+      "max_abs_diff": 0.0013367347419261932
+    },
+    {
+      "cosine": 0.9999648188769036,
+      "max_abs_diff": 0.0009818056132644415
+    },
+    {
+      "cosine": 0.999953030844582,
+      "max_abs_diff": 0.0011425595730543137
+    },
+    {
+      "cosine": 0.9999620049628798,
+      "max_abs_diff": 0.0011955611407756805
+    },
+    {
+      "cosine": 0.9999569447768764,
+      "max_abs_diff": 0.0014196252450346947
+    },
+    {
+      "cosine": 0.9999629651047881,
+      "max_abs_diff": 0.0009951163083314896
+    },
+    {
+      "cosine": 0.9999425519966704,
+      "max_abs_diff": 0.0013137953355908394
+    },
+    {
+      "cosine": 0.9999563080298423,
+      "max_abs_diff": 0.0010572075843811035
+    },
+    {
+      "cosine": 0.9999462442925927,
+      "max_abs_diff": 0.001189935952425003
+    }
+  ],
+  "model": "/private/tmp/ib-mojo-spike/weights.bin",
+  "model_manifest": null,
+  "model_sha256": "edbf9720b35ccbe13dbea1e74da31d7057ea497e9b3b98ed1944462517009f34",
+  "native_batch": true,
+  "pid": 55520,
+  "process": 2,
+  "reference_sha256": "894661873ce9202918b8283e4fe56a2a231bb0e14557eef99de1b511bb4a7d36  /Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/harness/results/e1-final-20261020-173052/reference.json",
+  "started_unix_s": 1792486403.514372,
+  "tokens": 82,
+  "warmup": 10
+}

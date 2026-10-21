@@ -1,0 +1,35 @@
+{
+  "bw_gb_s": 118.871813237,
+  "fp16_peak_tflops": 14.755122791000002,
+  "submit_cpu_us": 3.3125,
+  "submit_roundtrip_us": 415.0625,
+  "tokens": 82,
+  "predictions": [
+    {
+      "engine": "llama-cpp-q8-metal",
+      "weight_bytes": 151150592,
+      "flops": 23127588864,
+      "command_buffers": 3,
+      "kernel_floor_ms": 1.5674277463896706,
+      "submission_cpu_ms": 0.0099375,
+      "predicted_ms": 1.5674277463896706,
+      "nonoverlap_heuristic_ms": 1.5773652463896706,
+      "nonoverlap_submit_fraction_assumption": 0.006300062729761102,
+      "nonoverlap_amdahl_assumption": 1.006340005159976
+    },
+    {
+      "engine": "mojo-gpu-fp16",
+      "weight_bytes": 273416192,
+      "flops": 23127588864,
+      "command_buffers": 425,
+      "kernel_floor_ms": 2.300092717984187,
+      "submission_cpu_ms": 1.4078125,
+      "predicted_ms": 2.300092717984187,
+      "nonoverlap_heuristic_ms": 3.707905217984187,
+      "nonoverlap_submit_fraction_assumption": 0.3796786641610438,
+      "nonoverlap_amdahl_assumption": 1.6120677175282803
+    }
+  ],
+  "interpretation": "Optimistic concurrent aggregate floor estimate: max(aggregate kernel floor, CPU commit cost), eta=1, host/gap/readback=0. It assumes measured copy BW/MPS peak act as ceilings; it is not a hardware-proven bound, a sum of per-kernel maxima, or a calibrated full-latency forecast. The separately labeled nonoverlap Amdahl illustration is an assumption, not a measured removable fraction. Q8 dequantization is not FP16 GEMM.",
+  "counter_source": "Previous trace: llama 3; Mojo 425 (417 compute+8 transfer). Optional runtime stats remain blank if not exported."
+}
