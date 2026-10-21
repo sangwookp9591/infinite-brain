@@ -11118,7 +11118,9 @@ body.access-board-grabbing * {
 .appearance-tag {
   font-size: var(--fs-xs, 11px);
   color: var(--text-tertiary);
-  background: var(--bg-hover);
+  /* Derived from the text colour, not from --bg-hover: a row's hover surface is
+     --bg-hover, and a pill painted with the same token vanished on hover. */
+  background: color-mix(in srgb, var(--text-tertiary) 16%, transparent);
   border-radius: 999px;
   padding: 1px 8px;
   margin-left: auto;
@@ -11211,14 +11213,38 @@ body.access-board-grabbing * {
   outline: none;
   box-shadow: var(--focus-ring);
 }
+/* A settings row, a member row and a vault action all have no side padding so
+   their hairlines can span the panel. Painting the hover on the row itself
+   therefore runs edge to edge and leaves the text touching the border. The hover
+   surface is a separate layer that reaches 12px into the panel's own gutter
+   (24px) with rounded corners, and never changes the row's layout or hairline.
+   The panel is the one stacking context, so the layer (z-index -1) sits above
+   the panel's ground and below every row's content, and no row traps a popover
+   that overflows it. */
+.settings-content {
+  isolation: isolate;
+}
 .settings-content > .menu-row,
 .settings-content .member-list > li,
-.account-vault-action {
+.settings-content .account-vault-action {
+  position: relative;
+}
+.settings-content > .menu-row::before,
+.settings-content .member-list > li::before,
+.settings-content .account-vault-action::before {
+  content: "";
+  position: absolute;
+  inset: 3px calc(-1 * var(--sp-3));
+  z-index: -1;
+  border-radius: var(--radius-md);
+  background: transparent;
+  pointer-events: none;
   transition: background-color var(--t-fast) var(--ease);
 }
-.settings-content > .menu-row:hover,
-.settings-content .member-list > li:hover,
-.account-vault-action:hover {
+.settings-content > .menu-row:hover::before,
+.settings-content .member-list > li:hover::before,
+.settings-content .member-list > li:focus-within::before,
+.settings-content .account-vault-action:hover::before {
   background: var(--bg-hover);
 }
 .share-options,
