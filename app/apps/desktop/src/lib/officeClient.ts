@@ -12,6 +12,8 @@ export interface OfficeRequest {
   sasMatches?: boolean;
 }
 
+export interface OfficeInvitation { invitationCode: string; expiresAt: string }
+
 type WireRequest = { sessionId: string; displayAlias: string; deviceLabel: string; platform: string; sas: string; sasConfirmed: boolean };
 const codeToFlow: Record<string, OfficeErrorCode> = {
   too_many_attempts: "too_many_attempts", expired: "approval_expired", sas_required: "sas_required",
@@ -24,6 +26,16 @@ const codeToFlow: Record<string, OfficeErrorCode> = {
  * confirmed by the person currently looking at the two SAS values. */
 export class OfficeClient {
   constructor(private readonly api: ApiClient, private readonly organizationId: string) {}
+
+  async createInvitation(): Promise<OfficeInvitation> {
+    try {
+      const result = await this.api.officeRequest<OfficeInvitation>("POST", "/api/office/invitations", { organizationId: this.organizationId });
+      if (typeof result.invitationCode !== "string" || !result.invitationCode.startsWith("IB1.") || !Number.isFinite(Date.parse(result.expiresAt))) {
+        throw new Error("invalid_response");
+      }
+      return { invitationCode: result.invitationCode, expiresAt: result.expiresAt };
+    } catch (error) { throw officeError(error); }
+  }
 
   async requests(): Promise<OfficeRequest[]> {
     try {

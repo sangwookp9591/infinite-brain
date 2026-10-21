@@ -31,6 +31,7 @@ const nativePorts: OfficeJoinPorts = {
 const interval = 3_000, maxPolls = 200;
 const codes: Record<string, OfficeErrorCode> = {
   hub_pin_mismatch: "hub_pin_mismatch", hub_unavailable: "network_blocked",
+  hub_approval_required: "hub_approval_required", challenge_invalid: "challenge_replayed",
   invite_invalid: "invite_invalid", invite_expired: "invite_expired",
   identity_link_required: "identity_link_required", host_not_found: "host_not_found",
   discovery_expired: "host_not_found", discovery_unavailable: "discovery_unavailable",

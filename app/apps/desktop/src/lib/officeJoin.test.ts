@@ -60,6 +60,8 @@ describe("native office join orchestration", () => {
     ["invite_invalid", { type: "FAILED", code: "invite_invalid" }],
     ["invite_expired", { type: "FAILED", code: "invite_expired" }],
     ["identity_link_required", { type: "FAILED", code: "identity_link_required" }],
+    ["hub_approval_required", { type: "FAILED", code: "hub_approval_required" }],
+    ["challenge_invalid", { type: "FAILED", code: "challenge_replayed" }],
   ])("bounds native %s errors before publishing them", async (code, expected) => {
     const { join, ports, events } = setup();
     vi.mocked(ports.begin).mockRejectedValue(new Error(`office_${code}: ${pasted} https://private token=secret`));

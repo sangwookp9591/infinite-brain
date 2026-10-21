@@ -1,11 +1,9 @@
 /* SPDX-License-Identifier: Apache-2.0 */
-.office-frame { min-height: 100%; overflow: auto; padding: var(--sp-6); background: var(--bg-app); color: var(--text-primary); }
-.office { width: min(100%, 1120px); margin: 0 auto; }
-.office-header { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); margin-bottom: var(--sp-6); }
-.office-eyebrow { margin: 0 0 var(--sp-1); color: var(--text-tertiary); font-size: var(--fs-sm); }
-.office-header h1 { margin: 0; font-size: var(--fs-2xl); }
+.office-frame { min-height: 100%; overflow: auto; padding: var(--sp-5); background: var(--bg-app); color: var(--text-primary); }
+.office { width: min(100%, 760px); margin: 0 auto; }
+.office-header { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); margin-bottom: var(--sp-4); }
+.office-header h1 { margin: 0; font-size: var(--fs-lg); }
 .office-status { display: inline-flex; align-items: center; min-height: 44px; border: 1px solid var(--border); border-radius: var(--radius-pill); padding: 0 var(--sp-4); background: var(--bg-surface); font-size: var(--fs-sm); }
-.office-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 1fr); gap: var(--sp-4); align-items: start; }
 .office-card { min-width: 0; padding: var(--sp-6); border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--bg-surface); box-shadow: var(--shadow-sm); }
 .office-card h2 { margin: 0 0 var(--sp-2); font-size: var(--fs-lg); }
 .office-card p { color: var(--text-secondary); line-height: 1.5; }
@@ -15,6 +13,13 @@
 .office-card > .primary { margin-top: var(--sp-4); }
 .office-secondary { border: 1px solid var(--border); border-radius: var(--radius-pill); padding: var(--sp-2) var(--sp-4); background: var(--bg-subtle); color: var(--text-primary); }
 .office-secondary:hover { background: var(--bg-hover); }
+.office-secondary:focus-visible, .office-back:focus-visible, .office-card input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.office-choice { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; }
+.office-choice p { flex-basis: 100%; margin: 0; }
+.office-back { min-height: 44px; border: 0; padding: 0 var(--sp-2); background: transparent; color: var(--text-secondary); }
+.office-invite-entry { display: flex; align-items: stretch; gap: var(--sp-2); }
+.office-invite-entry input { min-width: 0; }
+.office-invite-entry button { flex: none; white-space: nowrap; }
 .office-candidates { display: grid; gap: var(--sp-2); margin: var(--sp-4) 0; padding: 0; list-style: none; }
 .office-candidates li, .office-request { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3); padding: var(--sp-3); border: 1px solid var(--border); border-radius: var(--radius-md); }
 .office-candidates li div, .office-request > div:first-child { display: grid; gap: var(--sp-1); }
@@ -35,4 +40,15 @@
 .office-host { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3); margin-top: var(--sp-5); padding-top: var(--sp-4); border-top: 1px solid var(--border); }
 .office-host h3, .office-host p { margin: 0 0 var(--sp-1); }
 .office-locale { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-@media (max-width: 760px) { .office-frame { padding: var(--sp-4); } .office-header { align-items: flex-start; flex-direction: column; } .office-grid { grid-template-columns: minmax(0, 1fr); } .office-card { padding: var(--sp-4); } .office-request, .office-host { align-items: flex-start; flex-direction: column; } }
+.office-invitation { margin-top: var(--sp-5); padding-top: var(--sp-4); border-top: 1px solid var(--border); }
+.office-invitation output { display: block; overflow-wrap: anywhere; margin: var(--sp-3) 0; padding: var(--sp-4); border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-subtle); font: 600 var(--fs-lg)/1.4 var(--font-mono); }
+.office-invitation .office-actions { align-items: center; }
+.office-invitation .office-actions span { color: var(--text-secondary); font-size: var(--fs-sm); }
+@media (max-width: 760px) { .office-frame { padding: var(--sp-3); } .office-header { align-items: flex-start; } .office-card { padding: var(--sp-4); } .office-request, .office-host { align-items: flex-start; flex-direction: column; } .office-invite-entry { flex-direction: column; } .office-choice { align-items: stretch; flex-direction: column; } .office-choice p { flex-basis: auto; } }
+
+/* Inside the settings panel the screen sits on the panel's own surface: the standalone
+   page ground, padding and card chrome would nest a box inside a box inside a box (and
+   paint a different ground in dark mode). Steps become plain sections of the panel. */
+.office-embedded .office-frame { min-height: 0; overflow: visible; padding: 0; background: transparent; }
+.office-embedded .office-card { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.office-embedded .office { width: 100%; margin: 0; }

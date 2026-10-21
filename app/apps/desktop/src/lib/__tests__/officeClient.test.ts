@@ -7,6 +7,13 @@ function mockApi(result: unknown = { requests: [] }) {
 }
 
 describe("OfficeClient", () => {
+  it("creates an invitation using the server contract and exposes only the one-line code and expiry", async () => {
+    const result = { invitationId: "id", invitationSecret: "private-secret", serverId: "srv", hubFingerprint: "fingerprint", hostGeneration: "3", expiresAt: "2026-10-22T00:05:00.000Z", invitationCode: "IB1.payload.checksum", invitationLink: "infinitebrain://office/join#IB1.payload.checksum" };
+    const api = mockApi(result);
+    const client = new OfficeClient(api as never, "org / id");
+    await expect(client.createInvitation()).resolves.toEqual({ invitationCode: result.invitationCode, expiresAt: result.expiresAt });
+    expect(api.officeRequest).toHaveBeenCalledExactlyOnceWith("POST", "/api/office/invitations", { organizationId: "org / id" });
+  });
   it("reports both SAS decisions to the server using the documented contracts", async () => {
     const api = mockApi({ requests: [{ sessionId: "s1", displayAlias: "민수", deviceLabel: "노트북", platform: "windows", sas: "123456", sasConfirmed: false }] });
     const client = new OfficeClient(api as never, "org / id");

@@ -16,6 +16,7 @@ export type OfficeErrorCode =
   | "invite_expired"
   | "challenge_expired"
   | "challenge_replayed"
+  | "hub_approval_required"
   | "sas_mismatch"
   | "too_many_attempts"
   | "sas_required"
@@ -55,6 +56,7 @@ export interface OfficeFlowState {
 export type OfficeFlowEvent =
   | { type: "NICKNAME_SAVED"; nickname: string }
   | { type: "DISCOVERY_STARTED" }
+  | { type: "JOIN_STARTED" }
   | { type: "CANDIDATES_UPDATED"; candidates: readonly OfficeCandidate[] }
   | { type: "CANDIDATE_SELECTED"; candidateId: string }
   | { type: "SAS_RECEIVED"; sas: string }
@@ -122,6 +124,8 @@ export function reduceOfficeFlow(
     }
     case "DISCOVERY_STARTED":
       return state.phase === "browsing" ? { ...state, candidates: [] } : state;
+    case "JOIN_STARTED":
+      return state.phase === "browsing" ? { ...state, phase: "candidate-selected", selectedCandidateId: undefined, sas: undefined } : state;
     case "CANDIDATES_UPDATED":
       return state.phase === "browsing"
         ? { ...state, candidates: event.candidates.map((candidate) => ({ ...candidate, trust: "untrusted-candidate" })) }
@@ -179,6 +183,7 @@ export const officeErrorCopy: Readonly<Record<OfficeErrorCode, { cause: string; 
   invite_expired: { cause: "초대가 만료됐어요.", next: "관리자에게 새 초대를 요청해 주세요." },
   challenge_expired: { cause: "확인 시간이 지나 요청을 이어갈 수 없어요.", next: "초대를 다시 열어 새 확인을 시작해 주세요." },
   challenge_replayed: { cause: "이미 처리된 확인 요청이에요.", next: "초대를 새로 열어 다시 시작해 주세요." },
+  hub_approval_required: { cause: "회사 작업 공간을 먼저 확인해야 해요.", next: "관리자가 준 초대를 다시 열어 주세요." },
   sas_mismatch: { cause: "두 화면의 확인 숫자가 달라요.", next: "승인하지 말고 연결을 닫은 뒤 관리자에게 새 초대를 요청해 주세요." },
   too_many_attempts: { cause: "확인 요청이 여러 번 실패해 잠시 멈췄어요.", next: "잠시 기다린 뒤 관리자에게 새 초대를 요청해 주세요." },
   sas_required: { cause: "두 화면의 확인 숫자를 먼저 비교해 주세요.", next: "요청자와 숫자가 같은지 확인한 뒤 다시 시도해 주세요." },

@@ -42,6 +42,12 @@ describe("officeFlow reducer", () => {
     state = step(state, { type: "SAS_RECEIVED", sas: "4821" });
     expect(state).toMatchObject({ phase: "sas-waiting", sas: "4821" });
   });
+  it("starts a pasted invitation without exposing a candidate endpoint", () => {
+    const browsing = step(initialOfficeFlowState, { type: "NICKNAME_SAVED", nickname: "민수" });
+    const started = step(browsing, { type: "JOIN_STARTED" });
+    expect(started).toMatchObject({ phase: "candidate-selected", selectedCandidateId: undefined, sas: undefined });
+    expect(step(started, { type: "SAS_RECEIVED", sas: "482193" }).phase).toBe("sas-waiting");
+  });
   it("requires a matching SAS before requesting approval", () => {
     const waiting = step(joining(), { type: "SAS_RECEIVED", sas: "1234" });
     expect(step(waiting, { type: "SAS_CONFIRMED", matches: false })).toMatchObject({ phase: "error", error: "sas_mismatch" });
