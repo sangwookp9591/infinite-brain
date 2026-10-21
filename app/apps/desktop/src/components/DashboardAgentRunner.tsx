@@ -9,6 +9,7 @@ import {
 import { DASHBOARD_AGENT_LAUNCH, type DashboardAgentLaunch } from "../lib/dashboard/agentLaunch";
 import { ActivityLattice } from "./kit/ActivityLattice";
 import { toast } from "../lib/toast";
+import { useT } from "../lib/i18n";
 import "./DashboardAgentRunner.css";
 import claudeLogo from "../assets/agents/claude-color.svg";
 import codexLogo from "../assets/agents/codex.svg";
@@ -244,16 +245,17 @@ export function DashboardAgentRunner({ path, expectedEpoch, launchTarget, showLa
 
 /** Account Settings → About. Detection is cached until Infinite Brain restarts. */
 export function InstalledAgentsStatus() {
+  const tr = useT();
   const { agents, error } = useInstalledAgents();
   return <div className="installed-agents-status">
-    <h3>Installed agents</h3>
-    {error ? <p>Detection is unavailable in this preview.</p> : agents === null ? <p>Checking installed clients…</p> : !agents.length ? <p>No supported CLI detected. Install Claude or Codex and sign in from your terminal, then restart Infinite Brain.</p> : agents.map((agent) =>
+    <h3>{tr("Installed agents")}</h3>
+    {error ? <p>{tr("Detection is unavailable in this preview.")}</p> : agents === null ? <p>{tr("Checking installed clients…")}</p> : !agents.length ? <p>{tr("No supported CLI detected. Install Claude or Codex and sign in from your terminal, then restart Infinite Brain.")}</p> : agents.map((agent) =>
       <div key={agent.agent} className="installed-agent-row">
         <strong>{agent.agent === "codex" ? "Codex" : "Claude"}</strong>
-        <span>{agent.version} · {agent.signedIn ? "Signed in" : "Sign-in not confirmed"}</span>
+        <span>{agent.version} · {agent.signedIn ? tr("Signed in") : tr("Sign-in not confirmed")}</span>
         <p>{agent.detail}</p>
       </div>,
     )}
-    <p className="dashboard-agent-description">Detection refreshes when Infinite Brain restarts. Dashboard updates use the selected CLI and its signed-in account.</p>
+    <p className="dashboard-agent-description">{tr("Detection refreshes when Infinite Brain restarts. Dashboard updates use the selected CLI and its signed-in account.")}</p>
   </div>;
 }

@@ -58,6 +58,18 @@ describe("Korean dictionary", () => {
     for (const [en, kr] of Object.entries(ko)) expect(/(습니다|합니다)[.!]?$/.test(kr), en).toBe(false);
   });
 
+  it("covers the translated account settings copy", () => {
+    for (const key of [
+      "Display name",
+      "Show Home section",
+      "Mention chime",
+      "Installed agents",
+    ]) {
+      expect(ko[key], key).toBeTruthy();
+      expect(ko[key]).not.toBe(key);
+    }
+  });
+
   it("defines each key in exactly one file, so two screens never fight over a word", () => {
     const seen = new Map<string, string>();
     for (const [file, dict] of Object.entries(KO_PARTS)) {

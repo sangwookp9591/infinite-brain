@@ -223,6 +223,7 @@ export function AccountSettings({
 }
 
 function ProfileTab() {
+  const tr = useT();
   const session = useStore((s) => s.session);
   const [name, setName] = useState(session?.user.name ?? "");
   const [image, setImage] = useState(session?.user.image ?? "");
@@ -331,7 +332,7 @@ function ProfileTab() {
       />
 
       <label className="field">
-        <span className="field-label">Display name</span>
+        <span className="field-label">{tr("Display name")}</span>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -343,32 +344,32 @@ function ProfileTab() {
             // Leaving the field saves now rather than after the pause.
             if (nameDraft && nameDraft !== savedName) void persist({ name: nameDraft });
           }}
-          placeholder="Your name"
+          placeholder={tr("Your name")}
           autoComplete="name"
         />
       </label>
 
 
       <label className="field">
-        <span className="field-label">Email</span>
+        <span className="field-label">{tr("Email")}</span>
         <input value={session.user.email} disabled readOnly />
         {/* Verification state, live: the confirmation link bounces back into
             the app (`infinitebrain://verified`), which re-reads the session, so this
             flips without a reload. `emailVerified` is absent on very old
             servers — say nothing rather than "not confirmed" then. */}
         {session.user.emailVerified === true && (
-          <span className="field-hint">Email confirmed ✓</span>
+          <span className="field-hint">{tr("Email confirmed ✓")}</span>
         )}
         {session.user.emailVerified === false && (
           <span className="field-hint">
-            Not confirmed yet — check your inbox for the confirmation email.{" "}
+            {tr("Not confirmed yet — check your inbox for the confirmation email.")}{" "}
             <button
               type="button"
               className="linkish"
               disabled={resendBusy}
               onClick={() => void resendConfirmation()}
             >
-              {resendBusy ? "Sending…" : resendState === "sent" ? "Sent ✓" : "Resend it"}
+              {resendBusy ? tr("Sending…") : resendState === "sent" ? tr("Sent ✓") : tr("Resend it")}
             </button>
             {resendState && resendState !== "sent" && (
               <span className="update-status error"> {resendState}</span>
@@ -380,7 +381,7 @@ function ProfileTab() {
       {error && <div className="auth-error">{error}</div>}
 
       <span className="update-status profile-save-status" role="status" aria-live="polite">
-        {saving ? "Saving…" : saved ? "Saved" : ""}
+        {saving ? tr("Saving…") : saved ? tr("Saved") : ""}
       </span>
     </div>
   );
@@ -401,6 +402,7 @@ function ProfilePictureActions({
   onChange: (image: string) => void;
   onError: (message: string | null) => void;
 }) {
+  const tr = useT();
   const fileRef = useRef<HTMLInputElement>(null);
   const upload = async (file: File) => {
     try {
@@ -414,11 +416,11 @@ function ProfilePictureActions({
     <div className="profile-hero-actions">
       {image && (
         <button type="button" className="link-btn" onClick={() => onChange("")}>
-          Reset
+          {tr("Reset")}
         </button>
       )}
       <button type="button" className="secondary sm" onClick={() => fileRef.current?.click()}>
-        Upload image
+        {tr("Upload image")}
       </button>
       <input
         ref={fileRef}
@@ -446,16 +448,17 @@ function ProfileCharacterGrid({
   image: string;
   onChange: (image: string) => void;
 }) {
+  const tr = useT();
   return (
     <div className="profile-characters">
-      <span className="field-label">Or pick a character</span>
-      <div className="profile-character-grid" role="radiogroup" aria-label="Character">
+      <span className="field-label">{tr("Or pick a character")}</span>
+      <div className="profile-character-grid" role="radiogroup" aria-label={tr("Character")}>
         <button
           type="button"
           className={`profile-character-option${image === "" ? " active" : ""}`}
           role="radio"
           aria-checked={image === ""}
-          title="Your default character"
+          title={tr("Your default character")}
           onClick={() => onChange("")}
         >
           <Avatar label={label} userId={userId} image={null} />
@@ -574,10 +577,10 @@ function AppearanceTab() {
       />
     </div>
     <label className="menu-row toggle-row">
-      <span className="menu-row-label">Show Home section
-        <span className="field-hint">Turning this off unsets your Home and stops it opening at startup on this device.</span>
+      <span className="menu-row-label">{tr("Show Home section")}
+        <span className="field-hint">{tr("Turning this off unsets your Home and stops it opening at startup on this device.")}</span>
       </span>
-      <Switch checked={!homeSectionHidden} ariaLabel="Show Home section"
+      <Switch checked={!homeSectionHidden} ariaLabel={tr("Show Home section")}
         onChange={(show) => useStore.getState().setHomeSectionHidden(!show)} />
     </label>
     <AppearanceRows
@@ -586,7 +589,7 @@ function AppearanceTab() {
       onChange={set}
       trailing={(key) => {
         const source = appearanceSource(key, overrides, vault);
-        if (source === "vault") return <span className="appearance-tag">Vault default</span>;
+        if (source === "vault") return <span className="appearance-tag">{tr("Vault default")}</span>;
         if (source === "personal" && vault) {
           return (
             <button
@@ -597,7 +600,7 @@ function AppearanceTab() {
                 useStore.getState().setAppearanceOverride(key, undefined);
               }}
             >
-              Reset to vault default
+              {tr("Reset to vault default")}
             </button>
           );
         }
@@ -609,16 +612,17 @@ function AppearanceTab() {
 }
 
 function NotificationsTab() {
+  const tr = useT();
   const mentionSound = useStore((s) => s.mentionSound);
   return (
     <label className="menu-row toggle-row">
       <span className="menu-row-label">
-        Mention chime
-        <span className="field-hint">Play a sound when a teammate pings you.</span>
+        {tr("Mention chime")}
+        <span className="field-hint">{tr("Play a sound when a teammate pings you.")}</span>
       </span>
       <Switch
         checked={mentionSound}
-        ariaLabel="Mention chime"
+        ariaLabel={tr("Mention chime")}
         onChange={(next) => useStore.getState().setMentionSound(next)}
       />
     </label>

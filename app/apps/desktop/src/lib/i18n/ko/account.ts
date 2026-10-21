@@ -1,0 +1,27 @@
+// SPDX-License-Identifier: Apache-2.0
+// Korean strings: account profile, appearance, notifications, and about.
+export const account: Record<string, string> = {
+  "Display name": "표시 이름",
+  "Your name": "이름",
+  "Email confirmed ✓": "이메일을 확인했어요 ✓",
+  "Not confirmed yet — check your inbox for the confirmation email.": "아직 확인하지 않았어요. 받은 편지함에서 확인 이메일을 찾아보세요.",
+  "Sending…": "보내는 중…",
+  "Sent ✓": "보냈어요 ✓",
+  "Resend it": "다시 보내기",
+  "Saving…": "저장하는 중…",
+  "Or pick a character": "캐릭터를 선택하거나",
+  "Character": "캐릭터",
+  "Your default character": "기본 캐릭터",
+  "Show Home section": "홈 섹션 표시",
+  "Turning this off unsets your Home and stops it opening at startup on this device.": "끄면 홈 설정이 해제되고 이 기기를 시작할 때 홈이 열리지 않아요.",
+  "Reset to vault default": "볼트 기본값으로 되돌리기",
+  "Mention chime": "멘션 알림음",
+  "Play a sound when a teammate pings you.": "팀원이 멘션하면 소리를 재생해요.",
+  "Installed agents": "설치된 에이전트",
+  "Detection is unavailable in this preview.": "이 미리보기에서는 설치 여부를 확인할 수 없어요.",
+  "Checking installed clients…": "설치된 클라이언트를 확인하는 중…",
+  "No supported CLI detected. Install Claude or Codex and sign in from your terminal, then restart Infinite Brain.": "지원되는 CLI를 찾지 못했어요. Claude 또는 Codex를 설치하고 터미널에서 로그인한 다음 Infinite Brain을 다시 시작해 주세요.",
+  "Signed in": "로그인됨",
+  "Sign-in not confirmed": "로그인 여부를 확인하지 못했어요",
+  "Detection refreshes when Infinite Brain restarts. Dashboard updates use the selected CLI and its signed-in account.": "설치 여부는 Infinite Brain을 다시 시작할 때 새로 확인해요. 대시보드 업데이트에는 선택한 CLI와 로그인된 계정을 사용해요.",
+};
