@@ -1,0 +1,4 @@
+engine,layer,stage,buffers,gpu_busy_ms,cpu_encode_ms,host_prep_ms
+llama,all,Host prep / shared token IDs,,,,2.4999666333333335
+llama,all,Entire forward (fine split unavailable),2.0000000000000027,13.252261033333335,3.418736233333333,
+llama,all,Download/completion,0.9999999999999999,0.001865366666666667,0.06932636666666667,

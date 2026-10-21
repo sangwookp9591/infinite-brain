@@ -1,0 +1,48 @@
+{
+  "calibration_file": "/Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/harness/results/20261020-170712-smoke/microbench.csv",
+  "rows": 7800,
+  "bw_gb_s": 111.7958507135,
+  "peak_tflops": 7.2967865305,
+  "native_commit_us": 6.4795,
+  "native_tiny_roundtrip_us": 147.91649999999998,
+  "flops": 23127588864,
+  "predictions": [
+    {
+      "condition": "base",
+      "command_buffers_prediction": 425,
+      "dispatch_prediction": 417,
+      "kernel_floor_ms_eta1": 3.16955810168332,
+      "native_commit_proxy_ms": 2.7537875,
+      "optimistic_sum_floor_ms": 5.9233456016833195,
+      "amdahl_submit_proxy_ceiling": 1.8688237955119016
+    },
+    {
+      "condition": "sync3",
+      "command_buffers_prediction": 432,
+      "dispatch_prediction": 417,
+      "kernel_floor_ms_eta1": 3.16955810168332,
+      "native_commit_proxy_ms": 2.7991439999999996,
+      "optimistic_sum_floor_ms": 5.96870210168332,
+      "amdahl_submit_proxy_ceiling": 1.8831338344968036
+    },
+    {
+      "condition": "prepare",
+      "command_buffers_prediction": 354,
+      "dispatch_prediction": 346,
+      "kernel_floor_ms_eta1": 3.16955810168332,
+      "native_commit_proxy_ms": 2.293743,
+      "optimistic_sum_floor_ms": 5.46330110168332,
+      "amdahl_submit_proxy_ceiling": 1.7236791143793253
+    },
+    {
+      "condition": "prepare-sync3",
+      "command_buffers_prediction": 361,
+      "dispatch_prediction": 346,
+      "kernel_floor_ms_eta1": 3.16955810168332,
+      "native_commit_proxy_ms": 2.3390994999999997,
+      "optimistic_sum_floor_ms": 5.5086576016833195,
+      "amdahl_submit_proxy_ceiling": 1.7379891533642269
+    }
+  ],
+  "interpretation": "Conditional empirical envelope using measured copy BW and MPS GEMM implementation peak; not a strict lower bound for arbitrary kernels. Amdahl proxy assumes native commit is removable serial critical-path work; sensitivity only."
+}

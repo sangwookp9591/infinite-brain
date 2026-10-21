@@ -17,3 +17,7 @@ path = "reference.rs"
 [[bin]]
 name = "ffi-smoke"
 path = "ffi_smoke.rs"
+
+[[bin]]
+name = "trace-bench"
+path = "trace_bench.rs"

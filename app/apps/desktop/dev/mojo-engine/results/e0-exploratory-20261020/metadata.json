@@ -1,0 +1,14 @@
+{
+  "status": "exploratory; not the final shared-harness 5-process evidence",
+  "trace_core_library": "/private/tmp/ib-mojo-opt/optimized-final.dylib",
+  "trace_core_sha256": "66e0261faf00636894a93dda46341d3b49ee9aed6cb569012c88120cf58cec7d",
+  "trace_inputs_sha256": "1fa81e639754dca9b2df5a9e0e4d967c8559a311866765f676ac894ab3265b5c",
+  "trace_warmups": 13,
+  "trace_measured_calls": 30,
+  "trace_settle_ms": 3000,
+  "trace_rule": "shader-enabled traces kept separate from untraced and nonshader results",
+  "trace_lock_rule": "completed before shared GPU lock rule was introduced",
+  "quick_check_lock_rule": "prepare preflight and generic ABI correctness check ran inside mkdir/rmdir GPU lock",
+  "current_e0_manifest": "/private/tmp/ib-mojo-opt/immutable/e0-e8a1f7aebf2bab0c/manifest.json",
+  "final_statistics": "pending shared harness and coordinator GPU schedule"
+}

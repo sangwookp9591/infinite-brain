@@ -1,0 +1,107 @@
+{
+  "engine": "llama",
+  "measured_calls": 30,
+  "median_traced_ms": 17.336104,
+  "mean_traced_ms": 17.986769533333334,
+  "mean_gpu_busy_ms": 13.2541264,
+  "mean_target_queue_idle_ms": 1.0738057333333333,
+  "mean_cpu_encode_ms": 3.4880626,
+  "median_cpu_encode_us_per_buffer": 380.91700000000003,
+  "mean_cpu_encode_us_per_buffer": 1162.6875333333332,
+  "buffers_per_call": 3,
+  "encoders_per_call": 3,
+  "stages": {
+    "Host prep / shared token IDs": {
+      "host_ms": 2.4999666333333335
+    },
+    "Entire forward (fine split unavailable)": {
+      "buffers": 2.0000000000000027,
+      "encoders": 2.0000000000000027,
+      "cpu_encode_ms": 3.418736233333333,
+      "gpu_busy_ms": 13.252261033333335
+    },
+    "Download/completion": {
+      "buffers": 0.9999999999999999,
+      "encoders": 0.9999999999999999,
+      "cpu_encode_ms": 0.06932636666666667,
+      "gpu_busy_ms": 0.001865366666666667
+    }
+  },
+  "layers": {},
+  "sampled_shader_attribution": {
+    "kernel_bin_fuse_f32_f32_f32": {
+      "sampled_intervals": 81,
+      "sampled_ms_per_call": 0.06409853333333335
+    },
+    "kernel_mul_mm_bf16_f32": {
+      "sampled_intervals": 28,
+      "sampled_ms_per_call": 0.2514013333333333
+    },
+    "kernel_unary_f32_f32_4": {
+      "sampled_intervals": 83,
+      "sampled_ms_per_call": 0.06210013333333337
+    },
+    "kernel_cpy_f32_f32": {
+      "sampled_intervals": 55,
+      "sampled_ms_per_call": 0.3011709
+    },
+    "kernel_rms_norm_f32_4": {
+      "sampled_intervals": 53,
+      "sampled_ms_per_call": 0.0025888666666666685
+    },
+    "kernel_rope_neox_f32": {
+      "sampled_intervals": 55,
+      "sampled_ms_per_call": 0.011023633333333336
+    },
+    "kernel_pad_f32": {
+      "sampled_intervals": 55,
+      "sampled_ms_per_call": 0.004948633333333334
+    },
+    "kernel_cpy_f32_f16": {
+      "sampled_intervals": 55,
+      "sampled_ms_per_call": 0.057398533333333356
+    },
+    "kernel_flash_attn_ext_blk": {
+      "sampled_intervals": 82,
+      "sampled_ms_per_call": 0.004540133333333337
+    },
+    "kernel_flash_attn_ext_f16_dk256_dv256": {
+      "sampled_intervals": 55,
+      "sampled_ms_per_call": 0.048188699999999994
+    },
+    "kernel_geglu_f32": {
+      "sampled_intervals": 55,
+      "sampled_ms_per_call": 0.01458456666666667
+    },
+    "kernel_rms_norm_mul_add_f32_4": {
+      "sampled_intervals": 55,
+      "sampled_ms_per_call": 0.004233333333333333
+    },
+    "kernel_bin_fuse_f32_f32_f32_4": {
+      "sampled_intervals": 110,
+      "sampled_ms_per_call": 0.009265099999999998
+    },
+    "kernel_mul_mm_q8_0_f32": {
+      "sampled_intervals": 55,
+      "sampled_ms_per_call": 0.06070550000000001
+    },
+    "kernel_rms_norm_mul_f32_4": {
+      "sampled_intervals": 55,
+      "sampled_ms_per_call": 0.0030792000000000016
+    },
+    "kernel_flash_attn_ext_tensor_f16_dk512_dv512": {
+      "sampled_intervals": 27,
+      "sampled_ms_per_call": 0.040983333333333344
+    },
+    "kernel_get_rows_f32": {
+      "sampled_intervals": 27,
+      "sampled_ms_per_call": 0.002480566666666666
+    },
+    "kernel_mul_mv_f32_f32": {
+      "sampled_intervals": 27,
+      "sampled_ms_per_call": 0.0016388999999999996
+    }
+  },
+  "shader_intervals_are_dispatch_counts": false,
+  "notes": "GPU intervals unioned by command-buffer identity, including split/preempted intervals; stage CPU encoding is wall duration, not on-CPU samples. Llama fine GPU split unavailable inside its two compute encoders. Shader timeline is sampled and cannot fill that gap exactly."
+}

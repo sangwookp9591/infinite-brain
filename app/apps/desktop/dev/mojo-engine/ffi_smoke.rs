@@ -57,6 +57,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut min_cosine = 1.0_f64;
         let mut sum = 0.0;
         let rows = reference["rows"].as_array().ok_or("missing rows")?;
+        assert_eq!(rows.len(), 20);
         for row in rows {
             let ids: Vec<_> = row["ids"]
                 .as_array()
@@ -88,7 +89,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .sum::<f64>()
                 / norm
                 / en;
-            assert!(cosine >= 0.99, "cosine {cosine}");
+            assert!(cosine >= 0.999, "cosine {cosine}");
             min_cosine = min_cosine.min(cosine);
             sum += cosine;
         }

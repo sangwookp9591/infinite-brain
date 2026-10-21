@@ -1,0 +1,1047 @@
+{
+  "engine": "mojo",
+  "measured_calls": 30,
+  "median_traced_ms": 33.787271000000004,
+  "mean_traced_ms": 33.424860966666664,
+  "mean_gpu_busy_ms": 9.068713033333333,
+  "mean_target_queue_idle_ms": 21.970470266666666,
+  "mean_cpu_encode_ms": 23.762772833333333,
+  "median_cpu_encode_us_per_buffer": 46.916,
+  "mean_cpu_encode_us_per_buffer": 55.91240666666667,
+  "buffers_per_call": 425,
+  "encoders_per_call": 425,
+  "stages": {
+    "Host prep / shared token IDs": {
+      "host_ms": 0.007216533333333332
+    },
+    "Uploads/metadata": {
+      "buffers": 5.9999999999999885,
+      "encoders": 5.9999999999999885,
+      "cpu_encode_ms": 0.22133606666666655,
+      "gpu_busy_ms": 0.0
+    },
+    "Embedding + PLE setup": {
+      "buffers": 3.9999999999999956,
+      "encoders": 3.9999999999999956,
+      "cpu_encode_ms": 0.2200890666666666,
+      "gpu_busy_ms": 0.24280963333333333,
+      "dispatches": 3.9999999999999956
+    },
+    "Residual/norm": {
+      "buffers": 120.9999999999957,
+      "encoders": 120.9999999999957,
+      "cpu_encode_ms": 6.883384266666665,
+      "gpu_busy_ms": 1.0274270000000059,
+      "dispatches": 120.9999999999957
+    },
+    "QKV": {
+      "buffers": 24.00000000000035,
+      "encoders": 24.00000000000035,
+      "cpu_encode_ms": 1.2961541,
+      "gpu_busy_ms": 0.8914109999999996,
+      "dispatches": 24.00000000000035
+    },
+    "Norm/RoPE": {
+      "buffers": 24.00000000000035,
+      "encoders": 24.00000000000035,
+      "cpu_encode_ms": 1.3524183000000012,
+      "gpu_busy_ms": 0.5167448,
+      "dispatches": 24.00000000000035
+    },
+    "Attention": {
+      "buffers": 24.00000000000035,
+      "encoders": 24.00000000000035,
+      "cpu_encode_ms": 1.3795196000000012,
+      "gpu_busy_ms": 1.396910366666665,
+      "dispatches": 24.00000000000035
+    },
+    "Attention-out": {
+      "buffers": 47.99999999999984,
+      "encoders": 47.99999999999984,
+      "cpu_encode_ms": 2.703751266666668,
+      "gpu_busy_ms": 0.9178194999999998,
+      "dispatches": 47.99999999999984
+    },
+    "FFN": {
+      "buffers": 71.99999999999848,
+      "encoders": 71.99999999999848,
+      "cpu_encode_ms": 4.017641433333335,
+      "gpu_busy_ms": 3.1073633999999966,
+      "dispatches": 71.99999999999848
+    },
+    "PLE": {
+      "buffers": 95.99999999999712,
+      "encoders": 95.99999999999712,
+      "cpu_encode_ms": 5.385061966666663,
+      "gpu_busy_ms": 0.9165925333333301,
+      "dispatches": 95.99999999999712
+    },
+    "Pooling/output": {
+      "buffers": 3.9999999999999956,
+      "encoders": 3.9999999999999956,
+      "cpu_encode_ms": 0.2157417666666667,
+      "gpu_busy_ms": 0.05208340000000002,
+      "dispatches": 3.9999999999999956
+    },
+    "Download/completion": {
+      "buffers": 2.0000000000000027,
+      "encoders": 2.0000000000000027,
+      "cpu_encode_ms": 0.087675,
+      "gpu_busy_ms": 0.0
+    }
+  },
+  "layers": {
+    "0": {
+      "Residual/norm": {
+        "buffers": 4.999999999999992,
+        "cpu_encode_ms": 0.32731666666666653,
+        "gpu_busy_ms": 0.0428473333333333
+      },
+      "QKV": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.059644466666666666,
+        "gpu_busy_ms": 0.0454473
+      },
+      "Norm/RoPE": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.05508476666666667,
+        "gpu_busy_ms": 0.0215514
+      },
+      "Attention": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.07152226666666667,
+        "gpu_busy_ms": 0.05221123333333332
+      },
+      "Attention-out": {
+        "buffers": 2.0000000000000027,
+        "cpu_encode_ms": 0.12113056666666666,
+        "gpu_busy_ms": 0.03539153333333333
+      },
+      "FFN": {
+        "buffers": 2.999999999999999,
+        "cpu_encode_ms": 0.16964036666666668,
+        "gpu_busy_ms": 0.13878470000000004
+      },
+      "PLE": {
+        "buffers": 3.9999999999999956,
+        "cpu_encode_ms": 0.21183623333333335,
+        "gpu_busy_ms": 0.038134800000000024
+      }
+    },
+    "1": {
+      "Residual/norm": {
+        "buffers": 4.999999999999992,
+        "cpu_encode_ms": 0.2725290333333332,
+        "gpu_busy_ms": 0.04116243333333333
+      },
+      "QKV": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.05813063333333335,
+        "gpu_busy_ms": 0.03561943333333333
+      },
+      "Norm/RoPE": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.056977733333333336,
+        "gpu_busy_ms": 0.020315266666666665
+      },
+      "Attention": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.06533469999999998,
+        "gpu_busy_ms": 0.05215143333333334
+      },
+      "Attention-out": {
+        "buffers": 2.0000000000000027,
+        "cpu_encode_ms": 0.11349446666666665,
+        "gpu_busy_ms": 0.0323902
+      },
+      "FFN": {
+        "buffers": 2.999999999999999,
+        "cpu_encode_ms": 0.16074163333333333,
+        "gpu_busy_ms": 0.1301790666666666
+      },
+      "PLE": {
+        "buffers": 3.9999999999999956,
+        "cpu_encode_ms": 0.19523066666666666,
+        "gpu_busy_ms": 0.03679746666666666
+      }
+    },
+    "2": {
+      "Residual/norm": {
+        "buffers": 4.999999999999992,
+        "cpu_encode_ms": 0.30810953333333324,
+        "gpu_busy_ms": 0.04047513333333334
+      },
+      "QKV": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.050084733333333346,
+        "gpu_busy_ms": 0.03390689999999999
+      },
+      "Norm/RoPE": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.04945283333333334,
+        "gpu_busy_ms": 0.020037533333333333
+      },
+      "Attention": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.057847199999999994,
+        "gpu_busy_ms": 0.05250556666666668
+      },
+      "Attention-out": {
+        "buffers": 2.0000000000000027,
+        "cpu_encode_ms": 0.11065986666666669,
+        "gpu_busy_ms": 0.03694313333333332
+      },
+      "FFN": {
+        "buffers": 2.999999999999999,
+        "cpu_encode_ms": 0.14889329999999998,
+        "gpu_busy_ms": 0.1273
+      },
+      "PLE": {
+        "buffers": 3.9999999999999956,
+        "cpu_encode_ms": 0.2292875666666667,
+        "gpu_busy_ms": 0.037463800000000026
+      }
+    },
+    "3": {
+      "Residual/norm": {
+        "buffers": 4.999999999999992,
+        "cpu_encode_ms": 0.2866359666666667,
+        "gpu_busy_ms": 0.04087229999999998
+      },
+      "QKV": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.0573375,
+        "gpu_busy_ms": 0.03649296666666667
+      },
+      "Norm/RoPE": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.055727700000000005,
+        "gpu_busy_ms": 0.020080566666666667
+      },
+      "Attention": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.049798666666666665,
+        "gpu_busy_ms": 0.053315299999999996
+      },
+      "Attention-out": {
+        "buffers": 2.0000000000000027,
+        "cpu_encode_ms": 0.11485129999999999,
+        "gpu_busy_ms": 0.031834633333333334
+      },
+      "FFN": {
+        "buffers": 2.999999999999999,
+        "cpu_encode_ms": 0.18303639999999993,
+        "gpu_busy_ms": 0.12428179999999998
+      },
+      "PLE": {
+        "buffers": 3.9999999999999956,
+        "cpu_encode_ms": 0.22048046666666674,
+        "gpu_busy_ms": 0.03646683333333334
+      }
+    },
+    "4": {
+      "Residual/norm": {
+        "buffers": 4.999999999999992,
+        "cpu_encode_ms": 0.3046594666666666,
+        "gpu_busy_ms": 0.04037499999999999
+      },
+      "QKV": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.04862506666666666,
+        "gpu_busy_ms": 0.03376529999999999
+      },
+      "Norm/RoPE": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.056361133333333334,
+        "gpu_busy_ms": 0.02039583333333334
+      },
+      "Attention": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.056880633333333326,
+        "gpu_busy_ms": 0.05060966666666667
+      },
+      "Attention-out": {
+        "buffers": 2.0000000000000027,
+        "cpu_encode_ms": 0.12898186666666667,
+        "gpu_busy_ms": 0.030430566666666662
+      },
+      "FFN": {
+        "buffers": 2.999999999999999,
+        "cpu_encode_ms": 0.16637773333333342,
+        "gpu_busy_ms": 0.13313340000000004
+      },
+      "PLE": {
+        "buffers": 3.9999999999999956,
+        "cpu_encode_ms": 0.21307226666666676,
+        "gpu_busy_ms": 0.037129100000000005
+      }
+    },
+    "5": {
+      "Residual/norm": {
+        "buffers": 4.999999999999992,
+        "cpu_encode_ms": 0.2846472666666666,
+        "gpu_busy_ms": 0.051185966666666624
+      },
+      "QKV": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.0524319,
+        "gpu_busy_ms": 0.04641806666666667
+      },
+      "Norm/RoPE": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.056794399999999995,
+        "gpu_busy_ms": 0.02735566666666667
+      },
+      "Attention": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.06378333333333333,
+        "gpu_busy_ms": 0.08818466666666665
+      },
+      "Attention-out": {
+        "buffers": 2.0000000000000027,
+        "cpu_encode_ms": 0.10924856666666666,
+        "gpu_busy_ms": 0.0647055333333333
+      },
+      "FFN": {
+        "buffers": 2.999999999999999,
+        "cpu_encode_ms": 0.15889840000000002,
+        "gpu_busy_ms": 0.12655136666666664
+      },
+      "PLE": {
+        "buffers": 3.9999999999999956,
+        "cpu_encode_ms": 0.20451080000000008,
+        "gpu_busy_ms": 0.03676953333333335
+      }
+    },
+    "6": {
+      "Residual/norm": {
+        "buffers": 4.999999999999992,
+        "cpu_encode_ms": 0.2822972666666666,
+        "gpu_busy_ms": 0.040823599999999995
+      },
+      "QKV": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.051683233333333335,
+        "gpu_busy_ms": 0.03614716666666666
+      },
+      "Norm/RoPE": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.05564453333333332,
+        "gpu_busy_ms": 0.0203819
+      },
+      "Attention": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.052862400000000004,
+        "gpu_busy_ms": 0.050833300000000005
+      },
+      "Attention-out": {
+        "buffers": 2.0000000000000027,
+        "cpu_encode_ms": 0.11079443333333333,
+        "gpu_busy_ms": 0.03153043333333333
+      },
+      "FFN": {
+        "buffers": 2.999999999999999,
+        "cpu_encode_ms": 0.16009033333333328,
+        "gpu_busy_ms": 0.12707626666666666
+      },
+      "PLE": {
+        "buffers": 3.9999999999999956,
+        "cpu_encode_ms": 0.22753606666666668,
+        "gpu_busy_ms": 0.0373335
+      }
+    },
+    "7": {
+      "Residual/norm": {
+        "buffers": 4.999999999999992,
+        "cpu_encode_ms": 0.26020003333333336,
+        "gpu_busy_ms": 0.04099603333333334
+      },
+      "QKV": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.06098186666666666,
+        "gpu_busy_ms": 0.03314723333333333
+      },
+      "Norm/RoPE": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.053545833333333334,
+        "gpu_busy_ms": 0.01956116666666667
+      },
+      "Attention": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.05245003333333333,
+        "gpu_busy_ms": 0.0511098
+      },
+      "Attention-out": {
+        "buffers": 2.0000000000000027,
+        "cpu_encode_ms": 0.09981536666666667,
+        "gpu_busy_ms": 0.031751333333333326
+      },
+      "FFN": {
+        "buffers": 2.999999999999999,
+        "cpu_encode_ms": 0.15199426666666666,
+        "gpu_busy_ms": 0.13038206666666668
+      },
+      "PLE": {
+        "buffers": 3.9999999999999956,
+        "cpu_encode_ms": 0.21813749999999998,
+        "gpu_busy_ms": 0.03875923333333331
+      }
+    },
+    "8": {
+      "Residual/norm": {
+        "buffers": 4.999999999999992,
+        "cpu_encode_ms": 0.26937786666666674,
+        "gpu_busy_ms": 0.04076376666666663
+      },
+      "QKV": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.050637533333333345,
+        "gpu_busy_ms": 0.03366526666666667
+      },
+      "Norm/RoPE": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.06024303333333333,
+        "gpu_busy_ms": 0.02
+      },
+      "Attention": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.05219016666666666,
+        "gpu_busy_ms": 0.05080416666666668
+      },
+      "Attention-out": {
+        "buffers": 2.0000000000000027,
+        "cpu_encode_ms": 0.1053014,
+        "gpu_busy_ms": 0.03200420000000001
+      },
+      "FFN": {
+        "buffers": 2.999999999999999,
+        "cpu_encode_ms": 0.16125130000000001,
+        "gpu_busy_ms": 0.1293177666666667
+      },
+      "PLE": {
+        "buffers": 3.9999999999999956,
+        "cpu_encode_ms": 0.21817076666666665,
+        "gpu_busy_ms": 0.03750000000000001
+      }
+    },
+    "9": {
+      "Residual/norm": {
+        "buffers": 4.999999999999992,
+        "cpu_encode_ms": 0.2773193333333333,
+        "gpu_busy_ms": 0.04872236666666663
+      },
+      "QKV": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.05176100000000001,
+        "gpu_busy_ms": 0.0348194
+      },
+      "Norm/RoPE": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.054115266666666675,
+        "gpu_busy_ms": 0.020230533333333335
+      },
+      "Attention": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.056951366666666656,
+        "gpu_busy_ms": 0.051641599999999996
+      },
+      "Attention-out": {
+        "buffers": 2.0000000000000027,
+        "cpu_encode_ms": 0.11321106666666667,
+        "gpu_busy_ms": 0.03197089999999999
+      },
+      "FFN": {
+        "buffers": 2.999999999999999,
+        "cpu_encode_ms": 0.15071093333333332,
+        "gpu_busy_ms": 0.12856639999999994
+      },
+      "PLE": {
+        "buffers": 3.9999999999999956,
+        "cpu_encode_ms": 0.22330266666666668,
+        "gpu_busy_ms": 0.03802506666666668
+      }
+    },
+    "10": {
+      "Residual/norm": {
+        "buffers": 4.999999999999992,
+        "cpu_encode_ms": 0.26669456666666697,
+        "gpu_busy_ms": 0.04136383333333333
+      },
+      "QKV": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.05409016666666666,
+        "gpu_busy_ms": 0.03494989999999999
+      },
+      "Norm/RoPE": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.058833333333333335,
+        "gpu_busy_ms": 0.020811066666666662
+      },
+      "Attention": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.04864863333333334,
+        "gpu_busy_ms": 0.05375263333333334
+      },
+      "Attention-out": {
+        "buffers": 2.0000000000000027,
+        "cpu_encode_ms": 0.10307916666666668,
+        "gpu_busy_ms": 0.033040400000000004
+      },
+      "FFN": {
+        "buffers": 2.999999999999999,
+        "cpu_encode_ms": 0.1575305000000001,
+        "gpu_busy_ms": 0.12886530000000007
+      },
+      "PLE": {
+        "buffers": 3.9999999999999956,
+        "cpu_encode_ms": 0.21585120000000002,
+        "gpu_busy_ms": 0.0372998
+      }
+    },
+    "11": {
+      "Residual/norm": {
+        "buffers": 4.999999999999992,
+        "cpu_encode_ms": 0.26235710000000007,
+        "gpu_busy_ms": 0.04183189999999999
+      },
+      "QKV": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.050604133333333336,
+        "gpu_busy_ms": 0.04645689999999999
+      },
+      "Norm/RoPE": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.05129583333333333,
+        "gpu_busy_ms": 0.026942966666666672
+      },
+      "Attention": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.0501749,
+        "gpu_busy_ms": 0.09169176666666666
+      },
+      "Attention-out": {
+        "buffers": 2.0000000000000027,
+        "cpu_encode_ms": 0.11372770000000001,
+        "gpu_busy_ms": 0.06764183333333332
+      },
+      "FFN": {
+        "buffers": 2.999999999999999,
+        "cpu_encode_ms": 0.16800833333333332,
+        "gpu_busy_ms": 0.13079596666666665
+      },
+      "PLE": {
+        "buffers": 3.9999999999999956,
+        "cpu_encode_ms": 0.22072920000000004,
+        "gpu_busy_ms": 0.045684700000000016
+      }
+    },
+    "12": {
+      "Residual/norm": {
+        "buffers": 4.999999999999992,
+        "cpu_encode_ms": 0.2789000333333334,
+        "gpu_busy_ms": 0.04161939999999998
+      },
+      "QKV": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.05441246666666667,
+        "gpu_busy_ms": 0.03718613333333333
+      },
+      "Norm/RoPE": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.063625,
+        "gpu_busy_ms": 0.02069596666666667
+      },
+      "Attention": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.05931819999999999,
+        "gpu_busy_ms": 0.054083333333333324
+      },
+      "Attention-out": {
+        "buffers": 2.0000000000000027,
+        "cpu_encode_ms": 0.10859440000000001,
+        "gpu_busy_ms": 0.03200139999999999
+      },
+      "FFN": {
+        "buffers": 2.999999999999999,
+        "cpu_encode_ms": 0.1610821,
+        "gpu_busy_ms": 0.13526933333333332
+      },
+      "PLE": {
+        "buffers": 3.9999999999999956,
+        "cpu_encode_ms": 0.22483616666666667,
+        "gpu_busy_ms": 0.037641566666666675
+      }
+    },
+    "13": {
+      "Residual/norm": {
+        "buffers": 4.999999999999992,
+        "cpu_encode_ms": 0.2876195666666667,
+        "gpu_busy_ms": 0.04118913333333334
+      },
+      "QKV": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.054898600000000006,
+        "gpu_busy_ms": 0.03451666666666667
+      },
+      "Norm/RoPE": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.055397199999999994,
+        "gpu_busy_ms": 0.020362533333333335
+      },
+      "Attention": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.06911659999999999,
+        "gpu_busy_ms": 0.05084586666666669
+      },
+      "Attention-out": {
+        "buffers": 2.0000000000000027,
+        "cpu_encode_ms": 0.12376809999999999,
+        "gpu_busy_ms": 0.03203176666666666
+      },
+      "FFN": {
+        "buffers": 2.999999999999999,
+        "cpu_encode_ms": 0.16720683333333336,
+        "gpu_busy_ms": 0.12975993333333333
+      },
+      "PLE": {
+        "buffers": 3.9999999999999956,
+        "cpu_encode_ms": 0.2418069333333333,
+        "gpu_busy_ms": 0.038200166666666674
+      }
+    },
+    "14": {
+      "Residual/norm": {
+        "buffers": 4.999999999999992,
+        "cpu_encode_ms": 0.2982802999999999,
+        "gpu_busy_ms": 0.04107096666666666
+      },
+      "QKV": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.05408613333333332,
+        "gpu_busy_ms": 0.03323466666666667
+      },
+      "Norm/RoPE": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.061147166666666676,
+        "gpu_busy_ms": 0.02008063333333333
+      },
+      "Attention": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.06843626666666669,
+        "gpu_busy_ms": 0.051533333333333334
+      },
+      "Attention-out": {
+        "buffers": 2.0000000000000027,
+        "cpu_encode_ms": 0.12399856666666666,
+        "gpu_busy_ms": 0.03227653333333332
+      },
+      "FFN": {
+        "buffers": 2.999999999999999,
+        "cpu_encode_ms": 0.16843333333333332,
+        "gpu_busy_ms": 0.12822506666666666
+      },
+      "PLE": {
+        "buffers": 3.9999999999999956,
+        "cpu_encode_ms": 0.2275196000000001,
+        "gpu_busy_ms": 0.03884020000000002
+      }
+    },
+    "15": {
+      "Residual/norm": {
+        "buffers": 4.999999999999992,
+        "cpu_encode_ms": 0.28891506666666666,
+        "gpu_busy_ms": 0.04134180000000001
+      },
+      "QKV": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.05204720000000001,
+        "gpu_busy_ms": 0.03378760000000001
+      },
+      "Norm/RoPE": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.05424036666666667,
+        "gpu_busy_ms": 0.020252900000000004
+      },
+      "Attention": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.051262533333333346,
+        "gpu_busy_ms": 0.05303486666666667
+      },
+      "Attention-out": {
+        "buffers": 2.0000000000000027,
+        "cpu_encode_ms": 0.10990419999999998,
+        "gpu_busy_ms": 0.03238743333333333
+      },
+      "FFN": {
+        "buffers": 2.999999999999999,
+        "cpu_encode_ms": 0.16617783333333333,
+        "gpu_busy_ms": 0.12913879999999997
+      },
+      "PLE": {
+        "buffers": 3.9999999999999956,
+        "cpu_encode_ms": 0.23408596666666664,
+        "gpu_busy_ms": 0.03946096666666667
+      }
+    },
+    "16": {
+      "Residual/norm": {
+        "buffers": 4.999999999999992,
+        "cpu_encode_ms": 0.2799485666666665,
+        "gpu_busy_ms": 0.04095146666666665
+      },
+      "QKV": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.05154726666666667,
+        "gpu_busy_ms": 0.034591699999999996
+      },
+      "Norm/RoPE": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.05627083333333333,
+        "gpu_busy_ms": 0.020202733333333334
+      },
+      "Attention": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.05317633333333333,
+        "gpu_busy_ms": 0.05182503333333334
+      },
+      "Attention-out": {
+        "buffers": 2.0000000000000027,
+        "cpu_encode_ms": 0.11124730000000002,
+        "gpu_busy_ms": 0.03224439999999999
+      },
+      "FFN": {
+        "buffers": 2.999999999999999,
+        "cpu_encode_ms": 0.1856013666666667,
+        "gpu_busy_ms": 0.12693050000000006
+      },
+      "PLE": {
+        "buffers": 3.9999999999999956,
+        "cpu_encode_ms": 0.2664372666666666,
+        "gpu_busy_ms": 0.03641690000000003
+      }
+    },
+    "17": {
+      "Residual/norm": {
+        "buffers": 4.999999999999992,
+        "cpu_encode_ms": 0.2920664666666667,
+        "gpu_busy_ms": 0.04109736666666666
+      },
+      "QKV": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.05921946666666667,
+        "gpu_busy_ms": 0.049060966666666664
+      },
+      "Norm/RoPE": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.054607033333333325,
+        "gpu_busy_ms": 0.027147333333333332
+      },
+      "Attention": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.0580779,
+        "gpu_busy_ms": 0.09003896666666668
+      },
+      "Attention-out": {
+        "buffers": 2.0000000000000027,
+        "cpu_encode_ms": 0.1153598,
+        "gpu_busy_ms": 0.06243336666666667
+      },
+      "FFN": {
+        "buffers": 2.999999999999999,
+        "cpu_encode_ms": 0.1882276666666667,
+        "gpu_busy_ms": 0.12686263333333328
+      },
+      "PLE": {
+        "buffers": 3.9999999999999956,
+        "cpu_encode_ms": 0.24699440000000006,
+        "gpu_busy_ms": 0.036983133333333335
+      }
+    },
+    "18": {
+      "Residual/norm": {
+        "buffers": 4.999999999999992,
+        "cpu_encode_ms": 0.2902445,
+        "gpu_busy_ms": 0.040763599999999976
+      },
+      "QKV": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.04978620000000001,
+        "gpu_busy_ms": 0.035883466666666676
+      },
+      "Norm/RoPE": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.050548600000000006,
+        "gpu_busy_ms": 0.021756966666666662
+      },
+      "Attention": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.062325033333333335,
+        "gpu_busy_ms": 0.052375166666666674
+      },
+      "Attention-out": {
+        "buffers": 2.0000000000000027,
+        "cpu_encode_ms": 0.10929590000000002,
+        "gpu_busy_ms": 0.03506943333333334
+      },
+      "FFN": {
+        "buffers": 2.999999999999999,
+        "cpu_encode_ms": 0.18481249999999996,
+        "gpu_busy_ms": 0.12805276666666668
+      },
+      "PLE": {
+        "buffers": 3.9999999999999956,
+        "cpu_encode_ms": 0.23901673333333331,
+        "gpu_busy_ms": 0.04551099999999999
+      }
+    },
+    "19": {
+      "Residual/norm": {
+        "buffers": 4.999999999999992,
+        "cpu_encode_ms": 0.26114729999999986,
+        "gpu_busy_ms": 0.04045403333333331
+      },
+      "QKV": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.05879306666666667,
+        "gpu_busy_ms": 0.032456933333333327
+      },
+      "Norm/RoPE": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.056226333333333336,
+        "gpu_busy_ms": 0.02021533333333333
+      },
+      "Attention": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.053316666666666665,
+        "gpu_busy_ms": 0.05252240000000001
+      },
+      "Attention-out": {
+        "buffers": 2.0000000000000027,
+        "cpu_encode_ms": 0.11128593333333332,
+        "gpu_busy_ms": 0.03692773333333334
+      },
+      "FFN": {
+        "buffers": 2.999999999999999,
+        "cpu_encode_ms": 0.1735444333333333,
+        "gpu_busy_ms": 0.12616116666666669
+      },
+      "PLE": {
+        "buffers": 3.9999999999999956,
+        "cpu_encode_ms": 0.22253209999999993,
+        "gpu_busy_ms": 0.037452633333333304
+      }
+    },
+    "20": {
+      "Residual/norm": {
+        "buffers": 4.999999999999992,
+        "cpu_encode_ms": 0.26277923333333336,
+        "gpu_busy_ms": 0.05549046666666664
+      },
+      "QKV": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.049013866666666676,
+        "gpu_busy_ms": 0.035476366666666675
+      },
+      "Norm/RoPE": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.06681096666666667,
+        "gpu_busy_ms": 0.020351266666666666
+      },
+      "Attention": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.0550751,
+        "gpu_busy_ms": 0.05329316666666667
+      },
+      "Attention-out": {
+        "buffers": 2.0000000000000027,
+        "cpu_encode_ms": 0.10764306666666665,
+        "gpu_busy_ms": 0.03559876666666667
+      },
+      "FFN": {
+        "buffers": 2.999999999999999,
+        "cpu_encode_ms": 0.15649723333333335,
+        "gpu_busy_ms": 0.1330681
+      },
+      "PLE": {
+        "buffers": 3.9999999999999956,
+        "cpu_encode_ms": 0.21790966666666658,
+        "gpu_busy_ms": 0.036876333333333323
+      }
+    },
+    "21": {
+      "Residual/norm": {
+        "buffers": 4.999999999999992,
+        "cpu_encode_ms": 0.27020583333333326,
+        "gpu_busy_ms": 0.04153196666666665
+      },
+      "QKV": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.05788463333333334,
+        "gpu_busy_ms": 0.03265286666666666
+      },
+      "Norm/RoPE": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.05962356666666667,
+        "gpu_busy_ms": 0.02040553333333333
+      },
+      "Attention": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.05751103333333333,
+        "gpu_busy_ms": 0.0516625
+      },
+      "Attention-out": {
+        "buffers": 2.0000000000000027,
+        "cpu_encode_ms": 0.11427783333333338,
+        "gpu_busy_ms": 0.03193753333333333
+      },
+      "FFN": {
+        "buffers": 2.999999999999999,
+        "cpu_encode_ms": 0.1751568333333333,
+        "gpu_busy_ms": 0.1291319
+      },
+      "PLE": {
+        "buffers": 3.9999999999999956,
+        "cpu_encode_ms": 0.2166737333333334,
+        "gpu_busy_ms": 0.03705966666666667
+      }
+    },
+    "22": {
+      "Residual/norm": {
+        "buffers": 4.999999999999992,
+        "cpu_encode_ms": 0.32847216666666673,
+        "gpu_busy_ms": 0.04122623333333331
+      },
+      "QKV": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.050362533333333334,
+        "gpu_busy_ms": 0.034176366666666666
+      },
+      "Norm/RoPE": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.05171133333333334,
+        "gpu_busy_ms": 0.0206472
+      },
+      "Attention": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.056151299999999994,
+        "gpu_busy_ms": 0.05131513333333333
+      },
+      "Attention-out": {
+        "buffers": 2.0000000000000027,
+        "cpu_encode_ms": 0.11546383333333332,
+        "gpu_busy_ms": 0.03490563333333333
+      },
+      "FFN": {
+        "buffers": 2.999999999999999,
+        "cpu_encode_ms": 0.18673599999999999,
+        "gpu_busy_ms": 0.12859430000000002
+      },
+      "PLE": {
+        "buffers": 3.9999999999999956,
+        "cpu_encode_ms": 0.22675126666666673,
+        "gpu_busy_ms": 0.037651333333333356
+      }
+    },
+    "23": {
+      "Residual/norm": {
+        "buffers": 4.999999999999992,
+        "cpu_encode_ms": 0.29356943333333335,
+        "gpu_busy_ms": 0.04122223333333334
+      },
+      "QKV": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.05809043333333332,
+        "gpu_busy_ms": 0.04755143333333333
+      },
+      "Norm/RoPE": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.0581335,
+        "gpu_busy_ms": 0.0269625
+      },
+      "Attention": {
+        "buffers": 0.9999999999999999,
+        "cpu_encode_ms": 0.05730833333333334,
+        "gpu_busy_ms": 0.08556946666666668
+      },
+      "Attention-out": {
+        "buffers": 2.0000000000000027,
+        "cpu_encode_ms": 0.10861656666666666,
+        "gpu_busy_ms": 0.06037080000000001
+      },
+      "FFN": {
+        "buffers": 2.999999999999999,
+        "cpu_encode_ms": 0.16699180000000005,
+        "gpu_busy_ms": 0.13093479999999996
+      },
+      "PLE": {
+        "buffers": 3.9999999999999956,
+        "cpu_encode_ms": 0.22235273333333333,
+        "gpu_busy_ms": 0.03713480000000002
+      }
+    }
+  },
+  "sampled_shader_attribution": {
+    "gpu_ops_gather_Pointer_True6A6AoA6A6AcBsAgA_4a98c180d0218990": {
+      "sampled_intervals": 19,
+      "sampled_ms_per_call": 0.001752733333333333
+    },
+    "gpu_ops_half_copy_Pointer_Fal6A6AoA6A6AcB_ff8d6bc6bb0d5a22": {
+      "sampled_intervals": 903,
+      "sampled_ms_per_call": 0.07137859999999996
+    },
+    "apple_matmul_run_float16_float32_tbTrue_bfloat16_289ceaea": {
+      "sampled_intervals": 4280,
+      "sampled_ms_per_call": 4.250517633333348
+    },
+    "gpu_ops_rms_Pointer_True_Mut6A6AoA6A6AcBsAgA_7f16caecd3d5d948": {
+      "sampled_intervals": 25,
+      "sampled_ms_per_call": 0.03666950000000001
+    },
+    "gpu_ops_projected_rope_SIMD_D6A6AcB6A6AcB_fe6f2e3a0ba30e3b": {
+      "sampled_intervals": 597,
+      "sampled_ms_per_call": 0.2352973333333334
+    },
+    "gpu_ops_attention_SIMD_DType6A6AcB6A6AcBuA_c0a3a297563462a2": {
+      "sampled_intervals": 502,
+      "sampled_ms_per_call": 0.6104694000000005
+    },
+    "gpu_ops_rms_residual_Pointer6A6AoA6A6AcB_c98306a9e80cb08f": {
+      "sampled_intervals": 1716,
+      "sampled_ms_per_call": 0.37668183333333133
+    },
+    "gpu_ops_normalize_half_Pointe6A6AoA6A6A_0cf19f7d6edb89f2": {
+      "sampled_intervals": 990,
+      "sampled_ms_per_call": 0.20329126666666653
+    },
+    "gpu_ops_geglu_half_Pointer_Fa6A6AoA6A6AcB_fac7a24260c93c73": {
+      "sampled_intervals": 523,
+      "sampled_ms_per_call": 0.16168933333333327
+    },
+    "gpu_ops_ple_half_Pointer_Fals6A6AoA6A6AcB_fd4c4ebd92eba157": {
+      "sampled_intervals": 524,
+      "sampled_ms_per_call": 0.05148883333333326
+    },
+    "gpu_ops_projected_rope_SIMD_D6A6AcB6A6AcB_d0d48eb284b016ca": {
+      "sampled_intervals": 119,
+      "sampled_ms_per_call": 0.060534766666666705
+    },
+    "gpu_ops_attention_SIMD_DType6A6AcB6A6AcBuA_7cfbd0802168c665": {
+      "sampled_intervals": 118,
+      "sampled_ms_per_call": 0.20727503333333328
+    },
+    "gpu_ops_pool_Pointer_False_I6A6AoA6A6AcBsAgA_2dab719c4b0a059e": {
+      "sampled_intervals": 18,
+      "sampled_ms_per_call": 0.008048566666666668
+    },
+    "gpu_ops_normalize_copy_Pointe6A6AoA6A6A_0e196f28418fa6a7": {
+      "sampled_intervals": 21,
+      "sampled_ms_per_call": 0.004401366666666667
+    },
+    "gpu_ops_l2_Pointer_True_MutU6A6AoA6A6AcBsAgA_8c02ccee3ece3337": {
+      "sampled_intervals": 18,
+      "sampled_ms_per_call": 0.009937433333333334
+    }
+  },
+  "shader_intervals_are_dispatch_counts": false,
+  "notes": "GPU intervals unioned by command-buffer identity, including split/preempted intervals; stage CPU encoding is wall duration, not on-CPU samples. Llama fine GPU split unavailable inside its two compute encoders. Shader timeline is sampled and cannot fill that gap exactly."
+}

@@ -1,0 +1,10 @@
+{
+  "/private/tmp/ib-mojo-spike/weights.bin": {
+    "bytes": 1084026976,
+    "sha256": "edbf9720b35ccbe13dbea1e74da31d7057ea497e9b3b98ed1944462517009f34"
+  },
+  "/Users/iron/.cache/infinite-brain-b0/models/embeddinggemma-2-Q8_0.gguf": {
+    "bytes": 309855520,
+    "sha256": "6f1bd4ac6c5df7444f9cca7ca36cafe6cfa34cd6f49fefb1e0b4be8143aed8bc"
+  }
+}
