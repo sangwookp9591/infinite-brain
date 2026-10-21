@@ -8,6 +8,8 @@ environments and interrupted full sweeps stay local and are ignored by Git.
 Start with the [comparison and evidence limits](../../../../../docs/reports/ENGINE-LAB-COMPARISON.md),
 the [algorithm and paper explanations](../../../../../docs/reports/ENGINE-LAB-ALGORITHMS-AND-METHODS.md),
 and the [measurement methodology](../../../../../docs/reports/ENGINE-LAB-METHODOLOGY.md).
+For another computer, follow the [handoff guide](../../../../../docs/reports/ENGINE-LAB-HANDOFF.md)
+before running the historical launch scripts or rebuilding missing artifacts.
 
 | Directory | Purpose | Measurement status |
 | --- | --- | --- |

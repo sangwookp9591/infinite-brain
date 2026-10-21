@@ -5,6 +5,8 @@
 `run_5e2e2aedc9c7`의 자료를 인계받았다. 연구의 현재 결론과 한계는
 [비교 보고서](ENGINE-LAB-COMPARISON.md), 알고리즘·논문 정의는
 [방법 해설](ENGINE-LAB-ALGORITHMS-AND-METHODS.md)을 기준으로 읽는다.
+다른 PC에서 재개하는 절차와 별도 artifact 인계 범위는
+[PC 인계서](ENGINE-LAB-HANDOFF.md)를 따른다.
 
 ## 실행 상태
 
