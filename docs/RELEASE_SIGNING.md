@@ -78,6 +78,35 @@ API 키는 앱이 아니라 팀 단위라서 AxDB에서 만든 `axdb-notary` 프
 
 사용자에게 보일 변경 사항은 `docs/RELEASE_NOTES.md`의 `## <버전>` 섹션에 쓴다. 섹션이 없으면 조용한 업데이트가 된다.
 
+## Office runtime 포함 빌드의 서명·공증
+
+Office runtime이 포함된 `.app`을 직접 서명할 때는 다음 스크립트를 사용한다. 앱 내부의 실행 파일·동적 라이브러리 서명을 확인하고, 누락되거나 조건에 맞지 않는 Mach-O를 hardened runtime과 타임스탬프를 넣어 서명한다. 기본 Developer ID는 `Developer ID Application: SangWook Park (QRW9X3848W)`이며 `APPLE_SIGNING_IDENTITY`로 바꿀 수 있다.
+
+```sh
+app/scripts/sign-office-app.sh \
+  "app/apps/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Infinite Brain.app" \
+  "dist/office/Infinite-Brain-office.dmg"
+```
+
+먼저 서명 대상과 기존 entitlement 상태만 확인하려면, 원본을 복사해 dry-run 한다. `DRY_RUN=1`은 검사만 하며 서명하거나 DMG를 만들지 않는다.
+
+```sh
+cp -R "Infinite Brain.app" "/tmp/Infinite Brain dry-run.app"
+DRY_RUN=1 app/scripts/sign-office-app.sh \
+  "/tmp/Infinite Brain dry-run.app" "/tmp/office-dry-run.dmg"
+```
+
+`Contents/Resources/office-runtime/*/node`는 `get-task-allow` 없이 `allow-jit`와 `allow-unsigned-executable-memory`만 담은 entitlement로 다시 서명하고, 서명 뒤 `node -e` 실행을 확인한다. 개발 디버깅 entitlement인 `get-task-allow`는 공증에서 거부되므로, 스크립트는 마지막에 앱 안 모든 Mach-O를 검사해 남아 있으면 실패한다. 최상위 앱 entitlement는 기존 값을 추출해 보존하고, 앱은 `codesign --verify --deep --strict`로 확인한다. DMG에는 앱과 `/Applications` 링크가 들어가며 DMG 자체도 서명된다.
+
+공증 제출은 별도 단계다. 스크립트는 제출하지 않는다. 서명된 DMG를 제출하고 결과가 나올 때까지 기다린다. `--wait`를 임의의 짧은 시간 제한으로 바꾸지 않는다.
+
+```sh
+xcrun notarytool submit "dist/office/Infinite-Brain-office.dmg" \
+  --keychain-profile axdb-notary --wait
+xcrun stapler staple "dist/office/Infinite-Brain-office.dmg"
+xcrun stapler validate "dist/office/Infinite-Brain-office.dmg"
+```
+
 ## 6. 빌드
 
 ```sh

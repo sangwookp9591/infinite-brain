@@ -2,9 +2,10 @@
 // Build-time only downloads. Installed users never need Node, pnpm or Postgres.
 import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { cp, mkdir, mkdtemp, readFile, rename, rm, writeFile, chmod, symlink } from 'node:fs/promises';
-import { dirname, join, relative, resolve, sep } from 'node:path';
+import { cp, lstat, mkdir, mkdtemp, readFile, readdir, realpath, rename, rm, writeFile, chmod } from 'node:fs/promises';
+import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { verifyRoot } from './verify-office-runtime.mjs';
 
 const app = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const sources = JSON.parse(await readFile(join(app, 'scripts/office-runtime-sources.json'), 'utf8'));
@@ -37,6 +38,24 @@ async function download(url, algorithm, expected, encoding = 'hex') {
   const actual = createHash(algorithm).update(bytes).digest(encoding);
   if (actual !== expected) throw new Error('Office runtime archive integrity check failed');
   return bytes;
+}
+
+// Hoisted deploy has no dependency-directory links, but pnpm can still create
+// executable aliases. Tauri drops symlinks when copying resources, so replace
+// these aliases with their actual files before publishing the runtime.
+async function materializeFileLinks(root, current = root) {
+  for (const entry of await readdir(current, { withFileTypes: true })) {
+    const path = join(current, entry.name);
+    if (entry.isDirectory()) await materializeFileLinks(root, path);
+    else if (entry.isSymbolicLink()) {
+      const sourcePath = await realpath(path);
+      if (!sourcePath.startsWith(`${root}${sep}`) || !(await lstat(sourcePath)).isFile()) {
+        throw new Error(`Expected an internal file alias in hoisted runtime: ${path}`);
+      }
+      await rm(path);
+      await cp(sourcePath, path);
+    }
+  }
 }
 
 try {
@@ -78,11 +97,16 @@ try {
       if (![sourcePath, targetPath].every((path) => path.startsWith(`${base}${sep}native${sep}`))) {
         throw new Error('Unexpected Postgres library link');
       }
-      await symlink(relative(dirname(targetPath), sourcePath), targetPath);
+      // These dylib aliases must survive Tauri's resource copy too.
+      await cp(sourcePath, targetPath);
     }
   }
   await run(process.execPath, [pnpmCli, '--filter', 'server', 'build']);
-  await run(process.execPath, [pnpmCli, '--filter', 'server', '--prod', 'deploy', '--legacy', join(stage, 'server')]);
+  // Modern deploy derives a frozen, package-specific lockfile from the shared
+  // workspace lock. Legacy hoisted deploy ignores that lock and resolves newer
+  // versions, which can break the already-built server.
+  await run(process.execPath, [pnpmCli, '--filter', 'server', '--prod', '--config.node-linker=hoisted', '--config.inject-workspace-packages=true', 'deploy', join(stage, 'server')]);
+  await materializeFileLinks(stage);
   await mkdir(join(stage, 'control'));
   await cp(join(app, 'apps/server/office-host/runtime.mjs'), join(stage, 'control/runtime.mjs'));
   await writeFile(join(stage, 'manifest.json'), `${JSON.stringify({
@@ -90,6 +114,8 @@ try {
     nodeVersion: sources.nodeVersion, postgresVersion: sources.postgresVersion, postgresMajor: sources.postgresMajor,
   }, null, 2)}\n`);
   if (process.platform !== 'win32') await chmod(join(stage, 'node'), 0o755);
+  const verification = await verifyRoot(stage);
+  if (verification.errors.length) throw new Error(`Invalid office runtime:\n${verification.errors.join('\n')}`);
   // A failed prepare preserves the previously prepared resources. Build jobs
   // must not prepare while a dev runtime is using these files.
   const previous = `${output}.previous`;

@@ -6,6 +6,36 @@ import { join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const defaultRoot = resolve(fileURLToPath(new URL('../apps/desktop/src-tauri/office-runtime/', import.meta.url)), process.argv[2] ?? `${process.platform}-${process.arch}`);
+const defaultLockfile = fileURLToPath(new URL('../pnpm-lock.yaml', import.meta.url));
+
+// Read only pnpm v9's server production importer, without loading dependencies
+// from the runtime being verified. Peer suffixes identify snapshots, not versions.
+export function lockedServerVersions(lockfile) {
+  if (!/^lockfileVersion: ['"]?9\.0['"]?\s*$/m.test(lockfile)) throw new Error('Expected pnpm lockfile v9');
+  const server = lockfile.match(/^  apps\/server:\r?\n([\s\S]*?)(?=^  \S|^\S|(?![\s\S]))/m)?.[1];
+  const dependencies = server?.match(/^    dependencies:\r?\n([\s\S]*?)(?=^    \S|(?![\s\S]))/m)?.[1];
+  if (!dependencies) throw new Error('Missing server production dependencies in lockfile');
+  const versions = new Map();
+  let name;
+  for (const line of dependencies.split(/\r?\n/)) {
+    const key = line.match(/^      (?:'([^']+)'|"([^"]+)"|([^\s:]+)):\s*$/);
+    if (key) {
+      if (name) throw new Error(`Missing locked version: ${name}`);
+      name = key[1] ?? key[2] ?? key[3];
+    }
+    const value = line.match(/^        version: ['"]?([^'"\s]+)['"]?\s*$/);
+    if (value && name) {
+      const version = value[1].split('(')[0];
+      if (!/^[\w@/-]+$/.test(name) || name.split('/').includes('..') || !/^\d+\.\d+\.\d+(?:[-+][\w.+-]+)?$/.test(version)) {
+        throw new Error(`Unsupported locked dependency: ${name}`);
+      }
+      versions.set(name, version);
+      name = undefined;
+    }
+  }
+  if (name || !versions.size) throw new Error('Incomplete server production dependencies in lockfile');
+  return versions;
+}
 
 const bannedPathPatterns = [
   /(^|\/)\.env(?:\.|$)/i,
@@ -37,7 +67,7 @@ async function walk(root, current = root, entries = []) {
   return entries;
 }
 
-export async function verifyRoot(rootPath) {
+export async function verifyRoot(rootPath, { lockfilePath = defaultLockfile } = {}) {
   const root = resolve(rootPath);
   const errors = [];
   let entries;
@@ -74,13 +104,27 @@ export async function verifyRoot(rootPath) {
       const bytes = await readFile(entry.absolute);
       files.push({ path: entry.path, size: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') });
     } else if (entry.type === 'symlink') {
+      errors.push(`Symbolic link is not allowed: ${entry.path}`);
       const target = await readlink(entry.absolute);
       files.push({ path: entry.path, size: Buffer.byteLength(target), sha256: createHash('sha256').update(target).digest('hex'), type: 'symlink' });
     } else if (entry.type === 'other') {
       errors.push(`Unexpected filesystem entry: ${entry.path}`);
     }
   }
-  return { root, errors, files, directories: entries.filter((entry) => entry.type === 'directory').length };
+  const dependencies = [];
+  try {
+    const locked = lockedServerVersions(await readFile(lockfilePath, 'utf8'));
+    for (const [name, expected] of locked) {
+      const entry = byPath.get(`server/node_modules/${name}/package.json`);
+      let actual;
+      if (entry?.type === 'file') actual = JSON.parse(await readFile(entry.absolute, 'utf8')).version;
+      dependencies.push({ name, expected, actual: actual ?? null });
+      if (actual !== expected) errors.push(`Dependency version mismatch: ${name}: expected ${expected}, found ${actual ?? 'missing'}`);
+    }
+  } catch (error) {
+    errors.push(`Cannot verify locked server dependencies: ${error.message}`);
+  }
+  return { root, errors, files, dependencies, directories: entries.filter((entry) => entry.type === 'directory').length };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
@@ -88,11 +132,15 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   console.log(`Office runtime root: ${result.root}`);
   const inventory = createHash('sha256').update(result.files.map(({ path, sha256 }) => `${path}\0${sha256}\n`).join('')).digest('hex');
   console.log(`Summary: ${result.files.length} files/symlinks, ${result.directories} directories; inventory sha256 ${inventory}`);
+  console.log(`Symbolic links: ${result.files.filter((entry) => entry.type === 'symlink').length}`);
   for (const path of ['manifest.json', process.platform === 'win32' ? 'node.exe' : 'node', process.platform === 'win32' ? 'postgres/native/bin/postgres.exe' : 'postgres/native/bin/postgres']) {
     const file = result.files.find((entry) => entry.path === path);
     if (file) console.log(`${file.sha256}  ${file.size}  ${file.path}`);
   }
   for (const error of result.errors) console.error(`ERROR: ${error}`);
+  for (const dependency of result.dependencies ?? []) {
+    console.log(`Dependency: ${dependency.name} locked=${dependency.expected} installed=${dependency.actual ?? 'missing'}`);
+  }
   if (result.errors.length) process.exitCode = 1;
   else console.log('Office runtime verification passed.');
 }
