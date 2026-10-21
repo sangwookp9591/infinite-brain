@@ -1,0 +1,21 @@
+{
+  "calls": 40,
+  "warmups": 10,
+  "measured": 30,
+  "command_buffers": 40,
+  "compute_encoders": 40,
+  "command_buffers_per_paragraph": 1,
+  "encoders_per_paragraph": 1,
+  "dispatches_per_paragraph": 445,
+  "instrumented_wall_median_ms": 14.204520500000001,
+  "evidence": "Metal System Trace observed unique command buffer/encoder IDs; dispatches are host counter",
+  "interval_medians_ms": {
+    "encoder_cpu_ms": 1.1357499999999998,
+    "encode_end_to_gpu_start_ms": 0.6392915,
+    "gpu_active_ms": 9.262458,
+    "gpu_span_ms": 9.262458,
+    "gpu_span_gap_ms": 0.0,
+    "encoder_to_gpu_end_ms": 11.6424375
+  },
+  "limitation": "Encoder duration is CPU recording; GPU Active intervals are traced intervals, not sampled shader time. Medians do not add up to wall median."
+}

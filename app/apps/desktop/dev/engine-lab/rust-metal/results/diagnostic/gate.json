@@ -1,0 +1,15 @@
+{
+  "adopt": true,
+  "checks": {
+    "cosine": true,
+    "latency": true,
+    "throughput": true
+  },
+  "q8_median_ms": 39.2859165,
+  "mojo_median_ms": 12.480791498092003,
+  "q8_best_batch_size": 24,
+  "q8_best_paragraphs_per_second": 73.16649336865657,
+  "mojo_batch_100_paragraphs_per_second": 105.68975981274443,
+  "cosine_min": 0.9997084341209541,
+  "would_require_index_version_bump": true
+}

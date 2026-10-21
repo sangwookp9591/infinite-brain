@@ -1,0 +1,25 @@
+{
+  "engine_gpu.mojo": "6f83e748fedc0725ed8867334e194bae1247415428c43ca30a5212e14ecf3614",
+  "gpu_ops.mojo": "197e3e583fa37619aaea07448d0dff063f1b90e58e757984f6bc70f0141a2415",
+  "engine.mojo": "f5ff21974b4cf7371b6778cd4498ae725913b99454d92f5d2e8d7fa99ccc4a1f",
+  "mojo.metallib": "7936f430ea9a8930766918e712ec1fce65a2761ba9a157418cd9a5b3e3c9ad3c",
+  "selected_air_sha256": {
+    "engine_apple_matmul_run_float16_float32_tbTrue_bfloat16_289ceaea.air": "de4fd3d8ee156ca6aabaafbdf07f1d1207c1383da2c5188dcff16c860192a32c",
+    "engine_apple_matmul_split_k_partial_float16_tbTrue_ed4686e2.air": "3953e023cd70332ee396a9de17bba9ed2acad45a06e8c272463ea4f92c4b2882",
+    "engine_apple_matmul_split_k_reduce_float32_c462219b.air": "22b510a863d0d1eb27fcc9a9e3222bc3ab98fcd947b8621938ee93d725956c93",
+    "engine_gpu_ops_attention_SIMD_DType6A6AcB6A6AcBuA_7cfbd0802168c665.air": "e5c87d5b9e9f28b9c4d8538cd94d7ce50f28f000a2ddf7cd3fcbc6deceecc75b",
+    "engine_gpu_ops_attention_SIMD_DType6A6AcB6A6AcBuA_c0a3a297563462a2.air": "ed92d7d34c7db048b13b562529faa4a214571beb658a63a3278a9f3546a0bb94",
+    "engine_gpu_ops_gather_Pointer_True6A6AoA6A6AcBsAgA_4a98c180d0218990.air": "35abfd6830aa833ad973ae1301764daf4a2d9a3480ca24426273cbad27a708f9",
+    "engine_gpu_ops_geglu_half_Pointer_Fa6A6AoA6A6AcB_fac7a24260c93c73.air": "9b6d57fc44e3a41d94781893ed8c0317a5d51a27969776a488bcfb2acd628830",
+    "engine_gpu_ops_half_copy_Pointer_Fal6A6AoA6A6AcB_ff8d6bc6bb0d5a22.air": "2c882670106bd829b76379a30405b9867fcfd1431e710703beb15068ee65fc56",
+    "engine_gpu_ops_l2_Pointer_True_MutU6A6AoA6A6AcBsAgA_8c02ccee3ece3337.air": "8fe55eda9c55d9f993f9c607062ec2adc68b34011b37c9f6050c59fa2fedbd2e",
+    "engine_gpu_ops_normalize_copy_Pointe6A6AoA6A6A_0e196f28418fa6a7.air": "805458a5a461e9ba16a33f37e3fd28d428b99390a30eb387702b13493eaa9a2c",
+    "engine_gpu_ops_normalize_half_Pointe6A6AoA6A6A_0cf19f7d6edb89f2.air": "9c3490b5ef903e35c635b830b8648939401adeaa4820c9713678e5411a7ba029",
+    "engine_gpu_ops_ple_half_Pointer_Fals6A6AoA6A6AcB_fd4c4ebd92eba157.air": "4e1e59ed6280f4a20e13de5cee763dabb326bd5f190358a47c8d61d6b447f02f",
+    "engine_gpu_ops_pool_Pointer_False_I6A6AoA6A6AcBsAgA_2dab719c4b0a059e.air": "bab5f2c01e20b82381bceff82cdbe84e658391559f2017677a6d32e3e44e469e",
+    "engine_gpu_ops_projected_rope_SIMD_D6A6AcB6A6AcB_d0d48eb284b016ca.air": "bd38771470a94456f01db5ecdbba3b6951801e41bf29f86ff92d40a6394363ed",
+    "engine_gpu_ops_projected_rope_SIMD_D6A6AcB6A6AcB_fe6f2e3a0ba30e3b.air": "2524dbe1d1a2c1940b72813771742cc9ada74b51200604188813186ad8112bf6",
+    "engine_gpu_ops_rms_Pointer_True_Mut6A6AoA6A6AcBsAgA_7f16caecd3d5d948.air": "eb0267cfb3a10f0ee14622d1e63dbaeb04c6d3af4be9ad05943fe3568335755d",
+    "engine_gpu_ops_rms_residual_Pointer6A6AoA6A6AcB_c98306a9e80cb08f.air": "bf44aa3123e7df7125132e5714c6cf2830cb2c9b174ab5be0fcee6571fb9a99b"
+  }
+}

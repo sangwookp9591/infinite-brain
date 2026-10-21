@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: Apache-2.0
+[package]
+name = "engine-lab-e1"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+
+[lib]
+name = "ib_rust_metal"
+path = "lib.rs"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+objc2 = "0.6.3"
+objc2-foundation = "0.3.2"
+objc2-metal = "0.3.2"
+memmap2 = "0.9"
+serde_json = "1"
+
+[[bin]]
+name = "trace-e1"
+path = "trace.rs"

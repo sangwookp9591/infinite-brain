@@ -1,0 +1,8 @@
+{
+  "gemm_flops": 22356426752,
+  "gemm_bytes_min": 364189696,
+  "fp16_dense_weight_bytes": 273416192,
+  "dispatches_base": 417,
+  "dispatches_with_split_k": 445,
+  "note": "GEMM only; lower-bound bytes exclude tile rereads/cache, attention and row kernels"
+}

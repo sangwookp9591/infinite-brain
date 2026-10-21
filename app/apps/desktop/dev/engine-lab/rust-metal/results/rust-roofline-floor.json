@@ -1,0 +1,13 @@
+{
+  "measured_bw_gb_s": 109.1804028985,
+  "measured_fp16_peak_tflops": 14.8017305705,
+  "cpu_submit_us": 11.354,
+  "gemm_sum_roofline_floor_ms": 3.335669097489688,
+  "rust_cb_submission_floor_ms": 0.011354,
+  "prediction_preregistered_ms": [
+    15.4,
+    18.9
+  ],
+  "calibration_source": "/Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/rust-metal/results/full",
+  "note": "GEMM floor, eta=1; excludes attention, row kernels, cache rereads, barriers and host/readback. Calibration follows diagnostic but precedes final candidate trials."
+}

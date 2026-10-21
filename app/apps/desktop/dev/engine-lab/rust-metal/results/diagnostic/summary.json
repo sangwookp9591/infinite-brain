@@ -1,0 +1,11 @@
+{
+  "cosine_min": 0.9997084341209541,
+  "cosine_mean": 0.999928371314045,
+  "median_ms": 12.480791498092003,
+  "batch100_median_ms": 946.1654580081813,
+  "batch100_per_second": 105.68975981274443,
+  "max_abs_diff": 0.0028562238439917564,
+  "independent_processes": 1,
+  "process_bootstrap_ci95": null,
+  "limitation": "One exploratory process; not the final native shared-harness comparison"
+}

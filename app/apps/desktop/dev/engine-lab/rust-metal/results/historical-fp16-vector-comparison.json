@@ -1,0 +1,6 @@
+{
+  "cosine_min": 0.9999998459344684,
+  "cosine_mean": 0.9999999169071524,
+  "max_abs_diff": 6.950274109840393e-05,
+  "comparison": "diagnostic Rust/AIR vectors versus stored historical Mojo FP16 vectors; numerical check only, not paired timing"
+}
