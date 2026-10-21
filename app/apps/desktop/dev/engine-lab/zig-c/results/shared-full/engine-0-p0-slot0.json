@@ -1,0 +1,27 @@
+{
+  "calls": 30,
+  "environment_before": {
+    "cargo": "cargo 1.94.0 (85eff7c80 2026-01-15)",
+    "clang": "Apple clang version 21.0.0 (clang-2100.3.34.2)\nTarget: arm64-apple-darwin27.0.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin",
+    "hardware": "Hardware:\n\n    Hardware Overview:\n\n      Model Name: MacBook Pro\n      Model Identifier: Mac17,2\n      Model Number: Z1KH00020KH/A\n      Chip: Apple M5\n      Total Number of Cores: 10 (4 Super and 6 Efficiency)\n      Memory: 24 GB\n      System Firmware Version: 20457.1.29\n      OS Loader Version: 20457.1.29\n      Activation Lock Status: Enabled\n\nGraphics/Displays:\n\n    Apple M5:\n\n      Chipset Model: Apple M5\n      Type: GPU\n      Bus: Built-In\n      Total Number of Cores: 10\n      Vendor: Apple (0x106b)\n      Metal Support: Metal 4\n      Displays:\n        Color LCD:\n          Display Type: Built-in Liquid Retina XDR Display\n          Resolution: 3024 x 1964 Retina\n          Main Display: Yes\n          Mirror: Off\n          Online: Yes\n          Automatically Adjust Brightness: Yes\n          Connection Type: Internal\n        9632:\n          Resolution: 1920 x 1080 (1080p FHD - Full High Definition)\n          UI Looks like: 1920 x 1080 @ 60.00Hz\n          Mirror: Off\n          Online: Yes\n          Rotation: Supported\n          Television: Yes\n        24MB35:\n          Resolution: 1920 x 1080 (1080p FHD - Full High Definition)\n          UI Looks like: 1920 x 1080 @ 60.00Hz\n          Mirror: Off\n          Online: Yes\n          Rotation: Supported",
+    "mojo": "Mojo 1.2.0rc2 (2016d0cd)",
+    "os": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0.1\nBuildVersion:\t\t26A434",
+    "power": "Now drawing from 'AC Power'\n -InternalBattery-0 (id=7602275)\t100%; charged; 0:00 remaining present: true",
+    "rust": "rustc 1.94.0 (4a4ef493e 2026-03-02)\nbinary: rustc\ncommit-hash: 4a4ef493e3a1488c6e321570238084b38948f6db\ncommit-date: 2026-03-02\nhost: aarch64-apple-darwin\nrelease: 1.94.0\nLLVM version: 21.1.8",
+    "thermal": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+    "thermal_process_info": "0",
+    "xcode": "Xcode 27.0\nBuild version 27A266a",
+    "private_hardware_identifiers": "omitted; serial number, hardware UUID, provisioning UDID"
+  },
+  "gate_passed": false,
+  "library": "/Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/harness/target/release/libib_llama.dylib",
+  "library_sha256": "460ef5794d3842d63c2c2d6140f4991ea4e60ade65a826daea734872a7c149a0  /Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/harness/target/release/libib_llama.dylib",
+  "model": "/Users/iron/.cache/infinite-brain-b0/models/embeddinggemma-2-Q8_0.gguf",
+  "model_sha256": "6f1bd4ac6c5df7444f9cca7ca36cafe6cfa34cd6f49fefb1e0b4be8143aed8bc  /Users/iron/.cache/infinite-brain-b0/models/embeddinggemma-2-Q8_0.gguf",
+  "pid": 99680,
+  "process": 0,
+  "reference_sha256": "894661873ce9202918b8283e4fe56a2a231bb0e14557eef99de1b511bb4a7d36  /Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/zig-c/results/shared-full/reference.json",
+  "started_unix_s": 1792483931.817262,
+  "tokens": 82,
+  "warmup": 10
+}

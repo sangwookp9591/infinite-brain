@@ -1,0 +1,8 @@
+[
+  {
+    "process": 0,
+    "slot": 0,
+    "library": "/Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/harness/target/release/libib_llama.dylib",
+    "prefix": "/Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/zig-c/results/shared-full/engine-0-p0-slot0"
+  }
+]

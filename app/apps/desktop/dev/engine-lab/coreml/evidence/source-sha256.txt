@@ -1,0 +1,3 @@
+f315cbbb30dd487e44d501c8902abe88808755e43753a96beed1964f0a48aa4f  /Users/iron/.cache/infinite-brain-b0/models/embeddinggemma-2-BF16.gguf
+6f1bd4ac6c5df7444f9cca7ca36cafe6cfa34cd6f49fefb1e0b4be8143aed8bc  /Users/iron/.cache/infinite-brain-b0/models/embeddinggemma-2-Q8_0.gguf
+1fa81e639754dca9b2df5a9e0e4d967c8559a311866765f676ac894ab3265b5c  ../../mojo-engine/inputs.json

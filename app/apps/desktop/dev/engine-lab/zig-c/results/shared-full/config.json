@@ -1,0 +1,22 @@
+{
+  "smoke": false,
+  "processes": 5,
+  "calls": 30,
+  "warmup": 10,
+  "bootstrap": 10000,
+  "baseline": "/Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/harness/target/release/libib_llama.dylib",
+  "engines": [
+    "/Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/harness/target/release/libib_llama.dylib",
+    "/Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/zig-c/build/libib_zig.dylib",
+    "/Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/zig-c/build/libib_zig_split.dylib"
+  ],
+  "models": {
+    "/Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/harness/target/release/libib_llama.dylib": "/Users/iron/.cache/infinite-brain-b0/models/embeddinggemma-2-Q8_0.gguf",
+    "/Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/zig-c/build/libib_zig.dylib": "/private/tmp/ib-mojo-spike/weights.bin",
+    "/Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/zig-c/build/libib_zig_split.dylib": "/private/tmp/ib-mojo-spike/weights.bin"
+  },
+  "llama_cpp_rs_rev": "cb98c630d0fec934a8a379db4fd63cd3622f6984",
+  "mojo_library": "/private/tmp/ib-mojo-opt/optimized-final.dylib",
+  "mojo_library_sha256": null,
+  "inputs_sha256": "1fa81e639754dca9b2df5a9e0e4d967c8559a311866765f676ac894ab3265b5c"
+}

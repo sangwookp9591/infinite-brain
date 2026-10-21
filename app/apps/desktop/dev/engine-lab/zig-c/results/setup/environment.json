@@ -1,0 +1,39 @@
+{
+  "zig": "0.17.0",
+  "clang": "Apple clang version 21.0.0 (clang-2100.3.34.2)\nTarget: arm64-apple-darwin27.0.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin",
+  "xcode": "Xcode 27.0\nBuild version 27A266a",
+  "os": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0.1\nBuildVersion:\t\t26A434",
+  "power": "Now drawing from 'AC Power'\n -InternalBattery-0 (id=7602275)\t100%; charged; 0:00 remaining present: true",
+  "cpu": "Apple M5",
+  "memory": "25769803776",
+  "files": {
+    "build/libib_zig.dylib": {
+      "bytes": 473328,
+      "sha256": "3224d038052d17d980dfe1c818c73cf0ab71cebabb02459109763258835019b7"
+    },
+    "build/libib_zig.a": {
+      "bytes": 2465520,
+      "sha256": "647e5dbed1c7596f4bc026c81549756da75dbcc5363fd30a0702d8db046e1cfc"
+    },
+    "build/libib_zig_split.dylib": {
+      "bytes": 473336,
+      "sha256": "f40737ef2e4eea7dbf7f80433d27629808a6e83abde471d79c21ead3059275c3"
+    },
+    "build/engine-windows.obj": {
+      "bytes": 2795546,
+      "sha256": "a8b82723463594756a1a48bba7d88c3846ba68a5f615ebc7b519a00eabb2e2e3"
+    },
+    "engine.zig": {
+      "bytes": 12145,
+      "sha256": "7ce9ca5176393e13b78c1fc0ada8ee1351a603156305bcad320c909431fea836"
+    },
+    "metal.m": {
+      "bytes": 5339,
+      "sha256": "a41b1d8991d542e08c3030f54ff8e14b5a8e88f77518610ea4739b9b6c1063c8"
+    },
+    "kernels.metal": {
+      "bytes": 6439,
+      "sha256": "bcea2a1828c548c148ff391b24e2fe4047cb2ebf412c0708adb02017dc277307"
+    }
+  }
+}

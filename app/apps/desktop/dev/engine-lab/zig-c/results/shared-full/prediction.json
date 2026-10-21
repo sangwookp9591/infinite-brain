@@ -1,0 +1,33 @@
+{
+  "bw_gb_s": 112.266966722,
+  "fp16_peak_tflops": 12.862235015500001,
+  "submit_cpu_us": 9.9585,
+  "submit_roundtrip_us": 172.625,
+  "tokens": 82,
+  "predictions": [
+    {
+      "engine": "llama-cpp-q8-metal",
+      "weight_bytes": 151150592,
+      "flops": 23127588864,
+      "command_buffers": 3,
+      "kernel_floor_ms": 1.7981003174121326,
+      "submission_cpu_ms": 0.029875500000000003,
+      "predicted_ms": 1.8279758174121326,
+      "submit_fraction": 0.016343487542573063,
+      "amdahl_submission_limit": 1.0166150351627752
+    },
+    {
+      "engine": "mojo-gpu-fp16",
+      "weight_bytes": 273416192,
+      "flops": 23127588864,
+      "command_buffers": 425,
+      "kernel_floor_ms": 2.4354108780461154,
+      "submission_cpu_ms": 4.2323625,
+      "predicted_ms": 6.667773378046116,
+      "submit_fraction": 0.634749002408391,
+      "amdahl_submission_limit": 2.7378433093784755
+    }
+  ],
+  "interpretation": "Optimistic aggregate lower-bound model; eta=1, host/gap/readback=0. Q8 dequantization is not FP16 GEMM. Do not treat this as a calibrated latency forecast.",
+  "counter_source": "Previous trace: llama 3; Mojo 425 (417 compute+8 transfer). Optional runtime stats remain blank if not exported."
+}

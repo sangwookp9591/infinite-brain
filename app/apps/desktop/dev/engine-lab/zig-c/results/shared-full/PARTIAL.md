@@ -1,0 +1,1 @@
+This run was interrupted at the waiting baseline process boundary for coordinator scheduling. Oracle and calibration completed; no engine performance samples completed. Do not use as a final comparison. Private hardware identifiers in environment metadata were omitted.

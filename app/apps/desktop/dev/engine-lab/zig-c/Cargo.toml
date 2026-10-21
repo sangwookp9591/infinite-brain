@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: Apache-2.0
+[package]
+name = "engine-lab-zig-static-smoke"
+version = "0.0.0"
+edition = "2021"
+build = "cargo-build.rs"
+[workspace]
+[[bin]]
+name = "zig-static-smoke"
+path = "static-smoke.rs"

@@ -1,0 +1,7 @@
+acquired GPU lock pid=32890
+Core ML init: Failed to build the model execution plan using a model architecture file '/Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/coreml/artifacts/encoder.mlmodelc/model.mil' with error code: -5.
+Traceback (most recent call last):
+  File "/Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/coreml/smoke.py", line 22, in <module>
+    assert h
+           ^
+AssertionError

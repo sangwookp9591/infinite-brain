@@ -1,0 +1,15 @@
+acquired GPU lock pid=33815
+Torch version 2.14.1 has not been tested with coremltools. You may run into unexpected errors. Torch 2.7.0 is the most recent version that has been tested.
+Traceback (most recent call last):
+  File "/Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/coreml/plan.py", line 10, in <module>
+    result = compute_plan(here / 'artifacts/encoder.mlmodelc', getattr(ct.ComputeUnit, unit))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/coreml/bench.py", line 89, in compute_plan
+    plan = ct.models.compute_plan.MLComputePlan.load_from_path(str(compiled), compute_units=units)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/coreml/.venv/lib/python3.11/site-packages/coremltools/models/compute_plan.py", line 448, in load_from_path
+    return _MLModelProxy.get_compute_plan(path, compute_units.name)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: {
+    NSLocalizedDescription = "Failed to build the model execution plan using a model architecture file '/Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/coreml/artifacts/encoder.mlmodelc/model.mil' with error code: -5.";
+}

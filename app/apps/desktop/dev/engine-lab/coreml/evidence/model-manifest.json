@@ -1,0 +1,96 @@
+{
+  "encoder.mlpackage": {
+    "manifest_sha256": "14266e49107073953f819fd73fc3de8e51a6379c82f8e629cd772348ac0967de",
+    "bytes": 543767493,
+    "files": [
+      {
+        "path": "Data/com.apple.CoreML/model.mlmodel",
+        "bytes": 927324,
+        "sha256": "ada8e4af0cfa2b1512ab880ce44ac4c0c5331f50d499917a150c7901eaf9924a"
+      },
+      {
+        "path": "Data/com.apple.CoreML/weights/weight.bin",
+        "bytes": 542839552,
+        "sha256": "bf84ad6362390a30b97b5ebac0426f6c1ed8f931f4ae1f5ab70d9c2dd1127829"
+      },
+      {
+        "path": "Manifest.json",
+        "bytes": 617,
+        "sha256": "26e011ec542c4bf18cb3fae176ad1a7bcd7e0245523e2e6d312b175107a53b02"
+      }
+    ]
+  },
+  "encoder.mlmodelc": {
+    "manifest_sha256": "901dd10a4f073b0ae946ac9246c5950092351b35a5535cab2d5e8663bb104b5b",
+    "bytes": 543785336,
+    "files": [
+      {
+        "path": "analytics/coremldata.bin",
+        "bytes": 243,
+        "sha256": "cefd6d3c5739721ccfafb43943145e809082df20aae5abe63b24c978513c6bc3"
+      },
+      {
+        "path": "coremldata.bin",
+        "bytes": 503,
+        "sha256": "7b353628c024615cff434f5258ae7e19e737557db3c87d56719481a244e1e02c"
+      },
+      {
+        "path": "model.mil",
+        "bytes": 945038,
+        "sha256": "1d552a55b152c0eb205cc8fbd4f61bd58d1d90ea5365673d6959d8279ac37779"
+      },
+      {
+        "path": "weights/weight.bin",
+        "bytes": 542839552,
+        "sha256": "bf84ad6362390a30b97b5ebac0426f6c1ed8f931f4ae1f5ab70d9c2dd1127829"
+      }
+    ]
+  },
+  "static82/encoder.mlpackage": {
+    "manifest_sha256": "26806606914adf0614d69365c8d0ee82f124001cf7659989009dbc2c3e26f6c8",
+    "bytes": 542893218,
+    "files": [
+      {
+        "path": "Data/com.apple.CoreML/model.mlmodel",
+        "bytes": 713529,
+        "sha256": "c146a77bfdeb093e4884226c4ae75a1a21a5fe07622bb4ad982b32b7fa0b6a30"
+      },
+      {
+        "path": "Data/com.apple.CoreML/weights/weight.bin",
+        "bytes": 542179072,
+        "sha256": "cce31fd5f8674940ce500bf92e9916c5dabdbfaf50a5d5b79eaf7c8e7e0578f2"
+      },
+      {
+        "path": "Manifest.json",
+        "bytes": 617,
+        "sha256": "8c7cf134f19e4e7388b636c0d0d53eb6b7af1177445de39153ed26e100423c91"
+      }
+    ]
+  },
+  "static82/encoder.mlmodelc": {
+    "manifest_sha256": "8d219634c160367b24738ee547cc07a5bd1268aae077408e90961260b078c450",
+    "bytes": 542905371,
+    "files": [
+      {
+        "path": "analytics/coremldata.bin",
+        "bytes": 243,
+        "sha256": "cbe61258086143639caa83ac1924a4ae0c05e83410cb1c86daae47a985be00a0"
+      },
+      {
+        "path": "coremldata.bin",
+        "bytes": 392,
+        "sha256": "0993dbe01125fb4c226c3206c8a4c739f367188aac46fa752952aedf37fb5386"
+      },
+      {
+        "path": "model.mil",
+        "bytes": 725664,
+        "sha256": "3c5559e0a254aa480fb5726e0d14290a302d61b99c9838bcdb92cf984681feda"
+      },
+      {
+        "path": "weights/weight.bin",
+        "bytes": 542179072,
+        "sha256": "cce31fd5f8674940ce500bf92e9916c5dabdbfaf50a5d5b79eaf7c8e7e0578f2"
+      }
+    ]
+  }
+}

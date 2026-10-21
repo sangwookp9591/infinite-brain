@@ -1,0 +1,14 @@
+{
+  "tokens": 82,
+  "command_buffers": 1,
+  "dispatches": 367,
+  "gemm_flops": 22356426752,
+  "gemm_minimum_bytes": 397190144,
+  "gemm_arithmetic_intensity": 56.28645899128856,
+  "submission_break_even_us": 14.693396226415095,
+  "tile_load_store_bytes": 2285816832,
+  "amdahl_required_submission_fraction": 0.26431904963937214,
+  "note": "Minimum compulsory GEMM traffic; excludes cache rereads, attention, norms and host.",
+  "calibrated_gemm_only_estimate_ms": 41.85333674694647,
+  "calibration_note": "Attained throughput of this tile, not hardware peak; excludes host and non-GEMM kernels."
+}

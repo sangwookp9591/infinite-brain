@@ -1,0 +1,12 @@
+{
+  "status": "prediction_before_final_engine_trials",
+  "calibration_source": "../shared-full/microbench.csv",
+  "gemm_only_ms": 41.85333674694647,
+  "submit_cpu_us": 9.9585,
+  "single_cb_ms": 41.86329524694647,
+  "split_cb_ms": 45.50810624694647,
+  "predicted_ratio_split_over_single": 1.087064598677665,
+  "split_submit_fraction": 0.08031029637154435,
+  "amdahl_split_submission_ceiling": 1.0873232526739136,
+  "limits": "Shared tiny-kernel CPU commit cost is not necessarily the encoder workload cost; excludes non-GEMM kernels, host recording and GPU gaps. This is a conditional forecast, not a fitted model or hardware bound."
+}

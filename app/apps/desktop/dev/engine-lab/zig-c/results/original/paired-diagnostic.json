@@ -1,0 +1,45 @@
+{
+  "candidate_source": "preflight.json",
+  "fresh_oracle": "q8-after.json",
+  "cosine_min": 0.9997069467547867,
+  "cosine_mean": 0.9999284186878328,
+  "cosines": [
+    0.9999073815247382,
+    0.9998858884178993,
+    0.9998893865968995,
+    0.9999309544852024,
+    0.9999464599758408,
+    0.9999350152394679,
+    0.9999332200040698,
+    0.9999035945063537,
+    0.99996121199867,
+    0.9997069467547867,
+    0.9999635778119467,
+    0.9999591097329622,
+    0.9999648609363605,
+    0.9999531242699597,
+    0.9999618530488635,
+    0.9999570323245041,
+    0.9999628666367507,
+    0.9999430009492684,
+    0.9999564108194988,
+    0.99994647772261
+  ],
+  "max_abs_diff": 0.0028623463585972786,
+  "candidate_median_ms": 37.33908399590291,
+  "candidate_batch_paragraphs_per_second": 27.55438696886625,
+  "baseline_median_ms": 23.148542,
+  "baseline_best": {
+    "batch_size": 32,
+    "cosine_min": 0.9999993830256797,
+    "median_ms": 1084.7365829999999,
+    "paragraphs_per_second": 92.18828014764209,
+    "trials_ms": [
+      1235.748292,
+      1149.4165,
+      1042.799917,
+      1084.7365829999999
+    ]
+  },
+  "note": "Offline re-comparison of preserved candidate vectors against after-run fresh Q8; no additional GPU timing and not final shared-harness statistics."
+}

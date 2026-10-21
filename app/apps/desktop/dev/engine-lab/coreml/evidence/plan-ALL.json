@@ -1,0 +1,4 @@
+{
+  "counts": null,
+  "error": "{\n    NSLocalizedDescription = \"Failed to build the model execution plan using a model architecture file '/Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/coreml/artifacts/encoder.mlmodelc/model.mil' with error code: -5.\";\n}"
+}

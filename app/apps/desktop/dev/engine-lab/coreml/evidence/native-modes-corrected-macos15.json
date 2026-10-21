@@ -1,0 +1,24 @@
+[
+  {
+    "mode": "enumerated-gpu",
+    "library": "/Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/coreml/artifacts/libib_coreml.dylib",
+    "library_sha256": "b53bfbdd08558e935e44d1f50624b2fa3ddabba5a2fc428902b261a347c7d113",
+    "model": "/Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/coreml/artifacts/encoder.mlmodelc",
+    "units": "CPU_AND_GPU",
+    "max_tokens": 512,
+    "batch_policy": "independent chunks of four",
+    "model_manifest_sha256": "901dd10a4f073b0ae946ac9246c5950092351b35a5535cab2d5e8663bb104b5b"
+  },
+  {
+    "mode": "static82-ane",
+    "library": "/Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/coreml/artifacts/shape-policy-repair/libib_coreml_static82_fixed_macos15.dylib",
+    "library_sha256": "a55938897d5d6e97fed17f186fb0f469e794b376248964c9ae5e372df5ad8ae4",
+    "model": "/Users/iron/Project/psw/infinite-brain/app/apps/desktop/dev/engine-lab/coreml/artifacts/static82/encoder.mlmodelc",
+    "units": "CPU_AND_NE",
+    "max_tokens": 82,
+    "batch_policy": "serial independent sequences",
+    "model_manifest_sha256": "8d219634c160367b24738ee547cc07a5bd1268aae077408e90961260b078c450",
+    "source_correction": "Singleton enumerated1x82 constraint is a fixed shape; original frozen failure artifact retained",
+    "deployment_target": "macOS15.0, preserved from original artifact"
+  }
+]

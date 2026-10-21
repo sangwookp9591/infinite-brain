@@ -1,0 +1,12 @@
+[
+  {
+    "device": "MLNeuralEngineComputeDevice",
+    "total_core_count": 16
+  },
+  {
+    "device": "MLGPUComputeDevice"
+  },
+  {
+    "device": "MLCPUComputeDevice"
+  }
+]

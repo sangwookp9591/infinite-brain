@@ -1,0 +1,14 @@
+[
+  {
+    "diagnostic": "native-all",
+    "returncode": 1
+  },
+  {
+    "diagnostic": "native-shapes-gpu",
+    "returncode": 0
+  },
+  {
+    "diagnostic": "static82",
+    "returncode": 0
+  }
+]
