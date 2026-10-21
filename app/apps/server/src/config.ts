@@ -102,6 +102,8 @@ function publicServerUrl(): string {
 }
 
 export const config = {
+  /** Private supervisor-owned bundle; never supplied by HTTP callers. */
+  officeTlsIdentityFile: optional("OFFICE_TLS_IDENTITY_FILE"),
   databaseUrl: required(
     "DATABASE_URL",
     "postgres://context:context@localhost:5439/context",
@@ -111,6 +113,9 @@ export const config = {
   jwtSecret: jwtSecret(),
   betterAuthUrl: publicServerUrl(),
   port: int("PORT", 3010),
+  /** App-managed host address; loopback by default, explicit LAN profile may use 0.0.0.0. */
+  host: optional("HOST"),
+  hocuspocusHost: optional("HOCUSPOCUS_HOST"),
   hocuspocusPort: int("HOCUSPOCUS_PORT", 3011),
   syncTokenTtlSeconds: int("SYNC_TOKEN_TTL_SECONDS", 600),
   compactionThreshold: int("COMPACTION_THRESHOLD", 50),

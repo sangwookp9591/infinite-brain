@@ -1,6 +1,10 @@
 import { createDocRevocations } from "./sync/doc-revocations.js";
 import { startAiChangesRetention, stopAiChangesRetention } from "./ai-changes/retention.js";
 import { noteLastSeenForVault } from "./members/last-seen.js";
+import { readFileSync } from "node:fs";
+import { createServer as createHttpsServer } from "node:https";
+import { X509Certificate } from "node:crypto";
+import { officeHost } from "./office/pairing.js";
 import { serve } from "@hono/node-server";
 import type { Server as HttpServer } from "node:http";
 import { config } from "./config.js";
@@ -343,11 +347,23 @@ async function main() {
     docWriter,
   });
 
-  const httpServer = serve({ fetch: app.fetch, port: config.port }, (info) => {
-    console.log(`HTTP API listening on http://localhost:${info.port}`);
-    console.log(`Hocuspocus sync listening on ws://localhost:${config.hocuspocusPort}`);
-    console.log(`Hocuspocus sync also reachable at ws://localhost:${info.port}/sync`);
-    console.log(`Vault sync channel at ws://localhost:${info.port}${config.vaultSyncPath}`);
+  let officeTls: { key: string; cert: string; minVersion: "TLSv1.2" } | undefined;
+  if (config.officeTlsIdentityFile) {
+    const identity = JSON.parse(readFileSync(config.officeTlsIdentityFile, "utf8"));
+    const fingerprint = new X509Certificate(identity.certificate).fingerprint256.replaceAll(":", "").toLowerCase();
+    if (fingerprint !== officeHost().fingerprint || !config.betterAuthUrl.startsWith("https://")) throw new Error("Invalid office TLS binding");
+    officeTls = { key: identity.privateKey, cert: identity.certificate, minVersion: "TLSv1.2" };
+  }
+  if (process.env.OFFICE_SERVER_ID && !officeTls && !["127.0.0.1", "localhost", "::1"].includes(config.host ?? "")) {
+    throw new Error("Office LAN listener requires TLS");
+  }
+  const httpServer = serve({ fetch: app.fetch, port: config.port, hostname: config.host,
+    ...(officeTls ? { createServer: createHttpsServer, serverOptions: officeTls } : {}),
+  }, (info) => {
+    console.log(`HTTP API listening on ${config.host ?? "localhost"}:${info.port}`);
+    console.log(`Hocuspocus sync listening on ${config.hocuspocusHost ?? "localhost"}:${config.hocuspocusPort}`);
+    console.log(`Hocuspocus sync also reachable at ${config.host ?? "localhost"}:${info.port}/sync`);
+    console.log(`Vault sync channel at ${config.host ?? "localhost"}:${info.port}${config.vaultSyncPath}`);
   }) as HttpServer;
 
   // Same `sync` instance as HOCUSPOCUS_PORT, so auth/persistence/disconnectDoc
@@ -405,7 +421,10 @@ async function main() {
   // configured) and one Activity notice per invitation that expired (#268).
   startInvitationSweep();
 
+  let shuttingDown = false;
   const shutdown = async () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
     console.log("Shutting down…");
     versionCapture?.stop();
     stopBlobGc();
@@ -423,6 +442,16 @@ async function main() {
   };
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
+  // A bundled Windows child does not have POSIX graceful signals. Only the
+  // parent-created Node IPC channel can request product-host shutdown.
+  if (process.send) {
+    process.on("message", (message) => {
+      if (message && typeof message === "object" && "type" in message && message.type === "office-host:stop") void shutdown();
+    });
+    // If the supervisor dies, drain independently instead of leaving a server
+    // orphan bound to its former runtime and database.
+    process.once("disconnect", () => { void shutdown(); });
+  }
 }
 
 main().catch((err) => {

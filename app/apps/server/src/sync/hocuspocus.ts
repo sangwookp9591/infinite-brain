@@ -193,6 +193,7 @@ export function createSyncServer(
   const server = new Server<SyncContext>({
     name: "context-sync",
     port,
+    address: config.hocuspocusHost,
     quiet: true,
     // HA: mirror doc updates + awareness across instances when REDIS_URL is set
     // (spec 05 §5). Empty (single-instance) otherwise — no behaviour change.

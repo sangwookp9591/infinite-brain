@@ -8,10 +8,13 @@
     "node": ">=22"
   },
   "scripts": {
+    "office:prepare": "node scripts/prepare-office-runtime.mjs",
+    "office:verify": "node scripts/verify-office-runtime.mjs",
     "dev:desktop": "pnpm --filter desktop tauri dev --config src-tauri/tauri.dev.conf.json",
     "dev:server": "turbo run dev --filter=server",
     "build": "turbo run build",
     "build:desktop": "pnpm --filter desktop tauri build",
+    "build:desktop:office": "pnpm run office:prepare && pnpm run office:verify && pnpm --filter desktop tauri build --config src-tauri/tauri.office.conf.json",
     "lint": "turbo run lint",
     "test": "turbo run test"
   },

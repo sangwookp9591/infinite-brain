@@ -5,10 +5,12 @@
   "license": "Apache-2.0",
   "type": "module",
   "main": "dist/index.js",
+  "files": ["dist", "migrations", "office-host/runtime.mjs"],
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
+    "test:office-host": "node --test office-host/*.test.mjs",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
     "db:wait": "node scripts/wait-for-db.mjs",
@@ -21,7 +23,7 @@
     "set-password": "tsx src/scripts/set-password.ts",
     "blobs:migrate": "tsx src/scripts/migrate-blobs.ts",
     "recover:notes": "tsx src/scripts/recover-notes.ts",
-    "test": "vitest run && node --test housekeeper/*.test.mjs"
+    "test": "vitest run && node --test housekeeper/*.test.mjs office-host/*.test.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1134.0",
@@ -41,6 +43,7 @@
     "kysely": "^0.29.3",
     "nodemailer": "^10.0.13",
     "pg": "^8.22.0",
+    "selfsigned": "5.5.0",
     "standardwebhooks": "^1.0.0",
     "ws": "^8.21.0",
     "yjs": "catalog:"

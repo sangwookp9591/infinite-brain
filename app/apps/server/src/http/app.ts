@@ -11,6 +11,7 @@ import { externalSharingRoutes } from "./routes/external-sharing.js";
 import { guestHttp } from "../permissions/guest-http.js";
 import { auditRequests } from "../audit/http.js";
 import { auditRoutes } from "./routes/audit.js";
+import { officePairingRoutes } from "./routes/office-pairing.js";
 import { createAiChangeRoutes } from "./routes/ai-changes.js";
 import { MCP_SCOPES } from "../mcp/scopes.js";
 import { Hono } from "hono";
@@ -371,6 +372,7 @@ export function createApp(deps: AppDeps): Hono {
   app.route("/api", desktopOauthRoutes);
   app.route("/api", bugReportRoutes);
   app.route("/api", auditRoutes);
+  app.route("/api", officePairingRoutes);
   app.route("/api", externalSharingRoutes);
   // Invitation preview (public, by unguessable id) + the signed-in inbox that
   // sidesteps Better Auth's verified-email gate on list-user-invitations.
