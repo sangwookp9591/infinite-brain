@@ -38,6 +38,7 @@ import { health } from "./health";
 import { billing } from "./billing";
 import { graph } from "./graph";
 import { dashboards } from "./dashboards";
+import { office } from "./office";
 
-export const ko: Record<string, string> = { ...common, ...welcome, ...sidebar, ...sharing, ...app, ...search, ...help, ...shortcuts, ...settings, ...vaultTabs, ...health, ...billing, ...graph, ...dashboards };
-export const KO_PARTS = { common, welcome, sidebar, sharing, app, search, help, shortcuts, settings, vaultTabs, health, billing, graph, dashboards };
+export const ko: Record<string, string> = { ...common, ...welcome, ...sidebar, ...sharing, ...app, ...search, ...help, ...shortcuts, ...settings, ...vaultTabs, ...health, ...billing, ...graph, ...dashboards, ...office };
+export const KO_PARTS = { common, welcome, sidebar, sharing, app, search, help, shortcuts, settings, vaultTabs, health, billing, graph, dashboards, office };

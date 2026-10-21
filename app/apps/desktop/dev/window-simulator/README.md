@@ -11,6 +11,9 @@ query parameters to the simulator URL:
   Remote Vault stats.
 - `surface=onboarding` plays the first-launch intro on its own.
 - `surface=housekeeper` mounts the Housekeeper panel with local API fixtures.
+- `surface=office` mounts the synthetic office collaboration preview. Use
+  `officeScenario=duplicates` for duplicate candidate names or
+  `officeScenario=error` for a connection failure.
 
 Add `theme=light` or `theme=dark`, and use a 1440×900 or 720×600 viewport for
 the P6 review captures. All fixture data is synthetic; the Housekeeper route

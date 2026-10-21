@@ -311,7 +311,19 @@ useStore.setState({
 });
 (window as any).previewStore = useStore;
 (window as any).previewUnknownRequests = unknownRequests;
-if (surface === "onboarding") {
+if (surface === "office") {
+  await import("/src/main.tsx");
+  const requestedTheme = params.get("theme");
+  if (requestedTheme === "light" || requestedTheme === "dark") {
+    const { applyEffectiveTheme } = await import("/src/lib/theme.ts");
+    // The app store may apply its fixture appearance after main's startup
+    // paint. Keep the explicitly requested simulator theme authoritative.
+    applyEffectiveTheme(requestedTheme);
+    new MutationObserver(() => {
+      if (document.documentElement.dataset.theme !== requestedTheme) applyEffectiveTheme(requestedTheme);
+    }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  }
+} else if (surface === "onboarding") {
   await import("/src/assets/fonts/fonts.css");
   await import("/src/styles/tokens.css");
   await import("/src/App.css");

@@ -1,0 +1,38 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+.office-frame { min-height: 100%; overflow: auto; padding: var(--sp-6); background: var(--bg-app); color: var(--text-primary); }
+.office { width: min(100%, 1120px); margin: 0 auto; }
+.office-header { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); margin-bottom: var(--sp-6); }
+.office-eyebrow { margin: 0 0 var(--sp-1); color: var(--text-tertiary); font-size: var(--fs-sm); }
+.office-header h1 { margin: 0; font-size: var(--fs-2xl); }
+.office-status { display: inline-flex; align-items: center; min-height: 44px; border: 1px solid var(--border); border-radius: var(--radius-pill); padding: 0 var(--sp-4); background: var(--bg-surface); font-size: var(--fs-sm); }
+.office-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 1fr); gap: var(--sp-4); align-items: start; }
+.office-card { min-width: 0; padding: var(--sp-6); border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--bg-surface); box-shadow: var(--shadow-sm); }
+.office-card h2 { margin: 0 0 var(--sp-2); font-size: var(--fs-lg); }
+.office-card p { color: var(--text-secondary); line-height: 1.5; }
+.office-card label { display: block; margin: var(--sp-4) 0 var(--sp-1); font-size: var(--fs-sm); }
+.office-card input { width: 100%; min-height: 44px; border: 1px solid var(--border-strong); border-radius: var(--radius-md); padding: 0 var(--sp-3); background: var(--bg-subtle); color: var(--text-primary); font: inherit; }
+.office-card button { min-height: 44px; }
+.office-card > .primary { margin-top: var(--sp-4); }
+.office-secondary { border: 1px solid var(--border); border-radius: var(--radius-pill); padding: var(--sp-2) var(--sp-4); background: var(--bg-subtle); color: var(--text-primary); }
+.office-secondary:hover { background: var(--bg-hover); }
+.office-candidates { display: grid; gap: var(--sp-2); margin: var(--sp-4) 0; padding: 0; list-style: none; }
+.office-candidates li, .office-request { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3); padding: var(--sp-3); border: 1px solid var(--border); border-radius: var(--radius-md); }
+.office-candidates li div, .office-request > div:first-child { display: grid; gap: var(--sp-1); }
+.office-candidates span, .office-request span, .office-request small { color: var(--text-secondary); font-size: var(--fs-sm); }
+.office-hint { padding: var(--sp-3); border-radius: var(--radius-md); background: var(--bg-subtle); }
+.office-confirm { display: grid; gap: var(--sp-3); margin-top: var(--sp-4); }
+.office-confirm output { display: block; overflow-wrap: anywhere; text-align: center; padding: var(--sp-4); border-radius: var(--radius-md); background: var(--bg-subtle); font-family: var(--font-mono); font-size: clamp(var(--fs-xl), 9vw, 40px); letter-spacing: .1em; }
+.office-sas { font-variant-numeric: tabular-nums; letter-spacing: .18em; }
+.office-error { padding: var(--sp-4); border: 1px solid var(--danger); border-radius: var(--radius-md); }
+.office-error-top { margin: 0 0 var(--sp-4); background: var(--bg-surface); color: var(--text-primary); }
+.office-error p { margin-bottom: var(--sp-3); }
+.office-flow, .office-local { margin-bottom: var(--sp-4); }
+.office-local h2, .office-local h3 { margin-top: 0; }
+.office-admin { margin-top: var(--sp-4); }
+.office-request output { display: block; width: max-content; max-width: 100%; font-size: 24px; }
+.office-request { margin-top: var(--sp-2); align-items: flex-start; }
+.office-actions { display: flex; gap: var(--sp-1); flex-wrap: wrap; }
+.office-host { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3); margin-top: var(--sp-5); padding-top: var(--sp-4); border-top: 1px solid var(--border); }
+.office-host h3, .office-host p { margin: 0 0 var(--sp-1); }
+.office-locale { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+@media (max-width: 760px) { .office-frame { padding: var(--sp-4); } .office-header { align-items: flex-start; flex-direction: column; } .office-grid { grid-template-columns: minmax(0, 1fr); } .office-card { padding: var(--sp-4); } .office-request, .office-host { align-items: flex-start; flex-direction: column; } }

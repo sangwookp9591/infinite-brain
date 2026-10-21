@@ -1093,7 +1093,21 @@ function PromptedAuthDialog() {
   );
 }
 
+const OfficePreviewRoute = import.meta.env.DEV
+  ? lazy(() => import("./components/office/OfficePreview").then((m) => ({ default: m.OfficePreview })))
+  : null;
+
+/** Dev-only entry for the synthetic office flow; production always mounts the desktop shell. */
 export default function App() {
+  if (import.meta.env.DEV && new URLSearchParams(window.location.search).get("surface") === "office") {
+    return OfficePreviewRoute
+      ? <Suspense fallback={<div className="booting">Loading…</div>}><OfficePreviewRoute /></Suspense>
+      : null;
+  }
+  return <DesktopApp />;
+}
+
+function DesktopApp() {
   const tr = useT();
   // Invitations to other vaults appear live, not on the next reload.
   useLiveInvitations();
