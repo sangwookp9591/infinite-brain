@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: Apache-2.0
+/target/
+/.venv/
+/build/
+/results/
+__pycache__/
+
+/build.log
+/*.log
