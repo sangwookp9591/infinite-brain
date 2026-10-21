@@ -1606,6 +1606,13 @@ export class ApiClient {
     return { data: parsed as T, authToken, status: res.status };
   }
 
+  /** Narrow typed-transport hook for the Office pairing client. Paths are
+   * fixed by that client; this keeps auth, relay URL and CSRF headers here. */
+  async officeRequest<T>(method: "GET" | "POST", path: string, body?: unknown): Promise<T> {
+    if (!path.startsWith("/api/office/")) throw new Error("invalid_request");
+    return (await this.request<T>(method, path, { ...(body === undefined ? {} : { body }), timeoutMs: 15_000 })).data;
+  }
+
   // ---- Reachability -------------------------------------------------------
 
   /**

@@ -35,4 +35,5 @@ export type AccountSettingsTab =
   | "connection"
   | "plan"
   | "vaults"
+  | "office"
   | "about";

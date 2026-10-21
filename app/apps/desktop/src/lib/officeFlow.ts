@@ -18,6 +18,7 @@ export type OfficeErrorCode =
   | "challenge_replayed"
   | "sas_mismatch"
   | "too_many_attempts"
+  | "sas_required"
   | "already_joined"
   | "identity_link_required"
   | "permission_missing"
@@ -180,6 +181,7 @@ export const officeErrorCopy: Readonly<Record<OfficeErrorCode, { cause: string; 
   challenge_replayed: { cause: "이미 처리된 확인 요청이에요.", next: "초대를 새로 열어 다시 시작해 주세요." },
   sas_mismatch: { cause: "두 화면의 확인 숫자가 달라요.", next: "승인하지 말고 연결을 닫은 뒤 관리자에게 새 초대를 요청해 주세요." },
   too_many_attempts: { cause: "확인 요청이 여러 번 실패해 잠시 멈췄어요.", next: "잠시 기다린 뒤 관리자에게 새 초대를 요청해 주세요." },
+  sas_required: { cause: "두 화면의 확인 숫자를 먼저 비교해 주세요.", next: "요청자와 숫자가 같은지 확인한 뒤 다시 시도해 주세요." },
   already_joined: { cause: "이 기기는 이미 회사 작업 공간에 연결돼 있어요.", next: "설정에서 현재 연결을 확인해 주세요." },
   identity_link_required: { cause: "이 기기를 기존 구성원 계정과 연결해야 해요.", next: "기존 계정으로 로그인하거나 관리자에게 계정 연결을 요청해 주세요." },
   permission_missing: { cause: "승인됐지만 열 수 있는 공유 자료가 아직 없어요.", next: "관리자에게 필요한 vault 권한을 확인해 달라고 해 주세요." },

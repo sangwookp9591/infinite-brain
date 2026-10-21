@@ -1,15 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { OfficeCandidate, OfficeDiscoveryPort, OfficeLinkPort, PairingPort } from "./officeFlow";
+import * as ipc from "./ipc";
+import { openOfficeDiscovery, openDiscoveredOffice } from "./officeDiscovery";
+import { openOfficeLink, type OfficeLink } from "./officeLink";
+import type { ApiClient } from "./api";
+import { OfficeClient, type OfficeRequest } from "./officeClient";
 
-export interface OfficeRequest {
-  id: string;
-  nickname: string;
-  device: string;
-  platform: "Windows" | "macOS";
-  status: "pending" | "approved" | "rejected";
-  confirmationNumber: string;
-  sasMatches?: boolean;
-}
+export type { OfficeRequest } from "./officeClient";
 
 export interface OfficeDemoPort extends OfficeDiscoveryPort, OfficeLinkPort, PairingPort {
   getRequests(): OfficeRequest[];
@@ -17,6 +14,75 @@ export interface OfficeDemoPort extends OfficeDiscoveryPort, OfficeLinkPort, Pai
   confirmRequest(id: string, matches: boolean): Promise<void>;
   setHostRunning(running: boolean): Promise<void>;
   getHostRunning(): boolean;
+  refreshRequests?(): Promise<OfficeRequest[]>;
+  refreshHost?(): Promise<boolean>;
+}
+
+/** Real IPC/API ports. Invite-based pairing is intentionally not fabricated:
+ * callers must supply an invitation through the native pairing entry point. */
+export function createOfficeAdapter(api: ApiClient, organizationId: string, pinnedHub?: { origin: string; serverId: string }): OfficeDemoPort {
+  const client = new OfficeClient(api, organizationId);
+  let scan: ReturnType<typeof openOfficeDiscovery> | undefined;
+  let listeners = new Set<(items: readonly OfficeCandidate[]) => void>();
+  let candidates = new Map<string, ipc.OfficeDiscoveryCandidate>();
+  let running = false;
+  let endpoint: ipc.OfficeLinkEndpoint | undefined;
+  let pinnedLink: OfficeLink | undefined;
+  let requests: OfficeRequest[] = [];
+  const publish = (snapshot: ipc.OfficeDiscoverySnapshot) => {
+    candidates = new Map(snapshot.candidates.map((candidate) => [candidate.candidateId, candidate]));
+    const view = snapshot.candidates.map((candidate) => ({ candidateId: candidate.candidateId, displayName: candidate.displayName, trust: "untrusted-candidate" as const }));
+    listeners.forEach((listener) => listener(view));
+  };
+  return {
+    async start() { scan?.close(); scan = openOfficeDiscovery(publish, () => listeners.forEach((fn) => fn([]))); },
+    async stop() { await scan?.close(); scan = undefined; candidates.clear(); listeners.forEach((fn) => fn([])); },
+    onCandidates(callback) { listeners.add(callback); return () => listeners.delete(callback); },
+    async verifyCandidate(id) {
+      const candidate = candidates.get(id);
+      if (!candidate) throw new Error("office:host_not_found");
+      if (pinnedHub && pinnedHub.serverId === candidate.serverId) {
+        pinnedLink = await openOfficeLink(pinnedHub, api);
+        throw new Error("office:invite_invalid");
+      }
+      endpoint = await openDiscoveredOffice(candidate);
+      // Discovery reconnect is available only for an already pinned hub.
+      throw new Error("office:invite_invalid");
+    },
+    async close() {
+      if (pinnedLink) await pinnedLink.close();
+      else if (endpoint) await ipc.officeLinkClose(endpoint.linkId);
+      pinnedLink = undefined; endpoint = undefined;
+    },
+    async requestApproval() { throw new Error("office:invite_invalid"); },
+    async cancelRequest() { throw new Error("office:unknown"); },
+    async getStatus() { return "pending"; },
+    getRequests() { return requests; },
+    async decideRequest(id, approve) { await client.decide(id, approve ? "approved" : "rejected"); requests = await client.requests(); },
+    async confirmRequest(id, matches) { await client.confirmSas(id, matches); requests = await client.requests(); },
+    async setHostRunning(next) {
+      if (!next) {
+        await ipc.officeDiscoveryAdvertise(null);
+        await ipc.officeHostStop(); running = false; return;
+      }
+      try {
+        const status = await ipc.officeHostStart("lan");
+        running = status.available && status.phase === "ready" && status.scope === "lan" && status.lanExposed;
+        await ipc.officeDiscoveryAdvertise(running ? "공유 작업 공간" : null);
+      } catch {
+        running = false;
+        await ipc.officeDiscoveryAdvertise(null).catch(() => undefined);
+        throw new Error("office:host_stopped");
+      }
+    },
+    getHostRunning() { return running; },
+    async refreshRequests() { requests = await client.requests(); return requests; },
+    async refreshHost() {
+      const status = await ipc.officeHostStatus().catch(() => null);
+      running = !!status?.available && status.phase === "ready" && status.scope === "lan" && status.lanExposed;
+      return running;
+    },
+  };
 }
 
 const candidates: OfficeCandidate[] = [

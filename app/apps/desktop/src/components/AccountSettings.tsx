@@ -36,6 +36,7 @@ import { Switch } from "./Switch";
 import { SegmentedChips } from "./kit/SegmentedChips";
 import { PulseStar } from "./kit/PulseStar";
 import { AppearanceRows } from "./AppearanceRows";
+import { OfficeEntry } from "./office/OfficeEntry";
 import { useShallow } from "zustand/react/shallow";
 import {
   appearanceSource,
@@ -100,6 +101,7 @@ const ACCOUNT_TABS: Array<{ id: AccountTab; label: string; icon: React.ReactNode
       </Icon>
     ),
   },
+  { id: "office", label: "Office collaboration", icon: <Icon><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6" /></Icon> },
   {
     id: "appearance",
     label: "Appearance",
@@ -203,6 +205,8 @@ export function AccountSettings({
             <AccountPlanTab />
           ) : tab === "vaults" ? (
             <AccountVaultsTab />
+          ) : tab === "office" ? (
+            <OfficeEntry />
           ) : tab === "appearance" ? (
             <AppearanceTab />
           ) : tab === "notifications" ? (
