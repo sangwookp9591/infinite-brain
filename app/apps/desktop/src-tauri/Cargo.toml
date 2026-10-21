@@ -28,6 +28,11 @@ arboard = { version = "3", features = ["wayland-data-control"] }
 # terminal, so the UI reports through this plugin's Stdout target instead.
 tauri-plugin-log = "2"
 log = "0.4"
+# LAN discovery: reviewed 2026-10-21; released 2026-07-17 (see spike report).
+mdns-sd = { version = "=0.20.2", default-features = false }
+# Bound the transitive packet-info implementation to the reviewed release.
+# 0.4.1 requires a newer libc; preserve the existing, reviewed libc lock.
+socket-pktinfo = "=0.4.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9"

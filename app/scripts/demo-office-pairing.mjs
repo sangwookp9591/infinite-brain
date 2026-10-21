@@ -112,8 +112,15 @@ async function main() {
     BETTER_AUTH_URL: baseUrl, HOST: '127.0.0.1', PORT: String(httpPort), HOCUSPOCUS_HOST: '127.0.0.1',
     HOCUSPOCUS_PORT: '0', RELEASE_MANIFEST_URL: 'off', RELEASE_POLL_MINUTES: '0', BLOB_PROVIDER: 'postgres',
     OFFICE_SERVER_ID: serverId, OFFICE_HOST_GENERATION: generation, OFFICE_HUB_FINGERPRINT: fingerprint };
-  say('1/3  임시 데이터베이스를 만들고 001~067 마이그레이션을 적용합니다…');
+  say('1/3  임시 데이터베이스를 만들고 001~068 마이그레이션을 적용합니다…');
   await run(bundledNode, [join(server, 'dist/db/migrate.js')], { cwd: server, env });
+  if (process.argv.includes('--test-pairing')) {
+    say('새 임시 cluster에서 pairing 전체 테스트를 실행합니다.');
+    await run('pnpm', ['exec', 'vitest', 'run', 'tests/office-pairing.test.ts', 'tests/office-pairing-negative.test.ts', 'tests/office-pairing-migration.test.ts', 'tests/office-pairing-sas.test.ts'], {
+      cwd: server, env: { ...env, NODE_ENV: 'test', NODE_OPTIONS: '--no-experimental-webstorage', BETTER_AUTH_URL: 'http://localhost:3010' }, stdio: 'inherit',
+    });
+    return 0;
+  }
   serverChild = child(bundledNode, [join(server, 'dist/index.js')], { cwd: server, env });
   await waitFor(async () => { const response = await fetch(`${baseUrl}/health`); return response.ok; }, 'HTTP 서버');
   say('2/3  실제 서버 API를 시작했습니다. 이제 pairing 과정을 확인합니다.\n');
@@ -154,18 +161,28 @@ async function main() {
     const keys = generateKeyPairSync('ed25519');
     const personId = randomUUID(), deviceId = randomUUID();
     const body = { invitationSecret: inv.data.invitationSecret, hubFingerprint: fingerprint, personId, deviceId,
-      displayAlias: '민수', deviceLabel: deviceName, platform: 'macos', clientNonce: secret(),
+      displayAlias: '민수', deviceLabel: deviceName, platform: 'macos',
       publicKey: keys.publicKey.export({ format: 'der', type: 'spki' }).toString('base64url') };
     const started = await request('/office/pairing/challenge', { method: 'POST', body, token: person.token });
     if (started.status !== 201) throw new Error(`참여 요청 준비 실패 (${started.status})`);
-    const challenge = started.data.challenge;
+    const clientNonce = secret(), commitment = protocol.sasCommit(started.data.context, clientNonce);
+    const committed = await request(`/office/pairing/${started.data.sessionId}/commit`, { method: 'POST', body: {
+      pairingToken: started.data.pairingToken, commitment: commitment.toString('base64url'), signature: sign(null, commitment, keys.privateKey).toString('base64url'),
+    } });
+    if (committed.status !== 200) throw new Error(`확인 숫자 준비 실패 (${committed.status})`);
+    const revealed = await request(`/office/pairing/${started.data.sessionId}/reveal`, { method: 'POST', body: { pairingToken: started.data.pairingToken, clientNonce } });
+    if (revealed.status !== 200) throw new Error(`확인 숫자 검증 실패 (${revealed.status})`);
+    const challenge = revealed.data.challenge;
+    const sas = protocol.deriveSas(started.data.context, clientNonce, committed.data.serverNonce);
     const signature = sign(null, protocol.challengeDigest(challenge), keys.privateKey).toString('base64url');
-    return { id: challenge.sessionId, token: started.data.pairingToken, challenge, signature, person };
+    return { sas, id: challenge.sessionId, token: started.data.pairingToken, challenge, signature, person };
   }
   const proveAndRequest = async (run) => {
     const proof = await request(`/office/pairing/${run.id}/proof`, { method: 'POST', body: {
       pairingToken: run.token, clientNonce: run.challenge.clientNonce, serverNonce: run.challenge.serverNonce, signature: run.signature } });
     if (proof.status !== 200) throw new Error(`기기 서명 확인 실패 (${proof.status})`);
+    const confirmation = await request(`/office/pairing/${run.id}/sas-confirm`, { method: 'POST', body: { pairingToken: run.token, matches: true } });
+    if (confirmation.status !== 200) throw new Error(`확인 숫자 비교 실패 (${confirmation.status})`);
     return request(`/office/pairing/${run.id}/request`, { method: 'POST', token: run.person.token, body: { pairingToken: run.token } });
   };
   say('3/3  단계별 결과');
@@ -180,10 +197,14 @@ async function main() {
   const queue = await request(`/office/organizations/${organizationId}/requests`, { token: admin.token });
   const rows = queue.data.requests ?? [];
   const rowA = rows.find((row) => row.sessionId === a.id), rowB = rows.find((row) => row.sessionId === b.id);
-  const marked = rowA && rowB && rowA.displayAlias === rowB.displayAlias && rowA.comparisonCode !== rowB.comparisonCode;
+  const marked = rowA && rowB && rowA.displayAlias === rowB.displayAlias && rowA.sessionId !== rowB.sessionId && rowA.sas === a.sas && rowB.sas === b.sas;
   check('같은 별명 두 요청을 표식으로 구분', requestB.status === 200 && marked,
-    marked ? `${rowA.displayAlias} · ${rowA.comparisonCode} / ${rowB.displayAlias} · ${rowB.comparisonCode}` : `요청 HTTP ${requestB.status}, 대기열 표식 확인 실패`);
+    marked ? `${rowA.displayAlias} · 기기 A / ${rowB.displayAlias} · 기기 B, 양쪽 확인 숫자 일치` : `요청 HTTP ${requestB.status}, 대기열 표식 확인 실패`);
 
+  const premature = await request(`/office/pairing/${a.id}/decision`, { method: 'POST', token: admin.token, body: { decision: 'approved' } });
+  if (premature.status !== 403) throw new Error('확인 숫자 비교 전 승인이 차단되지 않았습니다.');
+  const adminSas = await request(`/office/pairing/${a.id}/sas-confirm`, { method: 'POST', token: admin.token, body: { matches: rowA.sas === a.sas } });
+  if (adminSas.status !== 200) throw new Error('관리자 확인 숫자 비교 실패');
   const approved = await request(`/office/pairing/${a.id}/decision`, { method: 'POST', token: admin.token, body: { decision: 'approved' } });
   const statusA = await request(`/office/pairing/${a.id}/status`, { method: 'POST', body: { pairingToken: a.token } });
   const directory = await request(`/office/organizations/${organizationId}/directory`, { token: memberA.token });
@@ -200,7 +221,7 @@ async function main() {
   const spareKeys = generateKeyPairSync('ed25519');
   const reusedInvite = await request('/office/pairing/challenge', { method: 'POST', token: memberB.token, body: {
     invitationSecret: cancelledInvite.data.invitationSecret, hubFingerprint: fingerprint, personId: randomUUID(), deviceId: randomUUID(),
-    displayAlias: '다른 참여자', deviceLabel: '재사용 확인용', platform: 'macos', clientNonce: secret(),
+    displayAlias: '다른 참여자', deviceLabel: '재사용 확인용', platform: 'macos',
     publicKey: spareKeys.publicKey.export({ format: 'der', type: 'spki' }).toString('base64url') } });
   // The cancelled invitation is independently checked through the invitation API path.
   check('취소한 초대 재사용 차단', cancel.status === 200 && reusedInvite.status === 410,
@@ -210,6 +231,8 @@ async function main() {
   const forgedProof = await request(`/office/pairing/${forged.id}/proof`, { method: 'POST', body: { pairingToken: forged.token,
     clientNonce: forged.challenge.clientNonce, serverNonce: forged.challenge.serverNonce, signature: secret(64) } });
   check('위조 서명 거절', forgedProof.status === 403, `HTTP ${forgedProof.status}`);
+  // Demonstrate the persisted backoff without bypassing the server's clock.
+  await new Promise((r) => setTimeout(r, 1100));
   const goodProof = await request(`/office/pairing/${forged.id}/proof`, { method: 'POST', body: { pairingToken: forged.token,
     clientNonce: forged.challenge.clientNonce, serverNonce: forged.challenge.serverNonce, signature: forged.signature } });
   const replayProof = await request(`/office/pairing/${forged.id}/proof`, { method: 'POST', body: { pairingToken: forged.token,

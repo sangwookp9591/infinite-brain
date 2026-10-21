@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
-import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
+import { generateKeyPairSync, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import type pg from "pg";
 import { pool } from "../db/pool.js";
 import { config } from "../config.js";
 import { auditContext, recordAudit } from "../audit/log.js";
 import { isTeamRole, isManagerRole } from "../permissions/roles.js";
-import { PairingError, base64, challengeDigest, deviceKey, digest, normalizeAlias, personCode, text, uuid, verifyProof, type Challenge } from "./protocol.js";
+import { PairingError, base64, challengeDigest, deviceKey, digest, normalizeAlias, personCode, text, uuid, verifyProof, type Challenge, type SasContext, sasCommit, deriveSas } from "./protocol.js";
+
+const hubPublicKey = generateKeyPairSync("ed25519").publicKey.export({ format: "der", type: "spki" }).toString("base64url");
 
 export interface OfficeHost { serverId: string; generation: string; fingerprint: string; audience: string }
 export function officeHost(): OfficeHost {
@@ -25,6 +27,9 @@ interface Session {
   challenge_hash: Buffer; nonce_hash: Buffer; server_nonce_hash: Buffer; capability_hash: Buffer;
   public_key: Buffer; key_fingerprint: Buffer; server_id: string; audience: string;
   host_generation: string; protocol_version: number; failed_attempts: number;
+  sas_context: SasContext | null; sas_commit: Buffer | null; sas_server_nonce: string | null;
+  sas_code: string | null; sas_phase: "prepared" | "committed" | "revealed" | null;
+  sas_client_confirmed_at: Date | null; sas_admin_confirmed_by: string | null; sas_blocked_until: Date | null;
   decided_by_user_id: string | null; decision_reason_code: string | null;
 }
 const terminal = new Set<State>(["approved", "rejected", "cancelled", "expired"]);
@@ -76,18 +81,42 @@ async function load(db: pg.PoolClient, id: string): Promise<Session> {
   return row;
 }
 function hostMatches(row: Session, host: OfficeHost): void {
-  if (row.server_id !== host.serverId || row.host_generation !== host.generation || row.audience !== host.audience) throw new PairingError("wrong_workspace", 403);
+  if (row.server_id !== host.serverId || row.host_generation !== host.generation || row.audience !== host.audience || (row.sas_context && row.sas_context.hubFingerprint !== host.fingerprint)) throw new PairingError("wrong_workspace", 403);
 }
 function capability(row: Session, value: unknown): void {
   if (!same(row.capability_hash, hashSecret(value))) throw new PairingError("not_allowed", 403);
 }
 async function expire(db: pg.PoolClient, row: Session): Promise<boolean> {
   if (!terminal.has(row.state) && row.expires_at.getTime() <= Date.now()) {
-    await db.query("UPDATE pairing_session SET state='expired', updated_at=now() WHERE id=$1 AND state=$2", [row.id, row.state]);
+    await db.query("UPDATE pairing_session SET state='expired', sas_server_nonce=NULL,sas_commit=NULL,sas_code=NULL,updated_at=now() WHERE id=$1 AND state=$2", [row.id, row.state]);
     await db.query("UPDATE person_device SET status='revoked', revoked_at=now(), updated_at=now() WHERE id=$1", [row.device_id]);
     await event(db, "office.pairing.expire", row, row.state, "expired"); row.state = "expired";
   }
   return row.state === "expired";
+}
+function ready(row: Session): void {
+  if (row.sas_blocked_until && row.sas_blocked_until.getTime() > Date.now()) throw new PairingError("too_many_attempts", 429);
+}
+function challengeFor(row: Session, clientNonce: string, serverNonce: string): Challenge {
+  return { serverId: row.server_id, organizationId: row.organization_id, sessionId: row.id, deviceId: row.device_id,
+    keyFingerprint: row.key_fingerprint.toString("hex"), clientNonce, serverNonce, audience: row.audience,
+    hostGeneration: row.host_generation, protocolVersion: row.protocol_version, expiresAt: row.proof_expires_at.toISOString(),
+    requesterUserId: row.requester_user_id, personId: row.requested_person_id, displayAlias: row.display_alias };
+}
+async function failSas(db: pg.PoolClient, row: Session, code: string): Promise<PairingError> {
+  const failures = row.failed_attempts + 1, cancelled = failures >= 3;
+  await db.query(`UPDATE pairing_session SET failed_attempts=$2,sas_blocked_until=now()+($3*interval '1 second'),
+    state=CASE WHEN $4 THEN 'cancelled' ELSE state END,
+    sas_commit=CASE WHEN $4 THEN NULL ELSE sas_commit END,sas_code=CASE WHEN $4 THEN NULL ELSE sas_code END,sas_server_nonce=CASE WHEN $4 THEN NULL ELSE sas_server_nonce END,
+    updated_at=now() WHERE id=$1`, [row.id, failures, cancelled ? 300 : 2 ** (failures - 1), cancelled]);
+  await db.query(`INSERT INTO office_pairing_sas_attempt(key_fingerprint,failures,blocked_until) VALUES ($1,1,now()+interval '1 second')
+    ON CONFLICT(key_fingerprint) DO UPDATE SET failures=LEAST(3,office_pairing_sas_attempt.failures+1),
+    blocked_until=now()+(CASE WHEN office_pairing_sas_attempt.failures>=2 THEN 300 ELSE 2 END*interval '1 second')`, [row.key_fingerprint]);
+  if (cancelled) {
+    await db.query("UPDATE person_device SET status='revoked',revoked_at=now(),updated_at=now() WHERE id=$1", [row.device_id]);
+    await event(db, "office.pairing.cancel", row, row.state, "cancelled");
+  }
+  return new PairingError(code, 403);
 }
 function minimal(row: Session) {
   return { sessionId: row.id, state: row.state, displayAlias: row.display_alias, expiresAt: row.expires_at.toISOString() };
@@ -116,7 +145,7 @@ export class OfficePairing {
     const key = deviceKey(input.publicKey), deviceId = uuid(input.deviceId), personId = uuid(input.personId);
     const alias = text(input.displayAlias, 40), label = text(input.deviceLabel, 80);
     if (!["windows", "macos", "linux", "other"].includes(String(input.platform))) throw new PairingError("invalid_request");
-    const clientNonce = base64(input.clientNonce, 32).toString("base64url");
+    if (input.clientNonce !== undefined) throw new PairingError("commit_required", 409);
     return transaction("office.pairing.challenge", undefined, async (db) => {
       const invitation = (await db.query(`SELECT * FROM office_pairing_invitation WHERE secret_hash=$1 FOR UPDATE`, [hashSecret(input.invitationSecret)])).rows[0];
       if (!invitation || invitation.used_at || invitation.cancelled_at || invitation.expires_at.getTime() <= Date.now()) throw new PairingError("invitation_unavailable", 410);
@@ -125,25 +154,74 @@ export class OfficePairing {
       await db.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [`office-pairing:${organizationId}`]);
       const count = (await db.query("SELECT count(*)::int AS n FROM pairing_session WHERE organization_id=$1 AND state=ANY($2::text[]) AND expires_at>now()", [organizationId, live])).rows[0].n;
       if (count >= 100) throw new PairingError("try_later", 429);
-      const id = randomUUID(), token = secret(), serverNonce = secret();
+      const attempts = (await db.query("SELECT blocked_until FROM office_pairing_sas_attempt WHERE key_fingerprint=$1 FOR UPDATE", [digest(key)])).rows[0];
+      if (attempts?.blocked_until.getTime() > Date.now()) throw new PairingError("too_many_attempts", 429);
+      const id = randomUUID(), token = secret();
       const expiresAt = new Date(Date.now() + 5 * 60_000).toISOString();
-      const challenge: Challenge = { serverId: this.host.serverId, organizationId, sessionId: id, deviceId,
-        keyFingerprint: digest(key).toString("hex"), clientNonce, serverNonce, audience: this.host.audience,
-        hostGeneration: this.host.generation, protocolVersion: 1, expiresAt, requesterUserId: userId,
-        personId, displayAlias: alias };
+      const context: SasContext = { sessionId: id, serverId: this.host.serverId, organizationId, hostGeneration: this.host.generation,
+        observedFingerprint: String(input.hubFingerprint), hubFingerprint: this.host.fingerprint,
+        clientPublicKey: key.toString("base64url"), hubPublicKey };
       await db.query(`INSERT INTO person_device(id,public_key,key_algorithm,key_fingerprint,device_label,platform)
         VALUES ($1,$2,'Ed25519',$3,$4,$5)`, [deviceId, key, digest(key), label, input.platform]);
       await db.query(`INSERT INTO pairing_session
         (id,organization_id,invitation_id,device_id,requested_person_id,requester_user_id,display_alias,challenge_hash,nonce_hash,
-         server_nonce_hash,capability_hash,server_id,protocol_version,audience,host_generation,proof_expires_at,expires_at,state)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,1,$13,$14,$15,$15,'challenge_issued')`,
-      [id, organizationId, invitation.id, deviceId, personId, userId, alias, challengeDigest(challenge), digest(base64(clientNonce, 32)),
-        digest(base64(serverNonce, 32)), hashSecret(token), this.host.serverId, this.host.audience, this.host.generation, expiresAt]);
+         server_nonce_hash,capability_hash,server_id,protocol_version,audience,host_generation,proof_expires_at,expires_at,state,sas_context,sas_phase)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,1,$13,$14,$15,$15,'challenge_issued',$16,'prepared')`,
+      [id, organizationId, invitation.id, deviceId, personId, userId, alias, randomBytes(32), randomBytes(32),
+        randomBytes(32), hashSecret(token), this.host.serverId, this.host.audience, this.host.generation, expiresAt, JSON.stringify(context)]);
       const consumed = await db.query("UPDATE office_pairing_invitation SET used_at=now(), updated_at=now() WHERE id=$1 AND used_at IS NULL AND cancelled_at IS NULL AND expires_at>now()", [invitation.id]);
       if (consumed.rowCount !== 1) throw new PairingError("invitation_unavailable", 410);
       await recordAudit(db, { action: "office.device.register", organizationId, targetType: "device", targetId: deviceId, after: { status: "unpaired" }, refs: { pairingSessionId: id } });
       await event(db, "office.pairing.challenge", { id, organization_id: organizationId, device_id: deviceId }, undefined, "challenge_issued");
-      return { challenge, pairingToken: token };
+      return { sessionId: id, pairingToken: token, context, expiresAt };
+    });
+  }
+
+  async commit(id: string, input: Record<string, unknown>) {
+    return transaction("office.pairing.commit", undefined, async (db) => {
+      const row = await load(db, id); capability(row, input.pairingToken); hostMatches(row, this.host);
+      if (await expire(db, row)) return new PairingError("expired", 410);
+      ready(row);
+      if (row.state !== "challenge_issued" || row.sas_phase !== "prepared" || !row.sas_context) throw new PairingError("conflict", 409);
+      const commitment = base64(input.commitment, 32);
+      if (!verifyProof(row.public_key, commitment, input.signature)) return failSas(db, row, "invalid_proof");
+      // Only generate and publish our nonce after the signed client commitment is fixed.
+      const serverNonce = secret();
+      await db.query("UPDATE pairing_session SET sas_commit=$2,sas_server_nonce=$3,server_nonce_hash=$4,sas_phase='committed',updated_at=now() WHERE id=$1", [id, commitment, serverNonce, digest(base64(serverNonce, 32))]);
+      return { sessionId: id, serverNonce };
+    });
+  }
+
+  async reveal(id: string, input: Record<string, unknown>) {
+    return transaction("office.pairing.reveal", undefined, async (db) => {
+      const row = await load(db, id); capability(row, input.pairingToken); hostMatches(row, this.host);
+      if (await expire(db, row)) return new PairingError("expired", 410);
+      ready(row);
+      if (row.state !== "challenge_issued" || row.sas_phase !== "committed" || !row.sas_context || !row.sas_commit || !row.sas_server_nonce) throw new PairingError("conflict", 409);
+      let valid = false;
+      try { valid = same(row.sas_commit, sasCommit(row.sas_context, String(input.clientNonce))); } catch { /* Persist invalid reveals. */ }
+      if (!valid) return failSas(db, row, "sas_mismatch");
+      const clientNonce = String(input.clientNonce), serverNonce = row.sas_server_nonce;
+      const challenge = challengeFor(row, clientNonce, serverNonce);
+      const sas = deriveSas(row.sas_context, clientNonce, serverNonce);
+      await db.query("UPDATE pairing_session SET sas_phase='revealed',sas_server_nonce=NULL,sas_code=$2,nonce_hash=$3,challenge_hash=$4,updated_at=now() WHERE id=$1", [id, sas, digest(base64(clientNonce, 32)), challengeDigest(challenge)]);
+      return { challenge };
+    });
+  }
+
+  async confirm(id: string, input: Record<string, unknown>, userId: string | null) {
+    return transaction("office.pairing.sas-confirm", undefined, async (db) => {
+      const row = await load(db, id); hostMatches(row, this.host);
+      const client = input.pairingToken !== undefined;
+      if (client) capability(row, input.pairingToken);
+      else { await member(db, row.organization_id, userId, true); if (userId === row.requester_user_id) throw new PairingError("self_approval", 403); }
+      if (await expire(db, row)) return new PairingError("expired", 410);
+      ready(row);
+      if (row.sas_phase !== "revealed" || !row.sas_code || (client ? row.state !== "proof_verified" || row.sas_client_confirmed_at : row.state !== "pending_approval" || row.sas_admin_confirmed_by)) throw new PairingError("conflict", 409);
+      if (input.matches !== true) return failSas(db, row, "sas_mismatch");
+      await db.query(client ? "UPDATE pairing_session SET sas_client_confirmed_at=now(),updated_at=now() WHERE id=$1" : "UPDATE pairing_session SET sas_admin_confirmed_by=$2,updated_at=now() WHERE id=$1", client ? [id] : [id, userId]);
+      await event(db, "office.pairing.sas-confirm", row);
+      return { confirmed: true };
     });
   }
 
@@ -152,21 +230,15 @@ export class OfficePairing {
       const row = await load(db, id); capability(row, input.pairingToken); hostMatches(row, this.host);
       if (await expire(db, row)) return new PairingError("expired", 410);
       if (row.state !== "challenge_issued" || row.proof_used_at) throw new PairingError("already_used", 409);
+      ready(row);
+      if (row.sas_phase !== "revealed") throw new PairingError("commit_required", 409);
       const value: Challenge = { serverId: row.server_id, organizationId: row.organization_id, sessionId: row.id, deviceId: row.device_id,
         keyFingerprint: row.key_fingerprint.toString("hex"), clientNonce: String(input.clientNonce), serverNonce: String(input.serverNonce),
         audience: row.audience, hostGeneration: row.host_generation, protocolVersion: row.protocol_version,
         expiresAt: row.proof_expires_at.toISOString(), requesterUserId: row.requester_user_id, personId: row.requested_person_id, displayAlias: row.display_alias };
       let valid = false;
       try { valid = same(row.nonce_hash, digest(base64(input.clientNonce, 32))) && same(row.server_nonce_hash, digest(base64(input.serverNonce, 32))) && same(row.challenge_hash, challengeDigest(value)) && verifyProof(row.public_key, row.challenge_hash, input.signature); } catch { /* Invalid proof counts toward the persisted attempt limit. */ }
-      if (!valid) {
-        const state = row.failed_attempts >= 4 ? "cancelled" : row.state;
-        await db.query("UPDATE pairing_session SET failed_attempts=failed_attempts+1, state=$2, updated_at=now() WHERE id=$1 AND state='challenge_issued'", [row.id, state]);
-        if (state === "cancelled") {
-          await db.query("UPDATE person_device SET status='revoked', revoked_at=now(), updated_at=now() WHERE id=$1", [row.device_id]);
-          await event(db, "office.pairing.cancel", row, row.state, state);
-        }
-        return new PairingError("invalid_proof", 403);
-      }
+      if (!valid) return failSas(db, row, "invalid_proof");
       const verified = await db.query("UPDATE pairing_session SET state='proof_verified', proof_used_at=now(), updated_at=now() WHERE id=$1 AND state='challenge_issued' AND proof_used_at IS NULL AND expires_at>now()", [row.id]);
       if (verified.rowCount !== 1) { await expire(db, row); return new PairingError("expired", 410); }
       await event(db, "office.pairing.proof", row, row.state, "proof_verified"); row.state = "proof_verified";
@@ -178,6 +250,8 @@ export class OfficePairing {
     return transaction("office.pairing.request", undefined, async (db) => {
       const row = await load(db, id); capability(row, token); hostMatches(row, this.host);
       if (await expire(db, row)) return new PairingError("expired", 410);
+      ready(row);
+      if (!row.sas_client_confirmed_at) throw new PairingError("sas_required", 403);
       if (row.state !== "proof_verified") throw new PairingError("conflict", 409);
       if (row.requester_user_id !== userId) throw new PairingError("account_mismatch", 403);
       // A pre-existing profile can only be claimed by its already linked account.
@@ -219,6 +293,8 @@ export class OfficePairing {
       if (row.state === decision && row.decided_by_user_id === userId && row.decision_reason_code === reason) return minimal(row);
       if (decision === "cancelled" ? terminal.has(row.state) && row.state !== "approved" : row.state !== "pending_approval") throw new PairingError("conflict", 409);
       if (decision === "approved") {
+        ready(row);
+        if (!row.sas_client_confirmed_at || row.sas_admin_confirmed_by !== userId || !row.sas_code) throw new PairingError("sas_required", 403);
         await member(db, row.organization_id, row.requester_user_id);
         await db.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [`office-directory:${row.organization_id}`]);
         const person = (await db.query("SELECT * FROM person_identity WHERE id=$1 FOR UPDATE", [row.person_id])).rows[0];
@@ -241,7 +317,7 @@ export class OfficePairing {
       const deviceState = decision === "approved" ? "approved" : decision === "rejected" ? "rejected" : "revoked";
       await db.query(`UPDATE person_device SET status=$2,updated_at=now(),approved_at=CASE WHEN $2='approved' THEN now() ELSE approved_at END,
         revoked_at=CASE WHEN $2='revoked' THEN now() ELSE revoked_at END WHERE id=$1`, [row.device_id, deviceState]);
-      const updated = (await db.query<Session>(`UPDATE pairing_session SET state=$2,decided_at=now(),decided_by_user_id=$3,decision_reason_code=$4,updated_at=now()
+      const updated = (await db.query<Session>(`UPDATE pairing_session SET state=$2,sas_server_nonce=NULL,sas_commit=NULL,sas_code=NULL,decided_at=now(),decided_by_user_id=$3,decision_reason_code=$4,updated_at=now()
         WHERE id=$1 AND state=$5 AND (expires_at>now() OR state='approved') RETURNING *`, [row.id, decision, userId, reason, row.state])).rows[0];
       if (!updated) throw new PairingError("conflict", 409);
       await event(db, decision === "approved" ? "office.pairing.approve" : decision === "rejected" ? "office.pairing.reject" : "office.pairing.cancel", row, row.state, decision);
@@ -256,7 +332,7 @@ export class OfficePairing {
       if (await expire(db, row)) return new PairingError("expired", 410);
       if (row.state === "cancelled") return minimal(row);
       if (terminal.has(row.state)) throw new PairingError("conflict", 409);
-      await db.query("UPDATE pairing_session SET state='cancelled',updated_at=now(),decided_at=now() WHERE id=$1 AND state=$2", [row.id, row.state]);
+      await db.query("UPDATE pairing_session SET state='cancelled',sas_server_nonce=NULL,sas_commit=NULL,sas_code=NULL,updated_at=now(),decided_at=now() WHERE id=$1 AND state=$2", [row.id, row.state]);
       await db.query("UPDATE person_device SET status='revoked',updated_at=now(),revoked_at=now() WHERE id=$1", [row.device_id]);
       await event(db, "office.pairing.cancel", row, row.state, "cancelled"); row.state = "cancelled";
       return minimal(row);
@@ -271,7 +347,7 @@ export class OfficePairing {
       await db.query("UPDATE office_pairing_invitation SET cancelled_at=COALESCE(cancelled_at,now()),updated_at=now() WHERE id=$1", [id]);
       const rows = (await db.query<Session>("SELECT * FROM pairing_session WHERE invitation_id=$1 AND state=ANY($2::text[]) FOR UPDATE", [id, live])).rows;
       for (const row of rows) {
-        await db.query("UPDATE pairing_session SET state='cancelled',updated_at=now() WHERE id=$1", [row.id]);
+        await db.query("UPDATE pairing_session SET state='cancelled',sas_server_nonce=NULL,sas_commit=NULL,sas_code=NULL,updated_at=now() WHERE id=$1", [row.id]);
         await db.query("UPDATE person_device SET status='revoked',revoked_at=now(),updated_at=now() WHERE id=$1", [row.device_id]);
         await event(db, "office.pairing.cancel", row, row.state, "cancelled");
       }
@@ -284,7 +360,7 @@ export class OfficePairing {
     return transaction("office.pairing.queue", organizationId, async (db) => {
       await member(db, organizationId, userId, true);
       return (await db.query(`SELECT s.id AS "sessionId",s.display_alias AS "displayAlias",d.device_label AS "deviceLabel",d.platform,
-        substr(encode(d.key_fingerprint,'hex'),1,12) AS "comparisonCode",s.created_at AS "requestedAt",true AS "proofVerified",
+        s.sas_code AS sas,(s.sas_admin_confirmed_by IS NOT NULL) AS "sasConfirmed",s.created_at AS "requestedAt",true AS "proofVerified",
         (s.requester_user_id IS NOT NULL) AS "accountLinked" FROM pairing_session s JOIN person_device d ON d.id=s.device_id
         WHERE s.organization_id=$1 AND s.state='pending_approval' AND s.expires_at>now() ORDER BY s.created_at LIMIT 100`, [organizationId])).rows;
     });

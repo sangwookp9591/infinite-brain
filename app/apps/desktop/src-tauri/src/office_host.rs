@@ -23,6 +23,8 @@ pub struct HostStatus {
     pub scope: Option<String>,
     pub port: Option<u16>,
     pub lan_exposed: bool,
+    pub server_id: Option<String>,
+    pub host_generation: Option<String>,
     pub certificate_fingerprint: Option<String>,
     pub error: Option<String>,
     pub run_id: Option<String>,
@@ -55,6 +57,14 @@ async fn stop_active(active: &SharedActive) -> Result<(), AppError> {
         finished.changed().await.map_err(|_| AppError::new("office host exit could not be confirmed"))?;
     }
     Ok(())
+}
+
+impl OfficeHostState {
+    pub(crate) fn discovery_status(&self) -> Option<(String, String, u16)> {
+        let status = self.status.lock().ok()?;
+        if status.phase != "ready" || status.scope.as_deref() != Some("lan") || !status.lan_exposed { return None; }
+        Some((status.server_id.clone()?, status.host_generation.clone()?, status.port.filter(|port| *port != 0)?))
+    }
 }
 
 impl Default for OfficeHostState {
@@ -109,6 +119,8 @@ struct RuntimeEvent {
     scope: Option<String>,
     port: Option<u16>,
     lan_exposed: Option<bool>,
+    server_id: Option<String>,
+    host_generation: Option<String>,
     certificate_fingerprint: Option<String>,
     code: Option<String>,
 }
@@ -131,6 +143,8 @@ fn apply_event(status: &mut HostStatus, event: RuntimeEvent) {
     status.endpoint = endpoint;
     status.scope = event.scope.filter(|scope| scope == "loopback" || scope == "lan");
     status.port = event.port;
+    status.server_id = event.server_id;
+    status.host_generation = event.host_generation;
     status.lan_exposed = event.lan_exposed.unwrap_or(false);
     status.certificate_fingerprint = event.certificate_fingerprint;
     if status.phase == "failed" { status.error = event.code.filter(|code| matches!(code.as_str(), "child-exited" | "startup-failed" | "database-orphaned" | "database-recovery-required" | "runtime-lock-recovery-required" | "already-running" | "tls-renewal-required")); }
@@ -289,6 +303,38 @@ mod tests {
     use super::*;
 
     #[test]
+    fn discovery_requires_live_lan_scope_and_runtime_identity() {
+        let state = OfficeHostState::default();
+        assert!(state.discovery_status().is_none());
+        {
+            let mut status = state.status.lock().unwrap();
+            status.phase = "ready".into(); status.scope = Some("lan".into());
+            status.lan_exposed = true; status.port = Some(4321);
+            assert!(status.server_id.is_none());
+        }
+        assert!(state.discovery_status().is_none());
+        {
+            let mut status = state.status.lock().unwrap();
+            status.server_id = Some("hub".into()); status.host_generation = Some("1".into());
+        }
+        assert_eq!(state.discovery_status(), Some(("hub".into(), "1".into(), 4321)));
+        for phase in ["stopping", "stopped", "failed", "starting-server"] {
+            state.status.lock().unwrap().phase = phase.into();
+            assert!(state.discovery_status().is_none());
+        }
+        {
+            let mut status = state.status.lock().unwrap();
+            status.phase = "ready".into(); status.scope = Some("loopback".into());
+        }
+        assert!(state.discovery_status().is_none());
+        {
+            let mut status = state.status.lock().unwrap();
+            status.scope = Some("lan".into()); status.lan_exposed = false;
+        }
+        assert!(state.discovery_status().is_none());
+    }
+
+    #[test]
     fn stop_retains_active_until_monitor_confirms_exit() {
         tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap().block_on(async {
         let (cancel, cancelled) = oneshot::channel();
@@ -309,7 +355,7 @@ mod tests {
     #[test]
     fn stopped_record_does_not_claim_process_exit() {
         let mut status = HostStatus::default();
-        apply_event(&mut status, RuntimeEvent { protocol: 1, phase: "stopped".into(), endpoint: None, scope: None, port: None, lan_exposed: None, certificate_fingerprint: None, code: None });
+        apply_event(&mut status, RuntimeEvent { server_id: None, host_generation: None, protocol: 1, phase: "stopped".into(), endpoint: None, scope: None, port: None, lan_exposed: None, certificate_fingerprint: None, code: None });
         assert_eq!(status.phase, "stopping");
     }
 
@@ -329,10 +375,10 @@ mod tests {
     fn child_cannot_advertise_a_remote_or_unpinned_endpoint() {
         let mut status = HostStatus::default();
         for endpoint in ["http://attacker.local:1234", "http://127.0.0.1:42/path", "http://127.0.0.1:0", "https://127.0.0.1:42"] {
-            apply_event(&mut status, RuntimeEvent { protocol: 1, phase: "ready".into(), endpoint: Some(endpoint.into()), scope: Some("loopback".into()), port: Some(4321), lan_exposed: Some(false), certificate_fingerprint: None, code: None });
+            apply_event(&mut status, RuntimeEvent { server_id: None, host_generation: None, protocol: 1, phase: "ready".into(), endpoint: Some(endpoint.into()), scope: Some("loopback".into()), port: Some(4321), lan_exposed: Some(false), certificate_fingerprint: None, code: None });
             assert_ne!(status.phase, "ready");
         }
-        apply_event(&mut status, RuntimeEvent { protocol: 1, phase: "ready".into(), endpoint: Some("http://127.0.0.1:4321".into()), scope: Some("loopback".into()), port: Some(4321), lan_exposed: Some(false), certificate_fingerprint: None, code: None });
+        apply_event(&mut status, RuntimeEvent { server_id: None, host_generation: None, protocol: 1, phase: "ready".into(), endpoint: Some("http://127.0.0.1:4321".into()), scope: Some("loopback".into()), port: Some(4321), lan_exposed: Some(false), certificate_fingerprint: None, code: None });
         assert_eq!(status.endpoint.as_deref(), Some("http://127.0.0.1:4321"));
         assert!(valid_endpoint("http://127.0.0.1:4321", Some("loopback")));
         assert!(!valid_endpoint("http://192.168.1.9:4321", Some("loopback")));
@@ -343,7 +389,7 @@ mod tests {
         assert!(!valid_endpoint("http://192.168.1.9:4321", Some("lan")));
         let mut lan_status = HostStatus::default();
         apply_event(&mut lan_status, RuntimeEvent {
-            protocol: 1, phase: "ready".into(), endpoint: Some("https://192.168.1.9:4321".into()),
+            server_id: None, host_generation: None, protocol: 1, phase: "ready".into(), endpoint: Some("https://192.168.1.9:4321".into()),
             scope: Some("lan".into()), port: Some(4321), lan_exposed: Some(true),
             certificate_fingerprint: Some("a".repeat(64)), code: None,
         });

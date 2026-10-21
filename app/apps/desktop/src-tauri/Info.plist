@@ -14,6 +14,10 @@
 -->
 <plist version="1.0">
 <dict>
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>같은 회사 네트워크에서 공유 중인 작업 공간을 찾거나, 직접 켠 사내 공유를 알리는 데 사용해요. Infinite Brain finds shared workspaces on your company network and advertises sharing only when you turn it on.</string>
+    <key>NSBonjourServices</key>
+    <array><string>_ib-office._tcp</string></array>
     <key>NSMicrophoneUsageDescription</key>
     <string>Infinite Brain uses your microphone only while you hold the talk button, to broadcast live audio to your vault. Nothing is recorded or stored.</string>
     <key>NSDocumentsFolderUsageDescription</key>

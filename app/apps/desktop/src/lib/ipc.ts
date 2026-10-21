@@ -52,6 +52,14 @@ export const officeHubVerify = (origin: string, serverId: string): Promise<Offic
 export const officeDeviceSignChallenge = (origin: string, challenge: OfficePairingChallenge): Promise<string> =>
   invoke("office_device_sign_challenge", { origin, challenge });
 
+/** Native commit-reveal; only digits and opaque session metadata cross into UI. */
+export interface OfficePairingProfile { personId: string; displayAlias: string; deviceLabel: string; platform: "windows" | "macos" | "linux" | "other" }
+export interface OfficePairingSas { sessionId: string; sas: string; expiresAt: string }
+export const officePairingBegin = (origin: string, serverId: string, invitationSecret: string, profile: OfficePairingProfile, authToken: string | null = null): Promise<OfficePairingSas> =>
+  invoke("office_pairing_begin", { origin, serverId, invitationSecret, profile, authToken });
+export const officePairingConfirm = (sessionId: string, matches: boolean): Promise<void> =>
+  invoke("office_pairing_confirm", { sessionId, matches });
+
 /** Process-only relay credentials. Never persist, display or log these URLs. */
 export interface OfficeLinkEndpoint { linkId: string; httpBaseUrl: string }
 /** Uses the already approved per-hub pin; never approves or replaces trust. */
@@ -59,6 +67,30 @@ export const officeLinkOpen = (origin: string, serverId: string): Promise<Office
   invoke("office_link_open", { origin, serverId });
 /** Stops listener and active HTTP/WS connections; closing twice is safe. */
 export const officeLinkClose = (linkId: string): Promise<void> => invoke("office_link_close", { linkId });
+
+/** Untrusted mDNS claims only: no remote address, pin or membership. */
+export interface OfficeDiscoveryCandidate {
+  candidateId: string;
+  serverId: string;
+  displayName: string;
+  trust: "untrusted";
+}
+export interface OfficeDiscoverySnapshot {
+  scanId: string;
+  searching: boolean;
+  candidates: OfficeDiscoveryCandidate[];
+}
+/** Explicit screen-open action; native browsing stops after eight seconds. */
+export const officeDiscoveryStart = (): Promise<string> => invoke("office_discovery_start");
+export const officeDiscoverySnapshot = (scanId: string): Promise<OfficeDiscoverySnapshot> =>
+  invoke("office_discovery_snapshot", { scanId });
+export const officeDiscoveryStop = (scanId: string): Promise<void> => invoke("office_discovery_stop", { scanId });
+/** Explicit user opt-in, only while the local host is ready in LAN scope. */
+export const officeDiscoveryAdvertise = (displayName: string | null): Promise<void> =>
+  invoke("office_discovery_advertise", { displayName });
+/** Uses only previously approved trust; a first visit still needs an invite/SAS. */
+export const officeDiscoveryOpen = (candidateId: string): Promise<OfficeLinkEndpoint> =>
+  invoke("office_discovery_open", { candidateId });
 
 /** Native, unprivileged viewer positioned inside the current dashboard tab. */
 export interface DashboardLinkBounds { x: number; y: number; width: number; height: number }

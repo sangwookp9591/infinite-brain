@@ -82,3 +82,34 @@ export function personCode(id: string): string {
   for (let i = 0; i < 26; i++) { result = alphabet[Number(value & 31n)] + result; value >>= 5n; }
   return result;
 }
+
+/** SAS v1: fixed field order with u32 big-endian UTF-8 byte lengths. */
+export interface SasContext {
+  sessionId: string; serverId: string; organizationId: string; hostGeneration: string;
+  observedFingerprint: string; hubFingerprint: string; clientPublicKey: string; hubPublicKey: string;
+}
+export function encodeFields(fields: string[]): Buffer {
+  return Buffer.concat(fields.map((field) => {
+    const data = Buffer.from(field, "utf8"), size = Buffer.alloc(4);
+    size.writeUInt32BE(data.length); return Buffer.concat([size, data]);
+  }));
+}
+export function sasFields(context: SasContext): string[] {
+  return [context.sessionId, context.serverId, context.organizationId, context.hostGeneration,
+    context.observedFingerprint, context.hubFingerprint, context.clientPublicKey, context.hubPublicKey];
+}
+export function sasCommit(context: SasContext, clientNonce: string): Buffer {
+  base64(clientNonce, 32);
+  return digest(encodeFields(["infinite-brain/office-sas/commit/v1", ...sasFields(context), clientNonce]));
+}
+export function deriveSas(context: SasContext, clientNonce: string, serverNonce: string): string {
+  base64(clientNonce, 32); base64(serverNonce, 32);
+  const transcript = encodeFields(["infinite-brain/office-sas/transcript/v1", ...sasFields(context), clientNonce, serverNonce]);
+  // Rejection sampling: all accepted u32 values have exactly 4294 preimages per code.
+  for (let counter = 0; counter <= 0xffffffff; counter++) {
+    const count = Buffer.alloc(4); count.writeUInt32BE(counter);
+    const value = digest(Buffer.concat([transcript, count])).readUInt32BE();
+    if (value < 4_294_000_000) return String(value % 1_000_000).padStart(6, "0");
+  }
+  throw new PairingError("unavailable", 503);
+}

@@ -5,7 +5,7 @@ import { createApp } from "../src/http/app.js";
 import { testAppDeps } from "./helpers/app.js";
 import { createOrg, signUp, type TestUser } from "./helpers/auth.js";
 import { pool, resetDb } from "./helpers/db.js";
-import { challengeDigest, type Challenge } from "../src/office/protocol.js";
+import { challengeDigest, sasCommit, deriveSas, type SasContext, type Challenge } from "../src/office/protocol.js";
 import { OfficePairing, sweepPairings } from "../src/office/pairing.js";
 import { seedNote, seedVault } from "./helpers/seed.js";
 
@@ -25,19 +25,27 @@ async function begin(user: TestUser | undefined = employee, personId = randomUUI
   const invitation = await service.invite(organizationId, owner.userId);
   const keys = generateKeyPairSync("ed25519");
   const body = { invitationSecret: invitation.invitationSecret, hubFingerprint: fingerprint, personId, deviceId: randomUUID(),
-    displayAlias: alias, deviceLabel: "내 컴퓨터", platform: "macos", clientNonce: randomBytes(32).toString("base64url"),
+    displayAlias: alias, deviceLabel: "내 컴퓨터", platform: "macos",
     publicKey: keys.publicKey.export({ format: "der", type: "spki" }).toString("base64url") };
   const response = await post("/office/pairing/challenge", body, user);
   expect(response.status, JSON.stringify(await response.clone().json())).toBe(201);
-  const data = await response.json() as { challenge: Challenge; pairingToken: string };
+  const prepared = await response.json() as { sessionId: string; context: SasContext; pairingToken: string };
+  const clientNonce = randomBytes(32).toString("base64url"), commitment = sasCommit(prepared.context, clientNonce);
+  const committed = await post(`/office/pairing/${prepared.sessionId}/commit`, { pairingToken: prepared.pairingToken, commitment: commitment.toString("base64url"), signature: sign(null, commitment, keys.privateKey).toString("base64url") });
+  expect(committed.status).toBe(200);
+  const revealed = await post(`/office/pairing/${prepared.sessionId}/reveal`, { pairingToken: prepared.pairingToken, clientNonce });
+  expect(revealed.status).toBe(200);
+  const data = { ...await revealed.json() as { challenge: Challenge }, pairingToken: prepared.pairingToken };
   const proof = { pairingToken: data.pairingToken, clientNonce: data.challenge.clientNonce, serverNonce: data.challenge.serverNonce,
     signature: sign(null, challengeDigest(data.challenge), keys.privateKey).toString("base64url") };
-  return { ...data, proof, body, user, id: data.challenge.sessionId, invitation };
+  return { ...data, proof, body, user, keys, context: prepared.context, id: data.challenge.sessionId, invitation };
 }
 async function pending(user: TestUser | undefined = employee, personId?: string, alias?: string) {
   const run = await begin(user, personId, alias);
   expect((await post(`/office/pairing/${run.id}/proof`, run.proof)).status).toBe(200);
+  expect((await post(`/office/pairing/${run.id}/sas-confirm`, { pairingToken: run.pairingToken, matches: true })).status).toBe(200);
   expect((await post(`/office/pairing/${run.id}/request`, { pairingToken: run.pairingToken }, user)).status).toBe(200);
+  expect((await post(`/office/pairing/${run.id}/sas-confirm`, { matches: true }, owner)).status).toBe(user?.userId === owner.userId ? 403 : 200);
   return run;
 }
 async function decision(id: string, value: string, user = owner, reasonCode?: string) {
@@ -81,7 +89,7 @@ describe("office identity and pairing", () => {
     expect((await get(`/office/organizations/${organizationId}/directory`, employee)).status).toBe(403);
     const queue = await get(`/office/organizations/${organizationId}/requests`, owner);
     const rows = (await queue.json()).requests;
-    expect(Object.keys(rows[0]).sort()).toEqual(["accountLinked", "comparisonCode", "deviceLabel", "displayAlias", "platform", "proofVerified", "requestedAt", "sessionId"]);
+    expect(Object.keys(rows[0]).sort()).toEqual(["accountLinked", "deviceLabel", "displayAlias", "platform", "proofVerified", "requestedAt", "sas", "sasConfirmed", "sessionId"]);
     expect((await get(`/office/organizations/${organizationId}/requests`, employee)).status).toBe(403);
     const vaultId = await seedVault(organizationId), docId = await seedNote(vaultId, null, "비공개.md", owner.userId);
     for (const path of [`/office/organizations/${organizationId}/directory`, "/vaults", `/notes?vaultId=${vaultId}`, `/folders?vaultId=${vaultId}`, "/blobs/private-blob", "/mcp/tokens"]) {
@@ -99,12 +107,16 @@ describe("office identity and pairing", () => {
     const run = await begin();
     expect((await post(`/office/pairing/${run.id}/proof`, { ...run.proof, signature: randomBytes(64).toString("base64url") })).status).toBe(403);
     expect((await post(`/office/pairing/${run.id}/proof`, { ...run.proof, pairingToken: randomBytes(32).toString("base64url") })).status).toBe(403);
+    await pool.query("UPDATE pairing_session SET sas_blocked_until=NULL WHERE id=$1", [run.id]);
     expect((await post(`/office/pairing/${run.id}/proof`, run.proof)).status).toBe(200);
     expect((await post(`/office/pairing/${run.id}/proof`, run.proof)).status).toBe(409);
     expect((await post("/office/pairing/challenge", run.body, employee)).status).toBe(410);
     const invitation = await service.invite(organizationId, owner.userId);
     const keys = generateKeyPairSync("ed25519");
-    expect((await post("/office/pairing/challenge", { ...run.body, invitationSecret: invitation.invitationSecret, deviceId: randomUUID(), publicKey: keys.publicKey.export({ format: "der", type: "spki" }).toString("base64url") }, employee)).status).toBe(409);
+    const fresh = await (await post("/office/pairing/challenge", { ...run.body, invitationSecret: invitation.invitationSecret, deviceId: randomUUID(), publicKey: keys.publicKey.export({ format: "der", type: "spki" }).toString("base64url") }, employee)).json();
+    const commitment = sasCommit(fresh.context, run.proof.clientNonce);
+    expect((await post(`/office/pairing/${fresh.sessionId}/commit`, { pairingToken: fresh.pairingToken, commitment: commitment.toString("base64url"), signature: sign(null, commitment, keys.privateKey).toString("base64url") })).status).toBe(200);
+    expect((await post(`/office/pairing/${fresh.sessionId}/reveal`, { pairingToken: fresh.pairingToken, clientNonce: run.proof.clientNonce })).status).toBe(409);
   });
 
   it("binds host pin, account, audience and generation and refuses claimed existing people", async () => {
@@ -115,11 +127,14 @@ describe("office identity and pairing", () => {
     await pool.query("UPDATE pairing_session SET audience='another-audience' WHERE id=$1", [run.id]);
     expect((await post(`/office/pairing/${run.id}/proof`, run.proof)).status).toBe(403);
     await pool.query("UPDATE pairing_session SET audience=$2 WHERE id=$1", [run.id, host.audience]);
+    await pool.query("UPDATE pairing_session SET sas_blocked_until=NULL WHERE id=$1", [run.id]);
     expect((await post(`/office/pairing/${run.id}/proof`, run.proof)).status).toBe(200);
     expect((await post(`/office/pairing/${run.id}/request`, { pairingToken: run.pairingToken }, owner)).status).toBe(403);
+    expect((await post(`/office/pairing/${run.id}/sas-confirm`, { pairingToken: run.pairingToken, matches: true })).status).toBe(200);
     expect((await post(`/office/pairing/${run.id}/request`, { pairingToken: run.pairingToken }, employee)).status).toBe(200);
     const other = await begin(owner, run.challenge.personId);
     expect((await post(`/office/pairing/${other.id}/proof`, other.proof)).status).toBe(200);
+    expect((await post(`/office/pairing/${other.id}/sas-confirm`, { pairingToken: other.pairingToken, matches: true })).status).toBe(200);
     expect((await post(`/office/pairing/${other.id}/request`, { pairingToken: other.pairingToken }, owner)).status).toBe(403);
     const invitation = await service.invite(organizationId, owner.userId);
     expect((await post("/office/pairing/challenge", { ...other.body, invitationSecret: invitation.invitationSecret, hubFingerprint: "b".repeat(64) }, owner)).status).toBe(403);
@@ -127,7 +142,10 @@ describe("office identity and pairing", () => {
 
   it("persists challenge attempt limits and denies expired proof or approval", async () => {
     const run = await begin();
-    for (let i = 0; i < 5; i++) expect((await post(`/office/pairing/${run.id}/proof`, { ...run.proof, signature: "invalid" })).status).toBe(403);
+    for (let i = 0; i < 3; i++) {
+      await pool.query("UPDATE pairing_session SET sas_blocked_until=NULL WHERE id=$1", [run.id]);
+      expect((await post(`/office/pairing/${run.id}/proof`, { ...run.proof, signature: "invalid" })).status).toBe(403);
+    }
     expect((await post(`/office/pairing/${run.id}/proof`, run.proof)).status).toBe(409);
     const expired = await begin();
     await pool.query("UPDATE pairing_session SET expires_at=now()-interval '1 second' WHERE id=$1", [expired.id]);
@@ -153,10 +171,14 @@ describe("office identity and pairing", () => {
   it("keeps anonymous device-only profiles without inventing accounts and cannot approve them", async () => {
     // Explicit undefined would trigger begin's default; anonymous challenge uses service directly.
     const invitation = await service.invite(organizationId, owner.userId), keys = generateKeyPairSync("ed25519");
-    const data = await service.challenge({ invitationSecret: invitation.invitationSecret, hubFingerprint: fingerprint,
+    const prepared = await service.challenge({ invitationSecret: invitation.invitationSecret, hubFingerprint: fingerprint,
       personId: randomUUID(), deviceId: randomUUID(), displayAlias: "새 동료", deviceLabel: "내 컴퓨터", platform: "windows",
-      clientNonce: randomBytes(32).toString("base64url"), publicKey: keys.publicKey.export({ format: "der", type: "spki" }).toString("base64url") }, null);
+      publicKey: keys.publicKey.export({ format: "der", type: "spki" }).toString("base64url") }, null);
+    const clientNonce = randomBytes(32).toString("base64url"), commitment = sasCommit(prepared.context, clientNonce);
+    await service.commit(prepared.sessionId, { pairingToken: prepared.pairingToken, commitment: commitment.toString("base64url"), signature: sign(null, commitment, keys.privateKey).toString("base64url") });
+    const data = { ...await service.reveal(prepared.sessionId, { pairingToken: prepared.pairingToken, clientNonce }), pairingToken: prepared.pairingToken };
     await service.proof(data.challenge.sessionId, { pairingToken: data.pairingToken, clientNonce: data.challenge.clientNonce, serverNonce: data.challenge.serverNonce, signature: sign(null, challengeDigest(data.challenge), keys.privateKey).toString("base64url") });
+    await service.confirm(prepared.sessionId, { pairingToken: prepared.pairingToken, matches: true }, null);
     await service.request(data.challenge.sessionId, data.pairingToken, null);
     expect((await decision(data.challenge.sessionId, "approved")).status).toBe(403);
     expect((await pool.query('SELECT count(*)::int AS n FROM "user"')).rows[0].n).toBe(2);
@@ -238,6 +260,7 @@ describe("office identity and pairing", () => {
     expect((await get(`/office/organizations/${organizationId}/directory`, employee)).status).toBe(403);
     const other = await begin();
     expect((await post(`/office/pairing/${other.id}/proof`, other.proof)).status).toBe(200);
+    expect((await post(`/office/pairing/${other.id}/sas-confirm`, { pairingToken: other.pairingToken, matches: true })).status).toBe(200);
     expect((await post(`/office/pairing/${other.id}/request`, { pairingToken: other.pairingToken }, employee)).status).toBe(409);
     expect((await pool.query("SELECT * FROM person_identity")).rowCount).toBe(1);
   });
@@ -249,4 +272,56 @@ describe("office identity and pairing", () => {
     expect((await post("/office/pairing/challenge", { oversized: "x".repeat(9000) })).status).toBe(413);
     expect((await post("/office/pairing/challenge", { publicKey: "invalid" })).status).toBe(400);
   });
+  it("requires both independently recorded confirmations before approval and consumes confirmation once", async () => {
+    const run = await begin();
+    expect((await post(`/office/pairing/${run.id}/proof`, run.proof)).status).toBe(200);
+    expect((await post(`/office/pairing/${run.id}/request`, { pairingToken: run.pairingToken }, employee)).status).toBe(403);
+    expect((await post(`/office/pairing/${run.id}/sas-confirm`, { pairingToken: run.pairingToken, matches: true })).status).toBe(200);
+    expect((await post(`/office/pairing/${run.id}/sas-confirm`, { pairingToken: run.pairingToken, matches: true })).status).toBe(409);
+    expect((await post(`/office/pairing/${run.id}/request`, { pairingToken: run.pairingToken }, employee)).status).toBe(200);
+    expect((await decision(run.id, "approved")).status).toBe(403);
+    const rows = (await service.queue(organizationId, owner.userId));
+    expect(rows[0].sas).toBe(deriveSas(run.context, run.proof.clientNonce, run.proof.serverNonce));
+    expect((await post(`/office/pairing/${run.id}/sas-confirm`, { matches: true }, owner)).status).toBe(200);
+    expect((await decision(run.id, "approved")).status).toBe(200);
+  });
+
+  it("persists three SAS failures, delays retries, revokes the session and locks the device key", async () => {
+    const run = await begin();
+    expect((await post(`/office/pairing/${run.id}/proof`, run.proof)).status).toBe(200);
+    for (let i = 0; i < 3; i++) {
+      expect((await post(`/office/pairing/${run.id}/sas-confirm`, { pairingToken: run.pairingToken, matches: false })).status).toBe(403);
+      expect((await post(`/office/pairing/${run.id}/sas-confirm`, { pairingToken: run.pairingToken, matches: true })).status).toBe(429);
+      if (i < 2) await pool.query("UPDATE pairing_session SET sas_blocked_until=NULL WHERE id=$1", [run.id]);
+    }
+    expect((await pool.query("SELECT state,failed_attempts,sas_code,sas_server_nonce FROM pairing_session WHERE id=$1", [run.id])).rows[0]).toMatchObject({ state: "cancelled", failed_attempts: 3, sas_code: null, sas_server_nonce: null });
+    const invitation = await service.invite(organizationId, owner.userId);
+    expect((await post("/office/pairing/challenge", { ...run.body, invitationSecret: invitation.invitationSecret }, employee)).status).toBe(429);
+    expect((await decision(run.id, "approved")).status).toBe(409);
+  });
+
+  it("rejects deterministic post-commit nonce selection, foreign session commitments and repeat reveals", async () => {
+    const invitation = await service.invite(organizationId, owner.userId), keys = generateKeyPairSync("ed25519");
+    const prepared = await service.challenge({ invitationSecret: invitation.invitationSecret, hubFingerprint: fingerprint, personId: randomUUID(), deviceId: randomUUID(), displayAlias: "동료", deviceLabel: "기기", platform: "windows", publicKey: keys.publicKey.export({format:"der", type:"spki"}).toString("base64url") }, employee.userId);
+    const nonce = Buffer.alloc(32, 1).toString("base64url"), alternate = Buffer.alloc(32, 2).toString("base64url");
+    const commitment = sasCommit(prepared.context, nonce);
+    const input = { pairingToken: prepared.pairingToken, commitment: commitment.toString("base64url"), signature: sign(null, commitment, keys.privateKey).toString("base64url") };
+    const committed = await service.commit(prepared.sessionId, input);
+    expect(committed.serverNonce).toBeTruthy();
+    await expect(service.commit(prepared.sessionId, { ...input, commitment: sasCommit(prepared.context, alternate).toString("base64url") })).rejects.toMatchObject({ code: "conflict" });
+    await expect(service.reveal(prepared.sessionId, { pairingToken: prepared.pairingToken, clientNonce: alternate })).rejects.toMatchObject({ code: "sas_mismatch" });
+    await pool.query("UPDATE pairing_session SET sas_blocked_until=NULL WHERE id=$1", [prepared.sessionId]);
+    await service.reveal(prepared.sessionId, { pairingToken: prepared.pairingToken, clientNonce: nonce });
+    await expect(service.reveal(prepared.sessionId, { pairingToken: prepared.pairingToken, clientNonce: nonce })).rejects.toMatchObject({ code: "conflict" });
+  });
+
+  it("rejects a validly signed commitment transplanted from another actual session", async () => {
+    const source = await begin();
+    const invitation = await service.invite(organizationId, owner.userId), keys = generateKeyPairSync("ed25519");
+    const target = await service.challenge({ ...source.body, invitationSecret: invitation.invitationSecret, deviceId: randomUUID(), publicKey: keys.publicKey.export({ format: "der", type: "spki" }).toString("base64url") }, employee.userId);
+    const transplanted = sasCommit(source.context, source.proof.clientNonce);
+    await service.commit(target.sessionId, { pairingToken: target.pairingToken, commitment: transplanted.toString("base64url"), signature: sign(null, transplanted, keys.privateKey).toString("base64url") });
+    await expect(service.reveal(target.sessionId, { pairingToken: target.pairingToken, clientNonce: source.proof.clientNonce })).rejects.toMatchObject({ code: "sas_mismatch" });
+  });
+
 });

@@ -8,6 +8,9 @@ import { recordAudit } from "../../audit/log.js";
 import { pool } from "../../db/pool.js";
 
 const messages: Record<string, string> = {
+  sas_required: "두 화면의 확인 숫자를 먼저 비교해 주세요.",
+  sas_mismatch: "확인 숫자가 달라요. 연결을 멈추고 관리자에게 새 초대를 요청해 주세요.",
+  too_many_attempts: "확인 요청이 여러 번 실패해 잠시 멈췄어요. 잠시 뒤 새 초대로 다시 시작해 주세요.",
   expired: "초대가 만료됐어요. 관리자에게 새 초대를 요청해 주세요.",
   invitation_unavailable: "초대를 사용할 수 없어요. 관리자에게 새 초대를 요청해 주세요.",
   wrong_workspace: "확인한 회사 작업 공간과 연결 대상이 달라요. 관리자에게 초대가 최신인지 확인해 주세요.",
@@ -68,6 +71,12 @@ officePairingRoutes.post("/office/invitations/:id/cancel", async (c) => {
 officePairingRoutes.post("/office/pairing/challenge", async (c) => {
   const session = await getSession(c);
   return c.json(await service().challenge(await input(c), session?.userId ?? null), 201);
+});
+officePairingRoutes.post("/office/pairing/:id/commit", async (c) => c.json(await service().commit(c.req.param("id"), await input(c))));
+officePairingRoutes.post("/office/pairing/:id/reveal", async (c) => c.json(await service().reveal(c.req.param("id"), await input(c))));
+officePairingRoutes.post("/office/pairing/:id/sas-confirm", async (c) => {
+  const session = await getSession(c);
+  return c.json(await service().confirm(c.req.param("id"), await input(c), session?.userId ?? null));
 });
 officePairingRoutes.post("/office/pairing/:id/proof", async (c) => c.json(await service().proof(c.req.param("id"), await input(c))));
 officePairingRoutes.post("/office/pairing/:id/request", async (c) => {

@@ -234,3 +234,53 @@ DB transaction 안에서 상태 전이를 조건부 UPDATE로 수행한다 (`WHE
 8. **취소·오프라인 변경:** 회수된 기기에서 이미 받은 plaintext와 미전송 편집은 서버에서 지울 수 없다. recovery copy와 승인 후 재전송 금지 정책이 동기화 경로에서 보장돼야 한다.
 
 구현 전에 06/07의 미결정 G0와 이메일 없는 사용자 정책, 관리자 승인 capability, 허브 pin 전달 UX를 확정한다. migration 파일 작성 시 실제 `vault`/session schema, Better Auth 구성 및 현재 migration 끝 번호를 다시 확인한다.
+
+
+## 14. SAS commit-reveal 구현 계약 (2026-10-21)
+
+이 절은 위 §6의 단순 nonce 교환을 보완하는 **실제 SAS v1 계약**이다. 문서 09 §5의 권고를 합류자 커밋 → 허브 nonce → 합류자 공개 순서로 구체화했다. 양 nonce를 먼저 공개한 후 짧은 해시를 비교하는 방식은 허용하지 않는다. Migration 068은 기존 미완료 pairing을 취소해 SAS 없는 세션의 승인을 막는다. 이미 승인된 기기·계정·권한은 바꾸지 않는다.
+
+### 메시지와 서버 상태
+
+| 순서 / API | 전송 값 | 검증·효과 |
+| --- | --- | --- |
+| 1. `POST /office/pairing/challenge` | 일회 초대, 프로필, 기기 공개키, TLS로 확인한 허브 지문. nonce는 금지 | 허브가 무작위 세션 ID, 5분 만료, capability와 고정 context 발급. `prepared`. 허브 nonce는 아직 만들지 않음 |
+| 2. `POST /office/pairing/:id/commit` | capability, `SHA256(encode(commit-domain, context, clientNonce))`, 그 커밋의 Ed25519 기기 서명 | `prepared`에서 커밋 하나만 수락. DB transaction으로 고정한 후 허브가 CSPRNG 32-byte nonce를 만들어 응답. `committed` |
+| 3. `POST /office/pairing/:id/reveal` | capability, 합류자 nonce | 저장된 context로 커밋을 재계산하고 상수 시간 비교. 불일치 거절. `revealed`로 단회 전이하며 허브 SAS를 저장하고 기존 서명 challenge 반환. 허브 nonce 원문은 DB에서 제거 |
+| 4. `POST /office/pairing/:id/proof` | capability, 양 nonce, 기기 challenge 서명 | 기존 device/account/person/alias/audience/generation/expiry binding 검증. `revealed` 이전 proof는 거절 |
+| 5. `POST /office/pairing/:id/sas-confirm` | 요청자 capability, `matches: true` | `proof_verified` 상태에서 요청자 확인을 단회 기록. 숫자는 서버에서 받아 표시하지 않고 Rust가 자체 파생 |
+| 6. `POST /office/pairing/:id/request` | capability, 요청자 기존 계정 인증 | 요청자 SAS 확인 필수. 기존 사람·계정 조건을 확인하고 `pending_approval`로 이동. 기존 정책대로 승인 대기 TTL 24시간 |
+| 7. 관리자 requests / `sas-confirm` | 인증된 관리자가 요청자 별명·기기 이름·플랫폼·요청 시각·계정 연결 여부·SAS·확인 상태 조회 후 `matches: true` 제출 | nonce·커밋·capability·지문·키를 승인 화면 API에 반환하지 않음. 본인 확인 금지. 승인 담당 관리자 ID를 단회 기록 |
+| 8. 관리자 `decision` | 기존 승인/거절/취소 API | 양쪽 SAS 확인과 **그 확인을 한 관리자**의 현재 권한이 없으면 승인 거절. 기존 member/계정 연결/본인 승인 금지/일회 결정/감사 transaction 유지 |
+
+`context` 순서는 `sessionId, serverId, organizationId, hostGeneration, observedFingerprint, hubFingerprint, clientPublicKey, hubPublicKey`이다. `observedFingerprint`는 native TLS 검증기가 실제 연결에서 검증한 인증서 SHA-256이고 `hubFingerprint`는 허브 자신의 설정된 인증서 SHA-256이다. 둘이 다르면 시작하지 않는다. `clientPublicKey`는 설치 기기의 Ed25519 SPKI(base64url), `hubPublicKey`는 허브 프로세스가 생성한 Ed25519 pairing 공개키(SPKI)이며 pinned TLS로 인증된다. 허브의 안정된 신원은 인증서 pin이며, 이 프로세스 공개키를 별도 장기 기기 자격으로 사용하지 않는다.
+
+인코딩은 고정 순서 UTF-8 각 필드 앞의 **u32 big-endian 바이트 길이**다. nonce는 CSPRNG 32 bytes의 canonical unpadded base64url이다. 커밋 domain은 `infinite-brain/office-sas/commit/v1`, 최종 transcript domain은 `infinite-brain/office-sas/transcript/v1`이다. 최종 transcript는 domain, context, clientNonce, serverNonce 순서다. SHA-256(transcript || counter-u32-BE)의 첫 u32가 `4,294,000,000` 미만일 때만 `% 1,000,000`을 취하고 0을 채워 6자리로 표시한다. 거절 영역이면 counter를 증가시킨다. 따라서 단순 modulo 편향이 없다. TS/Rust golden vector와 거절 영역 fixture가 같은 결과를 검증한다.
+
+### 제한과 native 경계
+
+- 유효 capability 또는 현재 관리자 권한이 있는 확인 요청에 대해 서명/nonce 공개/숫자 확인 실패를 세션과 기기 키 지문별로 저장한다. 세션 첫 실패 뒤 1초, 두 번째 뒤 2초 지연, **세 번째 실패 때 즉시 세션 폐기·기기 회수 및 5분 잠금**이다. 이는 09의 이전 ‘네 번째 실패’ 초안보다 엄격한 구현 계약이다. 이미 소비된 초대는 재사용할 수 없다. malformed/다른 capability로 다른 사람의 실패 횟수를 올리지는 못한다. 전역 분당 요청 상한·조직 초대/대기 상한도 유지한다.
+- `office_pairing_begin`은 이미 독립적으로 승인된 pin으로 실제 HTTPS를 검증하고, Rust 안에서 CSPRNG/commit/reveal/서명/숫자 파생을 수행한다. WebView에는 `{sessionId,sas,expiresAt}`만 반환한다. `office_pairing_confirm`은 native 임시 capability를 한 번 소비하고, 같다고 확인한 경우에만 참여 요청을 보낸다. 다르면 취소한다. nonce·개인키·지문은 신규 IPC 응답에 없다. 5분이 지난 native 대기 값은 다음 시작 때 제거하며, 앱 종료 시 모두 사라진다.
+- 허브는 공개 뒤 raw nonce를 보존하지 않는다(기존 proof 검증에는 해시 사용). 종결 시 보관된 SAS/커밋을 지우며 일반 로그·감사에는 nonce·secret·서명·키·숫자를 기록하지 않는다. 감사의 성공/거절과 상태 변경은 기존 AuditClient transaction 규약을 따른다.
+
+### 보안 한계와 미완료 범위
+
+여섯 자리 SAS는 대면/전화 등 **독립된 두 화면 비교**의 보조 수단이다. 같은 화면에서 전달된 숫자 둘을 비교하거나 사람이 무조건 ‘같아요’를 누르면 보호하지 못한다. 정상 세션 사이 숫자 우연 충돌 가능성은 약 백만 분의 일이며, commit-reveal은 nonce를 안 뒤 약 백만 번 해시해 일치시키는 사후 선택을 막는다. 공격자가 키를 계속 새로 만드는 Sybil·분산/서비스 거부를 기기별 잠금만으로 완전히 막지는 못한다. 별명은 직장 신원이나 계정 소유 증거가 아니며 관리자 실물 확인·기존 인증·ACL이 여전히 필요하다.
+
+이 IPC는 최초 discovery 후보를 자동 신뢰하거나 pin을 새로 영속 저장하지 않는다. 독립적으로 전달·승인한 초대 pin 경로를 사용한다. 최초 TOFU 승인 UI, pin 회전, 직원 화면과 실서버 adapter 통합, 실제 회사 자료 동기화, Windows/macOS native keychain·방화벽·별도 두 PC 동작은 이 프로토콜 단위 검증만으로 완료되지 않는다. 임시 loopback HTTP 데모/DB 테스트는 개발 fixture이며 제품 native 경로는 HTTPS만 허용한다.
+
+### 이번 변경의 실제 검증
+
+모든 서버 테스트/데모는 `demo-office-pairing.mjs`가 새로 `initdb`한 전용 임시 cluster에서 실행하고 종료 시 삭제했다. 기존 개발/공유 DB와 `.env`는 사용·변경하지 않았고 `office:prepare`는 실행하지 않았다.
+
+| 명령 | 실제 결과 |
+| --- | --- |
+| `pnpm --dir app/apps/server run build` | 통과. 최종 서버 소스에서 재실행 통과 |
+| `node app/scripts/demo-office-pairing.mjs --test-pairing` | 첫 실행 25/26 통과, 기존 계정 중복 테스트에서 신규 SAS 확인 단계 누락으로 1 실패. 보완 후 26/26, 최종 위협/거절 영역 fixture 추가 후 **28/28 통과(4 files)** |
+| `node app/scripts/demo-office-pairing.mjs` | SAS commit/reveal·양쪽 확인·관리자 선승인 거절을 포함해 **9/9 PASS**, 최종 build에서 재실행도 9/9 |
+| `CMAKE=/tmp/ib-build-tools/cmake/data/bin/cmake cargo check` (`app/apps/desktop/src-tauri/`) | 첫 실제 컴파일은 신규 Rust 테스트의 쉼표 변수 선언 문법 오류로 실패. 수정 후 **통과**, 기존 `semantic_hits` dead_code 경고만. 이보다 앞선 저장소 루트 실행 1회는 Cargo.toml 없음으로 시작 실패 |
+| 같은 CMAKE로 `cargo test` (동일 디렉터리, 직렬 실행) | **통과**, unit 364 passed / 10 ignored, integration 8+4 passed, data-volume 1 ignored. TS/Rust SAS golden·거절 영역 fixture 포함. 실제 keychain/두 PC 테스트는 포함하지 않음 |
+| `pnpm exec tsc --noEmit` (`app/apps/desktop/`) | **통과**(최종 재실행도 exit 0) |
+| `git diff --check` | 통과 |
+
+새 위협 검증은 커밋 뒤 nonce 변경/두 번째 커밋 거절, 다른 실제 세션의 서명된 커밋을 옮겨도 reveal 거절, 지문 양 view·세션·키 binding, 중복 reveal/확인 거절, 3회 실패·지연·기기 잠금, 요청자/관리자 SAS 확인 없이 요청·승인 거절을 다룬다. 이 작업은 화면/CSS를 변경하지 않았으며 Windows/macOS UI 검토, native Windows, 실제 초대 전달·OS keychain·다른 PC 간 TLS pairing은 미검증이다. 신규 명령의 `lib.rs` 등록은 코디네이터가 수행했다.

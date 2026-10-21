@@ -2,7 +2,7 @@
 import { generateKeyPairSync, randomBytes, randomUUID, sign } from "node:crypto";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../src/http/app.js";
-import { challengeDigest, type Challenge } from "../src/office/protocol.js";
+import { challengeDigest, sasCommit, type Challenge } from "../src/office/protocol.js";
 import { OfficePairing } from "../src/office/pairing.js";
 import { testAppDeps } from "./helpers/app.js";
 import { createOrg, signUp, type TestUser } from "./helpers/auth.js";
@@ -23,9 +23,12 @@ async function begin() {
   const invitation = await pairing.invite(organizationId, owner.userId);
   const keys = generateKeyPairSync("ed25519");
   const body = { invitationSecret: invitation.invitationSecret, hubFingerprint: fingerprint, personId: randomUUID(), deviceId: randomUUID(),
-    displayAlias: "별명만", deviceLabel: "기기", platform: "macos", clientNonce: randomBytes(32).toString("base64url"),
+    displayAlias: "별명만", deviceLabel: "기기", platform: "macos",
     publicKey: keys.publicKey.export({ format: "der", type: "spki" }).toString("base64url") };
-  const result = await pairing.challenge(body, employee.userId);
+  const prepared = await pairing.challenge(body, employee.userId);
+  const clientNonce = randomBytes(32).toString("base64url"), commitment = sasCommit(prepared.context, clientNonce);
+  await pairing.commit(prepared.sessionId, { pairingToken: prepared.pairingToken, commitment: commitment.toString("base64url"), signature: sign(null, commitment, keys.privateKey).toString("base64url") });
+  const result = { ...await pairing.reveal(prepared.sessionId, { pairingToken: prepared.pairingToken, clientNonce }), pairingToken: prepared.pairingToken };
   const challenge = result.challenge;
   const proof = { pairingToken: result.pairingToken, clientNonce: challenge.clientNonce, serverNonce: challenge.serverNonce,
     signature: sign(null, challengeDigest(challenge), keys.privateKey).toString("base64url") };
@@ -35,7 +38,9 @@ async function begin() {
 async function makePending() {
   const run = await begin();
   expect((await request(`/office/pairing/${run.challenge.sessionId}/proof`, "POST", run.proof)).status).toBe(200);
+  await pairing.confirm(run.challenge.sessionId, { pairingToken: run.pairingToken, matches: true }, null);
   expect((await request(`/office/pairing/${run.challenge.sessionId}/request`, "POST", { pairingToken: run.pairingToken }, employee.token)).status).toBe(200);
+  await pairing.confirm(run.challenge.sessionId, { matches: true }, owner.userId);
   return run;
 }
 
@@ -96,6 +101,7 @@ describe("office pairing negative security cases", () => {
     const forgedServer = { ...run.proof, signature: sign(null, challengeDigest(foreignServer), run.keys.privateKey).toString("base64url") };
     expect((await request(`/office/pairing/${run.challenge.sessionId}/proof`, "POST", forgedServer)).status).toBe(403);
 
+    await pool.query("UPDATE pairing_session SET sas_blocked_until=NULL WHERE id=$1", [run.challenge.sessionId]);
     const changedGeneration = { ...run.challenge, hostGeneration: "42" } as Challenge;
     const forgedGeneration = { ...run.proof, signature: sign(null, challengeDigest(changedGeneration), run.keys.privateKey).toString("base64url") };
     expect((await request(`/office/pairing/${run.challenge.sessionId}/proof`, "POST", forgedGeneration)).status).toBe(403);

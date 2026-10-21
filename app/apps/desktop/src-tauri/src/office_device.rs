@@ -4,12 +4,12 @@
 //! peer certificate before reqwest can send any HTTP headers or body.
 use crate::error::{AppError, AppResult};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
-use ring::{rand::SystemRandom, signature::{Ed25519KeyPair, KeyPair}};
+use ring::{rand::{SecureRandom, SystemRandom}, signature::{Ed25519KeyPair, KeyPair}};
 use rustls::{client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier},
     pki_types::{CertificateDer, ServerName, UnixTime}, DigitallySignedStruct, SignatureScheme};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::{sync::{Arc, Mutex}, time::Duration};
+use std::{collections::HashMap, sync::{Arc, LazyLock, Mutex}, time::{Duration, Instant}};
 use tauri::{AppHandle, Webview};
 
 static STORE_LOCK: Mutex<()> = Mutex::new(());
@@ -189,9 +189,166 @@ pub async fn office_device_sign_challenge(app: AppHandle, webview: Webview, orig
     Ok(URL_SAFE_NO_PAD.encode(key.sign(&challenge_digest(&challenge)?).as_ref()))
 }
 
+// SAS secrets and pending capabilities never enter WebView state or keychain diagnostics.
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct SasContext {
+    session_id: String, server_id: String, organization_id: String, host_generation: String,
+    observed_fingerprint: String, hub_fingerprint: String, client_public_key: String, hub_public_key: String,
+}
+impl SasContext {
+    fn fields(&self) -> Vec<&str> {
+        vec![&self.session_id, &self.server_id, &self.organization_id, &self.host_generation,
+            &self.observed_fingerprint, &self.hub_fingerprint, &self.client_public_key, &self.hub_public_key]
+    }
+}
+fn encoded(fields: &[&str]) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    for field in fields { bytes.extend_from_slice(&(field.len() as u32).to_be_bytes()); bytes.extend_from_slice(field.as_bytes()); }
+    bytes
+}
+fn sas_commit(context: &SasContext, nonce: &str) -> Vec<u8> {
+    let mut fields = vec!["infinite-brain/office-sas/commit/v1"];
+    fields.extend(context.fields()); fields.push(nonce);
+    Sha256::digest(encoded(&fields)).to_vec()
+}
+fn derive_sas(context: &SasContext, client_nonce: &str, server_nonce: &str) -> String {
+    let mut fields = vec!["infinite-brain/office-sas/transcript/v1"];
+    fields.extend(context.fields()); fields.extend([client_nonce, server_nonce]);
+    let transcript = encoded(&fields);
+    for counter in 0..=u32::MAX {
+        let mut hash = Sha256::new(); hash.update(&transcript); hash.update(counter.to_be_bytes());
+        let value = u32::from_be_bytes(hash.finalize()[..4].try_into().unwrap());
+        if value < 4_294_000_000 { return format!("{:06}", value % 1_000_000); }
+    }
+    unreachable!("SHA-256 rejection sampling exhausted")
+}
+struct PendingPairing { origin: reqwest::Url, fingerprint: String, token: String, auth_token: Option<String>, deadline: Instant }
+static PENDING_PAIRINGS: LazyLock<Mutex<HashMap<String, PendingPairing>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PairingProfile { person_id: String, display_alias: String, device_label: String, platform: String }
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PairingSas { session_id: String, sas: String, expires_at: String }
+async fn pairing_post(origin: &reqwest::Url, fingerprint: &str, path: &str, body: serde_json::Value, auth_token: Option<&str>) -> AppResult<serde_json::Value> {
+    let mut request = client(fingerprint)?.post(origin.join(path).map_err(|_| err(CONNECT_ERROR))?).json(&body);
+    if let Some(token) = auth_token { request = request.bearer_auth(token); }
+    let mut response = request.send().await.map_err(transport_error)?;
+    let status = response.status();
+    let mut bytes = Vec::new();
+    while let Some(chunk) = response.chunk().await.map_err(transport_error)? {
+        if bytes.len() + chunk.len() > 8192 { return Err(err(CONNECT_ERROR)); }
+        bytes.extend_from_slice(&chunk);
+    }
+    let value: serde_json::Value = serde_json::from_slice(&bytes).map_err(|_| err(CONNECT_ERROR))?;
+    if !status.is_success() {
+        return Err(err(match value["code"].as_str() {
+            Some("sas_mismatch") => "office_sas_mismatch: 확인 숫자가 달라요. 관리자에게 새 초대를 요청해 주세요.",
+            Some("too_many_attempts") => "office_too_many_attempts: 확인 요청이 여러 번 실패해 잠시 멈췄어요. 잠시 뒤 새 초대로 다시 시작해 주세요.",
+            _ => CONNECT_ERROR,
+        }));
+    }
+    Ok(value)
+}
+fn json_text<'a>(value: &'a serde_json::Value, key: &str) -> AppResult<&'a str> { value[key].as_str().ok_or_else(|| err(CONNECT_ERROR)) }
+/// Uses an independently approved TLS pin. Discovery alone cannot establish trust.
+/// Executes the full ordered protocol natively and returns only the six digits + opaque session metadata.
+#[tauri::command]
+pub async fn office_pairing_begin(app: AppHandle, webview: Webview, origin: String, server_id: String, invitation_secret: String, profile: PairingProfile, auth_token: Option<String>) -> AppResult<PairingSas> {
+    main_only(&webview)?;
+    {
+        let mut pending = PENDING_PAIRINGS.lock().map_err(|_| err(CONNECT_ERROR))?;
+        pending.retain(|_, value| value.deadline > Instant::now());
+        if pending.len() >= 8 { return Err(err(CONNECT_ERROR)); }
+    }
+    let namespace = app.config().identifier.clone();
+    let fingerprint = pinned(&namespace, &server_id)?;
+    let info = hub_info(&origin, &server_id, &fingerprint).await?;
+    let origin = endpoint(&origin)?;
+    let (identity, key) = identity(&device(&namespace)?)?;
+    let prepared = pairing_post(&origin, &fingerprint, "api/office/pairing/challenge", serde_json::json!({
+        "invitationSecret": invitation_secret, "hubFingerprint": fingerprint, "personId": profile.person_id,
+        "deviceId": identity.device_id, "publicKey": identity.public_key, "displayAlias": profile.display_alias,
+        "deviceLabel": profile.device_label, "platform": profile.platform,
+    }), auth_token.as_deref()).await?;
+    let context: SasContext = serde_json::from_value(prepared["context"].clone()).map_err(|_| err(CONNECT_ERROR))?;
+    let session_id = json_text(&prepared, "sessionId")?.to_owned();
+    let expires_at = json_text(&prepared, "expiresAt")?.to_owned();
+    let token = json_text(&prepared, "pairingToken")?.to_owned();
+    let hub_key = URL_SAFE_NO_PAD.decode(&context.hub_public_key).map_err(|_| err(CONNECT_ERROR))?;
+    if context.session_id != session_id || uuid::Uuid::parse_str(&session_id).is_err() || context.server_id != server_id
+        || context.observed_fingerprint != fingerprint || context.hub_fingerprint != fingerprint
+        || context.client_public_key != identity.public_key || context.host_generation != info.generation
+        || hub_key.len() != 44 || hub_key[..12] != [0x30,0x2a,0x30,0x05,0x06,0x03,0x2b,0x65,0x70,0x03,0x21,0x00]
+        || URL_SAFE_NO_PAD.decode(&token).map_or(true, |v| v.len() != 32) { return Err(err(PIN_ERROR)); }
+    let mut random = [0u8; 32]; SystemRandom::new().fill(&mut random).map_err(|_| err(CONNECT_ERROR))?;
+    let nonce = URL_SAFE_NO_PAD.encode(random);
+    let commitment = sas_commit(&context, &nonce);
+    let committed = pairing_post(&origin, &fingerprint, &format!("api/office/pairing/{session_id}/commit"), serde_json::json!({
+        "pairingToken": token, "commitment": URL_SAFE_NO_PAD.encode(&commitment), "signature": URL_SAFE_NO_PAD.encode(key.sign(&commitment).as_ref()),
+    }), None).await?;
+    if json_text(&committed, "sessionId")? != session_id { return Err(err(CONNECT_ERROR)); }
+    let server_nonce = json_text(&committed, "serverNonce")?;
+    if URL_SAFE_NO_PAD.decode(server_nonce).map_or(true, |v| v.len() != 32 || URL_SAFE_NO_PAD.encode(v) != server_nonce) { return Err(err(CONNECT_ERROR)); }
+    let revealed = pairing_post(&origin, &fingerprint, &format!("api/office/pairing/{session_id}/reveal"), serde_json::json!({ "pairingToken": token, "clientNonce": nonce }), None).await?;
+    let challenge: PairingChallenge = serde_json::from_value(revealed["challenge"].clone()).map_err(|_| err(CONNECT_ERROR))?;
+    if challenge.session_id != session_id || challenge.server_id != server_id || challenge.organization_id != context.organization_id
+        || challenge.device_id != identity.device_id || challenge.key_fingerprint != identity.key_fingerprint
+        || challenge.client_nonce != nonce || challenge.server_nonce != server_nonce || challenge.audience != info.audience
+        || challenge.host_generation != info.generation || challenge.protocol_version != 1 || challenge.expires_at != expires_at
+        || challenge.person_id != profile.person_id || challenge.display_alias != profile.display_alias
+        { return Err(err(CONNECT_ERROR)); }
+    let signature = URL_SAFE_NO_PAD.encode(key.sign(&challenge_digest(&challenge)?).as_ref());
+    pairing_post(&origin, &fingerprint, &format!("api/office/pairing/{session_id}/proof"), serde_json::json!({
+        "pairingToken": token, "clientNonce": nonce, "serverNonce": server_nonce, "signature": signature,
+    }), None).await?;
+    let sas = derive_sas(&context, &nonce, server_nonce);
+    PENDING_PAIRINGS.lock().map_err(|_| err(CONNECT_ERROR))?.insert(session_id.clone(), PendingPairing { origin, fingerprint, token, auth_token, deadline: Instant::now() + Duration::from_secs(300) });
+    Ok(PairingSas { session_id, sas, expires_at })
+}
+/// Consumes the native capability once; mismatches cancel locally and never request approval.
+#[tauri::command]
+pub async fn office_pairing_confirm(webview: Webview, session_id: String, matches: bool) -> AppResult<()> {
+    main_only(&webview)?;
+    let pending = PENDING_PAIRINGS.lock().map_err(|_| err(CONNECT_ERROR))?.remove(&session_id).ok_or_else(|| err(CONNECT_ERROR))?;
+    if pending.deadline <= Instant::now() { return Err(err(CONNECT_ERROR)); }
+    let result = pairing_post(&pending.origin, &pending.fingerprint, &format!("api/office/pairing/{session_id}/sas-confirm"), serde_json::json!({ "pairingToken": pending.token, "matches": matches }), None).await;
+    if !matches {
+        let _ = pairing_post(&pending.origin, &pending.fingerprint, &format!("api/office/pairing/{session_id}/cancel"), serde_json::json!({ "pairingToken": pending.token }), None).await;
+    }
+    result?;
+    pairing_post(&pending.origin, &pending.fingerprint, &format!("api/office/pairing/{session_id}/request"), serde_json::json!({ "pairingToken": pending.token }), pending.auth_token.as_deref()).await?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn sas_matches_server_golden_and_binds_both_tls_views_and_session() {
+        let context = SasContext {
+            session_id: "00000000-0000-4000-8000-000000000001".into(), server_id: "hub".into(), organization_id: "org".into(), host_generation: "1".into(),
+            observed_fingerprint: "a".repeat(64), hub_fingerprint: "a".repeat(64), client_public_key: "client-key".into(), hub_public_key: "hub-key".into(),
+        };
+        let client = URL_SAFE_NO_PAD.encode([1u8; 32]);
+        let server = URL_SAFE_NO_PAD.encode([2u8; 32]);
+        assert_eq!(derive_sas(&context, &client, &server), "041415");
+        assert_eq!(hex(&sas_commit(&context, &client)), "7ef25d5b95cd49cabd948cf2a2dff0b3611628b002ddeb234d6e24f61efa27af");
+        let mut rejected_tail = [0u8; 32]; rejected_tail[..4].copy_from_slice(&1794u32.to_be_bytes());
+        assert_eq!(derive_sas(&context, &URL_SAFE_NO_PAD.encode(rejected_tail), &server), "178258");
+        let mut changed = context.clone(); changed.observed_fingerprint = "b".repeat(64);
+        assert_ne!(derive_sas(&changed, &client, &server), "041415");
+        assert_ne!(sas_commit(&changed, &client), sas_commit(&context, &client));
+        changed = context.clone(); changed.hub_fingerprint = "b".repeat(64);
+        assert_ne!(derive_sas(&changed, &client, &server), "041415");
+        changed = context.clone(); changed.session_id = "00000000-0000-4000-8000-000000000002".into();
+        assert_ne!(sas_commit(&changed, &client), sas_commit(&context, &client));
+        assert_ne!(sas_commit(&context, &server), sas_commit(&context, &client));
+        assert_ne!(encoded(&["a", "bc"]), encoded(&["ab", "c"]));
+        let visible = serde_json::to_string(&PairingSas { session_id: context.session_id, sas: "041415".into(), expires_at: "expiry".into() }).unwrap();
+        assert!(!visible.contains("fingerprint")); assert!(!visible.contains(&client)); assert!(!visible.contains(&server));
+    }
     #[test]
     fn ed25519_identity_signs_server_compatible_digest_without_exporting_secret() {
         let pkcs8 = Ed25519KeyPair::generate_pkcs8(&SystemRandom::new()).unwrap();
