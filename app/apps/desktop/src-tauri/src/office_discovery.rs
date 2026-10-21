@@ -484,6 +484,44 @@ pub(crate) fn shutdown(app: &AppHandle) {
     };
 }
 
+/// Explicit same-Mac E2E only: real multicast, production NIC policy, parser,
+/// candidate deduplication and capability resolution. No injected scan records.
+#[cfg(test)]
+pub(crate) struct E2eAdvertisement { _advertisement: Advertisement }
+#[cfg(test)]
+pub(crate) fn e2e_advertise_discover(server_id: &str, generation: &str, port: u16) -> AppResult<(E2eAdvertisement, (String, String))> {
+    let mut advertiser = daemon()?;
+    let browser = daemon()?;
+    let instance = uuid::Uuid::new_v4().simple().to_string();
+    let port_text = port.to_string();
+    let properties = [("serverId", server_id), ("displayName", "E2E 임시 작업 공간"),
+        ("port", port_text.as_str()), ("hostGeneration", generation), ("protocolVersion", "1")];
+    let mut service = ServiceInfo::new(SERVICE, &instance, &format!("ib-{instance}.local."), "", port, &properties[..])
+        .map_err(|_| error(UNAVAILABLE))?.enable_addr_auto();
+    service.set_interfaces(vec![interface_filter()]);
+    let fullname = service.get_fullname().to_owned();
+    let events = browser.0.browse(SERVICE).map_err(|_| error(UNAVAILABLE))?;
+    advertiser.0.register(service).map_err(|_| error(UNAVAILABLE))?;
+    let advertisement = E2eAdvertisement { _advertisement: Advertisement { daemon: advertiser.0.clone(), fullname: fullname.clone(), token: instance } };
+    advertiser.1 = false;
+    let deadline = Instant::now() + Duration::from_secs(12);
+    let mut scan = Scan::default();
+    while Instant::now() < deadline {
+        if let Ok(event) = events.recv_timeout(Duration::from_millis(100)) {
+            scan.apply(event);
+            if let Some(record) = scan.records.get(&fullname) {
+                let id = record.candidate.candidate_id.clone();
+                let candidate = scan.resolve(&id)?;
+                if candidate.1 == server_id {
+                    let _ = browser.0.stop_browse(SERVICE);
+                    return Ok((advertisement, candidate));
+                }
+            }
+        }
+    }
+    Err(error(UNAVAILABLE))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

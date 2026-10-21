@@ -74,7 +74,19 @@ runtime is built in order with `pnpm run office:prepare`, `pnpm run office:verif
 `pnpm run build:desktop:office`. The coordinator owns `office:prepare`; it was not run in this
 documentation update. The default desktop build does not include this runtime.
 
-Still unimplemented or unverified: mDNS, pairing UI, real sync-provider/native pinned transport
-connection, group ACLs, checkpoints, Windows/macOS Intel/native packaged-app behavior, and the
-universal/signing/notarization gate. The intermittent `sync-token` `resetDb()` deadlock remains
-unresolved. See [[reports/office-tls-device-validation]] for the validation evidence and its limits.
+**Update (2026-10-22, local implementation; still not a release claim):** also implemented and verified
+on one Mac: opt-in mDNS discovery (`_ib-office._tcp`, private addresses only, candidates are never
+trusted), SAS commit-reveal pairing (migrations 068/069, an admin mismatch report counts as a failure and
+three cancel the session), IB1 invitation codes, the native join path, the Settings → "사내 협업" tab
+(step-by-step join/share flow, invitation creation, admin approval inbox) and Korean strings for the
+profile/appearance/notification settings. `node scripts/e2e-office-join.mjs` (from `app/`) runs the whole
+path against the bundled hub: real LAN HTTPS, real mDNS, real Rust join code and a test-only OS keychain
+entry (19/19; see [[reports/office-join-e2e]]).
+
+Still unimplemented or unverified: syncing a vault through the paired hub (the Yjs provider is not wired to
+the pinned relay in a user flow), group ACLs and folder grants, selective sync, checkpoints/restore,
+a pin replacement/renewal UI, two real machines, Windows/WebView2, macOS Intel, a Local Network permission
+prompt in a signed installed app, and the universal/signing/notarization gate. The release build does not
+include the runtime unless built with `build:desktop:office`. The intermittent `sync-token` `resetDb()`
+deadlock remains unresolved (seen in 2 of 3 runs, not reproduced in a later independent run). See
+[[reports/office-tls-device-validation]] for the earlier validation evidence and its limits.
