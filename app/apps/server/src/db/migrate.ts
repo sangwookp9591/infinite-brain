@@ -1,3 +1,4 @@
+import { realpathSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -67,7 +68,21 @@ export async function runMigrations(
 }
 
 // Run directly: `tsx src/db/migrate.ts`
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Compare real filesystem paths, not `file://${argv[1]}`: import.meta.url is
+// percent-encoded and symlink-resolved, so the string form never matched a path
+// with spaces/non-ASCII characters or one reached through a symlink (/tmp on
+// macOS). That silently skipped every migration for an app installed at
+// "/Applications/Infinite Brain.app".
+function isMainModule(): boolean {
+  if (!process.argv[1]) return false;
+  try {
+    return realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
+  }
+}
+
+if (isMainModule()) {
   runMigrations()
     .then((applied) => {
       if (applied.length === 0) {

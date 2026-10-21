@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
 import { randomBytes, X509Certificate } from 'node:crypto';
-import { mkdtemp, readFile, readdir, rm, access, writeFile, mkdir, stat } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, rm, access, writeFile, mkdir, stat, cp, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawn } from 'node:child_process';
@@ -35,6 +35,33 @@ test('invalid/relative profiles and credentials fail before any database starts'
     { ...profile, scope: 'public' }, { ...profile, tls: { certificateFingerprint: 7 } }]) {
     assert.throws(() => validateProfile(value));
   }
+});
+
+test('migration entrypoint runs from a path with spaces, non-ASCII and a symlink', async () => {
+  // Regression: `import.meta.url === file://${argv[1]}` never matched such a path, so an app
+  // installed at "/Applications/Infinite Brain.app" silently applied no migrations.
+  const server = resolve(fileURLToPath(new URL('..', import.meta.url)));
+  const base = await mkdtemp(join(tmpdir(), 'ib 마이그레이션 '));
+  try {
+    await mkdir(join(base, 'real dir', 'server'), { recursive: true });
+    await cp(join(server, 'dist'), join(base, 'real dir', 'server', 'dist'), { recursive: true });
+    await symlink(join(server, 'node_modules'), join(base, 'real dir', 'server', 'node_modules'));
+    await symlink(join(base, 'real dir'), join(base, 'link'));
+    for (const entry of [join(base, 'real dir'), join(base, 'link')]) {
+      const result = await new Promise((done) => {
+        const child = spawn(process.execPath, [join(entry, 'server', 'dist', 'db', 'migrate.js')], {
+          env: { PATH: process.env.PATH, DATABASE_URL: 'postgres://u:p@127.0.0.1:1/none' }, stdio: ['ignore', 'pipe', 'pipe'],
+        });
+        let output = '';
+        child.stdout.on('data', (d) => { output += d; });
+        child.stderr.on('data', (d) => { output += d; });
+        child.on('close', (code) => done({ code, output }));
+      });
+      // A skipped entrypoint exits 0 silently; a running one tries to connect and fails.
+      assert.equal(result.code, 1, `migrate.js did not run from ${entry}: ${result.output}`);
+      assert.match(result.output, /ECONNREFUSED/);
+    }
+  } finally { await rm(base, { recursive: true, force: true }); }
 });
 
 test('another host cannot take or remove a live runtime lock', async () => {
