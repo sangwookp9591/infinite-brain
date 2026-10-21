@@ -107,4 +107,8 @@ export const welcome: Record<string, string> = {
   "Change": "변경",
   "Couldn't reach the server at {host}. An account is for working with a team and needs an Infinite Brain server. You can keep using your notes on this computer without one.":
     "{host} 서버에 연결할 수 없어요. 계정은 팀과 함께 쓸 때 필요하고, Infinite Brain 서버가 있어야 해요. 계정 없이도 이 컴퓨터에서 메모를 계속 쓸 수 있어요.",
+  "The team server couldn't start. Try again later, or ask your team administrator for help.":
+    "팀 서버를 시작하지 못했어요. 잠시 후 다시 시도하거나 팀 관리자에게 도움을 요청하세요.",
+  "This app can't start the team server yet. Update the app or ask your team administrator for help.":
+    "현재 앱에서는 팀 서버를 시작할 수 없어요. 앱을 업데이트하거나 팀 관리자에게 도움을 요청하세요.",
 };

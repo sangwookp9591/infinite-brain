@@ -22,6 +22,9 @@ pub mod index;
 pub mod keychain;
 pub mod notefile;
 pub mod oauth;
+mod office_host;
+mod office_device;
+mod office_link;
 pub mod parse;
 pub mod semantic;
 mod relaunch;
@@ -138,6 +141,8 @@ pub fn run() {
 
     builder
         .manage(agent_runner::AgentRunnerState::default())
+        .manage(office_host::OfficeHostState::default())
+        .manage(office_link::OfficeLinkState::default())
         .register_asynchronous_uri_scheme_protocol("infinitebrain-view", dashboard::handle_request)
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
@@ -208,6 +213,15 @@ pub fn run() {
         // minting a share link) outlives — a native call has no such rule.
         .manage(clipboard::ClipboardState::default())
         .invoke_handler(tauri::generate_handler![
+            office_link::office_link_open,
+            office_link::office_link_close,
+            office_device::office_device_identity,
+            office_device::office_hub_approve,
+            office_device::office_hub_verify,
+            office_device::office_device_sign_challenge,
+            office_host::office_host_status,
+            office_host::office_host_start,
+            office_host::office_host_stop,
             agent_runner::detect_agents,
             semantic::smart_search_status,
             semantic::smart_search_enable,

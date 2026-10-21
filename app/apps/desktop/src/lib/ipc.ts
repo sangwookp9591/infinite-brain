@@ -15,6 +15,51 @@ export type { YjsState } from "./ipcCodec";
 
 /** Open an external URL (markdown links) in the user's default browser. */
 export const openExternal = (url: string) => openUrl(url);
+
+/** Office host lifecycle; LAN scope is passed only by an explicit caller request. */
+export interface OfficeHostStatus {
+  available: boolean;
+  phase: string;
+  endpoint: string | null;
+  scope: "loopback" | "lan" | null;
+  port: number | null;
+  lanExposed: boolean;
+  certificateFingerprint: string | null;
+  error: string | null;
+  runId: string | null;
+}
+export const officeHostStatus = (): Promise<OfficeHostStatus> => invoke("office_host_status");
+export const officeHostStart = (scope: "loopback" | "lan" = "loopback"): Promise<OfficeHostStatus> => invoke("office_host_start", { scope });
+export const officeHostStop = (): Promise<void> => invoke("office_host_stop");
+export const onOfficeHostStatus = (fn: (status: OfficeHostStatus) => void): Promise<UnlistenFn> =>
+  listen<OfficeHostStatus>("office-host-status", (event) => fn(event.payload));
+/** Native office device identity. Private keys never leave the OS keychain. */
+export interface OfficeDeviceIdentity { deviceId: string; publicKey: string; keyFingerprint: string }
+export interface OfficeHubInfo { serverId: string; generation: string; fingerprint: string; audience: string; protocolVersion: number }
+export interface OfficePairingChallenge {
+  serverId: string; organizationId: string; sessionId: string; deviceId: string;
+  keyFingerprint: string; clientNonce: string; serverNonce: string; audience: string;
+  hostGeneration: string; protocolVersion: number; expiresAt: string;
+  requesterUserId: string | null; personId: string; displayAlias: string;
+}
+export const officeDeviceIdentity = (): Promise<OfficeDeviceIdentity> => invoke("office_device_identity");
+/** Requires explicit approval of independently delivered trust information. */
+export const officeHubApprove = (origin: string, serverId: string, fingerprint: string): Promise<OfficeHubInfo> =>
+  invoke("office_hub_approve", { origin, serverId, fingerprint });
+export const officeHubVerify = (origin: string, serverId: string): Promise<OfficeHubInfo> =>
+  invoke("office_hub_verify", { origin, serverId });
+/** Verifies live TLS pin, device, audience and host generation before signing. */
+export const officeDeviceSignChallenge = (origin: string, challenge: OfficePairingChallenge): Promise<string> =>
+  invoke("office_device_sign_challenge", { origin, challenge });
+
+/** Process-only relay credentials. Never persist, display or log these URLs. */
+export interface OfficeLinkEndpoint { linkId: string; httpBaseUrl: string }
+/** Uses the already approved per-hub pin; never approves or replaces trust. */
+export const officeLinkOpen = (origin: string, serverId: string): Promise<OfficeLinkEndpoint> =>
+  invoke("office_link_open", { origin, serverId });
+/** Stops listener and active HTTP/WS connections; closing twice is safe. */
+export const officeLinkClose = (linkId: string): Promise<void> => invoke("office_link_close", { linkId });
+
 /** Native, unprivileged viewer positioned inside the current dashboard tab. */
 export interface DashboardLinkBounds { x: number; y: number; width: number; height: number }
 export const mountDashboardLink = (url: string, bounds: DashboardLinkBounds, onLoaded: () => void): Promise<string> => {

@@ -13,6 +13,8 @@ vi.mock("../../ipc", () => ({
   keychainDelete: vi.fn(async () => {}),
   getServerUrl: vi.fn(async () => null),
   setServerUrl: vi.fn(async () => {}),
+  officeHostStatus: vi.fn(async () => ({ available: false, phase: "stopped", endpoint: null, scope: null, port: null, lanExposed: false, certificateFingerprint: null, error: null, runId: null })),
+  officeHostStart: vi.fn(async () => ({ available: false, phase: "stopped", endpoint: null, scope: null, port: null, lanExposed: false, certificateFingerprint: null, error: null, runId: null })),
 }));
 
 import type { ApiClient } from "../../api";

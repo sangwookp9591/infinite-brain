@@ -14,6 +14,7 @@ import {
 } from "../api";
 import * as ipc from "../ipc";
 import type { SessionVerdict } from "../sync/sessionGuard";
+import { withOfficeHostFallback } from "../officeHost";
 
 /**
  * Keychain key namespace. Bumped from `session:` when macOS builds started being
@@ -82,7 +83,7 @@ export class AuthManager {
 
     this.api.setToken(token);
     try {
-      const session = await this.api.getSession();
+      const session = await withOfficeHostFallback(this.api, () => this.api.getSession());
       if (!session) {
         // Token invalid/revoked — drop it.
         await this.clearToken();
@@ -107,13 +108,13 @@ export class AuthManager {
   }
 
   async signUp(input: { email: string; password: string; name: string }): Promise<AuthUser> {
-    const { user, token } = await this.api.signUp(input);
+    const { user, token } = await withOfficeHostFallback(this.api, () => this.api.signUp(input));
     if (token) await ipc.keychainSet(this.keychainKey(), token);
     return user;
   }
 
   async signIn(input: { email: string; password: string }): Promise<AuthUser> {
-    const { user, token } = await this.api.signIn(input);
+    const { user, token } = await withOfficeHostFallback(this.api, () => this.api.signIn(input));
     if (token) await ipc.keychainSet(this.keychainKey(), token);
     return user;
   }
