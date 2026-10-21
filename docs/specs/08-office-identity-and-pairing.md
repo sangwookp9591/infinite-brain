@@ -248,9 +248,9 @@ DB transaction 안에서 상태 전이를 조건부 UPDATE로 수행한다 (`WHE
 | 2. `POST /office/pairing/:id/commit` | capability, `SHA256(encode(commit-domain, context, clientNonce))`, 그 커밋의 Ed25519 기기 서명 | `prepared`에서 커밋 하나만 수락. DB transaction으로 고정한 후 허브가 CSPRNG 32-byte nonce를 만들어 응답. `committed` |
 | 3. `POST /office/pairing/:id/reveal` | capability, 합류자 nonce | 저장된 context로 커밋을 재계산하고 상수 시간 비교. 불일치 거절. `revealed`로 단회 전이하며 허브 SAS를 저장하고 기존 서명 challenge 반환. 허브 nonce 원문은 DB에서 제거 |
 | 4. `POST /office/pairing/:id/proof` | capability, 양 nonce, 기기 challenge 서명 | 기존 device/account/person/alias/audience/generation/expiry binding 검증. `revealed` 이전 proof는 거절 |
-| 5. `POST /office/pairing/:id/sas-confirm` | 요청자 capability, `matches: true` | `proof_verified` 상태에서 요청자 확인을 단회 기록. 숫자는 서버에서 받아 표시하지 않고 Rust가 자체 파생 |
+| 5. `POST /office/pairing/:id/sas-confirm` | 요청자 capability, boolean `matches` | `proof_verified` 상태에서 일치 확인을 단회 기록. 불일치 보고는 실패 집계·승인 보호. 숫자는 Rust가 자체 파생 |
 | 6. `POST /office/pairing/:id/request` | capability, 요청자 기존 계정 인증 | 요청자 SAS 확인 필수. 기존 사람·계정 조건을 확인하고 `pending_approval`로 이동. 기존 정책대로 승인 대기 TTL 24시간 |
-| 7. 관리자 requests / `sas-confirm` | 인증된 관리자가 요청자 별명·기기 이름·플랫폼·요청 시각·계정 연결 여부·SAS·확인 상태 조회 후 `matches: true` 제출 | nonce·커밋·capability·지문·키를 승인 화면 API에 반환하지 않음. 본인 확인 금지. 승인 담당 관리자 ID를 단회 기록 |
+| 7. 관리자 requests / `sas-confirm` | 인증된 관리자가 신청 정보·SAS 조회 후 boolean `matches` 제출 | 일치한 관리자 ID 단회 기록. `false`도 서버 호출하며 실패 집계·승인 보호. 본인 확인 금지 |
 | 8. 관리자 `decision` | 기존 승인/거절/취소 API | 양쪽 SAS 확인과 **그 확인을 한 관리자**의 현재 권한이 없으면 승인 거절. 기존 member/계정 연결/본인 승인 금지/일회 결정/감사 transaction 유지 |
 
 `context` 순서는 `sessionId, serverId, organizationId, hostGeneration, observedFingerprint, hubFingerprint, clientPublicKey, hubPublicKey`이다. `observedFingerprint`는 native TLS 검증기가 실제 연결에서 검증한 인증서 SHA-256이고 `hubFingerprint`는 허브 자신의 설정된 인증서 SHA-256이다. 둘이 다르면 시작하지 않는다. `clientPublicKey`는 설치 기기의 Ed25519 SPKI(base64url), `hubPublicKey`는 허브 프로세스가 생성한 Ed25519 pairing 공개키(SPKI)이며 pinned TLS로 인증된다. 허브의 안정된 신원은 인증서 pin이며, 이 프로세스 공개키를 별도 장기 기기 자격으로 사용하지 않는다.
@@ -260,14 +260,14 @@ DB transaction 안에서 상태 전이를 조건부 UPDATE로 수행한다 (`WHE
 ### 제한과 native 경계
 
 - 유효 capability 또는 현재 관리자 권한이 있는 확인 요청에 대해 서명/nonce 공개/숫자 확인 실패를 세션과 기기 키 지문별로 저장한다. 세션 첫 실패 뒤 1초, 두 번째 뒤 2초 지연, **세 번째 실패 때 즉시 세션 폐기·기기 회수 및 5분 잠금**이다. 이는 09의 이전 ‘네 번째 실패’ 초안보다 엄격한 구현 계약이다. 이미 소비된 초대는 재사용할 수 없다. malformed/다른 capability로 다른 사람의 실패 횟수를 올리지는 못한다. 전역 분당 요청 상한·조직 초대/대기 상한도 유지한다.
-- `office_pairing_begin`은 이미 독립적으로 승인된 pin으로 실제 HTTPS를 검증하고, Rust 안에서 CSPRNG/commit/reveal/서명/숫자 파생을 수행한다. WebView에는 `{sessionId,sas,expiresAt}`만 반환한다. `office_pairing_confirm`은 native 임시 capability를 한 번 소비하고, 같다고 확인한 경우에만 참여 요청을 보낸다. 다르면 취소한다. nonce·개인키·지문은 신규 IPC 응답에 없다. 5분이 지난 native 대기 값은 다음 시작 때 제거하며, 앱 종료 시 모두 사라진다.
+- `office_pairing_begin`은 독립적으로 전달된 초대 pin으로 실제 HTTPS를 검증하고, Rust 안에서 CSPRNG/commit/reveal/서명/숫자 파생을 수행한다. WebView에는 `{sessionId,sas,expiresAt}`만 반환한다. `office_pairing_confirm`은 확인을 한 번 소비하고, 같다고 확인한 경우에만 참여 요청을 보내며 상태 조회용 capability는 native에 유지한다. 다르면 보고 후 취소한다. nonce·개인키·지문은 신규 IPC 응답에 없다. SAS 대기는 5분, 요청 후 native 대기는 최대 10분이며 다음 시작 때 만료된 값이 제거된다. 앱 종료 시 모두 사라진다.
 - 허브는 공개 뒤 raw nonce를 보존하지 않는다(기존 proof 검증에는 해시 사용). 종결 시 보관된 SAS/커밋을 지우며 일반 로그·감사에는 nonce·secret·서명·키·숫자를 기록하지 않는다. 감사의 성공/거절과 상태 변경은 기존 AuditClient transaction 규약을 따른다.
 
 ### 보안 한계와 미완료 범위
 
 여섯 자리 SAS는 대면/전화 등 **독립된 두 화면 비교**의 보조 수단이다. 같은 화면에서 전달된 숫자 둘을 비교하거나 사람이 무조건 ‘같아요’를 누르면 보호하지 못한다. 정상 세션 사이 숫자 우연 충돌 가능성은 약 백만 분의 일이며, commit-reveal은 nonce를 안 뒤 약 백만 번 해시해 일치시키는 사후 선택을 막는다. 공격자가 키를 계속 새로 만드는 Sybil·분산/서비스 거부를 기기별 잠금만으로 완전히 막지는 못한다. 별명은 직장 신원이나 계정 소유 증거가 아니며 관리자 실물 확인·기존 인증·ACL이 여전히 필요하다.
 
-이 IPC는 최초 discovery 후보를 자동 신뢰하거나 pin을 새로 영속 저장하지 않는다. 독립적으로 전달·승인한 초대 pin 경로를 사용한다. 최초 TOFU 승인 UI, pin 회전, 직원 화면과 실서버 adapter 통합, 실제 회사 자료 동기화, Windows/macOS native keychain·방화벽·별도 두 PC 동작은 이 프로토콜 단위 검증만으로 완료되지 않는다. 임시 loopback HTTP 데모/DB 테스트는 개발 fixture이며 제품 native 경로는 HTTPS만 허용한다.
+이 IPC는 최초 discovery 후보를 자동 신뢰하지 않는다. 독립적으로 전달한 초대 pin으로 TLS를 검증하고, 양쪽 SAS 확인 및 서버 승인 확인 이후 pin을 저장한다(§15). 기존 pin이 다르면 덮어쓰지 않는다. pin 회전, 직원 화면과 실서버 adapter 통합, 실제 회사 자료 동기화, Windows/macOS native keychain·방화벽·별도 두 PC 동작은 이 프로토콜 단위 검증만으로 완료되지 않는다. 임시 loopback HTTP 데모/DB 테스트는 개발 fixture이며 제품 native 경로는 HTTPS만 허용한다.
 
 ### 이번 변경의 실제 검증
 
@@ -284,3 +284,70 @@ DB transaction 안에서 상태 전이를 조건부 UPDATE로 수행한다 (`WHE
 | `git diff --check` | 통과 |
 
 새 위협 검증은 커밋 뒤 nonce 변경/두 번째 커밋 거절, 다른 실제 세션의 서명된 커밋을 옮겨도 reveal 거절, 지문 양 view·세션·키 binding, 중복 reveal/확인 거절, 3회 실패·지연·기기 잠금, 요청자/관리자 SAS 확인 없이 요청·승인 거절을 다룬다. 이 작업은 화면/CSS를 변경하지 않았으며 Windows/macOS UI 검토, native Windows, 실제 초대 전달·OS keychain·다른 PC 간 TLS pairing은 미검증이다. 신규 명령의 `lib.rs` 등록은 코디네이터가 수행했다.
+
+## 15. 메신저 초대와 native 합류 어댑터 계약 (2026-10-22)
+
+### 초대 코드/링크
+
+관리자의 `POST /office/invitations`는 기존 응답에 `invitationCode`, `invitationLink`를 추가한다. 기본 초대는 계정 없는 로컬 프로필용이다. 기존 회사 계정과 연결하려는 초대는 관리자가 `linkAccount: true`를 명시한다. 초대 수명은 5분이고 DB에는 비밀의 SHA-256만 저장한다. 최초 challenge에서 초대를 원자적으로 소비하므로 사용·취소·만료 후 다시 사용할 수 없다. 초대가 포함한 서버·세대·TLS pin과 실제 허브가 다르면 중단한다.
+
+복사할 한 줄은 `IB1.<payload-base64url>.<checksum-8hex>`다. 링크 형태는 `infinitebrain://office/join#IB1.…`이며 코드와 같은 내용이다. fragment를 쓰므로 비밀을 HTTP query로 전송하지 않는다. 이것은 붙여넣기 파서의 링크 형식이며 OS deep-link 등록·자동 실행을 구현했다는 의미는 아니다. 코드에는 IP·포트·지문이 평문으로 보이지 않는다. 보통 약 160–250자이며 사람이 수동 입력하기보다 메신저에서 한 번 복사·붙여넣기한다. UI는 코드 원문을 React/Zustand 상태·저장소·로그·오류에 넣지 않고 비제어 입력 DOM에서 읽어 native 호출 후 비운다. clipboard history 자체는 앱이 통제하지 못하므로 관리자는 비공개 채널로 전달한다.
+
+payload는 아래 순서의 binary이며 모든 숫자는 big-endian이다. base64url은 padding 없는 canonical 형식만 허용한다. 체크섬은 `SHA256(UTF8("infinite-brain/office-invitation/v1") || 0x00 || payload)` 앞 4 byte의 소문자 hex다. `0x00`은 NUL byte 하나다. 체크섬은 오타를 검출하는 수단이며 서명·인증 수단이 아니다. 코드 전체를 바꿀 수 있는 공격자는 체크섬도 다시 계산할 수 있다. 초대의 비밀 전달 경로, pinned TLS, commit-reveal SAS와 양쪽 사람 확인이 신뢰 경계를 이룬다.
+
+| 순서 | binary 값 |
+| --- | --- |
+| 1 | version u8 = 1 |
+| 2 | flags u8 = 0(기기만) 또는 1(기존 계정 연결 명시). 다른 bit 금지 |
+| 3 | serverId byte 길이 u8(1–128), ASCII `[A-Za-z0-9_-]` serverId |
+| 4 | 무작위 초대 비밀 32 bytes |
+| 5 | TLS certificate SHA-256 32 bytes |
+| 6 | host generation u64(1–999999999999999) |
+| 7 | 만료 Unix seconds u64 |
+| 8 | origin hint의 UTF-8 byte 길이 u16(0–256), origin bytes |
+
+origin hint는 userinfo/path/query/fragment가 없는 canonical HTTPS origin만 허용한다. 개발 HTTP fixture에는 빈 hint를 넣으므로 native 제품 연결에 HTTP를 허용하지 않는다. 빈 hint이면 근처 후보를 선택해야 한다. 후보 ID는 Rust의 만료 가능한 발견 레코드로 해석하며 주소를 WebView로 돌려주지 않는다. 후보 `serverId`와 초대 `serverId`가 다르면 주소 연결·키체인 계정 읽기 전에 `hub_pin_mismatch`로 거절한다. 동일 ID를 사칭해도 초대의 pin·세대와 실제 TLS 허브 신원 검사를 통과해야 한다. 기존 `officeDiscoveryOpen`은 이미 승인된 pin의 재연결용 relay다. 최초 합류의 `officePairingBegin`은 같은 native `resolve_candidate`를 직접 사용하므로 relay URL/자격이 화면으로 돌아오지 않는다.
+
+계정 연결 flag가 있을 때만 Rust가 기존 `session-v2:<origin>` 계정 키체인을 읽는다. 먼저 초대 pin으로 실제 TLS와 허브 신원을 검증하며, 선택 후보의 origin과 초대 hint의 origin이 정확히 같아야 한다. hint 부재/다른 origin/세션 부재는 `identity_link_required`로 실패하고 익명 요청으로 바꾸지 않는다. 계정 연결 flag가 없으면 계정 키체인을 읽지 않고 device-only 요청으로 진행한다. 이 기본 경로는 새 이메일 계정·일반 로그인 세션·자료 권한을 만들지 않으며 기존 §8의 승인 제한을 유지한다. 모든 신규 IPC는 main WebView만 호출할 수 있고 계정 토큰·초대 비밀·capability·원격 origin은 IPC 반환 타입에 없다.
+
+### officeJoin.ts 포트와 이벤트
+
+`createOfficeJoin(onEvent, ports?)`는 화면 없이 동작한다. 기본 포트는 typed IPC와 bounded discovery를 사용하고 테스트는 주입 포트를 쓴다. 공개 메서드는 `openDiscovery()`, `closeDiscovery()`, `begin(invitation, profile, candidateId?)`, `confirm(matches)`, `poll()`, `cancel()`, `close()`다. UI는 이 포트만 호출한다. `begin`은 초대 원문을 보관하지 않고 Rust에 전달한다. `confirm(true)`가 native SAS 확인과 `/request`를 순서대로 수행하며 native가 capability를 보유한 채 상태를 조회한다. `confirm(false)`도 불일치 보고를 전송한 뒤 취소하고 참여 요청은 보내지 않는다.
+
+| 이벤트 | 화면에 허용하는 값 |
+| --- | --- |
+| `DISCOVERY_STARTED` | 없음 |
+| `CANDIDATES_UPDATED` | `candidateId`, `displayName`, `trust: untrusted-candidate`만 |
+| `CANDIDATE_SELECTED` | 선택한 opaque `candidateId` |
+| `JOIN_STARTED` | 초대 힌트만으로 시작함. 후보 선택 없이 SAS 대기로 이어질 수 있음 |
+| `SAS_RECEIVED` | native가 파생한 6자리 `sas` |
+| `SAS_CONFIRMED` | boolean `matches` |
+| `JOIN_REQUESTED` | 로컬 대기 종료시각 `approvalExpiresAt`(epoch ms) |
+| `APPROVAL_GRANTED` | 승인 확인. 자료 저장 완료·vault 권한 부여를 뜻하지 않음 |
+| `APPROVAL_REJECTED` / `APPROVAL_CANCELLED` / `APPROVAL_EXPIRED` | 종료 상태만 |
+| `FAILED` | 제한된 `OfficeErrorCode`만. 원본 Error/cause/response 없음 |
+
+승인 폴링은 3초 간격, 최대 200회/10분이며 서버 만료가 더 이르면 그 시각에 끝난다. 수동 `poll()`도 간격을 우회할 수 없다. `close()`는 timer/discovery를 중단하고 native 요청을 취소한다. 늦게 도착한 begin/confirm 결과는 취소하고 상태 응답은 무시한다. 로컬 10분 제한은 서버의 24시간 승인 대기 TTL과 별개이며, 제한이 끝나면 요청 취소를 시도하고 새 초대로 다시 시작하도록 한다. 취소 전송이 실패해도 로컬 capability는 제거한다. 원문 입력과 IPC 응답의 추가 필드는 이벤트로 복사하지 않는다.
+
+`/status`는 거절을 `approval_rejected`(409), 취소를 `request_cancelled`(409), 만료를 `expired`(410)로 구별한다. native 어댑터가 이 코드를 고정 오류로 바꾸며 임의 서버 message는 사용하지 않는다. 이 작업은 직원 화면·i18n·officeFlow reducer를 편집하지 않으며 해당 화면 연결은 다음 작업이다.
+
+### 관리자 불일치 보고 보호
+
+`officeClient.confirmSas(false)`도 실제 `sas-confirm`을 호출한다. JSON boolean만 허용하고 문자열 `"false"`는 실패 횟수에 넣지 않는다. 유효 requester capability 또는 현재 관리자 권한·본인 확인 금지를 통과한 보고만 집계한다. 이미 같은 세션에서 관리자가 일치 확인을 했더라도 아직 승인 전이면 불일치를 보고할 수 있다.
+
+Migration 069의 `sas_mismatched_at`은 첫 불일치 때 설정하며 양쪽 기존 확인을 지운다. 이 보호 표식은 재시도 지연이 끝나도 유지한다. 해당 세션의 추가 일치 확인·참여 요청·승인은 실패한다. 불일치 보고는 기존 1초·2초 backoff 이후 다시 집계할 수 있고 세 번째 실패에 세션 취소·기기 회수·키 fingerprint 5분 잠금을 적용한다. 일반 proof 실패 뒤 올바른 proof를 재시도하는 기존 계약은 유지한다. 임의 capability·일반 직원·malformed 입력으로 타인의 실패 횟수를 올릴 수 없다. 실패 변경은 기존 transaction으로 commit하고 refused audit는 별도 transaction에서 기록하며 비밀·숫자 원문은 감사에 넣지 않는다.
+
+### §15 최종 검증 결과
+
+| 검사 | 실제 결과 |
+| --- | --- |
+| `pnpm run build` (server) | 통과. mismatch audit 추가 뒤 최종 재실행 통과 |
+| `node app/scripts/demo-office-pairing.mjs --test-pairing` | 최종 **6 files / 34 tests 통과**. `tests/office-pairing*`와 `src/office` protocol 테스트 전체 포함 |
+| `node app/scripts/demo-office-pairing.mjs` | 최종 **11/11 PASS**. 초대 코드/링크·오타 검출·관리자 불일치 후 승인 차단 포함 |
+| `NODE_OPTIONS=--no-experimental-webstorage pnpm exec vitest run` (desktop) | 최종 **361 passed / 2 skipped files, 3708 passed / 12 skipped tests**. 신규 officeJoin 13 tests 포함. 최초 실행의 미편집 memberProfilePage 2개 실패는 전체 재실행과 코디네이터 환경에서 재현되지 않았으며 일시적/간헐 가능성이 있음 |
+| `pnpm exec tsc --noEmit` (desktop) | 최종 통과. 신규 테스트의 ES target 비호환 `Array.at`을 배열 인덱싱으로 수정 |
+| `CMAKE=/tmp/ib-build-tools/cmake/data/bin/cmake cargo check` | 1회 통과. 기존 semantic_hits dead_code 경고만 |
+| 같은 CMAKE로 `cargo test` | check 종료 후 직렬 1회 통과. unit **366 passed / 10 ignored**, integration **8+4 passed**, data-volume 1 ignored |
+| `git diff --check` | 통과 |
+
+서버 두 차례 테스트와 두 차례 데모 각각은 runner가 새로 `initdb`한 disposable cluster만 사용하고 종료 시 정리했다. 공유 DB·기존 `.env`·office:prepare·커밋·푸시는 사용하지 않았다. UI/CSS/i18n/officeFlow는 변경하지 않았고 Windows/macOS 화면 연결은 다음 작업이다. 실제 두 대 PC, Windows/macOS OS keychain, 방화벽·실제 LAN의 TLS/SAS는 미검증이며 browser simulation이나 임시 HTTP DB 데모가 이를 대신하지 않는다.

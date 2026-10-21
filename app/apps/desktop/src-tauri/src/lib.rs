@@ -228,6 +228,8 @@ pub fn run() {
             office_device::office_device_sign_challenge,
             office_device::office_pairing_begin,
             office_device::office_pairing_confirm,
+            office_device::office_pairing_status,
+            office_device::office_pairing_cancel,
             office_host::office_host_status,
             office_host::office_host_start,
             office_host::office_host_stop,

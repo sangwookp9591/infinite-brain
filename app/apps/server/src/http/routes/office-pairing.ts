@@ -8,6 +8,8 @@ import { recordAudit } from "../../audit/log.js";
 import { pool } from "../../db/pool.js";
 
 const messages: Record<string, string> = {
+  approval_rejected: "이 기기의 참여가 승인되지 않았어요. 관리자에게 확인해 주세요.",
+  request_cancelled: "참여 요청이 취소됐어요. 새 초대로 다시 시작해 주세요.",
   sas_required: "두 화면의 확인 숫자를 먼저 비교해 주세요.",
   sas_mismatch: "확인 숫자가 달라요. 연결을 멈추고 관리자에게 새 초대를 요청해 주세요.",
   too_many_attempts: "확인 요청이 여러 번 실패해 잠시 멈췄어요. 잠시 뒤 새 초대로 다시 시작해 주세요.",
@@ -63,7 +65,8 @@ officePairingRoutes.get("/office", (c) => {
 
 officePairingRoutes.post("/office/invitations", async (c) => {
   const userId = await signedIn(c), body = await input(c);
-  return c.json(await service().invite(text(body.organizationId, 128), userId), 201);
+  if (body.linkAccount !== undefined && typeof body.linkAccount !== "boolean") throw new PairingError("invalid_request");
+  return c.json(await service().invite(text(body.organizationId, 128), userId, body.linkAccount === true), 201);
 });
 officePairingRoutes.post("/office/invitations/:id/cancel", async (c) => {
   return c.json(await service().cancelInvitation(c.req.param("id"), await signedIn(c)));

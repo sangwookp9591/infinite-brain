@@ -10,7 +10,8 @@ use rustls::{client::danger::{HandshakeSignatureValid, ServerCertVerified, Serve
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{collections::HashMap, sync::{Arc, LazyLock, Mutex}, time::{Duration, Instant}};
-use tauri::{AppHandle, Webview};
+use tauri::{AppHandle, Webview, State};
+use crate::{keychain::{OsKeychain, SecretStore}, office_discovery::{self, OfficeDiscoveryState}};
 
 static STORE_LOCK: Mutex<()> = Mutex::new(());
 pub(crate) const PIN_ERROR: &str = "office_hub_pin_mismatch: 확인한 회사 작업 공간과 연결 대상이 달라요. 연결을 중단했어요. 관리자에게 새 초대를 요청해 주세요.";
@@ -223,7 +224,8 @@ fn derive_sas(context: &SasContext, client_nonce: &str, server_nonce: &str) -> S
     }
     unreachable!("SHA-256 rejection sampling exhausted")
 }
-struct PendingPairing { origin: reqwest::Url, fingerprint: String, token: String, auth_token: Option<String>, deadline: Instant }
+#[derive(Clone)]
+struct PendingPairing { origin: reqwest::Url, fingerprint: String, token: String, auth_token: Option<String>, deadline: Instant, requested: bool, server_id: String, namespace: String }
 static PENDING_PAIRINGS: LazyLock<Mutex<HashMap<String, PendingPairing>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -231,6 +233,54 @@ pub struct PairingProfile { person_id: String, display_alias: String, device_lab
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PairingSas { session_id: String, sas: String, expires_at: String }
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PairingStatus { state: String, expires_at: String }
+const INVITE_ERROR: &str = "office_invite_invalid: 초대가 올바르지 않거나 이미 사용됐어요. 관리자에게 새 초대를 요청해 주세요.";
+const INVITE_EXPIRED: &str = "office_invite_expired: 초대가 만료됐어요. 관리자에게 새 초대를 요청해 주세요.";
+const ACCOUNT_REQUIRED: &str = "office_identity_link_required: 기존 회사 계정으로 먼저 로그인한 뒤 초대를 다시 열어 주세요.";
+// Not Serialize/Debug: decoded address, pin and invitation capability stay native.
+struct Invitation { server_id: String, secret: String, fingerprint: String, generation: String, origin: String, link_account: bool }
+fn parse_invitation(input: &str, now: u64) -> AppResult<Invitation> {
+    let code = input.trim().strip_prefix("infinitebrain://office/join#").unwrap_or(input.trim());
+    if code.len() > 720 { return Err(err(INVITE_ERROR)); }
+    let parts: Vec<_> = code.split('.').collect();
+    if parts.len() != 3 || parts[0] != "IB1" { return Err(err(INVITE_ERROR)); }
+    let bytes = URL_SAFE_NO_PAD.decode(parts[1]).map_err(|_| err(INVITE_ERROR))?;
+    let mut digest = Sha256::new(); digest.update(b"infinite-brain/office-invitation/v1\0"); digest.update(&bytes);
+    if bytes.len() < 86 || bytes[0] != 1 || bytes[1] > 1 || URL_SAFE_NO_PAD.encode(&bytes) != parts[1] || hex(&digest.finalize()[..4]) != parts[2] { return Err(err(INVITE_ERROR)); }
+    let size = bytes[2] as usize; let offset = 3 + size;
+    if size == 0 || size > 128 || bytes.len() < offset + 82 { return Err(err(INVITE_ERROR)); }
+    let text = |slice: &[u8]| String::from_utf8(slice.to_vec()).map_err(|_| err(INVITE_ERROR));
+    let server_id = text(&bytes[3..offset])?;
+    pin_account(&server_id).map_err(|_| err(INVITE_ERROR))?;
+    let generation = u64::from_be_bytes(bytes[offset+64..offset+72].try_into().unwrap());
+    let expiry = u64::from_be_bytes(bytes[offset+72..offset+80].try_into().unwrap());
+    let origin_size = u16::from_be_bytes(bytes[offset+80..offset+82].try_into().unwrap()) as usize;
+    if generation == 0 || generation > 999_999_999_999_999 || origin_size > 256 || bytes.len() != offset + 82 + origin_size { return Err(err(INVITE_ERROR)); }
+    let origin = text(&bytes[offset+82..])?;
+    if !origin.is_empty() {
+        let url = endpoint(&origin).map_err(|_| err(INVITE_ERROR))?;
+        if url.origin().ascii_serialization() != origin { return Err(err(INVITE_ERROR)); }
+    }
+    if expiry <= now { return Err(err(INVITE_EXPIRED)); }
+    Ok(Invitation { server_id, secret: URL_SAFE_NO_PAD.encode(&bytes[offset..offset+32]), fingerprint: hex(&bytes[offset+32..offset+64]), generation: generation.to_string(), origin, link_account: bytes[1] == 1 })
+}
+fn invitation_origin(invite: &Invitation, candidate: Option<(String, String)>) -> AppResult<String> {
+    if let Some((origin, server_id)) = candidate {
+        if server_id != invite.server_id { return Err(err(PIN_ERROR)); }
+        return Ok(origin);
+    }
+    if invite.origin.is_empty() { return Err(err("office_host_not_found: 근처 작업 공간을 선택하거나 관리자에게 새 초대를 요청해 주세요.")); }
+    Ok(invite.origin.clone())
+}
+fn account_session(invite: &Invitation, origin: &str, store: &impl SecretStore) -> AppResult<Option<String>> {
+    if !invite.link_account { return Ok(None); }
+    // A discovery candidate must never redirect an existing account credential.
+    if invite.origin.is_empty() || origin != invite.origin { return Err(err(ACCOUNT_REQUIRED)); }
+    store.get(&format!("session-v2:{origin}")).map_err(|_| err(ACCOUNT_REQUIRED))?
+        .filter(|token| !token.is_empty()).map(Some).ok_or_else(|| err(ACCOUNT_REQUIRED))
+}
 async fn pairing_post(origin: &reqwest::Url, fingerprint: &str, path: &str, body: serde_json::Value, auth_token: Option<&str>) -> AppResult<serde_json::Value> {
     let mut request = client(fingerprint)?.post(origin.join(path).map_err(|_| err(CONNECT_ERROR))?).json(&body);
     if let Some(token) = auth_token { request = request.bearer_auth(token); }
@@ -246,29 +296,43 @@ async fn pairing_post(origin: &reqwest::Url, fingerprint: &str, path: &str, body
         return Err(err(match value["code"].as_str() {
             Some("sas_mismatch") => "office_sas_mismatch: 확인 숫자가 달라요. 관리자에게 새 초대를 요청해 주세요.",
             Some("too_many_attempts") => "office_too_many_attempts: 확인 요청이 여러 번 실패해 잠시 멈췄어요. 잠시 뒤 새 초대로 다시 시작해 주세요.",
+            Some("expired") => "office_approval_expired: 참여 요청 시간이 지났어요. 새 초대로 다시 시작해 주세요.",
+            Some("invitation_unavailable") => INVITE_ERROR,
+            Some("wrong_workspace") => PIN_ERROR,
+            Some("approval_rejected") => "office_approval_rejected: 이 기기의 참여가 승인되지 않았어요. 관리자에게 확인해 주세요.",
+            Some("request_cancelled") => "office_request_cancelled: 참여 요청이 취소됐어요. 새 초대로 다시 시작해 주세요.",
+            Some("account_required" | "account_mismatch") => ACCOUNT_REQUIRED,
             _ => CONNECT_ERROR,
         }));
     }
     Ok(value)
 }
 fn json_text<'a>(value: &'a serde_json::Value, key: &str) -> AppResult<&'a str> { value[key].as_str().ok_or_else(|| err(CONNECT_ERROR)) }
-/// Uses an independently approved TLS pin. Discovery alone cannot establish trust.
+/// Parses the independently delivered invite natively; discovery supplies only an address.
 /// Executes the full ordered protocol natively and returns only the six digits + opaque session metadata.
 #[tauri::command]
-pub async fn office_pairing_begin(app: AppHandle, webview: Webview, origin: String, server_id: String, invitation_secret: String, profile: PairingProfile, auth_token: Option<String>) -> AppResult<PairingSas> {
+pub async fn office_pairing_begin(app: AppHandle, webview: Webview, discovery: State<'_, OfficeDiscoveryState>, invitation: String, candidate_id: Option<String>, profile: PairingProfile) -> AppResult<PairingSas> {
     main_only(&webview)?;
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_err(|_| err(CONNECT_ERROR))?.as_secs();
+    let invite = parse_invitation(&invitation, now)?;
+    let candidate = candidate_id.map(|id| office_discovery::resolve_candidate(&discovery, &id)).transpose()?;
+    let origin = invitation_origin(&invite, candidate)?;
+    let server_id = invite.server_id.clone();
     {
         let mut pending = PENDING_PAIRINGS.lock().map_err(|_| err(CONNECT_ERROR))?;
         pending.retain(|_, value| value.deadline > Instant::now());
         if pending.len() >= 8 { return Err(err(CONNECT_ERROR)); }
     }
     let namespace = app.config().identifier.clone();
-    let fingerprint = pinned(&namespace, &server_id)?;
+    let fingerprint = invite.fingerprint.clone();
+    if let Some(current) = load(&namespace, &pin_account(&server_id)?)? { if current != fingerprint { return Err(err(PIN_ERROR)); } }
     let info = hub_info(&origin, &server_id, &fingerprint).await?;
+    if info.generation != invite.generation { return Err(err(PIN_ERROR)); }
+    let auth_token = account_session(&invite, &origin, &OsKeychain)?;
     let origin = endpoint(&origin)?;
     let (identity, key) = identity(&device(&namespace)?)?;
     let prepared = pairing_post(&origin, &fingerprint, "api/office/pairing/challenge", serde_json::json!({
-        "invitationSecret": invitation_secret, "hubFingerprint": fingerprint, "personId": profile.person_id,
+        "invitationSecret": invite.secret, "hubFingerprint": fingerprint, "personId": profile.person_id,
         "deviceId": identity.device_id, "publicKey": identity.public_key, "displayAlias": profile.display_alias,
         "deviceLabel": profile.device_label, "platform": profile.platform,
     }), auth_token.as_deref()).await?;
@@ -304,27 +368,117 @@ pub async fn office_pairing_begin(app: AppHandle, webview: Webview, origin: Stri
         "pairingToken": token, "clientNonce": nonce, "serverNonce": server_nonce, "signature": signature,
     }), None).await?;
     let sas = derive_sas(&context, &nonce, server_nonce);
-    PENDING_PAIRINGS.lock().map_err(|_| err(CONNECT_ERROR))?.insert(session_id.clone(), PendingPairing { origin, fingerprint, token, auth_token, deadline: Instant::now() + Duration::from_secs(300) });
+    PENDING_PAIRINGS.lock().map_err(|_| err(CONNECT_ERROR))?.insert(session_id.clone(), PendingPairing { origin, fingerprint, token, auth_token, deadline: Instant::now() + Duration::from_secs(300), requested: false, server_id, namespace });
     Ok(PairingSas { session_id, sas, expires_at })
 }
-/// Consumes the native capability once; mismatches cancel locally and never request approval.
+/// Consumes the confirmation once; retains the native capability for bounded polling.
 #[tauri::command]
-pub async fn office_pairing_confirm(webview: Webview, session_id: String, matches: bool) -> AppResult<()> {
+pub async fn office_pairing_confirm(webview: Webview, session_id: String, matches: bool) -> AppResult<PairingStatus> {
     main_only(&webview)?;
-    let pending = PENDING_PAIRINGS.lock().map_err(|_| err(CONNECT_ERROR))?.remove(&session_id).ok_or_else(|| err(CONNECT_ERROR))?;
-    if pending.deadline <= Instant::now() { return Err(err(CONNECT_ERROR)); }
+    let pending = {
+        let mut entries = PENDING_PAIRINGS.lock().map_err(|_| err(CONNECT_ERROR))?;
+        let pending = entries.get_mut(&session_id).ok_or_else(|| err(CONNECT_ERROR))?;
+        if pending.deadline <= Instant::now() || pending.requested { return Err(err(CONNECT_ERROR)); }
+        pending.requested = true;
+        pending.clone()
+    };
     let result = pairing_post(&pending.origin, &pending.fingerprint, &format!("api/office/pairing/{session_id}/sas-confirm"), serde_json::json!({ "pairingToken": pending.token, "matches": matches }), None).await;
     if !matches {
         let _ = pairing_post(&pending.origin, &pending.fingerprint, &format!("api/office/pairing/{session_id}/cancel"), serde_json::json!({ "pairingToken": pending.token }), None).await;
+        PENDING_PAIRINGS.lock().map_err(|_| err(CONNECT_ERROR))?.remove(&session_id);
+        return result.and(Err(err("office_sas_mismatch: 확인 숫자가 달라요. 관리자에게 새 초대를 요청해 주세요.")));
     }
     result?;
-    pairing_post(&pending.origin, &pending.fingerprint, &format!("api/office/pairing/{session_id}/request"), serde_json::json!({ "pairingToken": pending.token }), pending.auth_token.as_deref()).await?;
+    let value = pairing_post(&pending.origin, &pending.fingerprint, &format!("api/office/pairing/{session_id}/request"), serde_json::json!({ "pairingToken": pending.token }), pending.auth_token.as_deref()).await?;
+    let status = pairing_status(&value, &session_id)?;
+    if status.state != "pending_approval" { return Err(err(CONNECT_ERROR)); }
+    let retained = {
+        let mut entries = PENDING_PAIRINGS.lock().map_err(|_| err(CONNECT_ERROR))?;
+        entries.get_mut(&session_id).map(|entry| { entry.deadline = Instant::now() + Duration::from_secs(600); }).is_some()
+    };
+    if !retained {
+        let _ = pairing_post(&pending.origin, &pending.fingerprint, &format!("api/office/pairing/{session_id}/cancel"), serde_json::json!({ "pairingToken": pending.token }), None).await;
+        return Err(err(CONNECT_ERROR));
+    }
+    Ok(status)
+}
+fn pairing_status(value: &serde_json::Value, id: &str) -> AppResult<PairingStatus> {
+    let state = json_text(value, "state")?;
+    if json_text(value, "sessionId")? != id || !["pending_approval", "approved"].contains(&state) { return Err(err(CONNECT_ERROR)); }
+    Ok(PairingStatus { state: state.into(), expires_at: json_text(value, "expiresAt")?.into() })
+}
+#[tauri::command]
+pub async fn office_pairing_status(webview: Webview, session_id: String) -> AppResult<PairingStatus> {
+    main_only(&webview)?;
+    let pending = PENDING_PAIRINGS.lock().map_err(|_| err(CONNECT_ERROR))?.get(&session_id).cloned().ok_or_else(|| err(CONNECT_ERROR))?;
+    if pending.deadline <= Instant::now() || !pending.requested { return Err(err("office_approval_expired: 참여 요청 시간이 지났어요. 새 초대로 다시 시작해 주세요.")); }
+    let value = pairing_post(&pending.origin, &pending.fingerprint, &format!("api/office/pairing/{session_id}/status"), serde_json::json!({ "pairingToken": pending.token }), None).await?;
+    let status = pairing_status(&value, &session_id)?;
+    if status.state == "approved" {
+        let _guard = STORE_LOCK.lock().map_err(|_| err(CONNECT_ERROR))?;
+        let account = pin_account(&pending.server_id)?;
+        if let Some(current) = load(&pending.namespace, &account)? { if current != pending.fingerprint { return Err(err(PIN_ERROR)); } }
+        // A close racing the response must never save trust.
+        if PENDING_PAIRINGS.lock().map_err(|_| err(CONNECT_ERROR))?.remove(&session_id).is_some() {
+            save(&pending.namespace, &account, &pending.fingerprint)?;
+        } else { return Err(err(CONNECT_ERROR)); }
+    }
+    Ok(status)
+}
+#[tauri::command]
+pub async fn office_pairing_cancel(webview: Webview, session_id: String) -> AppResult<()> {
+    main_only(&webview)?;
+    let pending = PENDING_PAIRINGS.lock().map_err(|_| err(CONNECT_ERROR))?.remove(&session_id);
+    if let Some(pending) = pending {
+        pairing_post(&pending.origin, &pending.fingerprint, &format!("api/office/pairing/{session_id}/cancel"), serde_json::json!({ "pairingToken": pending.token }), None).await?;
+    }
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    const INVITE_VECTOR: &str = "IB1.AQADaHViAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQGqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqgAAAAAAAAABAAAAAHDb2IAAGGh0dHBzOi8vMTkyLjE2OC4xLjU6MzAxMA.6e1ef665";
+    #[test]
+    fn invitation_golden_checksum_expiry_and_candidate_identity_stay_native() {
+        let invite = parse_invitation(INVITE_VECTOR, 0).unwrap();
+        assert_eq!(invite.server_id, "hub"); assert_eq!(invite.secret, URL_SAFE_NO_PAD.encode([1u8;32]));
+        assert_eq!(invite.origin, "https://192.168.1.5:3010"); assert_eq!(invite.fingerprint, "a".repeat(64));
+        assert!(!invite.link_account);
+        assert_eq!(parse_invitation(&format!("infinitebrain://office/join#{INVITE_VECTOR}"), 0).unwrap().server_id, "hub");
+        assert!(parse_invitation(INVITE_VECTOR, 1_893_456_000).err().unwrap().to_string().starts_with("office_invite_expired:"));
+        let bad = format!("{}0", &INVITE_VECTOR[..INVITE_VECTOR.len()-1]);
+        let error = parse_invitation(&bad, 0).err().unwrap().to_string();
+        assert!(error.starts_with("office_invite_invalid:")); assert!(!error.contains(&bad));
+        assert!(parse_invitation(&INVITE_VECTOR.replace("IB1", "IB2"), 0).is_err());
+        let error = invitation_origin(&invite, Some(("https://192.168.1.8:3010".into(), "other-server".into()))).unwrap_err();
+        assert!(error.to_string().starts_with("office_hub_pin_mismatch:"));
+        assert!(!error.to_string().contains("192.168"));
+        assert_eq!(invitation_origin(&invite, None).unwrap(), invite.origin);
+    }
+    struct AccountStore { reads: std::cell::RefCell<Vec<String>>, token: Option<String> }
+    impl SecretStore for AccountStore {
+        fn set(&self, _: &str, _: &str) -> AppResult<()> { panic!("must not write session") }
+        fn delete(&self, _: &str) -> AppResult<()> { panic!("must not delete session") }
+        fn get(&self, key: &str) -> AppResult<Option<String>> { self.reads.borrow_mut().push(key.into()); Ok(self.token.clone()) }
+    }
+    #[test]
+    fn accounts_require_explicit_invite_intent_and_exact_verified_origin_without_js_tokens() {
+        let mut invite = parse_invitation(INVITE_VECTOR, 0).unwrap();
+        let store = AccountStore { reads: Default::default(), token: Some("native-account-secret".into()) };
+        assert!(account_session(&invite, &invite.origin, &store).unwrap().is_none());
+        assert!(store.reads.borrow().is_empty());
+        invite.link_account = true;
+        assert!(account_session(&invite, "https://192.168.1.8:3010", &store).is_err());
+        assert!(store.reads.borrow().is_empty());
+        assert_eq!(account_session(&invite, &invite.origin, &store).unwrap().as_deref(), Some("native-account-secret"));
+        assert_eq!(*store.reads.borrow(), vec!["session-v2:https://192.168.1.5:3010"]);
+        let missing = AccountStore { reads: Default::default(), token: None };
+        assert!(account_session(&invite, &invite.origin, &missing).unwrap_err().to_string().starts_with("office_identity_link_required:"));
+        let visible = serde_json::to_value(PairingStatus { state: "pending_approval".into(), expires_at: "expiry".into() }).unwrap();
+        assert_eq!(visible.as_object().unwrap().len(), 2);
+        for material in ["native-account-secret", &invite.origin, &invite.secret, &invite.fingerprint] { assert!(!visible.to_string().contains(material)); }
+    }
     #[test]
     fn sas_matches_server_golden_and_binds_both_tls_views_and_session() {
         let context = SasContext {

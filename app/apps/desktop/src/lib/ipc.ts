@@ -55,10 +55,17 @@ export const officeDeviceSignChallenge = (origin: string, challenge: OfficePairi
 /** Native commit-reveal; only digits and opaque session metadata cross into UI. */
 export interface OfficePairingProfile { personId: string; displayAlias: string; deviceLabel: string; platform: "windows" | "macos" | "linux" | "other" }
 export interface OfficePairingSas { sessionId: string; sas: string; expiresAt: string }
-export const officePairingBegin = (origin: string, serverId: string, invitationSecret: string, profile: OfficePairingProfile, authToken: string | null = null): Promise<OfficePairingSas> =>
-  invoke("office_pairing_begin", { origin, serverId, invitationSecret, profile, authToken });
-export const officePairingConfirm = (sessionId: string, matches: boolean): Promise<void> =>
+export interface OfficePairingStatus { state: "pending_approval" | "approved"; expiresAt: string }
+/** Consume the pasted code once. Native code parses secrets and resolves candidates.
+ * Do not put the invitation input in UI state, storage, logs or error messages. */
+export const officePairingBegin = (invitation: string, profile: OfficePairingProfile, candidateId: string | null = null): Promise<OfficePairingSas> =>
+  invoke("office_pairing_begin", { invitation, profile, candidateId });
+export const officePairingConfirm = (sessionId: string, matches: boolean): Promise<OfficePairingStatus> =>
   invoke("office_pairing_confirm", { sessionId, matches });
+export const officePairingStatus = (sessionId: string): Promise<OfficePairingStatus> =>
+  invoke("office_pairing_status", { sessionId });
+export const officePairingCancel = (sessionId: string): Promise<void> =>
+  invoke("office_pairing_cancel", { sessionId });
 
 /** Process-only relay credentials. Never persist, display or log these URLs. */
 export interface OfficeLinkEndpoint { linkId: string; httpBaseUrl: string }

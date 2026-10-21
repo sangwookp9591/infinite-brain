@@ -31,7 +31,7 @@ it("upgrades 066 without backfilling people or modifying existing email/member/v
       INSERT INTO organization(id,name,slug,"createdAt") VALUES ('existing-org','회사','existing-office',now());
       INSERT INTO member(id,"organizationId","userId",role,"createdAt") VALUES ('existing-member','existing-org','existing-user','owner',now());
       INSERT INTO vaults(id,organization_id,name) VALUES ('different-vault-id','existing-org','자료')`);
-    expect(await runMigrations(url.href)).toEqual(["067_office_identity_pairing.sql", "068_office_sas.sql"]);
+    expect(await runMigrations(url.href)).toEqual(["067_office_identity_pairing.sql", "068_office_sas.sql", "069_office_sas_mismatch.sql"]);
     expect(await runMigrations(url.href)).toEqual([]);
     expect((await db.query("SELECT id,organization_id FROM vaults")).rows).toEqual([{ id: "different-vault-id", organization_id: "existing-org" }]);
     expect((await db.query('SELECT email FROM "user"')).rows).toEqual([{ email: "existing@example.com" }]);

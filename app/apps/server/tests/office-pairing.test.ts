@@ -300,6 +300,44 @@ describe("office identity and pairing", () => {
     expect((await decision(run.id, "approved")).status).toBe(409);
   });
 
+  it("records administrator mismatches even after a positive comparison and permanently protects the session", async () => {
+    const run = await pending(); // both sides have already confirmed
+    expect((await post(`/office/pairing/${run.id}/sas-confirm`, { matches: "false" }, owner)).status).toBe(400);
+    expect((await post(`/office/pairing/${run.id}/sas-confirm`, { matches: false }, employee)).status).toBe(403);
+    expect((await post(`/office/pairing/${run.id}/sas-confirm`, { matches: false, pairingToken: randomBytes(32).toString("base64url") })).status).toBe(403);
+    expect((await pool.query("SELECT failed_attempts FROM pairing_session WHERE id=$1", [run.id])).rows[0].failed_attempts).toBe(0);
+    for (let i = 1; i <= 3; i++) {
+      expect((await post(`/office/pairing/${run.id}/sas-confirm`, { matches: false }, owner)).status).toBe(403);
+      const row = (await pool.query("SELECT failed_attempts,sas_mismatched_at,sas_client_confirmed_at,sas_admin_confirmed_by FROM pairing_session WHERE id=$1", [run.id])).rows[0];
+      expect(row.failed_attempts).toBe(i);
+      expect(row.sas_mismatched_at).not.toBeNull();
+      expect(row.sas_client_confirmed_at).toBeNull(); expect(row.sas_admin_confirmed_by).toBeNull();
+      expect((await decision(run.id, "approved")).status).not.toBe(200);
+      await pool.query("UPDATE pairing_session SET sas_blocked_until=NULL WHERE id=$1", [run.id]);
+      expect((await decision(run.id, "approved")).status).toBe(i < 3 ? 403 : 409);
+      expect((await post(`/office/pairing/${run.id}/sas-confirm`, { matches: true }, owner)).status).not.toBe(200);
+      if (i < 3) expect((await post(`/office/pairing/${run.id}/status`, { pairingToken: run.pairingToken })).status).toBe(403);
+    }
+    expect((await pool.query("SELECT state,failed_attempts,sas_code FROM pairing_session WHERE id=$1", [run.id])).rows[0]).toMatchObject({ state: "cancelled", failed_attempts: 3, sas_code: null });
+    expect((await pool.query("SELECT status FROM person_device WHERE id=$1", [run.challenge.deviceId])).rows[0].status).toBe("revoked");
+    expect((await pool.query("SELECT failures,blocked_until>now() AS blocked FROM office_pairing_sas_attempt WHERE key_fingerprint=decode($1,'hex')", [run.challenge.keyFingerprint])).rows[0]).toMatchObject({ failures: 3, blocked: true });
+    expect((await pool.query("SELECT after FROM audit_log WHERE action='office.pairing.sas-mismatch' ORDER BY created_at")).rows.map((row) => row.after)).toEqual([
+      { protected: true, failedAttempts: 1 }, { protected: true, failedAttempts: 2 }, { protected: true, failedAttempts: 3 },
+    ]);
+  });
+
+  it("rejects expired, consumed and other-server invitations before registering a device", async () => {
+    const run = await begin();
+    const invitation = await service.invite(organizationId, owner.userId);
+    const foreign = new OfficePairing({ ...host, serverId: "different-server" });
+    await expect(foreign.challenge({ ...run.body, invitationSecret: invitation.invitationSecret }, employee.userId)).rejects.toMatchObject({ code: "wrong_workspace" });
+    expect((await pool.query("SELECT used_at FROM office_pairing_invitation WHERE id=$1", [invitation.invitationId])).rows[0].used_at).toBeNull();
+    await pool.query("UPDATE office_pairing_invitation SET expires_at=now()-interval '1 second' WHERE id=$1", [invitation.invitationId]);
+    expect((await post("/office/pairing/challenge", { ...run.body, invitationSecret: invitation.invitationSecret }, employee)).status).toBe(410);
+    expect((await post("/office/pairing/challenge", run.body, employee)).status).toBe(410);
+    expect((await pool.query("SELECT count(*)::int AS n FROM person_device")).rows[0].n).toBe(1);
+  });
+
   it("rejects deterministic post-commit nonce selection, foreign session commitments and repeat reveals", async () => {
     const invitation = await service.invite(organizationId, owner.userId), keys = generateKeyPairSync("ed25519");
     const prepared = await service.challenge({ invitationSecret: invitation.invitationSecret, hubFingerprint: fingerprint, personId: randomUUID(), deviceId: randomUUID(), displayAlias: "동료", deviceLabel: "기기", platform: "windows", publicKey: keys.publicKey.export({format:"der", type:"spki"}).toString("base64url") }, employee.userId);

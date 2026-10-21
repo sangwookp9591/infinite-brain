@@ -112,11 +112,11 @@ async function main() {
     BETTER_AUTH_URL: baseUrl, HOST: '127.0.0.1', PORT: String(httpPort), HOCUSPOCUS_HOST: '127.0.0.1',
     HOCUSPOCUS_PORT: '0', RELEASE_MANIFEST_URL: 'off', RELEASE_POLL_MINUTES: '0', BLOB_PROVIDER: 'postgres',
     OFFICE_SERVER_ID: serverId, OFFICE_HOST_GENERATION: generation, OFFICE_HUB_FINGERPRINT: fingerprint };
-  say('1/3  임시 데이터베이스를 만들고 001~068 마이그레이션을 적용합니다…');
+  say('1/3  임시 데이터베이스를 만들고 001~069 마이그레이션을 적용합니다…');
   await run(bundledNode, [join(server, 'dist/db/migrate.js')], { cwd: server, env });
   if (process.argv.includes('--test-pairing')) {
     say('새 임시 cluster에서 pairing 전체 테스트를 실행합니다.');
-    await run('pnpm', ['exec', 'vitest', 'run', 'tests/office-pairing.test.ts', 'tests/office-pairing-negative.test.ts', 'tests/office-pairing-migration.test.ts', 'tests/office-pairing-sas.test.ts'], {
+    await run('pnpm', ['exec', 'vitest', 'run', 'tests/office-pairing', 'src/office'], {
       cwd: server, env: { ...env, NODE_ENV: 'test', NODE_OPTIONS: '--no-experimental-webstorage', BETTER_AUTH_URL: 'http://localhost:3010' }, stdio: 'inherit',
     });
     return 0;
@@ -155,12 +155,15 @@ async function main() {
   } finally { await dbConn.end(); }
 
   const protocol = await import(pathToFileURL(join(server, 'dist/office/protocol.js')).href);
+  const invitationFormat = await import(pathToFileURL(join(server, 'dist/office/invitation.js')).href);
   async function begin(person, deviceName) {
-    const inv = await request('/office/invitations', { method: 'POST', token: admin.token, body: { organizationId } });
+    const inv = await request('/office/invitations', { method: 'POST', token: admin.token, body: { organizationId, linkAccount: true } });
     if (inv.status !== 201) throw new Error(`초대 발급 실패 (${inv.status})`);
+    const invite = invitationFormat.parseOfficeInvitation(inv.data.invitationLink);
+    if (invite.serverId !== serverId || !invite.linkAccount) throw new Error('초대의 회사 작업 공간을 확인하지 못했습니다.');
     const keys = generateKeyPairSync('ed25519');
     const personId = randomUUID(), deviceId = randomUUID();
-    const body = { invitationSecret: inv.data.invitationSecret, hubFingerprint: fingerprint, personId, deviceId,
+    const body = { invitationSecret: invite.invitationSecret, hubFingerprint: invite.hubFingerprint, personId, deviceId,
       displayAlias: '민수', deviceLabel: deviceName, platform: 'macos',
       publicKey: keys.publicKey.export({ format: 'der', type: 'spki' }).toString('base64url') };
     const started = await request('/office/pairing/challenge', { method: 'POST', body, token: person.token });
@@ -187,6 +190,12 @@ async function main() {
   };
   say('3/3  단계별 결과');
   const a = await begin(memberA, '기기 A');
+  const formatExample = await request('/office/invitations', { method: 'POST', token: admin.token, body: { organizationId } });
+  const badCode = `${formatExample.data.invitationCode.slice(0, -1)}${formatExample.data.invitationCode.endsWith('0') ? '1' : '0'}`;
+  let typoRejected = false;
+  try { invitationFormat.parseOfficeInvitation(badCode); } catch { typoRejected = true; }
+  check('메신저용 한 줄 초대와 오타 검출', typoRejected && invitationFormat.parseOfficeInvitation(formatExample.data.invitationLink).serverId === serverId);
+  await request(`/office/invitations/${formatExample.data.invitationId}/cancel`, { method: 'POST', token: admin.token, body: {} });
   const requestA = await proveAndRequest(a);
   check('초대 발급 → 기기 A 참여 요청(별명 민수)', requestA.status === 200, requestA.status === 200 ? '승인 대기 상태' : `HTTP ${requestA.status}`);
   const denied = await request(`/office/organizations/${organizationId}/directory`, { token: memberA.token });
@@ -211,6 +220,10 @@ async function main() {
   check('관리자 승인 후 기기 A 승인 상태 확인', approved.status === 200 && statusA.data.state === 'approved' && directory.status === 200,
     `승인 HTTP ${approved.status}, 상태 ${statusA.data.state ?? '확인 불가'}`);
 
+  const mismatch = await request(`/office/pairing/${b.id}/sas-confirm`, { method: 'POST', token: admin.token, body: { matches: false } });
+  await new Promise((r) => setTimeout(r, 1100));
+  const afterMismatch = await request(`/office/pairing/${b.id}/decision`, { method: 'POST', token: admin.token, body: { decision: 'approved' } });
+  check('관리자 숫자 불일치 보고 후 대기 시간이 지나도 승인 차단', mismatch.status === 403 && afterMismatch.status === 403);
   const rejected = await request(`/office/pairing/${b.id}/decision`, { method: 'POST', token: admin.token, body: { decision: 'rejected', reasonCode: 'not_recognized' } });
   const reuseB = await request(`/office/pairing/${b.id}/proof`, { method: 'POST', body: { pairingToken: b.token,
     clientNonce: b.challenge.clientNonce, serverNonce: b.challenge.serverNonce, signature: b.signature } });

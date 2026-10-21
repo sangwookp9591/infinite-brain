@@ -38,8 +38,7 @@ export class OfficeClient {
   }
 
   async confirmSas(sessionId: string, matches: boolean): Promise<void> {
-    if (!matches) return; // Server contract accepts only the affirmative confirmation.
-    try { await this.api.officeRequest("POST", `/api/office/pairing/${encodeURIComponent(sessionId)}/sas-confirm`, { matches: true }); }
+    try { await this.api.officeRequest("POST", `/api/office/pairing/${encodeURIComponent(sessionId)}/sas-confirm`, { matches }); }
     catch (error) { throw officeError(error); }
   }
 

@@ -6,6 +6,7 @@ import { config } from "../config.js";
 import { auditContext, recordAudit } from "../audit/log.js";
 import { isTeamRole, isManagerRole } from "../permissions/roles.js";
 import { PairingError, base64, challengeDigest, deviceKey, digest, normalizeAlias, personCode, text, uuid, verifyProof, type Challenge, type SasContext, sasCommit, deriveSas } from "./protocol.js";
+import { encodeOfficeInvitation } from "./invitation.js";
 
 const hubPublicKey = generateKeyPairSync("ed25519").publicKey.export({ format: "der", type: "spki" }).toString("base64url");
 
@@ -30,6 +31,7 @@ interface Session {
   sas_context: SasContext | null; sas_commit: Buffer | null; sas_server_nonce: string | null;
   sas_code: string | null; sas_phase: "prepared" | "committed" | "revealed" | null;
   sas_client_confirmed_at: Date | null; sas_admin_confirmed_by: string | null; sas_blocked_until: Date | null;
+  sas_mismatched_at: Date | null;
   decided_by_user_id: string | null; decision_reason_code: string | null;
 }
 const terminal = new Set<State>(["approved", "rejected", "cancelled", "expired"]);
@@ -94,8 +96,9 @@ async function expire(db: pg.PoolClient, row: Session): Promise<boolean> {
   }
   return row.state === "expired";
 }
-function ready(row: Session): void {
+function ready(row: Session, mismatchReport = false): void {
   if (row.sas_blocked_until && row.sas_blocked_until.getTime() > Date.now()) throw new PairingError("too_many_attempts", 429);
+  if (row.sas_mismatched_at && !mismatchReport) throw new PairingError("sas_mismatch", 403);
 }
 function challengeFor(row: Session, clientNonce: string, serverNonce: string): Challenge {
   return { serverId: row.server_id, organizationId: row.organization_id, sessionId: row.id, deviceId: row.device_id,
@@ -103,15 +106,20 @@ function challengeFor(row: Session, clientNonce: string, serverNonce: string): C
     hostGeneration: row.host_generation, protocolVersion: row.protocol_version, expiresAt: row.proof_expires_at.toISOString(),
     requesterUserId: row.requester_user_id, personId: row.requested_person_id, displayAlias: row.display_alias };
 }
-async function failSas(db: pg.PoolClient, row: Session, code: string): Promise<PairingError> {
+async function failSas(db: pg.PoolClient, row: Session, code: string, mismatchReport = false): Promise<PairingError> {
   const failures = row.failed_attempts + 1, cancelled = failures >= 3;
   await db.query(`UPDATE pairing_session SET failed_attempts=$2,sas_blocked_until=now()+($3*interval '1 second'),
+    sas_mismatched_at=CASE WHEN $5 THEN COALESCE(sas_mismatched_at,now()) ELSE sas_mismatched_at END,
+    sas_client_confirmed_at=CASE WHEN $5 THEN NULL ELSE sas_client_confirmed_at END,
+    sas_admin_confirmed_by=CASE WHEN $5 THEN NULL ELSE sas_admin_confirmed_by END,
     state=CASE WHEN $4 THEN 'cancelled' ELSE state END,
     sas_commit=CASE WHEN $4 THEN NULL ELSE sas_commit END,sas_code=CASE WHEN $4 THEN NULL ELSE sas_code END,sas_server_nonce=CASE WHEN $4 THEN NULL ELSE sas_server_nonce END,
-    updated_at=now() WHERE id=$1`, [row.id, failures, cancelled ? 300 : 2 ** (failures - 1), cancelled]);
+    updated_at=now() WHERE id=$1`, [row.id, failures, cancelled ? 300 : 2 ** (failures - 1), cancelled, mismatchReport]);
   await db.query(`INSERT INTO office_pairing_sas_attempt(key_fingerprint,failures,blocked_until) VALUES ($1,1,now()+interval '1 second')
     ON CONFLICT(key_fingerprint) DO UPDATE SET failures=LEAST(3,office_pairing_sas_attempt.failures+1),
     blocked_until=now()+(CASE WHEN office_pairing_sas_attempt.failures>=2 THEN 300 ELSE 2 END*interval '1 second')`, [row.key_fingerprint]);
+  if (mismatchReport) await recordAudit(db, { action: "office.pairing.sas-mismatch", organizationId: row.organization_id,
+    targetType: "pairing_session", targetId: row.id, after: { protected: true, failedAttempts: failures }, refs: { deviceId: row.device_id } });
   if (cancelled) {
     await db.query("UPDATE person_device SET status='revoked',revoked_at=now(),updated_at=now() WHERE id=$1", [row.device_id]);
     await event(db, "office.pairing.cancel", row, row.state, "cancelled");
@@ -125,7 +133,7 @@ function minimal(row: Session) {
 export class OfficePairing {
   constructor(readonly host: OfficeHost) {}
 
-  async invite(organizationId: string, userId: string) {
+  async invite(organizationId: string, userId: string, linkAccount = false) {
     return transaction("office.pairing.invite", organizationId, async (db) => {
       await member(db, organizationId, userId, true);
       await db.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [`office-pairing:${organizationId}`]);
@@ -137,7 +145,12 @@ export class OfficePairing {
         VALUES ($1,$2,$3,$4,$5,$6,$7,now()+interval '5 minutes') RETURNING expires_at`,
       [id, organizationId, hashSecret(invitationSecret), this.host.serverId, this.host.fingerprint, this.host.generation, userId])).rows[0];
       await recordAudit(db, { action: "office.pairing.invite", organizationId, targetType: "pairing_session", targetId: id });
-      return { invitationId: id, invitationSecret, serverId: this.host.serverId, hubFingerprint: this.host.fingerprint, hostGeneration: this.host.generation, expiresAt: row.expires_at.toISOString() };
+      const expiresAt = row.expires_at.toISOString();
+      const invitationCode = encodeOfficeInvitation({ serverId: this.host.serverId, invitationSecret,
+        hubFingerprint: this.host.fingerprint, hostGeneration: this.host.generation, expiresAt,
+        origin: this.host.audience.startsWith("https://") ? new URL(this.host.audience).origin : "", linkAccount });
+      return { invitationId: id, invitationSecret, serverId: this.host.serverId, hubFingerprint: this.host.fingerprint, hostGeneration: this.host.generation, expiresAt,
+        invitationCode, invitationLink: `infinitebrain://office/join#${invitationCode}` };
     });
   }
 
@@ -216,9 +229,11 @@ export class OfficePairing {
       if (client) capability(row, input.pairingToken);
       else { await member(db, row.organization_id, userId, true); if (userId === row.requester_user_id) throw new PairingError("self_approval", 403); }
       if (await expire(db, row)) return new PairingError("expired", 410);
-      ready(row);
-      if (row.sas_phase !== "revealed" || !row.sas_code || (client ? row.state !== "proof_verified" || row.sas_client_confirmed_at : row.state !== "pending_approval" || row.sas_admin_confirmed_by)) throw new PairingError("conflict", 409);
-      if (input.matches !== true) return failSas(db, row, "sas_mismatch");
+      if (typeof input.matches !== "boolean") throw new PairingError("invalid_request");
+      ready(row, input.matches === false);
+      if (row.sas_phase !== "revealed" || !row.sas_code || (client ? row.state !== "proof_verified" : row.state !== "pending_approval")) throw new PairingError("conflict", 409);
+      if (input.matches === false) return failSas(db, row, "sas_mismatch", true);
+      if (client ? row.sas_client_confirmed_at : row.sas_admin_confirmed_by) throw new PairingError("conflict", 409);
       await db.query(client ? "UPDATE pairing_session SET sas_client_confirmed_at=now(),updated_at=now() WHERE id=$1" : "UPDATE pairing_session SET sas_admin_confirmed_by=$2,updated_at=now() WHERE id=$1", client ? [id] : [id, userId]);
       await event(db, "office.pairing.sas-confirm", row);
       return { confirmed: true };
@@ -278,7 +293,9 @@ export class OfficePairing {
     return transaction("office.pairing.status", undefined, async (db) => {
       const row = await load(db, id); capability(row, token); hostMatches(row, this.host);
       if (await expire(db, row)) return new PairingError("expired", 410);
-      if (row.state === "cancelled" || row.state === "rejected") throw new PairingError("conflict", 409);
+      if (row.state === "cancelled") throw new PairingError("request_cancelled", 409);
+      if (row.state === "rejected") throw new PairingError("approval_rejected", 409);
+      if (row.sas_mismatched_at) throw new PairingError("sas_mismatch", 403);
       return minimal(row);
     });
   }
