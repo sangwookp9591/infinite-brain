@@ -62,3 +62,19 @@ remain unverified.
 
 **Decisions pending (owner):** business model, primary target users, whether to rename `.context/` /
 the internal `context` DB, the 14 C0 decisions before C1.
+
+**Office collaboration foundation (2026-10-21, local implementation; not a release claim):** LAN
+hub TLS identity and native pinned-device-key IPC, `/api/office` identity gating, migration 067,
+and pairing capability rejection are implemented. LAN access requires HTTPS/WSS; exact certificate
+SHA-256 pin verification is native. The first Ed25519 device key is created on the first office
+identity IPC call, in a keychain namespace separate from ordinary keychain IPC. Initial pin approval
+requires explicit user approval of a separately delivered invite. Pin replacement/renewal UI is not
+implemented. The pairing demo is `node scripts/demo-office-pairing.mjs` from `app/`; its prepared
+runtime is built in order with `pnpm run office:prepare`, `pnpm run office:verify`, and
+`pnpm run build:desktop:office`. The coordinator owns `office:prepare`; it was not run in this
+documentation update. The default desktop build does not include this runtime.
+
+Still unimplemented or unverified: mDNS, pairing UI, real sync-provider/native pinned transport
+connection, group ACLs, checkpoints, Windows/macOS Intel/native packaged-app behavior, and the
+universal/signing/notarization gate. The intermittent `sync-token` `resetDb()` deadlock remains
+unresolved. See [[reports/office-tls-device-validation]] for the validation evidence and its limits.

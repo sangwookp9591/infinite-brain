@@ -99,3 +99,14 @@ forced to make.
 Every future feature or spec change must map to a requirement here (or explicitly add one). If work
 doesn't trace to a requirement, question whether it belongs in the MVP. Keep this table in sync with
 [[STATUS]] as phases land.
+
+## Draft extension: office collaboration
+
+[PRD 06](06-office-collaboration-prd.md) and [architecture 07](07-office-collaboration-architecture.md) propose a company-internal mode. This extension is not shipped behavior and does not rewrite the existing requirement map.
+
+| Existing requirement | Proposed extension IDs | Scope |
+|---|---|---|
+| #1 Desktop / #2 User management | OC-01–04, OC-14–15 | Nickname display, device approval, IP-free discovery, managed host runtime |
+| #4 Real-time / #6 Local-first / #11 Collaboration | OC-06–08, OC-11, OC-13 | Selective sync, durable receipts, offline safety, LAN policy |
+| #5 Sharing / #10 Hierarchy | OC-05, OC-11 | Normalized groups, consistent folder ACL and boundary moves |
+| Supporting attachments / version history | OC-09–10, OC-12 | Binary conflict preservation, completed checkpoints, backup/handover |

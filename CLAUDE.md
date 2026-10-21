@@ -43,6 +43,7 @@ Read this file and the relevant tests before changing code. See [`docs/ARCHITECT
 - Guest boundaries: guest grants come only from user folder/file rows. `permissions/guest-http.ts` runs inside response compression and projects canonical paths into shared roots while removing other people metadata; path cursors are authenticated opaque values. Stable document IDs remain identity. Single-item creates map a chosen editable folder ID back to its canonical parent; note/file registration batches reverse projected paths only inside existing editable shared folders (existing readable IDs may be adopted without moving); rename/move and folder writes are refused for guests until the full Q3 path contract is implemented. Bootstrap rechecks access on every page. Raw editor awareness is suppressed for guests; vault presence is scoped and anonymized.
 
 - External revocation: migration 066 stores per-operation counts/errors. Guest acceptance and external grant creation serialize on `external-access:<organizationId>`; each removal and progress/audit update share a transaction. `sync/doc-revocations.ts` mirrors document socket closes over the configured pubsub after commit, in addition to existing ACL/member frames.
+- Office TLS/device foundation: `app/apps/server/office-host/`, migration 067, and desktop Rust `office_host.rs` / `office_device.rs` provide a LAN HTTPS/WSS host identity and pinned TLS/device-key IPC; exact scope and unimplemented collaboration features are in `docs/ARCHITECTURE.md` and spec 07’s implementation status.
 
 ## Local gotchas
 

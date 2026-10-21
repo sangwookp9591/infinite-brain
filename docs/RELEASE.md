@@ -625,3 +625,16 @@ deferred.
 > Not currently built — `ubuntu-22.04` is commented out of the release matrix.
 
 No OS-level signing gate. Bundles install as-is.
+
+### Office runtime 빌드 순서 (opt-in, 미검증)
+
+기본 `build:desktop` 및 Actions 릴리스는 office runtime을 준비하거나
+`tauri.office.conf.json` overlay를 적용하지 않는다. 사내 runtime 패키징을
+시험할 때만 `pnpm run build:desktop:office`를 사용한다. 이 명령은
+`office:prepare` → 읽기 전용 `office:verify` → overlay를 명시한 Tauri build
+순으로 실행한다. `office:prepare`는 대상별 `office-runtime/<target>`을 교체하므로
+실행 중인 runtime을 덮어쓰지 않도록 한다.
+
+이 경로는 아직 출시 gate를 통과하지 않았다. macOS universal(arm64+x64 결합),
+Windows runtime 빌드, macOS 서명·공증 및 최종 설치물 동작은 미검증이다.
+기본 build/release에 통합하기 전에 각 항목을 실제 대상 환경에서 검증해야 한다.

@@ -157,3 +157,11 @@ See [[STATUS]] for the live build checklist.
 - [Agent diagnostics and repairs](HOUSEKEEPER.md): included for billing-disabled
   self-hosters; Pro (Team under `BILLING_MODEL=team`) on billing-enabled servers. BYOK model setup, reviewed actions
   and verification.
+
+## Proposed office collaboration design
+
+Implementation is deferred. These documents propose an internal-network workflow for nondeveloper employees; they do not describe shipped behavior.
+
+- [Research synthesis: papers and GitHub](reports/사내%20협업%20동기화%20설계%20조사.md)
+- [06 · Office collaboration PRD](specs/06-office-collaboration-prd.md)
+- [07 · Office collaboration architecture](specs/07-office-collaboration-architecture.md)
