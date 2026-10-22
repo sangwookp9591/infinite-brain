@@ -559,6 +559,8 @@ export interface NoteSeedState {
 }
 
 export interface ReconcileInput {
+  /** Explicit selection: never fall back to/create another collection. */
+  selectedVaultId?: string;
   /** Active organization to create the vault under (required to create). */
   organizationId: string;
   /** Display name for a newly created server vault. */
@@ -3512,12 +3514,13 @@ export class VaultRegistry {
    *
    * Returns whether anything was adopted.
    */
-  async primeLocal(orgId: string): Promise<boolean> {
+  async primeLocal(orgId: string, selectedVaultId?: string): Promise<boolean> {
     this.bound = this.scopes.current();
     const cfg = await this.loadConfig();
     if (this.stale()) return false;
     if (!cfg.organizationId || cfg.organizationId !== orgId) return false;
     if (!cfg.serverVaultId) return false;
+    if (selectedVaultId && cfg.serverVaultId !== selectedVaultId) return false;
     // Handed to `reconcile` so the file is read once per boot, not twice.
     this.primedConfig = cfg;
     this.organizationId = orgId;
@@ -3603,7 +3606,13 @@ export class VaultRegistry {
     const vaults = await this.api.listVaults();
     if (this.stale()) return { seeded: false };
     const inOrg = vaults.filter((v) => vaultOrgId(v) === input.organizationId);
-    let vaultId = cfg.serverVaultId ?? null;
+    if (input.selectedVaultId && !inOrg.some((v) => v.id === input.selectedVaultId)) {
+      throw new Error("office:permission_missing");
+    }
+    if (input.selectedVaultId && cfg.serverVaultId && cfg.serverVaultId !== input.selectedVaultId) {
+      throw new Error("office:permission_missing");
+    }
+    let vaultId = input.selectedVaultId ?? cfg.serverVaultId ?? null;
     if (vaultId && !inOrg.some((v) => v.id === vaultId)) vaultId = null;
     if (!vaultId) {
       let vault = inOrg[0] ?? null;

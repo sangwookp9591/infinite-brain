@@ -345,6 +345,8 @@ export interface OpenedDoc {
 
 /** The vault a sync session is being enabled for. */
 export interface VaultTarget {
+  /** Optional explicit collection selected after office approval. */
+  selectedVaultId?: string;
   /** Better Auth organization id (the user-facing vault). */
   orgId: string;
   /** Display name — used when a brand-new server note collection is created. */
@@ -4907,7 +4909,7 @@ export class SyncManager implements InboundHost {
     // the doc. Best-effort: a folder with no (or a foreign) stamp doesn't prime,
     // and a broken config must not fail the enable.
     try {
-      if (await this.registry.primeLocal(vault.orgId)) {
+      if (await (vault.selectedVaultId ? this.registry.primeLocal(vault.orgId, vault.selectedVaultId) : this.registry.primeLocal(vault.orgId))) {
         if (!scope.isCurrent()) return { ok: false, reason: "vault changed", scope };
         this.primed = true;
         // Sidebar badges + `store.docIdByPath`, immediately.
@@ -4944,6 +4946,7 @@ export class SyncManager implements InboundHost {
         reconciled = await this.registry.reconcile({
           organizationId: session.activeOrganizationId,
           vaultName: vault.name,
+          ...(vault.selectedVaultId ? { selectedVaultId: vault.selectedVaultId } : {}),
           seedIfEmpty: vault.seedIfEmpty,
         });
       } finally {

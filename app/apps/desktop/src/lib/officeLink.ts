@@ -12,6 +12,7 @@ const PIN_ERROR = "확인한 회사 작업 공간과 연결 대상이 달라요.
  */
 export interface OfficeLink {
   readonly httpBaseUrl: string;
+  readonly expiresAt?: string;
   readonly syncUrl: string;
   readonly vaultSyncUrl: string;
   close(): Promise<void>;
@@ -54,6 +55,7 @@ export async function openOfficeLink(
   let closing: Promise<void> | undefined;
   return {
     httpBaseUrl,
+    expiresAt: endpoint.expiresAt,
     syncUrl: `${wsBaseUrl}/sync`,
     vaultSyncUrl: `${wsBaseUrl}/vault-sync`,
     close() {

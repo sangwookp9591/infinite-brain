@@ -187,7 +187,8 @@ export class AuthManager {
       return "unreachable"; // server down / offline — decide nothing
     }
     if (session) return "valid";
-    await this.clearToken();
+    // A device relay never owns the saved Better Auth account credential.
+    if (this.api.getToken?.() !== "office-native") await this.clearToken();
     return "gone";
   }
 

@@ -21,7 +21,7 @@ const DENIED: &str = "office_link_denied: 앱에서 회사 작업 공간을 다�
 pub struct OfficeLinkState(Mutex<HashMap<String, Link>>);
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct OfficeLinkEndpoint { pub(crate) link_id: String, pub(crate) http_base_url: String }
+pub struct OfficeLinkEndpoint { pub(crate) link_id: String, pub(crate) http_base_url: String, #[serde(skip_serializing_if = "Option::is_none")] pub(crate) expires_at: Option<String> }
 pub(crate) struct Link { pub(crate) endpoint: OfficeLinkEndpoint, stop: CancellationToken, task: JoinHandle<()> }
 impl Drop for Link {
     fn drop(&mut self) { self.stop.cancel(); self.task.abort(); }
@@ -167,7 +167,7 @@ impl Link {
         let mut secret = [0; 32];
         SystemRandom::new().fill(&mut secret).map_err(|_| error(office_device::CONNECT_ERROR))?;
         let prefix = format!("/{}", URL_SAFE_NO_PAD.encode(secret));
-        let endpoint = OfficeLinkEndpoint { link_id: uuid::Uuid::new_v4().to_string(), http_base_url: format!("http://{authority}{prefix}") };
+        let endpoint = OfficeLinkEndpoint { link_id: uuid::Uuid::new_v4().to_string(), http_base_url: format!("http://{authority}{prefix}"), expires_at: None };
         let stop = CancellationToken::new();
         let target = Arc::new(Target { bearer, origin, fingerprint, webview_origin, authority, prefix, stop: stop.clone() });
         let task = tokio::spawn(async move {
@@ -229,11 +229,11 @@ pub async fn office_link_open(app: AppHandle, webview: Webview, state: State<'_,
     let webview_origin = webview_origin(&app, &webview)?;
     let fingerprint = office_device::pinned(&app.config().identifier, &server_id)?;
     office_device::hub_info(&origin, &server_id, &fingerprint).await?;
-    let bearer = office_device::session_for_link(&app.config().identifier, &origin, &server_id, &fingerprint).await?;
+    let (bearer, expires_at) = office_device::session_with_expiry_for_link(&app.config().identifier, &origin, &server_id, &fingerprint).await?;
     let mut links = state.0.lock().await;
     if links.len() >= 8 { return Err(error("office_link_limit: 열린 회사 연결을 닫고 다시 시도해 주세요.")); }
     let link = Link::start_authenticated(&origin, fingerprint, webview_origin, "127.0.0.1:0", Some(bearer)).await?;
-    let result = OfficeLinkEndpoint { link_id: link.endpoint.link_id.clone(), http_base_url: link.endpoint.http_base_url.clone() };
+    let result = OfficeLinkEndpoint { link_id: link.endpoint.link_id.clone(), http_base_url: link.endpoint.http_base_url.clone(), expires_at: Some(expires_at) };
     links.insert(result.link_id.clone(), link);
     Ok(result)
 }
@@ -348,6 +348,13 @@ mod tests {
     }
     async fn link(hub: &Hub) -> Link {
         Link::start(&hub.origin, hub.fingerprint.clone(), APP_ORIGIN.into(), "127.0.0.1:0").await.unwrap()
+    }
+    #[test]
+    fn public_endpoint_exposes_expiry_without_session_bearer() {
+        let endpoint = OfficeLinkEndpoint { link_id: "link".into(), http_base_url: "http://127.0.0.1/capability".into(), expires_at: Some("2026-10-22T00:10:00Z".into()) };
+        let value = serde_json::to_value(endpoint).unwrap();
+        assert_eq!(value["expiresAt"], "2026-10-22T00:10:00Z");
+        assert_eq!(value.as_object().unwrap().len(), 3);
     }
     #[test]
     fn matching_pin_http_roundtrip_preserves_auth_cookie_and_streamed_bytes() { run(async {

@@ -464,12 +464,19 @@ async fn fetch_device_session_proof(namespace: &str, origin: &str, server_id: &s
     // Serialize only in native memory / OS keychain, never a WebView result.
     Ok((serde_json::to_string(&response)?, proof))
 }
+#[cfg(test)]
 pub(crate) async fn session_for_link(namespace: &str, origin: &str, server_id: &str, fingerprint: &str) -> AppResult<String> {
+    Ok(session_with_expiry_for_link(namespace, origin, server_id, fingerprint).await?.0)
+}
+/// Only the expiry is public; the bearer remains in native memory/keychain.
+pub(crate) async fn session_with_expiry_for_link(namespace: &str, origin: &str, server_id: &str, fingerprint: &str) -> AppResult<(String, String)> {
     let credential = fetch_device_session(namespace, origin, server_id, fingerprint).await?;
     let value: serde_json::Value = serde_json::from_str(&credential)?;
+    let token = json_text(&value, "token")?.to_owned();
+    let expires_at = json_text(&value, "expiresAt")?.to_owned();
     let _guard = STORE_LOCK.lock().map_err(|_| err(CONNECT_ERROR))?;
     save(namespace, &format!("office-session-v1:{}", endpoint(origin)?.origin().ascii_serialization()), &credential)?;
-    Ok(json_text(&value,"token")?.into())
+    Ok((token, expires_at))
 }
 
 #[tauri::command]

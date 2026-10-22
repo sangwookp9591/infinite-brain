@@ -150,3 +150,14 @@ it("waits for native relay before approval and retries a failed transport cleanu
   await expect(join.close()).rejects.toThrow("shutdown failed");await join.close();
   expect(link.close).toHaveBeenCalledTimes(2);expect(join.getConnection()).toBeUndefined();
 });
+
+it("retains failed discovery/pairing cleanup for retry instead of allowing a new hub", async () => {
+  const s = setup(); await s.join.openDiscovery(); await s.join.begin(pasted, profile);
+  vi.mocked(s.ports.cancel).mockRejectedValueOnce(new Error("cancel failed"));
+  await expect(s.join.close()).rejects.toThrow("cancel failed");
+  expect(s.stop).not.toHaveBeenCalled();
+  s.stop.mockRejectedValueOnce(new Error("scan failed"));
+  await expect(s.join.close()).rejects.toThrow("scan failed");
+  await s.join.close();
+  expect(s.ports.cancel).toHaveBeenCalledTimes(2); expect(s.stop).toHaveBeenCalledTimes(2);
+});

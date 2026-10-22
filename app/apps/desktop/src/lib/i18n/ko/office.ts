@@ -1,5 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 export const office: Record<string, string> = {
+  "Saved to the company workspace": "회사 공유 저장됨",
+  "Which workspace would you like to connect to?": "어느 작업 공간에 연결할까요?",
+  "Choose a workspace approved for your account.": "내 계정에서 사용할 수 있는 작업 공간을 골라 주세요.",
+  "No workspaces are available. Ask your administrator for workspace access.": "아직 연결할 수 있는 작업 공간이 없어요. 관리자에게 작업 공간 접근 권한을 요청해 주세요.",
+  "Confirm connection": "연결 확인",
+  "Connect workspace": "연결하기",
+  "Disconnect workspace": "연결 닫기",
+  "Connecting to your workspace…": "작업 공간에 연결하고 있어요…",
+  "Workspace sync is on. Storage confirmation appears with each note.": "작업 공간 동기화를 시작했어요. 공유 저장 여부는 각 노트에서 확인할 수 있어요.",
+
   "How should coworkers see you?": "동료에게 어떻게 표시할까요?",
   "Choose how to continue.": "어떤 방식으로 시작할지 선택해 주세요.",
   "Paste an invitation code": "초대 코드 붙여넣기",

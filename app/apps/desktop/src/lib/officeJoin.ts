@@ -24,6 +24,8 @@ export interface OfficeJoinPorts {
   cancel: typeof ipc.officePairingCancel;
   discovery(onSnapshot: (snapshot: ipc.OfficeDiscoverySnapshot) => void, onError: (error: unknown) => void): { close(): Promise<void> };
   now(): number;
+  /** Development/test transport injection; production uses pinned native relay. */
+  openLink?: typeof openOfficeLink;
 }
 const nativePorts: OfficeJoinPorts = {
   begin: ipc.officePairingBegin, confirm: ipc.officePairingConfirm,
@@ -52,6 +54,7 @@ function errorCode(error: unknown): OfficeErrorCode {
  */
 export function createOfficeJoin(onEvent: (event: OfficeJoinEvent) => void, ports: OfficeJoinPorts = nativePorts, api?: ApiClient) {
   let connection: OfficeLink | undefined;
+  let hub: { origin: string; serverId: string } | undefined;
   let scan: { close(): Promise<void> } | undefined;
   let session: string | undefined;
   let closed = false, busy = false, polling = false;
@@ -93,7 +96,8 @@ export function createOfficeJoin(onEvent: (event: OfficeJoinEvent) => void, port
         // An API owner can bind both existing sync transports to the relay.
         if (api) {
           if (!result.origin || !result.serverId) throw new Error("office_hub_unavailable:");
-          connection = await openOfficeLink({origin: result.origin, serverId: result.serverId}, api);
+          hub = { origin: result.origin, serverId: result.serverId };
+          connection = await (ports.openLink ?? openOfficeLink)(hub, api);
           if (closed || current !== revision) { await connection.close(); connection = undefined; return; }
         }
         clearTimer(); polling = false; session = undefined;
@@ -108,6 +112,13 @@ export function createOfficeJoin(onEvent: (event: OfficeJoinEvent) => void, port
   }
   return {
     getConnection(): OfficeLink | undefined { return connection; },
+    /** Caller MUST stop providers and finish local saves before renewal. */
+    async reconnect(): Promise<void> {
+      if (closed || !hub || !api) throw new Error("office_hub_unavailable:");
+      await connection?.close();
+      connection = undefined;
+      connection = await (ports.openLink ?? openOfficeLink)(hub, api);
+    },
     async openDiscovery(): Promise<void> {
       if (closed) return;
       await scan?.close();
@@ -156,10 +167,13 @@ export function createOfficeJoin(onEvent: (event: OfficeJoinEvent) => void, port
     poll,
     async cancel(): Promise<void> { ++revision; await forget(); emit({ type: "APPROVAL_CANCELLED" }); },
     async close(): Promise<void> {
-      if (closed) { await connection?.close(); connection = undefined; return; }
       closed = true; ++revision;
-      const old = scan; scan = undefined;
-      await Promise.all([forget(), old?.close().catch(() => undefined), connection?.close()]);
+      clearTimer(); awaitingSas = false; polling = false;
+      // Keep failed resources so callers can retry; a failed cleanup must not
+      // authorize switching to a new hub.
+      if (session) { const id = session; await ports.cancel(id); if (session === id) session = undefined; }
+      if (scan) { const old = scan; await old.close(); if (scan === old) scan = undefined; }
+      await connection?.close();
       connection = undefined;
     },
   };

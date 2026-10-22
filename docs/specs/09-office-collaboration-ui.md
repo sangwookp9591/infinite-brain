@@ -195,7 +195,7 @@ SAS는 기기 키 서명, 별도로 검증한 hub pin, 계정 연결 또는 관�
 
 ### 어댑터 계약: 승인 세션에서 동기화 시작
 
-세션/relay는 구현되어 있으며 화면의 전역 session/vault 선택 및 SyncManager enable 연결은 다음 UI 작업이다. `createOfficeJoin(onEvent, ports?, api?)`의 세 번째 인자로 동기화에 사용할 ApiClient를 명시 주입한다. 기본값으로 전역 API를 바꾸지 않는다. simulator는 기존 가짜 ports를 그대로 사용한다. 실제 Rust status가 `approved`를 반환할 때는 기기 서명 세션이 origin별 비공개 keychain에 저장되어 있고 공개 `origin`, `serverId`가 포함된다. JS에 session bearer는 없다.
+세션/relay와 화면의 전역 session/vault 선택 및 SyncManager enable 연결이 구현되어 있다. 승인 뒤 실제 허용 vault의 이름만 보여 주며, 하나여도 명시 확인하고 목록이 비면 관리자에게 접근 권한을 요청하도록 안내한다. `createOfficeJoin(onEvent, ports?, api?)`의 세 번째 인자로 동기화에 사용할 ApiClient를 명시 주입한다. 기본값으로 전역 API를 바꾸지 않는다. simulator는 기존 가짜 ports를 그대로 사용한다. 실제 Rust status가 `approved`를 반환할 때는 기기 서명 세션이 origin별 비공개 keychain에 저장되어 있고 공개 `origin`, `serverId`가 포함된다. JS에 session bearer는 없다.
 
 1. 기존 provider와 SyncManager를 먼저 정지하고 로컬 bridge의 저장을 마친다. 다른 허브의 API/세션·vault 선택과 섞지 않는다.
 2. 선택한 ApiClient를 주입해 아래 순서로 join을 수행한다. 승인 폴링은 join이 소유한다.
@@ -230,4 +230,4 @@ async function connectSelectedVault() {
 await join.close();
 ```
 
-서버가 차단하는 기능(MCP/OAuth 자격 발급, 계정/멤버 관리, presigned blob intent)은 계정 인증을 별도로 요구한다. office 세션은 기존 계정 토큰을 대체하여 keychain의 `session-v2`에 쓰지 않는다. 현재 relay는 10분 이하 기기 세션을 사용하고 만료 시 소켓을 닫는다. UI는 정지·재연결 시 `openOfficeLink({origin, serverId}, api)`로 Rust의 새 서명 challenge/세션을 받아야 하며 generic keychain으로 토큰을 읽어 갱신하지 않는다. 갱신 UI와 앱 재시작 후 허브 선택 복원은 다음 UI 작업에서 다룬다.
+서버가 차단하는 기능(MCP/OAuth 자격 발급, 계정/멤버 관리, presigned blob intent)은 계정 인증을 별도로 요구한다. office 세션은 기존 계정 토큰을 대체하여 keychain의 `session-v2`에 쓰지 않는다. 현재 relay는 10분 이하 기기 세션을 사용하고 만료 시 소켓을 닫는다. `OfficeLinkEndpoint.expiresAt`은 공개 만료 시각만 전달하며 bearer는 native에 남는다. UI는 정지·재연결 시 `openOfficeLink({origin, serverId}, api)`로 Rust의 새 서명 challenge/세션을 받아야 하며 generic keychain으로 토큰을 읽어 갱신하지 않는다. 화면 연결 소유자는 공개 만료 시각 전 여유를 두고 기존 provider 정지·로컬 저장 → relay 재발급 → 같은 선택 vault의 기존 enable 경로로 갱신한다. 갱신 실패는 같은 pinned hub에 재시도하며 회수/권한 소멸은 join을 닫고, 로컬 자료를 삭제하거나 seed하지 않는다. 설정 탭을 닫아도 연결 소유자는 유지되며 실제 창 닫기는 정리 완료를 기다린다. 앱 재시작 후 허브 선택 복원은 후속 범위다.

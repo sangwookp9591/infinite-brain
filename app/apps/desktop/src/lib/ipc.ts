@@ -68,7 +68,7 @@ export const officePairingCancel = (sessionId: string): Promise<void> =>
   invoke("office_pairing_cancel", { sessionId });
 
 /** Process-only relay credentials. Never persist, display or log these URLs. */
-export interface OfficeLinkEndpoint { linkId: string; httpBaseUrl: string }
+export interface OfficeLinkEndpoint { linkId: string; httpBaseUrl: string; expiresAt?: string }
 /** Uses the already approved per-hub pin; never approves or replaces trust. */
 export const officeLinkOpen = (origin: string, serverId: string): Promise<OfficeLinkEndpoint> =>
   invoke("office_link_open", { origin, serverId });

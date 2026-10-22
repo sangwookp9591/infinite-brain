@@ -58,7 +58,7 @@ describe("officeFlow reducer", () => {
   it("tracks pending, approved, rejected, cancelled, and expired outcomes with injected time", () => {
     const pending = step(joining(), { type: "JOIN_REQUESTED", approvalExpiresAt: now + 50 });
     expect(pending).toMatchObject({ phase: "approval-waiting", storage: "company-share-pending" });
-    expect(step(pending, { type: "APPROVAL_GRANTED" }, now + 49)).toMatchObject({ phase: "connected", storage: "company-share-pending" });
+    expect(step(pending, { type: "APPROVAL_GRANTED" }, now + 49)).toMatchObject({ phase: "vault-selecting", storage: "company-share-pending" });
     expect(step(pending, { type: "APPROVAL_GRANTED" }, now + 50)).toMatchObject({ phase: "error", error: "approval_expired" });
     expect(step(pending, { type: "APPROVAL_REJECTED" })).toMatchObject({ phase: "error", error: "approval_rejected", storage: "local-only" });
     expect(step(pending, { type: "APPROVAL_CANCELLED" })).toMatchObject({ phase: "error", error: "request_cancelled" });
@@ -66,7 +66,9 @@ describe("officeFlow reducer", () => {
     expect(step(pending, { type: "APPROVAL_EXPIRED" }, now + 50)).toMatchObject({ phase: "error", error: "approval_expired" });
   });
   it("keeps local saves distinct from company sharing and handles lost connection", () => {
-    const connected = step(step(joining(), { type: "JOIN_REQUESTED", approvalExpiresAt: now + 50 }), { type: "APPROVAL_GRANTED" });
+    const approved = step(step(joining(), { type: "JOIN_REQUESTED", approvalExpiresAt: now + 50 }), { type: "APPROVAL_GRANTED" });
+    expect(step(approved, { type: "SHARE_ACKNOWLEDGED" }).storage).not.toBe("company-shared");
+    const connected = step(approved, { type: "RELAY_CONNECTED" });
     expect(step(connected, { type: "LOCAL_SAVE_ONLY" }).storage).toBe("company-share-pending");
     expect(step(connected, { type: "SHARE_ACKNOWLEDGED" }).storage).toBe("company-shared");
     expect(step(connected, { type: "CONNECTION_LOST" })).toMatchObject({ phase: "error", error: "connection_lost", storage: "company-share-pending" });

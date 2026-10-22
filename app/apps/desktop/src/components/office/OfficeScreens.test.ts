@@ -78,3 +78,19 @@ describe("OfficeScreens", () => {
     }
   });
 });
+
+it.each([0, 1, 3])("renders %i approved vault choices with names only and explicit confirmation", (count) => {
+  const vaults = Array.from({ length: count }, (_, i) => ({ id: `secret-id-${i}`, name: `작업 공간 ${i + 1}` }));
+  const html = renderToStaticMarkup(createElement(OfficeScreens, { ...props, state: { ...initialOfficeFlowState, phase: "vault-selecting" }, vaults }));
+  expect(html).toContain("Which workspace would you like to connect to?");
+  expect(html).not.toContain("secret-id");
+  if (!count) expect(html).toContain("Ask your administrator");
+  if (count === 1) expect(html).toContain("Confirm connection");
+  if (count > 1) expect(html).toContain("Connect workspace");
+  expect(html).not.toContain("Saved to the company workspace");
+});
+it("separates connection from local storage and never claims a durable ACK on approval", () => {
+  const html = renderToStaticMarkup(createElement(OfficeScreens, { ...props, state: { ...initialOfficeFlowState, phase: "connected" } }));
+  expect(html).toContain("Connected"); expect(html).toContain("This computer only");
+  expect(html).not.toContain("Saved to the company workspace");
+});

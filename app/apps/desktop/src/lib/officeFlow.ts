@@ -25,6 +25,8 @@ export type OfficeErrorCode =
   | "permission_missing"
   | "host_stopped"
   | "connection_lost"
+  | "session_revoked"
+  | "session_expired"
   | "unknown";
 
 export interface OfficeCandidate {
@@ -41,6 +43,8 @@ export interface OfficeFlowState {
     | "candidate-selected"
     | "sas-waiting"
     | "approval-waiting"
+    | "vault-selecting"
+    | "connecting"
     | "connected"
     | "error";
   nickname?: string;
@@ -63,6 +67,8 @@ export type OfficeFlowEvent =
   | { type: "SAS_CONFIRMED"; matches: boolean }
   | { type: "JOIN_REQUESTED"; approvalExpiresAt: number }
   | { type: "APPROVAL_GRANTED" }
+  | { type: "SYNC_CONNECTING" }
+  | { type: "RELAY_CONNECTED" }
   | { type: "APPROVAL_REJECTED" }
   | { type: "APPROVAL_CANCELLED" }
   | { type: "APPROVAL_EXPIRED" }
@@ -150,10 +156,14 @@ export function reduceOfficeFlow(
       return state.phase === "approval-waiting" && (state.approvalExpiresAt ?? 0) > context.now
         // Approval grants membership; only the later durable-ACK event may
         // claim that company storage contains the user's changes.
-        ? { ...state, phase: "connected", storage: "company-share-pending", error: undefined }
+        ? { ...state, phase: "vault-selecting", storage: "company-share-pending", error: undefined }
         : state.phase === "approval-waiting"
           ? { ...state, phase: "error", error: "approval_expired", storage: "local-only" }
           : state;
+    case "SYNC_CONNECTING":
+      return { ...state, phase: "connecting", storage: "local-only", error: undefined };
+    case "RELAY_CONNECTED":
+      return { ...state, phase: "connected", storage: "local-only", error: undefined };
     case "APPROVAL_REJECTED":
       return state.phase === "approval-waiting" ? { ...state, phase: "error", error: "approval_rejected", storage: "local-only" } : state;
     case "APPROVAL_CANCELLED":
@@ -189,7 +199,9 @@ export const officeErrorCopy: Readonly<Record<OfficeErrorCode, { cause: string; 
   sas_required: { cause: "두 화면의 확인 숫자를 먼저 비교해 주세요.", next: "요청자와 숫자가 같은지 확인한 뒤 다시 시도해 주세요." },
   already_joined: { cause: "이 기기는 이미 회사 작업 공간에 연결돼 있어요.", next: "설정에서 현재 연결을 확인해 주세요." },
   identity_link_required: { cause: "이 기기를 기존 구성원 계정과 연결해야 해요.", next: "기존 계정으로 로그인하거나 관리자에게 계정 연결을 요청해 주세요." },
-  permission_missing: { cause: "승인됐지만 열 수 있는 공유 자료가 아직 없어요.", next: "관리자에게 필요한 vault 권한을 확인해 달라고 해 주세요." },
+  session_revoked: { cause: "이 기기의 회사 연결 권한이 회수됐어요.", next: "자료는 이 컴퓨터에 남아 있어요. 관리자에게 다시 참여할 수 있는지 확인해 주세요." },
+  session_expired: { cause: "회사 연결 확인 시간이 지났어요.", next: "회사 네트워크를 확인하고 다시 연결해 주세요. 계속 안 되면 관리자에게 문의해 주세요." },
+  permission_missing: { cause: "승인됐지만 열 수 있는 공유 자료가 아직 없어요.", next: "관리자에게 필요한 작업 공간의 접근 권한을 요청해 주세요." },
   host_stopped: { cause: "공유를 시작한 컴퓨터가 현재 꺼져 있어요.", next: "관리자에게 호스트를 다시 켜 달라고 하거나 나중에 다시 연결해 주세요." },
   connection_lost: { cause: "회사 작업 공간 연결이 끊겼어요.", next: "변경 내용은 이 컴퓨터에 저장돼 있어요. 네트워크가 복구되면 다시 연결해 주세요." },
   unknown: { cause: "회사 작업 공간에 연결하지 못했어요.", next: "잠시 후 다시 시도하거나 관리자에게 이 안내를 보여 주세요." },

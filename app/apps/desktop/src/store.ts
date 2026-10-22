@@ -21,6 +21,8 @@ import { loadedFolderPaths, mergeChildren, nodeAt, setChildrenAt } from "./lib/t
 import { applyTitlePatch } from "./lib/tree/titles";
 import {
   ApiError,
+  type ApiClient,
+  type Vault,
   type BillingConfig,
   type Invitation,
   type InvitationPreview,
@@ -1056,6 +1058,11 @@ interface AppStore {
    * not — it reads `syncEnabled` the moment this resolves, and a brand-new vault
    * has no config to prime from.
    */
+  /** Process-only office binding; no relay capability is persisted. */
+  officeLeave?: () => Promise<void>;
+  officeConnection?: { vaultId: string; organizationId: string; onRejected(): void; onStorage?(shared: boolean): void } | null;
+  stopOfficeSync: () => Promise<void>;
+  connectOfficeVault: (api: ApiClient, session: SessionInfo, vault: Vault, onRejected: () => void, onStorage?: (shared: boolean) => void) => Promise<void>;
   enableSyncForVault: (opts?: {
     seedIfEmpty?: boolean;
     background?: boolean;
@@ -2545,6 +2552,7 @@ export const useStore = create<AppStore>((set, get) => ({
   },
 
   openNoteByPath: async (path, source) => {
+    get().officeConnection?.onStorage?.(false);
     const epoch = get().vault?.epoch;
     const stillOpening = () => sameVault(get, epoch) && get().openingNotePath === path;
     // A note opened from anywhere takes the editor area back from a virtual tab.
@@ -3398,6 +3406,7 @@ export const useStore = create<AppStore>((set, get) => ({
   },
 
   signOut: async () => {
+    if (get().officeLeave) await get().officeLeave!();
     // This flow owns the session from here: a detached `initAuth` still
     // restoring the previous one must not land its state on top of ours.
     ++authInitGen;
@@ -3457,6 +3466,7 @@ export const useStore = create<AppStore>((set, get) => ({
   },
 
   handleSessionExpired: () => {
+    if (get().officeConnection) { get().officeConnection!.onRejected(); return; }
     // Nothing to drop: already signed out, or a sign-out landed first.
     if (get().authStatus !== "signed-in" && !get().session) return;
     // This flow owns the session from here: a detached `initAuth` still
@@ -3488,6 +3498,7 @@ export const useStore = create<AppStore>((set, get) => ({
   },
 
   setServerUrl: async (url) => {
+    if (get().officeLeave) await get().officeLeave!();
     set({ authError: null });
     // This flow owns the session from here: a detached `initAuth` still
     // restoring the previous one must not land its state on top of ours.
@@ -3882,6 +3893,7 @@ export const useStore = create<AppStore>((set, get) => ({
   },
 
   setActiveOrganization: async (organizationId, opts = {}) => {
+    if (get().officeLeave) await get().officeLeave!();
     const previousOrgId = get().session?.activeOrganizationId ?? null;
     // Claim the switch. Everything below awaits the network, so a second switch
     // (impatient double-click, or a join/accept-invite firing while this one is in
@@ -4664,6 +4676,7 @@ export const useStore = create<AppStore>((set, get) => ({
   },
 
   openLocalVault: async (path) => {
+    if (get().officeLeave) await get().officeLeave!();
     // A local vault is a plain folder that isn't syncing to an org. Opening
     // one tears down any active vault sync (we're no longer in that org's
     // folder) and leaves sync off until the user explicitly turns it on.
@@ -4728,6 +4741,10 @@ export const useStore = create<AppStore>((set, get) => ({
   },
 
   closeLocalVault: () => {
+    if (get().officeLeave) {
+      void get().officeLeave!().then(() => get().closeLocalVault()).catch(() => toast("회사 연결을 닫지 못했어요. 잠시 후 다시 시도해 주세요.", "error"));
+      return;
+    }
     // Detach from the open local folder and drop to the welcome/empty state.
     leaveVaultSync();
     get().closeNote();
@@ -5169,10 +5186,17 @@ export const useStore = create<AppStore>((set, get) => ({
     );
   },
 
-  setSyncPending: (pending) => set({ syncPending: pending }),
+  setSyncPending: (pending) => {
+    if (pending) get().officeConnection?.onStorage?.(false);
+    set({ syncPending: pending });
+  },
 
   // A server ack of all pending changes: this is the real "synced just now".
-  markSynced: () => set({ lastSyncedAt: Date.now(), syncPending: false }),
+  markSynced: () => {
+    // onFlushed is the existing durable-ACK callback, never approval/socket open.
+    get().officeConnection?.onStorage?.(true);
+    set({ lastSyncedAt: Date.now(), syncPending: false });
+  },
   dismissSyncPause: () => set((s) => ({ syncPauseDismissed: s.syncPause?.since ?? null })),
 
   setSyncProgress: (progress) => {
@@ -5215,6 +5239,44 @@ export const useStore = create<AppStore>((set, get) => ({
   // vault, so a merge would keep rows for notes it has stopped mapping (deleted,
   // renamed, or belonging to the vault we just left).
   setDocIdByPath: (map) => set({ docIdByPath: map }),
+
+  stopOfficeSync: async () => {
+    ++authInitGen;
+    leaveVaultSync();
+    set({ syncEnabled: false });
+    // Refuse the transition on local write failure; never silently discard edits.
+    const bridge = bridgeManager.currentBridge();
+    await bridge?.flushEgest();
+    await bridge?.whenPersisted();
+  },
+
+  connectOfficeVault: async (client, session, selected, onRejected, onStorage) => {
+    await get().stopOfficeSync();
+    const organizationId = selected.organization_id ?? selected.organizationId;
+    if (!organizationId || session.activeOrganizationId !== organizationId) throw new Error("office:permission_missing");
+    // Authenticate/list through the isolated client before changing the shared API.
+    const allowed = await client.listVaults();
+    if (!allowed.some((v) => v.id === selected.id && vaultOrgId(v) === organizationId)) throw new Error("office:permission_missing");
+    authManager.api.setBaseUrl(client.getBaseUrl());
+    authManager.api.setToken(client.getToken());
+    set({ session, authStatus: "signed-in", officeConnection: { vaultId: selected.id, organizationId, onRejected, onStorage }, ...vaultScopedSyncReset() });
+    const [recents, dirs] = await Promise.all([ipc.getRecentVaults(), ipc.listVaultsRootDirs()]);
+    const paths = [...new Set([...(get().vault ? [get().vault!.path] : []), ...recents.map((v) => v.path), ...dirs])];
+    let folder: string | undefined;
+    for (const path of paths) {
+      const stamp = await ipc.peekVaultStamp(path);
+      if (stamp?.serverVaultId === selected.id && (!stamp.organizationId || stamp.organizationId === organizationId)) { folder = path; break; }
+    }
+    const create = !folder;
+    folder ??= await freeVaultFolder(selected.name);
+    // Renewal of the same stamped collection must keep the open editor/buffer.
+    // enable() reclaims its vault scope and reattaches through the existing
+    // pull-before-seed path; reopening the folder would unnecessarily close it.
+    if (folder !== get().vault?.path) await get().applyVaultFolder(organizationId, folder, { create, deferSync: true });
+    else set({ openFolderIsSynced: true });
+    await get().enableSyncForVault();
+    if (!get().syncEnabled) throw new Error("office:connection_lost");
+  },
 
   enableSyncForVault: async (opts = {}) => {
     lastSyncRefusal = null;
@@ -5280,6 +5342,7 @@ export const useStore = create<AppStore>((set, get) => ({
           path: vault.path,
           epoch,
           seedIfEmpty: opts.seedIfEmpty,
+          ...(get().officeConnection ? { selectedVaultId: get().officeConnection!.vaultId } : {}),
         },
         {
           onPrimed: () => {
