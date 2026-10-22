@@ -28,6 +28,14 @@
     (every app still installs it). Ask before each release: silent, or notes?
 -->
 
+## 0.2.3
+
+- Company sharing: Share a vault with coworkers on the same network from Settings → 사내 협업. Send the one-line invite code, then approve each person after you both see the same six numbers. This is an early version for small teams.
+- Nearby workspaces: Find a shared workspace on your company network without typing an address. A nearby workspace is only a suggestion; you still need the invite code to join.
+- Korean: Profile, appearance and notification settings now speak Korean.
+- Settings: Rows no longer paint their hover highlight edge to edge against the text.
+- Heads-up: Apps older than 0.2.3 cannot update themselves to this version. Download it once from the releases page, and updates work again after that.
+
 ## 0.2.2
 
 - Same Wi-Fi: Run a team server on one computer and join it from the others by its local address, like http://192.168.1.20:3010, without setting up HTTPS. Plain http works only on your local network.
