@@ -11,6 +11,7 @@
 #   scripts/build-installers.sh win        # only the .exe
 #
 # Overrides: APPLE_SIGNING_IDENTITY, NOTARY_PROFILE (default axdb-notary),
+#   OFFICE_RUNTIME=1 (bundle the office-collaboration runtime; see docs/RELEASE_SIGNING.md),
 # UPDATER_KEY_DIR (default ~/.infinite-brain), SKIP_NOTARIZE=1 (sign only).
 set -euo pipefail
 
@@ -55,14 +56,34 @@ build_mac() {
   # an Apple ID password.
   unset APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID APPLE_API_KEY APPLE_API_ISSUER
 
-  say "macOS: universal build, signed as $identity"
-  (cd "$DESKTOP" && pnpm tauri build --target universal-apple-darwin --bundles app,dmg)
-
   local bundle="$TARGET_DIR/universal-apple-darwin/release/bundle"
   local app="$bundle/macos/$NAME.app"
   # This version's file by name. The bundle folders keep what earlier builds left
   # there, so "the first .dmg" can be an old release's.
   local dmg="$bundle/dmg/${NAME}_${VERSION}_universal.dmg"
+
+  if [ "${OFFICE_RUNTIME:-0}" = "1" ]; then
+    # Office-collaboration runtime (docs/RELEASE_SIGNING.md "Office runtime"): both
+    # architectures must be prepared and verified, the app is built WITHOUT tauri's
+    # dmg, every nested Mach-O is signed by sign-office-app.sh, and the updater
+    # bundle is rebuilt from the re-signed app (tauri made it from the unsigned one).
+    for arch in darwin-arm64 darwin-x64; do
+      [ -d "$DESKTOP/src-tauri/office-runtime/$arch" ] || die "office runtime $arch is missing: OFFICE_RUNTIME_TARGET=$arch pnpm run office:prepare (from app/)"
+    done
+    (cd "$ROOT/app" && pnpm run office:verify) || die "office runtime verification failed"
+    say "macOS: universal build with the office runtime, signed as $identity"
+    rm -f "$dmg" "$bundle/macos/"*.app.tar.gz*
+    (cd "$DESKTOP" && pnpm tauri build --target universal-apple-darwin --bundles app --config src-tauri/tauri.office.conf.json)
+    mkdir -p "$(dirname "$dmg")"
+    APPLE_SIGNING_IDENTITY="$identity" bash "$ROOT/app/scripts/sign-office-app.sh" "$app" "$dmg"
+    local tarball="$bundle/macos/$NAME.app.tar.gz"
+    tar -czf "$tarball" -C "$bundle/macos" "$NAME.app"
+    (cd "$DESKTOP" && pnpm tauri signer sign "$tarball") >/dev/null
+    [ -f "$tarball.sig" ] || die "updater signature was not created for $tarball"
+  else
+    say "macOS: universal build, signed as $identity"
+    (cd "$DESKTOP" && pnpm tauri build --target universal-apple-darwin --bundles app,dmg)
+  fi
   [ -f "$dmg" ] || die "no $dmg after the build"
   codesign -dvv "$app" 2>&1 | grep -E 'Authority=Developer ID Application|flags=.*runtime' >/dev/null \
     || die "$app is not Developer ID signed with the hardened runtime"
