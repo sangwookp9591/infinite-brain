@@ -11,7 +11,7 @@
  * Tokens/keys never appear in arguments or output; stdin and TLS carry secrets.
  * Negative fixtures change throwaway invitations and a TLS fixture only.
  * Failures and signals clean test keychain namespaces, stop hub/PG and remove
- * temp data. Any FAIL exits 1. Two-PC, Windows, signed installer, sync untested.
+ * temp data. Any FAIL exits 1. Two-PC, Windows, signed installer untested.
  */
 import { spawn } from 'node:child_process';
 import { randomBytes, randomUUID } from 'node:crypto';
@@ -30,6 +30,7 @@ const secret = () => randomBytes(32).toString('base64url');
 const delay = (ms) => new Promise((done) => setTimeout(done, ms));
 const rows = [], keychainEntries = [];
 let directory, runtime, driver, tlsFixture, database, cleanupPromise, driverCall, driverExited, compileChild;
+const syncProviders = [], syncDocs = [];
 function check(name, ok, detail = '') {
   rows.push({ name, ok: Boolean(ok), detail });
   console.log(`| ${ok ? 'PASS' : 'FAIL'} | ${name} | ${detail || '확인'} |`);
@@ -112,6 +113,8 @@ async function runQuiet(executable, args) {
 async function cleanup() {
   if (cleanupPromise) return cleanupPromise;
   cleanupPromise = (async () => {
+    for (const provider of syncProviders) provider.destroy();
+    for (const doc of syncDocs) doc.destroy();
     if (compileChild) { compileChild.kill('SIGTERM'); compileChild = null; }
     let nativeClean = false;
     if (driver && driver.exitCode === null && driver.signalCode === null) {
@@ -175,7 +178,7 @@ async function main() {
   const invite = async () => expectStatus(await api(ready, '/office/invitations', { method: 'POST', token: admin.token, body: { organizationId, linkAccount: true } }), 201, '초대 생성');
   const begin = async (inv, device, overrides = {}) => {
     const decoded = invitation.parseOfficeInvitation(inv.invitationCode), scoped = `${namespace}-${device}`;
-    keychainEntries.push([`${scoped}.office-device.v1`, 'device'], [`${scoped}.office-device.v1`, `hub:${decoded.serverId}`], [`${scoped}.office-e2e-session.v1`, `session-v2:${decoded.origin}`]);
+    keychainEntries.push([`${scoped}.office-device.v1`, 'device'], [`${scoped}.office-device.v1`, `hub:${decoded.serverId}`], [`${scoped}.office-e2e-session.v1`, `session-v2:${decoded.origin}`], [`${scoped}.office-device.v1`, `office-session-v1:${decoded.origin}`]);
     return driverCall({ op: 'begin', invitation: inv.invitationCode, device, personId: memberPersonId, accountToken: member.token, ...overrides });
   };
   const good = await invite(); check('관리자 API에서 IB1 초대 코드 발급', good.invitationCode.startsWith('IB1.'));
@@ -190,6 +193,54 @@ async function main() {
     status = requireOk(await driverCall({ op: 'status', sessionId: joined.sessionId }), 'Rust status'); if (status.state === 'approved') break; await delay(200);
   }
   check('Rust status 폴링 → approved·OS 키체인 pin 저장', status.state === 'approved' && status.pinSaved);
+  // Every HTTP operation below is authenticated in native Rust. JS sees only a
+  // short-lived loopback capability, never the device-session token.
+  const localRequire = createRequire(join(app,'apps/server/package.json'));
+  const { HocuspocusProvider } = localRequire('@hocuspocus/provider');
+  const Y = localRequire('yjs'), WebSocket = localRequire('ws');
+  const relay = requireOk(await driverCall({op:'relay',device:'success',origin:ready.endpoint,serverId:ready.serverId}), 'Rust 기기 세션 relay');
+  const relayApi = async(path, {method='GET',body}={}) => {
+    const response=await fetch(`${relay.httpBaseUrl}/api${path}`,{method,headers:{origin:'http://tauri.localhost',...(body===undefined?{}:{'content-type':'application/json'})},...(body===undefined?{}:{body:JSON.stringify(body)})});
+    return {status:response.status,data:await response.json()};
+  };
+  const vaultId=randomUUID();
+  await database.query('INSERT INTO vaults(id,organization_id,name) VALUES($1,$2,$3)',[vaultId,organizationId,'기기 동기화 vault']);
+  await database.query("INSERT INTO shares(id,org_id,resource_type,resource_id,principal_type,principal_id,permission) VALUES($1,$2,'vault',$2,'org',$2,'edit') ON CONFLICT DO NOTHING",[randomUUID(),organizationId]);
+  const documentId=randomUUID();
+  const registered=expectStatus(await relayApi('/notes',{method:'POST',body:{vaultId,docId:documentId,relPath:'office-session.md',title:'office-session'}}),201,'기기 A 노트 등록');
+  check('승인 후 Rust 기기 키 세션 → relay HTTP 노트 등록', registered.docId===documentId || registered.id===documentId);
+  const deviceToken=expectStatus(await relayApi('/sync-token',{method:'POST',body:{docId:documentId}}),200,'기기 A sync JWT');
+  const adminToken=expectStatus(await api(ready,'/sync-token',{method:'POST',token:admin.token,body:{docId:documentId}}),200,'관리자 sync JWT');
+  const until=async(probe,label)=>{const end=Date.now()+15_000;while(!probe()){if(Date.now()>end)throw new Error(`${label} 시간 초과`);await delay(25);}};
+  const docA=new Y.Doc(),docB=new Y.Doc();syncDocs.push(docA,docB);
+  const url=relay.httpBaseUrl.replace(/^http:/,'ws:')+'/sync';
+  const name=`vault:${vaultId}/note:${documentId}`;
+  // Both use the pinned native transport; B uses an account sync JWT, issued
+  // separately through the pinned admin API, on this same real bundled hub.
+  class RelaySocket extends WebSocket {constructor(address,protocols){super(address,protocols,{origin:'http://tauri.localhost'});}}
+  let closedA=0;
+  const a=new HocuspocusProvider({url,name,token:deviceToken.token,document:docA,WebSocketPolyfill:RelaySocket,onClose:()=>closedA++});
+  const b=new HocuspocusProvider({url,name,token:adminToken.token,document:docB,WebSocketPolyfill:RelaySocket});syncProviders.push(a,b);
+  await until(()=>a.isSynced&&b.isSynced,'Yjs 연결');
+  docA.getText('content').insert(0,'승인된 기기에서 보낸 바이너리 Yjs 업데이트');
+  await until(()=>docB.getText('content').toString()===docA.getText('content').toString()&&docB.getText('content').length>0,'Yjs 수렴');
+  await until(()=>a.unsyncedChanges===0,'허브 저장 확인');
+  check('기기 A → 관리자 클라이언트 Yjs 바이너리 업데이트 수렴',Buffer.from(Y.encodeStateAsUpdate(docA)).equals(Buffer.from(Y.encodeStateAsUpdate(docB))));
+  const outside=expectStatus(await api(ready,'/auth/organization/create',{method:'POST',token:admin.token,body:{name:'허용하지 않은 회사',slug:`outside-${randomUUID()}`}}),200,'다른 조직');
+  const outsideOrg=outside.id??outside.organization?.id,outsideVault=randomUUID();
+  await database.query('INSERT INTO vaults(id,organization_id,name) VALUES($1,$2,$3)',[outsideVault,outsideOrg,'허용 안 된 vault']);
+  await database.query('INSERT INTO member(id,"organizationId","userId",role,"createdAt") VALUES($1,$2,$3,\'member\',now())',[randomUUID(),outsideOrg,member.userId]);
+  check('같은 계정의 허용 안 된 vault 접근 차단',(await relayApi(`/notes?vaultId=${outsideVault}`)).status===403);
+  // The exact issuance request is replayed by native test driver below; no
+  // session credential leaves Rust. The server must reject its spent challenge.
+  const replay=requireOk(await driverCall({op:'replay',origin:ready.endpoint,serverId:ready.serverId,device:'success'}),'세션 proof 재생');
+  check('기기 세션 서명 challenge 재생 거절',replay.replayed===false);
+  const beforeClose=closedA;
+  expectStatus(await api(ready,`/office/pairing/${joined.sessionId}/decision`,{method:'POST',token:admin.token,body:{decision:'cancelled',reasonCode:'device_revoked'}}),200,'기기 회수');
+  await until(()=>closedA>beforeClose,'회수 socket 종료');
+  check('회수 즉시 기존 socket 종료·HTTP 세션 거절',(await relayApi(`/notes?vaultId=${vaultId}`)).status===401);
+  const retired=await driverCall({op:'relay',device:'success',origin:ready.endpoint,serverId:ready.serverId});
+  check('회수한 기기의 새 세션 발급 거절',!retired.ok);
   const reused = await begin(good, 'reuse'); check('단회 초대 재사용 거절', !reused.ok && reused.code === 'office_invite_invalid', reused.code);
   const mismatch = requireOk(await begin(await invite(), 'mismatch'), '불일치 준비'); requireOk(await driverCall({ op: 'confirm', sessionId: mismatch.sessionId }), '불일치 참여 요청');
   const attempts = [];

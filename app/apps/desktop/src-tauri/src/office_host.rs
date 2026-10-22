@@ -81,9 +81,15 @@ fn main_only(webview: &Webview) -> Result<(), AppError> {
     Ok(())
 }
 
+// ARCH describes the running binary slice, including a universal macOS app.
+// Both slices share resources; never select by the physical host CPU.
 fn target() -> String {
-    let os = match std::env::consts::OS { "macos" => "darwin", "windows" => "win32", other => other };
-    let arch = match std::env::consts::ARCH { "aarch64" => "arm64", "x86_64" => "x64", other => other };
+    runtime_target(std::env::consts::OS, std::env::consts::ARCH)
+}
+
+fn runtime_target(os: &str, arch: &str) -> String {
+    let os = match os { "macos" => "darwin", "windows" => "win32", other => other };
+    let arch = match arch { "aarch64" => "arm64", "x86_64" => "x64", other => other };
     format!("{os}-{arch}")
 }
 
@@ -301,6 +307,14 @@ pub async fn office_host_stop(webview: Webview, state: State<'_, OfficeHostState
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn runtime_directory_follows_the_running_slice() {
+        assert_eq!(runtime_target("macos", "aarch64"), "darwin-arm64");
+        assert_eq!(runtime_target("macos", "x86_64"), "darwin-x64");
+        assert_eq!(runtime_target("windows", "x86_64"), "win32-x64");
+        assert_eq!(target(), runtime_target(std::env::consts::OS, std::env::consts::ARCH));
+    }
 
     #[test]
     fn discovery_requires_live_lan_scope_and_runtime_identity() {

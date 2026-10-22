@@ -5,18 +5,16 @@ import { spawn } from 'node:child_process';
 import { cp, lstat, mkdir, mkdtemp, readFile, readdir, realpath, rename, rm, writeFile, chmod } from 'node:fs/promises';
 import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { verifyRoot } from './verify-office-runtime.mjs';
+import { inventoryFor, isMachO, machOArchitectures, verifyRoot } from './verify-office-runtime.mjs';
 
 const app = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const sources = JSON.parse(await readFile(join(app, 'scripts/office-runtime-sources.json'), 'utf8'));
-const target = process.argv[2] ?? `${process.platform}-${process.arch}`;
+const target = process.argv[2] ?? process.env.OFFICE_RUNTIME_TARGET ?? `${process.platform}-${process.arch}`;
 const source = sources.targets[target];
 if (!source) throw new Error(`Unsupported office runtime target: ${target}`);
-// Native dependencies are materialized by pnpm on the target machine. Universal
-// builds prepare each architecture in its matching build job before combining.
-if (target !== `${process.platform}-${process.arch}`) {
-  throw new Error('Prepare the office runtime on the target OS/architecture to include matching native dependencies');
-}
+const [platform, arch] = target.split('-');
+const crossTarget = target !== `${process.platform}-${process.arch}`;
+if (platform !== process.platform) throw new Error('Cross-OS runtime preparation is not supported; use a host with the target OS');
 const output = join(app, 'apps/desktop/src-tauri/office-runtime', target);
 await mkdir(dirname(output), { recursive: true });
 const stage = await mkdtemp(join(dirname(output), '.preparing-'));
@@ -105,17 +103,53 @@ try {
   // Modern deploy derives a frozen, package-specific lockfile from the shared
   // workspace lock. Legacy hoisted deploy ignores that lock and resolves newer
   // versions, which can break the already-built server.
-  await run(process.execPath, [pnpmCli, '--filter', 'server', '--prod', '--config.node-linker=hoisted', '--config.inject-workspace-packages=true', 'deploy', join(stage, 'server')]);
+  const lockPath = join(app, 'pnpm-lock.yaml');
+  const lockBefore = await readFile(lockPath);
+  // pnpm's --config.cpu/os override supportedArchitectures with singleton arrays.
+  // Do not include `current`: the deploy must never copy the host's native variant.
+  // Cross-target install scripts could run a foreign esbuild/fsevents binary.
+  await run(process.execPath, [pnpmCli, '--filter', 'server', '--prod',
+    `--config.cpu=${arch}`, `--config.os=${platform}`, ...(crossTarget ? ['--ignore-scripts'] : []), '--config.node-linker=hoisted', '--config.inject-workspace-packages=true', 'deploy', join(stage, 'server')]);
+  if (!(await readFile(lockPath)).equals(lockBefore)) throw new Error('Workspace lockfile changed during runtime deploy');
   await materializeFileLinks(stage);
+  if (platform === 'darwin' && arch === 'x64') {
+    // fsevents ships a universal .node. Select its x64 slice, just as pnpm
+    // selects x64 optional packages; preserve every package and runtime file.
+    async function selectSlices(current) {
+      for (const entry of await readdir(current, { withFileTypes: true })) {
+        const path = join(current, entry.name);
+        if (entry.isDirectory()) await selectSlices(path);
+        else if (entry.isFile() && isMachO(await readFile(path))) {
+          const architectures = await machOArchitectures(path);
+          if (architectures.includes('x86_64') && architectures.length > 1) {
+            const thin = `${path}.x64-slice`;
+            await run('lipo', [path, '-thin', 'x86_64', '-output', thin]);
+            await chmod(thin, (await lstat(path)).mode & 0o777);
+            await rename(thin, path);
+          }
+        }
+      }
+    }
+    await selectSlices(stage);
+  }
   await mkdir(join(stage, 'control'));
   await cp(join(app, 'apps/server/office-host/runtime.mjs'), join(stage, 'control/runtime.mjs'));
-  await writeFile(join(stage, 'manifest.json'), `${JSON.stringify({
-    protocol: 1, platform: process.platform, arch: process.arch,
+  const manifest = {
+    manifestVersion: 2, protocol: 1, platform, arch,
     nodeVersion: sources.nodeVersion, postgresVersion: sources.postgresVersion, postgresMajor: sources.postgresMajor,
-  }, null, 2)}\n`);
+  };
+  const manifestPath = join(stage, 'manifest.json');
+  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
   if (process.platform !== 'win32') await chmod(join(stage, 'node'), 0o755);
-  const verification = await verifyRoot(stage);
+  const verification = await verifyRoot(stage, { checkInventory: false });
   if (verification.errors.length) throw new Error(`Invalid office runtime:\n${verification.errors.join('\n')}`);
+  manifest.inventory = inventoryFor(verification.files);
+  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+  const finalVerification = await verifyRoot(stage);
+  if (finalVerification.errors.length) throw new Error(`Invalid office runtime:\n${finalVerification.errors.join('\n')}`);
+  console.log(`Static verification: ${verification.binaries.length} Mach-O files; manifest inventory hashes verified`);
+  console.log(crossTarget ? 'Execution validation: NOT EXECUTED (cross-target; no target binaries or migrations run)'
+    : 'Execution validation: run runtime.test.mjs with OFFICE_RUNTIME_ROOT for migration/startup checks');
   // A failed prepare preserves the previously prepared resources. Build jobs
   // must not prepare while a dev runtime is using these files.
   const previous = `${output}.previous`;
