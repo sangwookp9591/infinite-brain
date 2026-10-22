@@ -89,7 +89,16 @@ while IFS= read -r -d '' node; do
 </dict></plist>
 PLIST
   codesign --force --options runtime --timestamp --sign "$identity" --entitlements "$entitlements" "$node"
-  "$node" -e 'process.exit(0)'
+  # A node that cannot run on this Mac (the x64 slice without Rosetta) is checked by
+  # its signature and architecture instead; one that can run must start.
+  node_arch="$(lipo -archs "$node" 2>/dev/null || true)"
+  case "$(uname -m)" in arm64) host_arch=arm64 ;; *) host_arch=x86_64 ;; esac
+  if [[ " $node_arch " == *" $host_arch "* ]]; then
+    "$node" -e 'process.exit(0)'
+  else
+    echo "skip run check for $node ($node_arch cannot run on $host_arch); verifying its signature instead"
+    codesign --verify --strict "$node"
+  fi
 done < <(find "$app/Contents/Resources/office-runtime" -type f -path '*/node' -print0)
 
 app_entitlements="$tmp/app-entitlements.plist"
