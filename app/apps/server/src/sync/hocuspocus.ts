@@ -1,3 +1,4 @@
+import { assertOfficeSync, watchOfficeSession } from "../office/sessions.js";
 import { hideGuestAwareness } from "./guest-awareness.js";
 import { orgRole, vaultOrg } from "../permissions/lookup.js";
 import { Server } from "@hocuspocus/server";
@@ -61,6 +62,8 @@ class NoteTooLargeError extends Error {
 }
 
 export interface SyncContext {
+  officeSessionId?: string;
+  officeGuard?: { revoked: boolean; close?: () => void; stop: () => void };
   guestDocuments?: Set<string>;
   docId: string;
   vaultId: string;
@@ -215,7 +218,15 @@ export function createSyncServer(
      * oversized state, was closed again, and strobed the sync badge about once
      * a second for as long as the app was open.
      */
+    async connected(data) {
+      const guard = data.context.officeGuard;
+      if (!guard) return;
+      guard.close = () => data.connection.close();
+      if (guard.revoked) guard.close();
+    },
+    async onDisconnect(data) { data.context.officeGuard?.stop(); },
     async beforeHandleMessage(data) {
+      if (data.context?.officeGuard?.revoked) throw new Error("Office session ended");
       const refusal = noteSizeRefusalFor(
         data.update.byteLength,
         data.document.getText("content"),
@@ -342,6 +353,7 @@ export function createSyncServer(
       if (org && claims.userId && (await orgRole(org, claims.userId)) === "guest") data.context.guestDocuments?.add(data.documentName);
       else data.context.guestDocuments?.delete(data.documentName);
       const context: SyncContext = {
+        ...(claims.officeSessionId ? { officeSessionId: claims.officeSessionId } : {}),
         guestDocuments: data.context.guestDocuments,
         docId: parsed.docId,
         vaultId: parsed.vaultId,
@@ -349,6 +361,22 @@ export function createSyncServer(
         userId: claims.userId ?? null,
         ...(shrinkHeld ? { shrinkHeld: true } : {}),
       };
+      if (claims.officeSessionId) {
+        // Hocuspocus drains queued sync messages BEFORE its connected hook.
+        // Subscribe before the final DB check, and share the guard by reference
+        // so a withdrawal during document loading also blocks queued messages.
+        const guard: NonNullable<SyncContext["officeGuard"]> = { revoked: false, stop: () => {} };
+        const close = () => { guard.revoked = true; guard.stop(); guard.close?.(); };
+        const unwatch = watchOfficeSession(claims.officeSessionId, close);
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        guard.stop = () => { clearTimeout(timer); unwatch(); };
+        try {
+          const session = await assertOfficeSync(claims.officeSessionId, claims.userId, parsed.vaultId);
+          if (guard.revoked) throw new Error("Office session ended");
+          timer = setTimeout(close, Math.max(0, session.expiresAt.getTime()-Date.now()));
+          context.officeGuard = guard;
+        } catch (error) { guard.stop(); throw error; }
+      }
       return context;
     },
 

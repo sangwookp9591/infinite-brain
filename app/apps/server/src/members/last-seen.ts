@@ -15,6 +15,7 @@ export const LAST_SEEN_THROTTLE_MS = 10 * 60 * 1000;
 const MAX_ENTRIES = 50_000;
 
 const lastStamped = new Map<string, number>();
+const pendingStamps = new Set<Promise<void>>();
 
 type Queryable = Pick<pg.Pool, "query">;
 
@@ -77,10 +78,19 @@ export async function stampLastSeenForVault(
 
 /** Fire-and-forget form for hot paths (handshake, token mint). */
 export function noteLastSeenForVault(userId: string, vaultId: string): void {
-  void stampLastSeenForVault(userId, vaultId).catch(() => {});
+  const pending = stampLastSeenForVault(userId, vaultId).then(() => {}, () => {});
+  pendingStamps.add(pending);
+  void pending.finally(() => pendingStamps.delete(pending));
 }
 
 /** Test hook. */
 export function resetLastSeenThrottle(): void {
   lastStamped.clear();
+}
+
+/** Test teardown only: let the fire-and-forget writes release vault/audit locks
+ * before TRUNCATE takes those locks in its own order. Requests never await this.
+ */
+export async function drainLastSeenStamps(): Promise<void> {
+  while (pendingStamps.size) await Promise.allSettled([...pendingStamps]);
 }

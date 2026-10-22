@@ -1,5 +1,6 @@
 import { pool } from "../../src/db/pool.js";
 import { runMigrations } from "../../src/db/migrate.js";
+import { drainLastSeenStamps } from "../../src/members/last-seen.js";
 import { flushIndexQueue } from "../../src/index/indexer.js";
 
 let migrated = false;
@@ -60,6 +61,7 @@ export async function resetDb(): Promise<void> {
   // schedules) reads and writes several of these tables; truncating under it
   // deadlocks. Let it finish first.
   await flushIndexQueue();
+  await drainLastSeenStamps();
   await pool.query(`TRUNCATE ${TABLES.join(", ")} RESTART IDENTITY CASCADE`);
 }
 

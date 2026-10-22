@@ -1,3 +1,4 @@
+import { assertOfficeSync, watchOfficeSession } from "../office/sessions.js";
 import { orgRole, vaultOrg } from "../permissions/lookup.js";
 import { createHmac } from "node:crypto";
 import { WebSocketServer, type WebSocket } from "ws";
@@ -502,6 +503,7 @@ interface ConnDeps {
 export const HELLO_TIMEOUT_MS = 30_000;
 
 class VaultConnection {
+  private officeStop: (() => void) | null = null;
   private userId: string | null = null;
   private vaultId: string | null = null;
   /** This client's self-declared instance id (hello `origin`), used to skip
@@ -634,6 +636,17 @@ class VaultConnection {
     } catch {
       // Fatal: retrying with the same token only burns the ladder.
       return this.fail("invalid or expired vault token", WS_CLOSE_UNAUTHORIZED);
+    }
+    if (claims.officeSessionId) {
+      this.officeStop = watchOfficeSession(claims.officeSessionId, () => this.fail("office session ended", WS_CLOSE_UNAUTHORIZED));
+      try {
+        const session = await assertOfficeSync(claims.officeSessionId, claims.userId, claims.vaultId);
+        const stop = this.officeStop;
+        const timer = setTimeout(() => this.fail("office session expired", WS_CLOSE_UNAUTHORIZED), Math.max(0,session.expiresAt.getTime()-Date.now()));
+        this.officeStop = () => {clearTimeout(timer);stop?.();};
+      }
+      catch { return this.fail("office session ended", WS_CLOSE_UNAUTHORIZED); }
+      if (this.closed) { this.officeStop?.(); return; }
     }
     this.userId = claims.userId;
     this.vaultId = claims.vaultId;
@@ -1537,6 +1550,7 @@ class VaultConnection {
       return;
     }
     this.closed = true;
+    this.officeStop?.(); this.officeStop = null;
     clearTimeout(this.helloTimer);
     this.stopSampler();
     // Unpark every producer so its `awaitSendCapacity` returns false and the

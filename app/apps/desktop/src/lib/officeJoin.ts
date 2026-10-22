@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import * as ipc from "./ipc";
+import { openOfficeLink, type OfficeLink } from "./officeLink";
+import type { ApiClient } from "./api";
 import { openOfficeDiscovery } from "./officeDiscovery";
 import type { OfficeCandidate, OfficeErrorCode } from "./officeFlow";
 
@@ -48,7 +50,8 @@ function errorCode(error: unknown): OfficeErrorCode {
  * Clear the input DOM element after begin(); do not use a controlled UI/store
  * field for the pasted secret. close() stops timers and cancels native work.
  */
-export function createOfficeJoin(onEvent: (event: OfficeJoinEvent) => void, ports: OfficeJoinPorts = nativePorts) {
+export function createOfficeJoin(onEvent: (event: OfficeJoinEvent) => void, ports: OfficeJoinPorts = nativePorts, api?: ApiClient) {
+  let connection: OfficeLink | undefined;
   let scan: { close(): Promise<void> } | undefined;
   let session: string | undefined;
   let closed = false, busy = false, polling = false;
@@ -86,6 +89,13 @@ export function createOfficeJoin(onEvent: (event: OfficeJoinEvent) => void, port
       const result = await ports.status(id);
       if (closed || current !== revision) return;
       if (result.state === "approved") {
+        // Session issuance/keychain storage already completed in Rust status.
+        // An API owner can bind both existing sync transports to the relay.
+        if (api) {
+          if (!result.origin || !result.serverId) throw new Error("office_hub_unavailable:");
+          connection = await openOfficeLink({origin: result.origin, serverId: result.serverId}, api);
+          if (closed || current !== revision) { await connection.close(); connection = undefined; return; }
+        }
         clearTimer(); polling = false; session = undefined;
         emit({ type: "APPROVAL_GRANTED" });
       } else if (result.state !== "pending_approval" || !Number.isFinite(Date.parse(result.expiresAt))) {
@@ -97,6 +107,7 @@ export function createOfficeJoin(onEvent: (event: OfficeJoinEvent) => void, port
     finally { busy = false; if (current === revision) schedule(); }
   }
   return {
+    getConnection(): OfficeLink | undefined { return connection; },
     async openDiscovery(): Promise<void> {
       if (closed) return;
       await scan?.close();
@@ -145,10 +156,11 @@ export function createOfficeJoin(onEvent: (event: OfficeJoinEvent) => void, port
     poll,
     async cancel(): Promise<void> { ++revision; await forget(); emit({ type: "APPROVAL_CANCELLED" }); },
     async close(): Promise<void> {
-      if (closed) return;
+      if (closed) { await connection?.close(); connection = undefined; return; }
       closed = true; ++revision;
       const old = scan; scan = undefined;
-      await Promise.all([forget(), old?.close().catch(() => undefined)]);
+      await Promise.all([forget(), old?.close().catch(() => undefined), connection?.close()]);
+      connection = undefined;
     },
   };
 }

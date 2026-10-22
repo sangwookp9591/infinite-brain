@@ -12,7 +12,7 @@ describe("OfficeClient", () => {
     const api = mockApi(result);
     const client = new OfficeClient(api as never, "org / id");
     await expect(client.createInvitation()).resolves.toEqual({ invitationCode: result.invitationCode, expiresAt: result.expiresAt });
-    expect(api.officeRequest).toHaveBeenCalledExactlyOnceWith("POST", "/api/office/invitations", { organizationId: "org / id" });
+    expect(api.officeRequest).toHaveBeenCalledExactlyOnceWith("POST", "/api/office/invitations", { organizationId: "org / id", linkAccount: true });
   });
   it("reports both SAS decisions to the server using the documented contracts", async () => {
     const api = mockApi({ requests: [{ sessionId: "s1", displayAlias: "민수", deviceLabel: "노트북", platform: "windows", sas: "123456", sasConfirmed: false }] });

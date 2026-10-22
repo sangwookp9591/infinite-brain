@@ -14,22 +14,23 @@ beforeEach(() => {
   vi.mocked(ipc.officeLinkClose).mockResolvedValue();
 });
 describe("Office pinned transport adapter", () => {
-  it("injects ApiClient and both real sync URL derivations without changing bearer auth", async () => {
+  it("injects ApiClient and both real sync URL derivations using native office auth and restoring prior auth", async () => {
     const fetchImpl = vi.fn().mockResolvedValue(new Response(JSON.stringify(null)));
     const api = new ApiClient({ baseUrl: hub.origin, token: "bearer-secret", fetchImpl });
     const link = await openOfficeLink(hub, api);
     expect(ipc.officeLinkOpen).toHaveBeenCalledWith(hub.origin, hub.serverId);
     expect(api.getBaseUrl()).toBe(base);
-    expect(api.getToken()).toBe("bearer-secret");
+    expect(api.getToken()).toBe("office-native");
     expect(deriveWsUrl(api.getBaseUrl())).toBe(link.syncUrl);
     expect(deriveVaultWsUrl(api.getBaseUrl())).toBe(link.vaultSyncUrl);
     await api.getSession();
     const [url, init] = fetchImpl.mock.calls[0];
     expect(url).toContain(`${base}/api/`);
-    expect(new Headers(init.headers).get("authorization")).toBe("Bearer bearer-secret");
+    expect(new Headers(init.headers).get("authorization")).toBe("Bearer office-native");
     await Promise.all([link.close(), link.close()]);
     expect(ipc.officeLinkClose).toHaveBeenCalledOnce();
     expect(api.getBaseUrl()).toBe(hub.origin);
+    expect(api.getToken()).toBe("bearer-secret");
   });
   it("does not overwrite a newer ApiClient destination on close", async () => {
     const api = new ApiClient({ baseUrl: hub.origin });

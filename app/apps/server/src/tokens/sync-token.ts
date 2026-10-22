@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+import { assertOfficeSync } from "../office/sessions.js";
 import { SignJWT, jwtVerify, errors as joseErrors } from "jose";
 import { config } from "../config.js";
 
@@ -7,6 +9,7 @@ import { config } from "../config.js";
  * revocation is near-instant.
  */
 export interface SyncTokenClaims {
+  officeSessionId?: string;
   docId: string;
   vaultId: string;
   readOnly: boolean;
@@ -30,6 +33,7 @@ export async function mintSyncToken(
   ttlSeconds: number = config.syncTokenTtlSeconds,
 ): Promise<string> {
   return new SignJWT({
+    ...(claims.officeSessionId ? { officeSessionId: claims.officeSessionId } : {}),
     docId: claims.docId,
     vaultId: claims.vaultId,
     readOnly: claims.readOnly,
@@ -55,7 +59,12 @@ export async function verifySyncToken(token: string): Promise<SyncTokenClaims> {
   ) {
     throw new Error("Malformed sync token claims");
   }
+  if (payload.officeSessionId !== undefined) {
+    if (typeof payload.officeSessionId !== "string") throw new Error("Malformed office session");
+    await assertOfficeSync(payload.officeSessionId, typeof payload.userId === "string" ? payload.userId : undefined, payload.vaultId);
+  }
   return {
+    ...(typeof payload.officeSessionId === "string" ? { officeSessionId: payload.officeSessionId } : {}),
     docId: payload.docId,
     vaultId: payload.vaultId,
     readOnly: payload.readOnly,

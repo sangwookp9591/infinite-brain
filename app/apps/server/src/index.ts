@@ -1,3 +1,4 @@
+import { installOfficeRevocations } from "./office/sessions.js";
 import { createDocRevocations } from "./sync/doc-revocations.js";
 import { startAiChangesRetention, stopAiChangesRetention } from "./ai-changes/retention.js";
 import { noteLastSeenForVault } from "./members/last-seen.js";
@@ -92,6 +93,7 @@ async function main() {
   // Vault replication channel (spec 05): pub/sub is in-memory unless REDIS_URL
   // is set, in which case fanout spans instances (HA / rolling deploys).
   const pubsub = await createPubSub(config.redisUrl);
+  const stopOfficeRevocations = await installOfficeRevocations(pubsub);
   const vaultChannel = new VaultChannel({
     pubsub,
     // A client (re)connecting during a shrink-brake hold is told why (#252).
@@ -436,6 +438,7 @@ async function main() {
     releaseWatch?.stop();
     vaultWss.close();
     await docRevocations.stop();
+    await stopOfficeRevocations();
     await pubsub.close();
     await sync.destroy();
     process.exit(0);

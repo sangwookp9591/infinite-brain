@@ -5,6 +5,7 @@ import { getSession } from "../session.js";
 import { OfficePairing, officeHost } from "../../office/pairing.js";
 import { PairingError, text } from "../../office/protocol.js";
 import { recordAudit } from "../../audit/log.js";
+import { issueSessionChallenge, exchangeDeviceSession, revokeOfficeDevice } from "../../office/sessions.js";
 import { pool } from "../../db/pool.js";
 
 const messages: Record<string, string> = {
@@ -16,7 +17,7 @@ const messages: Record<string, string> = {
   expired: "초대가 만료됐어요. 관리자에게 새 초대를 요청해 주세요.",
   invitation_unavailable: "초대를 사용할 수 없어요. 관리자에게 새 초대를 요청해 주세요.",
   wrong_workspace: "확인한 회사 작업 공간과 연결 대상이 달라요. 관리자에게 초대가 최신인지 확인해 주세요.",
-  account_required: "공유 자료를 열려면 회사에서 승인한 계정으로 연결해야 해요.",
+  account_required: "같은 회사 작업 공간에서 계정을 만든 뒤 관리자에게 새 초대를 받아 주세요.",
   approval_required: "이 기기의 참여 승인을 기다리고 있어요. 관리자에게 확인해 주세요.",
   unavailable: "회사 작업 공간에 연결하지 못했어요. 관리자에게 초대 유효 여부를 확인해 달라고 해 주세요.",
   try_later: "잠시 뒤 다시 시도해 주세요. 계속되면 관리자에게 확인해 주세요.",
@@ -96,7 +97,15 @@ officePairingRoutes.post("/office/pairing/:id/decision", async (c) => {
   const userId = await signedIn(c), body = await input(c);
   if (!["approved", "rejected", "cancelled"].includes(String(body.decision))) throw new PairingError("invalid_request");
   const reason = body.reasonCode === undefined || body.reasonCode === null ? null : String(body.reasonCode);
-  return c.json(await service().decide(c.req.param("id"), userId, body.decision as "approved" | "rejected" | "cancelled", reason));
+  const result = await service().decide(c.req.param("id"), userId, body.decision as "approved" | "rejected" | "cancelled", reason);
+  if (body.decision === "cancelled") {
+    const device = (await pool.query("SELECT device_id FROM pairing_session WHERE id=$1", [c.req.param("id")])).rows[0];
+    if (device) await revokeOfficeDevice(device.device_id);
+  }
+  return c.json(result);
 });
 officePairingRoutes.get("/office/organizations/:id/requests", async (c) => c.json({ requests: await service().queue(c.req.param("id"), await signedIn(c)) }));
 officePairingRoutes.get("/office/organizations/:id/directory", async (c) => c.json({ people: await service().directory(c.req.param("id"), await signedIn(c)) }));
+
+officePairingRoutes.post("/office/sessions/challenge", async c => c.json(await issueSessionChallenge(text((await input(c)).deviceId, 36)), 201));
+officePairingRoutes.post("/office/sessions", async c => c.json(await exchangeDeviceSession(await input(c)), 201));

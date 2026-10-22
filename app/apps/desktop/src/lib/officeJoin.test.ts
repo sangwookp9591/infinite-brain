@@ -2,6 +2,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createOfficeJoin, type OfficeJoinEvent, type OfficeJoinPorts } from "./officeJoin";
 import { OfficeClient } from "./officeClient";
+import { ApiClient } from "./api";
+import { openOfficeLink } from "./officeLink";
+vi.mock("./officeLink", () => ({openOfficeLink: vi.fn()}));
 
 const id = "00000000-0000-4000-8000-000000000001";
 const profile = { personId: id, displayAlias: "민수", deviceLabel: "내 컴퓨터", platform: "macos" as const };
@@ -127,4 +130,23 @@ describe("native office join orchestration", () => {
     await expect(client.confirmSas(id, false)).rejects.toThrow("office:sas_mismatch");
     expect(api.officeRequest).toHaveBeenCalledExactlyOnceWith("POST", `/api/office/pairing/${id}/sas-confirm`, { matches: false });
   });
+});
+
+it("waits for native relay before approval and retries a failed transport cleanup", async () => {
+  const {ports, events} = setup();
+  const api = new ApiClient({baseUrl:"https://previous.local"});
+  let connected!: (value: Awaited<ReturnType<typeof openOfficeLink>>) => void;
+  vi.mocked(openOfficeLink).mockImplementation(() => new Promise(resolve => {connected=resolve;}));
+  const join = createOfficeJoin(event => events.push(event), ports, api);
+  await join.begin(pasted,profile);await join.confirm(true);
+  vi.mocked(ports.status).mockResolvedValue({state:"approved",expiresAt:expiry(),origin:"https://office.local",serverId:"hub"});
+  await vi.advanceTimersByTimeAsync(3000);
+  expect(events.some(event=>event.type==="APPROVAL_GRANTED")).toBe(false);
+  const link = {httpBaseUrl:"relay",syncUrl:"ws",vaultSyncUrl:"ws-vault",close:vi.fn().mockRejectedValueOnce(new Error("shutdown failed")).mockResolvedValue(undefined)};
+  connected(link);await vi.advanceTimersByTimeAsync(0);
+  expect(openOfficeLink).toHaveBeenCalledWith({origin:"https://office.local",serverId:"hub"},api);
+  expect(join.getConnection()).toBe(link);
+  expect(events[events.length-1]).toEqual({type:"APPROVAL_GRANTED"});
+  await expect(join.close()).rejects.toThrow("shutdown failed");await join.close();
+  expect(link.close).toHaveBeenCalledTimes(2);expect(join.getConnection()).toBeUndefined();
 });

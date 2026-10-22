@@ -351,3 +351,29 @@ Migration 069의 `sas_mismatched_at`은 첫 불일치 때 설정하며 양쪽 �
 | `git diff --check` | 통과 |
 
 서버 두 차례 테스트와 두 차례 데모 각각은 runner가 새로 `initdb`한 disposable cluster만 사용하고 종료 시 정리했다. 공유 DB·기존 `.env`·office:prepare·커밋·푸시는 사용하지 않았다. UI/CSS/i18n/officeFlow는 변경하지 않았고 Windows/macOS 화면 연결은 다음 작업이다. 실제 두 대 PC, Windows/macOS OS keychain, 방화벽·실제 LAN의 TLS/SAS는 미검증이며 browser simulation이나 임시 HTTP DB 데모가 이를 대신하지 않는다.
+
+## 16. 승인 후 세션과 vault 연결
+
+2026-10-22 확정: 기존 `person_identity.linked_user_id`의 Better Auth user와 활성 team member만 기기 세션을 받을 수 있다. 별명이나 승인 상태 자체는 권한 주체가 아니다. 기본 정책은 **existing-membership-only**다. 승인 조직의 `vaults.organization_id`를 조회하여 실제 vault ID를 얻고, 기존 resolver/읽기 집합이 허용하는 자료만 접근한다. 신규 user/member/share/ACL을 만들지 않으며 organizationId와 vaultId를 동일시하지 않는다. 승인 조직 밖에는 같은 user의 별도 membership이 있어도 기기 세션을 사용할 수 없다.
+
+계정이 없는 직원의 현재 절차: 허브에는 Better Auth의 `POST /api/auth/sign-up/email` 이메일·비밀번호 가입 경로가 실제로 있다. 같은 허브에서 실제 이메일로 계정을 만들고 관리자가 기존 membership을 부여한 뒤 `linkAccount=true` 초대를 다시 받아야 한다. 이는 가입 HTTP API의 존재 확인이다. office 합류 화면에서 pinned TLS 가입/로그인과 `session-v2:<origin>` 준비를 끝내는 bootstrap UI는 아직 연결되지 않았으며, 현재 native 합류는 해당 허브의 기존 계정 자격이 준비되어 있어야 한다. 이메일 없는 직원은 `account_required`로 거절하며 가짜 이메일을 생성하지 않는다. 이메일 없는 office user는 후속 과제다. `user.email` NULL 허용에 따른 Better Auth 로그인·초대·알림·MCP·감사 및 표시 계약의 호환성 검증이 필요하며 migration 070에는 포함하지 않는다.
+
+기기 인증은 `POST /api/office/sessions/challenge`의 60초 무작위 challenge와 `POST /api/office/sessions`의 Ed25519 서명 교환이다. SHA-256 canonical transcript는 도메인 `IB-OFFICE-SESSION-1`, challenge ID, 기기 ID, 서버 ID, generation, audience, TLS fingerprint, nonce, 만료를 순서대로 UTF-8 byte length(u32 BE)와 값으로 인코딩한다. DB에는 nonce와 토큰의 SHA-256만 저장한다. challenge는 row lock 아래 단 한 번 소비하고 서명 실패도 소비한다. 발급·연결·HTTP마다 승인 pairing, person/device, office membership, 실제 member와 host identity를 재검사한다. 세션 TTL은 10분 이하, sync JWT는 이 세션 ID에 결합한다. 회수 뒤 기존 JWT 재연결도 거절한다.
+
+회수는 DB commit 뒤 기존 PubSub와 같은 authorization topic 패턴으로 기기 세션의 문서/vault 소켓을 닫는다. 구독은 인증 검사 전에 걸어 연결 중 회수 경쟁도 닫는다. HTTP·연결 시 DB를 재조회하며 매 문서 메시지마다 DB를 조회하지 않는다. 기기 세션은 권한을 위임하는 MCP/OAuth/초대/계정 관리 경로를 사용할 수 없다. 별도 계정 인증은 기존 동작을 유지한다.
+
+Rust는 pinned TLS 위에서 기기 키로 서명하고 `<app-id>.office-device.v1` 서비스의 `office-session-v1:<origin>`에 세션을 저장한다. 기존 계정의 `session-v2:<origin>`과 분리하며 generic keychain IPC로 읽을 수 없다. JS에는 토큰을 반환하지 않는다. office_link relay가 HTTP bearer를 대체하고 계정 cookie를 제거한다. JS의 ApiClient와 Yjs provider는 `openOfficeLink`가 반환한 동일 loopback base URL을 사용한다. relay capability와 실제 토큰은 영속 설정에 쓰지 않는다. 재연결 때 Rust가 새 challenge로 새 세션을 얻는다. 승인 이벤트는 세션 저장이 성공한 뒤에만 반환한다. 기존 startup pull-before-seed, 삭제/회수·bridge echo guards는 변경하지 않는다.
+
+| 권한 경로 | 적용 근거 |
+|---|---|
+| resolver | 기기 인증이 기존 linked userId를 반환하고 기존 effectivePermission/syncPermission을 그대로 호출 |
+| readable-set | 허브 조직에 속한 vault만 HTTP/WS 경계 통과, 기존 listReadableDocsInVault 사용 |
+| HTTP/검색/graph/bootstrap | office HTTP 경계에서 조직·vault 검증 후 기존 routes와 resolver 실행 |
+| Hocuspocus | JWT의 officeSessionId와 user/vault binding을 연결 때 검사, 회수 PubSub로 socket 종료 |
+| vault-sync | 동일 binding 검사와 회수 구독 후 기존 readable-set/backfill/fanout |
+| blobs | blob의 vault 조회로 허브 범위 확인 후 기존 blob ACL; 위임 presign 발급은 office에서 차단 |
+| MCP/OAuth 및 토큰 발급 | office 인증으로 접근 명시 거절; 별도 기존 계정/MCP 인증만 지원 |
+| 감사 | migration 062 AuditClient transaction 안에서 발급/실패 기록, 회수는 기존 pairing audit에 결합; 키·서명·nonce·토큰 원문 없음 |
+
+
+§16 HTTP 경계 보강: content route는 prefix가 아닌 명시된 전체 경로 allowlist다. 공개 링크·초대·MCP/OAuth·멤버/권한·계정·결제 및 presigned blob intent는 device 인증에서 거절한다. path/query(중복 파라미터 포함)/body의 vaultId를 모두 검사하고 서로 다르면 같은 조직 안에서도 거절한다. organizationId도 모두 승인 조직과 일치해야 한다. 실제 item/blob가 가리키는 vault와 별도 주장이 다를 때도 거절한다. 허용 목록에는 기존 folders/notes/files 등록 batch, binary docs batch, delete batch와 bootstrap이 포함된다. ACL 판정과 삭제·회수 guard는 기존 handler를 통과한다.

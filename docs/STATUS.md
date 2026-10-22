@@ -83,10 +83,12 @@ profile/appearance/notification settings. `node scripts/e2e-office-join.mjs` (fr
 path against the bundled hub: real LAN HTTPS, real mDNS, real Rust join code and a test-only OS keychain
 entry (19/19; see [[reports/office-join-e2e]]).
 
-Still unimplemented or unverified: syncing a vault through the paired hub (the Yjs provider is not wired to
-the pinned relay in a user flow), group ACLs and folder grants, selective sync, checkpoints/restore,
+Device-key sessions and binary Yjs convergence through the pinned relay have now passed the bundled
+hub E2E (30/30); the actual user flow still needs the explicit ApiClient/store/vault-selection adapter
+connection described in spec 09. Still unimplemented or unverified: group ACLs and folder grants, selective sync, checkpoints/restore,
 a pin replacement/renewal UI, two real machines, Windows/WebView2, macOS Intel, a Local Network permission
 prompt in a signed installed app, and the universal/signing/notarization gate. The release build does not
-include the runtime unless built with `build:desktop:office`. The intermittent `sync-token` `resetDb()`
-deadlock remains unresolved (seen in 2 of 3 runs, not reproduced in a later independent run). See
+include the runtime unless built with `build:desktop:office`. The `sync-token` `resetDb()` deadlock was traced to an outstanding fire-and-forget
+last-seen stamp: its vault lock and the reset's audit-log lock formed a cycle. Test cleanup now
+drains pending last-seen promises before TRUNCATE; the request path stays fire-and-forget. See
 [[reports/office-tls-device-validation]] for the earlier validation evidence and its limits.

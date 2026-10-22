@@ -21,12 +21,13 @@ const DENIED: &str = "office_link_denied: 앱에서 회사 작업 공간을 다�
 pub struct OfficeLinkState(Mutex<HashMap<String, Link>>);
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct OfficeLinkEndpoint { link_id: String, http_base_url: String }
-struct Link { endpoint: OfficeLinkEndpoint, stop: CancellationToken, task: JoinHandle<()> }
+pub struct OfficeLinkEndpoint { pub(crate) link_id: String, pub(crate) http_base_url: String }
+pub(crate) struct Link { pub(crate) endpoint: OfficeLinkEndpoint, stop: CancellationToken, task: JoinHandle<()> }
 impl Drop for Link {
     fn drop(&mut self) { self.stop.cancel(); self.task.abort(); }
 }
 struct Target {
+    bearer: Option<String>,
     origin: reqwest::Url,
     fingerprint: String,
     webview_origin: String,
@@ -114,6 +115,10 @@ async fn forward(mut request: Request<Incoming>, target: Arc<Target>) -> AppResu
     // is the public hub origin for Better Auth CSRF checks, never the secret URL.
     request.headers_mut().insert(header::HOST, target.origin.as_str().trim_start_matches("https://").trim_end_matches('/').parse().map_err(|_| error(DENIED))?);
     request.headers_mut().insert(header::ORIGIN, target.origin.origin().ascii_serialization().parse().map_err(|_| error(DENIED))?);
+    if let Some(token) = &target.bearer {
+        request.headers_mut().insert(header::AUTHORIZATION, format!("Bearer {token}").parse().map_err(|_| error(DENIED))?);
+        request.headers_mut().remove(header::COOKIE);
+    }
     request.headers_mut().remove(header::REFERER);
     for header in ["forwarded", "x-forwarded-for", "x-forwarded-host", "x-forwarded-proto"] { request.headers_mut().remove(header); }
     let mut response = tokio::time::timeout(Duration::from_secs(30), sender.send_request(request)).await
@@ -139,6 +144,10 @@ async fn forward(mut request: Request<Incoming>, target: Arc<Target>) -> AppResu
         let next = format!("http://{}{}{}", target.authority, target.prefix, format!("{}{}{}", next.path(), next.query().map(|v| format!("?{v}")).unwrap_or_default(), next.fragment().map(|v| format!("#{v}")).unwrap_or_default()));
         response.headers_mut().insert(header::LOCATION, next.parse().map_err(|_| error(DENIED))?);
     }
+    if target.bearer.is_some() {
+        response.headers_mut().remove("set-auth-token");
+        response.headers_mut().remove(header::SET_COOKIE);
+    }
     let upgraded = response.status() == StatusCode::SWITCHING_PROTOCOLS;
     strip_hop(response.headers_mut(), upgraded);
     let mut response = response.map(BodyExt::boxed_unsync);
@@ -147,7 +156,11 @@ async fn forward(mut request: Request<Incoming>, target: Arc<Target>) -> AppResu
 }
 
 impl Link {
+    #[cfg(test)]
     async fn start(origin: &str, fingerprint: String, webview_origin: String, bind: &str) -> AppResult<Self> {
+        Self::start_authenticated(origin, fingerprint, webview_origin, bind, None).await
+    }
+    async fn start_authenticated(origin: &str, fingerprint: String, webview_origin: String, bind: &str, bearer: Option<String>) -> AppResult<Self> {
         let origin = office_device::endpoint(origin)?;
         let listener = TcpListener::bind(bind).await.map_err(|_| error(office_device::CONNECT_ERROR))?;
         let authority = listener.local_addr().map_err(|_| error(office_device::CONNECT_ERROR))?.to_string();
@@ -156,7 +169,7 @@ impl Link {
         let prefix = format!("/{}", URL_SAFE_NO_PAD.encode(secret));
         let endpoint = OfficeLinkEndpoint { link_id: uuid::Uuid::new_v4().to_string(), http_base_url: format!("http://{authority}{prefix}") };
         let stop = CancellationToken::new();
-        let target = Arc::new(Target { origin, fingerprint, webview_origin, authority, prefix, stop: stop.clone() });
+        let target = Arc::new(Target { bearer, origin, fingerprint, webview_origin, authority, prefix, stop: stop.clone() });
         let task = tokio::spawn(async move {
             let mut requests = JoinSet::new();
             loop {
@@ -190,7 +203,7 @@ impl Link {
         });
         Ok(Self { endpoint, stop, task })
     }
-    async fn close(mut self) {
+    pub(crate) async fn close(mut self) {
         self.stop.cancel();
         self.task.abort();
         // Await cancellation so the bound port is released before IPC returns.
@@ -216,9 +229,10 @@ pub async fn office_link_open(app: AppHandle, webview: Webview, state: State<'_,
     let webview_origin = webview_origin(&app, &webview)?;
     let fingerprint = office_device::pinned(&app.config().identifier, &server_id)?;
     office_device::hub_info(&origin, &server_id, &fingerprint).await?;
+    let bearer = office_device::session_for_link(&app.config().identifier, &origin, &server_id, &fingerprint).await?;
     let mut links = state.0.lock().await;
     if links.len() >= 8 { return Err(error("office_link_limit: 열린 회사 연결을 닫고 다시 시도해 주세요.")); }
-    let link = Link::start(&origin, fingerprint, webview_origin, "127.0.0.1:0").await?;
+    let link = Link::start_authenticated(&origin, fingerprint, webview_origin, "127.0.0.1:0", Some(bearer)).await?;
     let result = OfficeLinkEndpoint { link_id: link.endpoint.link_id.clone(), http_base_url: link.endpoint.http_base_url.clone() };
     links.insert(result.link_id.clone(), link);
     Ok(result)
@@ -519,4 +533,11 @@ mod tests {
         assert!(!response.headers().contains_key(header::LOCATION));
         link.close().await;
     }); }
+}
+
+#[cfg(test)]
+pub(crate) async fn e2e_open(namespace: &str, origin: &str, server_id: &str) -> AppResult<Link> {
+    let fingerprint = office_device::pinned(namespace, server_id)?;
+    let bearer = office_device::session_for_link(namespace, origin, server_id, &fingerprint).await?;
+    Link::start_authenticated(origin, fingerprint, "http://tauri.localhost".into(), "127.0.0.1:0", Some(bearer)).await
 }

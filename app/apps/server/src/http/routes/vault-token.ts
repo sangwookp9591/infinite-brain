@@ -33,6 +33,6 @@ vaultTokenRoutes.post("/vault-sync-token", async (c) => {
   const role = await orgRole(organizationId, session.userId);
   if (!role) return c.json({ error: "No access to this vault" }, 403);
 
-  const token = await mintVaultToken({ userId: session.userId, vaultId });
+  const token = await mintVaultToken({ ...(session.officeSessionId ? {officeSessionId: session.officeSessionId} : {}), userId: session.userId, vaultId });
   return c.json({ token, vaultId });
 });

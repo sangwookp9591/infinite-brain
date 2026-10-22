@@ -116,7 +116,7 @@ async function main() {
   await run(bundledNode, [join(server, 'dist/db/migrate.js')], { cwd: server, env });
   if (process.argv.includes('--test-pairing')) {
     say('새 임시 cluster에서 pairing 전체 테스트를 실행합니다.');
-    await run('pnpm', ['exec', 'vitest', 'run', 'tests/office-pairing', 'src/office'], {
+    await run('pnpm', ['exec', 'vitest', 'run', ...(process.env.OFFICE_TEST_FILES ? process.env.OFFICE_TEST_FILES.split(/\s+/).filter(Boolean) : ['tests/office-pairing', 'src/office'])], {
       cwd: server, env: { ...env, NODE_ENV: 'test', NODE_OPTIONS: '--no-experimental-webstorage', BETTER_AUTH_URL: 'http://localhost:3010' }, stdio: 'inherit',
     });
     return 0;

@@ -111,7 +111,7 @@ syncTokenRoutes.post("/sync-token", async (c) => {
   const readOnly = permission === "view";
   // userId travels in the token so the sync server can attribute the edits that
   // arrive on this connection ("last edited by" + version authorship).
-  const token = await mintSyncToken({ docId, vaultId, readOnly, userId: session.userId });
+  const token = await mintSyncToken({ ...(session.officeSessionId ? {officeSessionId: session.officeSessionId} : {}), docId, vaultId, readOnly, userId: session.userId });
   noteLastSeenForVault(session.userId, vaultId);
   return c.json({ token, docId, vaultId, readOnly, permission });
 });

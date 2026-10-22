@@ -192,3 +192,42 @@ SAS는 기기 키 서명, 별도로 검증한 hub pin, 계정 연결 또는 관�
 `officeFlow.ts`의 순수 reducer는 별명 필요 → 목록 탐색 → 후보 선택 → SAS 대기 → 승인 대기 → 연결됨 또는 오류를 표현한다. reducer에 시간값을 전달해 만료 경계를 결정적으로 다룬다. `OfficeDiscoveryPort`, `OfficeLinkPort`, `PairingPort`는 타입 계약뿐이며 실제 IPC/Rust 연결·화면/CSS·저장소는 후속 작업이다. 발견 후보는 항상 `untrusted-candidate`다. 외부 이벤트/응답을 reducer에 넣기 전 어댑터가 검증하고, 관리 승인 상태를 UI만 믿고 권한 부여하지 않는다.
 
 저장 필은 UI 표시 모델이며 ACL이 아니다. 상태기계의 `company-shared`는 앱이 서버 durable ACK를 받은 이벤트에서만 설정한다. approval granted만으로 팀 저장 완료를 표시하지 않는다. SAS 비교는 허브 pin, 세션 transcript, 양쪽 nonce commit-reveal에 묶여야 하고 별명으로 인증하지 않는다. 실제 pairing 서버가 단계 전이·속도 제한·한 번 승인 규칙을 구현하기 전에는 화면 흐름을 출시 완료로 간주하지 않는다.
+
+### 어댑터 계약: 승인 세션에서 동기화 시작
+
+세션/relay는 구현되어 있으며 화면의 전역 session/vault 선택 및 SyncManager enable 연결은 다음 UI 작업이다. `createOfficeJoin(onEvent, ports?, api?)`의 세 번째 인자로 동기화에 사용할 ApiClient를 명시 주입한다. 기본값으로 전역 API를 바꾸지 않는다. simulator는 기존 가짜 ports를 그대로 사용한다. 실제 Rust status가 `approved`를 반환할 때는 기기 서명 세션이 origin별 비공개 keychain에 저장되어 있고 공개 `origin`, `serverId`가 포함된다. JS에 session bearer는 없다.
+
+1. 기존 provider와 SyncManager를 먼저 정지하고 로컬 bridge의 저장을 마친다. 다른 허브의 API/세션·vault 선택과 섞지 않는다.
+2. 선택한 ApiClient를 주입해 아래 순서로 join을 수행한다. 승인 폴링은 join이 소유한다.
+3. `APPROVAL_GRANTED`를 받은 뒤에만 `getConnection()`으로 relay를 사용하고 `api.getSession()`과 `api.listVaults()`로 실제 user/organization과 허용된 vault 목록을 받는다. 목록의 `id`가 vaultId, `organization_id`가 organizationId다. 두 값을 복사해 같게 만들지 않는다.
+4. 사용자가 vault를 고른 뒤 기존 store session 설정과 SyncManager enable 경로를 호출한다. 그 경로의 server pull-before-seed와 bridge echo/deletion/revocation guards를 유지한다. 승인은 durable 저장 ACK가 아니다.
+5. 창 닫기/허브 전환/세션 회수 때 provider와 SyncManager를 먼저 정지한 뒤 `join.close()`를 await한다. 실패를 무시하고 다른 허브로 넘어가지 않는다. relay 종료 실패는 재시도할 수 있고 ApiClient의 이전 URL·토큰은 종료 성공 때 복원된다. `join.close()`는 discovery와 pending pairing도 정리한다. 승인 뒤에는 pairing 취소로 기기를 회수할 수 없으므로 관리자의 회수 API가 필요하다.
+
+```ts
+import { ApiClient } from "./api";
+import { createOfficeJoin } from "./officeJoin";
+
+const api = new ApiClient();
+// UI owner: await the existing syncManager/provider shutdown before switching.
+const join = createOfficeJoin((event) => {
+  if (event.type === "APPROVAL_GRANTED") void connectSelectedVault();
+}, undefined, api);
+await join.begin(invitationInput, {personId, displayAlias, deviceLabel, platform}, candidateId);
+// After the human compares SAS, and only from their explicit button action:
+await join.confirm(true);
+
+async function connectSelectedVault() {
+  const link = join.getConnection(); // OfficeLink | undefined
+  if (!link) throw new Error("Office relay is not ready");
+  const session = await api.getSession();
+  const vaults = await api.listVaults();
+  // UI owner: choose vaults[i].id, install session, invoke existing enable path.
+  // ApiClient is already at link.httpBaseUrl. Existing managers derive both
+  // /sync and /vault-sync from api.getBaseUrl(); direct providers can use:
+  const {syncUrl, vaultSyncUrl} = link;
+}
+// UI owner: stop all providers BEFORE releasing the transport.
+await join.close();
+```
+
+서버가 차단하는 기능(MCP/OAuth 자격 발급, 계정/멤버 관리, presigned blob intent)은 계정 인증을 별도로 요구한다. office 세션은 기존 계정 토큰을 대체하여 keychain의 `session-v2`에 쓰지 않는다. 현재 relay는 10분 이하 기기 세션을 사용하고 만료 시 소켓을 닫는다. UI는 정지·재연결 시 `openOfficeLink({origin, serverId}, api)`로 Rust의 새 서명 challenge/세션을 받아야 하며 generic keychain으로 토큰을 읽어 갱신하지 않는다. 갱신 UI와 앱 재시작 후 허브 선택 복원은 다음 UI 작업에서 다룬다.

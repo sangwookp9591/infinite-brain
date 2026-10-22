@@ -235,10 +235,10 @@ pub struct PairingProfile { person_id: String, display_alias: String, device_lab
 pub struct PairingSas { session_id: String, sas: String, expires_at: String }
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct PairingStatus { state: String, expires_at: String }
+pub struct PairingStatus { state: String, expires_at: String, #[serde(skip_serializing_if = "Option::is_none")] origin: Option<String>, #[serde(skip_serializing_if = "Option::is_none")] server_id: Option<String> }
 const INVITE_ERROR: &str = "office_invite_invalid: 초대가 올바르지 않거나 이미 사용됐어요. 관리자에게 새 초대를 요청해 주세요.";
 const INVITE_EXPIRED: &str = "office_invite_expired: 초대가 만료됐어요. 관리자에게 새 초대를 요청해 주세요.";
-const ACCOUNT_REQUIRED: &str = "office_identity_link_required: 기존 회사 계정으로 먼저 로그인한 뒤 초대를 다시 열어 주세요.";
+const ACCOUNT_REQUIRED: &str = "office_identity_link_required: 같은 회사 작업 공간에서 계정을 만든 뒤 관리자에게 새 초대를 받아 주세요.";
 // Not Serialize/Debug: decoded address, pin and invitation capability stay native.
 struct Invitation { server_id: String, secret: String, fingerprint: String, generation: String, origin: String, link_account: bool }
 fn parse_invitation(input: &str, now: u64) -> AppResult<Invitation> {
@@ -411,7 +411,7 @@ async fn pairing_confirm(session_id: String, matches: bool) -> AppResult<Pairing
 fn pairing_status(value: &serde_json::Value, id: &str) -> AppResult<PairingStatus> {
     let state = json_text(value, "state")?;
     if json_text(value, "sessionId")? != id || !["pending_approval", "approved"].contains(&state) { return Err(err(CONNECT_ERROR)); }
-    Ok(PairingStatus { state: state.into(), expires_at: json_text(value, "expiresAt")?.into() })
+    Ok(PairingStatus { state: state.into(), expires_at: json_text(value, "expiresAt")?.into(), origin: None, server_id: None })
 }
 #[tauri::command]
 pub async fn office_pairing_status(webview: Webview, session_id: String) -> AppResult<PairingStatus> {
@@ -422,18 +422,56 @@ async fn pairing_poll(session_id: String) -> AppResult<PairingStatus> {
     let pending = PENDING_PAIRINGS.lock().map_err(|_| err(CONNECT_ERROR))?.get(&session_id).cloned().ok_or_else(|| err(CONNECT_ERROR))?;
     if pending.deadline <= Instant::now() || !pending.requested { return Err(err("office_approval_expired: 참여 요청 시간이 지났어요. 새 초대로 다시 시작해 주세요.")); }
     let value = pairing_post(&pending.origin, &pending.fingerprint, &format!("api/office/pairing/{session_id}/status"), serde_json::json!({ "pairingToken": pending.token }), None).await?;
-    let status = pairing_status(&value, &session_id)?;
+    let mut status = pairing_status(&value, &session_id)?;
     if status.state == "approved" {
+        let credential = fetch_device_session(&pending.namespace, pending.origin.as_str(), &pending.server_id, &pending.fingerprint).await?;
         let _guard = STORE_LOCK.lock().map_err(|_| err(CONNECT_ERROR))?;
         let account = pin_account(&pending.server_id)?;
         if let Some(current) = load(&pending.namespace, &account)? { if current != pending.fingerprint { return Err(err(PIN_ERROR)); } }
         // A close racing the response must never save trust.
         if PENDING_PAIRINGS.lock().map_err(|_| err(CONNECT_ERROR))?.remove(&session_id).is_some() {
+            save(&pending.namespace, &format!("office-session-v1:{}", pending.origin.origin().ascii_serialization()), &credential)?;
             save(&pending.namespace, &account, &pending.fingerprint)?;
+            status.origin = Some(pending.origin.origin().ascii_serialization());
+            status.server_id = Some(pending.server_id.clone());
         } else { return Err(err(CONNECT_ERROR)); }
     }
     Ok(status)
 }
+// Independent from authManager session-v2: generic keychain IPC cannot read this
+// service. Only the native relay receives the bearer; IPC returns public identity.
+async fn fetch_device_session(namespace: &str, origin: &str, server_id: &str, fingerprint: &str) -> AppResult<String> {
+    Ok(fetch_device_session_proof(namespace, origin, server_id, fingerprint).await?.0)
+}
+async fn fetch_device_session_proof(namespace: &str, origin: &str, server_id: &str, fingerprint: &str) -> AppResult<(String, serde_json::Value)> {
+    let origin = endpoint(origin)?;
+    let hub = hub_info(origin.as_str(), server_id, fingerprint).await?;
+    let stored = device(namespace)?;
+    let (_, key) = identity(&stored)?;
+    let c = pairing_post(&origin, fingerprint, "api/office/sessions/challenge", serde_json::json!({"deviceId": stored.device_id}), None).await?;
+    if json_text(&c, "deviceId")? != stored.device_id || json_text(&c, "serverId")? != server_id
+        || json_text(&c, "generation")? != hub.generation || json_text(&c, "fingerprint")? != fingerprint
+        || json_text(&c, "audience")? != hub.audience || URL_SAFE_NO_PAD.decode(json_text(&c,"nonce")?).map_err(|_| err(CONNECT_ERROR))?.len() != 32 {
+        return Err(err(PIN_ERROR));
+    }
+    let fields = ["IB-OFFICE-SESSION-1", json_text(&c,"challengeId")?, json_text(&c,"deviceId")?, json_text(&c,"serverId")?,
+        json_text(&c,"generation")?, json_text(&c,"audience")?, json_text(&c,"fingerprint")?, json_text(&c,"nonce")?, json_text(&c,"expiresAt")?];
+    let signature = URL_SAFE_NO_PAD.encode(key.sign(&Sha256::digest(encoded(&fields))).as_ref());
+    let proof = serde_json::json!({"challengeId": c["challengeId"],"nonce": c["nonce"],"signature": signature});
+    let response = pairing_post(&origin, fingerprint, "api/office/sessions", proof.clone(), None).await?;
+    let token = json_text(&response,"token")?;
+    if !token.starts_with("office_") || token.len() != 50 { return Err(err(CONNECT_ERROR)); }
+    // Serialize only in native memory / OS keychain, never a WebView result.
+    Ok((serde_json::to_string(&response)?, proof))
+}
+pub(crate) async fn session_for_link(namespace: &str, origin: &str, server_id: &str, fingerprint: &str) -> AppResult<String> {
+    let credential = fetch_device_session(namespace, origin, server_id, fingerprint).await?;
+    let value: serde_json::Value = serde_json::from_str(&credential)?;
+    let _guard = STORE_LOCK.lock().map_err(|_| err(CONNECT_ERROR))?;
+    save(namespace, &format!("office-session-v1:{}", endpoint(origin)?.origin().ascii_serialization()), &credential)?;
+    Ok(json_text(&value,"token")?.into())
+}
+
 #[tauri::command]
 pub async fn office_pairing_cancel(webview: Webview, session_id: String) -> AppResult<()> {
     main_only(&webview)?;
@@ -492,8 +530,11 @@ mod tests {
         impl Drop for Cleanup { fn drop(&mut self) { let _ = self.clean(); } }
         let namespace = std::env::var("OFFICE_E2E_KEYCHAIN_NAMESPACE").expect("explicit E2E namespace required");
         assert!(namespace.starts_with("com.infinitebrain.e2e-office-"));
-        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        // Relay tasks must keep running while this JSON-lines driver blocks on
+        // stdin between commands; a current-thread runtime would stall HTTP/WS.
+        let runtime = tokio::runtime::Builder::new_multi_thread().worker_threads(2).enable_all().build().unwrap();
         let mut cleanup = Cleanup::default();
+        let mut links = Vec::new();
         let mut advertisement = None;
         let mut candidate = None;
         let mut active_namespace = String::new();
@@ -520,6 +561,7 @@ mod tests {
                         active_server = invite.server_id.clone();
                         cleanup.devices.push((active_namespace.clone(), "device".into()));
                         cleanup.devices.push((active_namespace.clone(), pin_account(&invite.server_id)?));
+                        cleanup.devices.push((active_namespace.clone(), format!("office-session-v1:{}", invite.origin)));
                         let sessions = TestSessions(format!("{active_namespace}.office-e2e-session.v1"));
                         let session_key = format!("session-v2:{}", invite.origin);
                         if let Some(token) = command["accountToken"].as_str() {
@@ -538,9 +580,30 @@ mod tests {
                     "status" => {
                         let status = pairing_poll(json_text(&command, "sessionId")?.into()).await?;
                         let pin_saved = pinned(&active_namespace, &active_server).is_ok();
-                        Ok(serde_json::json!({"state": status.state, "pinSaved": pin_saved}))
+                        Ok(serde_json::json!({"state": status.state, "pinSaved": pin_saved, "origin": status.origin, "serverId": status.server_id}))
                     }
-                    "cleanup" => { advertisement.take(); cleanup.clean()?; Ok(serde_json::json!({"cleaned": true})) }
+                    "replay" => {
+                        let suffix = json_text(&command,"device")?;
+                        if !suffix.bytes().all(|b|b.is_ascii_alphanumeric()) { return Err(err(CONNECT_ERROR)); }
+                        let origin = json_text(&command,"origin")?;
+                        let server = json_text(&command,"serverId")?;
+                        let scoped = format!("{namespace}-{suffix}");
+                        let fingerprint = pinned(&scoped, server)?;
+                        let (_, proof) = fetch_device_session_proof(&scoped, origin, server, &fingerprint).await?;
+                        let response = client(&fingerprint)?.post(endpoint(origin)?.join("api/office/sessions").unwrap()).json(&proof).send().await.map_err(transport_error)?;
+                        let status = response.status().as_u16();
+                        let value: serde_json::Value = response.json().await.map_err(transport_error)?;
+                        Ok(serde_json::json!({"replayed": !(status == 409 && value["code"] == "challenge_replayed")}))
+                    }
+                    "relay" => {
+                        let suffix = json_text(&command,"device")?;
+                        if !suffix.bytes().all(|b|b.is_ascii_alphanumeric()) { return Err(err(CONNECT_ERROR)); }
+                        let link = crate::office_link::e2e_open(&format!("{namespace}-{suffix}"),json_text(&command,"origin")?,json_text(&command,"serverId")?).await?;
+                        let endpoint = serde_json::to_value(&link.endpoint)?;
+                        links.push(link);
+                        Ok(endpoint)
+                    }
+                    "cleanup" => { for link in links.drain(..) { link.close().await; } advertisement.take(); cleanup.clean()?; Ok(serde_json::json!({"cleaned": true})) }
                     _ => Err(err(CONNECT_ERROR)),
                 }
             });
@@ -590,7 +653,7 @@ mod tests {
         assert_eq!(*store.reads.borrow(), vec!["session-v2:https://192.168.1.5:3010"]);
         let missing = AccountStore { reads: Default::default(), token: None };
         assert!(account_session(&invite, &invite.origin, &missing).unwrap_err().to_string().starts_with("office_identity_link_required:"));
-        let visible = serde_json::to_value(PairingStatus { state: "pending_approval".into(), expires_at: "expiry".into() }).unwrap();
+        let visible = serde_json::to_value(PairingStatus { state: "pending_approval".into(), expires_at: "expiry".into(), origin: None, server_id: None }).unwrap();
         assert_eq!(visible.as_object().unwrap().len(), 2);
         for material in ["native-account-secret", &invite.origin, &invite.secret, &invite.fingerprint] { assert!(!visible.to_string().contains(material)); }
     }

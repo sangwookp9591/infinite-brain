@@ -29,7 +29,7 @@ export class OfficeClient {
 
   async createInvitation(): Promise<OfficeInvitation> {
     try {
-      const result = await this.api.officeRequest<OfficeInvitation>("POST", "/api/office/invitations", { organizationId: this.organizationId });
+      const result = await this.api.officeRequest<OfficeInvitation>("POST", "/api/office/invitations", { organizationId: this.organizationId, linkAccount: true });
       if (typeof result.invitationCode !== "string" || !result.invitationCode.startsWith("IB1.") || !Number.isFinite(Date.parse(result.expiresAt))) {
         throw new Error("invalid_response");
       }

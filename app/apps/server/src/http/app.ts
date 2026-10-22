@@ -8,6 +8,7 @@ import { getSession } from "./session.js";
 import { announceMemberJoined } from "../sync/member-events.js";
 import { announceInvitationGone } from "../sync/user-events.js";
 import { externalSharingRoutes } from "./routes/external-sharing.js";
+import { officeHttp } from "../office/http.js";
 import { guestHttp } from "../permissions/guest-http.js";
 import { auditRequests } from "../audit/http.js";
 import { auditRoutes } from "./routes/audit.js";
@@ -234,6 +235,7 @@ export function createApp(deps: AppDeps): Hono {
     return compressor(c, next);
   });
 
+  app.use("/api/*", officeHttp);
   app.use("/api/*", guestHttp);
 
   // `features`: what this server accepts beyond the base protocol, so a desktop

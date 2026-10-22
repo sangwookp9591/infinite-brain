@@ -159,7 +159,7 @@ async function main() {
   const databasePassword = secret();
   await runtime.start({ protocol: 1, scope: 'lan', dataDirectory: directory, databasePassword, authSecret: secret() });
   check('번들 office-host LAN HTTPS 준비', ready?.lanExposed && ready.scope === 'lan' && /^[a-f0-9]{64}$/.test(ready.certificateFingerprint) && Boolean(ready.serverId));
-  database = new Client({ host: '127.0.0.1', port: runtime.databasePort, user: 'infinitebrain', password: databasePassword, database: 'postgres' }); await database.connect();
+  database = new Client({ host: '127.0.0.1', port: runtime.databasePort, user: 'infinitebrain', password: databasePassword, database: 'postgres', query_timeout: 15_000 }); await database.connect();
   const signup = async (role) => {
     const response = await api(ready, '/auth/sign-up/email', { method: 'POST', body: { email: `${role}-${randomUUID()}@e2e.invalid`, password: secret(), name: `E2E ${role}` } });
     if (![200, 201].includes(response.status) || !response.token) throw new Error(`임시 계정 생성: HTTP ${response.status}`);
@@ -184,6 +184,8 @@ async function main() {
   const good = await invite(); check('관리자 API에서 IB1 초대 코드 발급', good.invitationCode.startsWith('IB1.'));
   const joined = requireOk(await begin(good, 'success'), 'Rust begin'); check('Rust begin → TLS pin·commit/reveal·서명·SAS', /^\d{6}$/.test(joined.sas));
   const pending = requireOk(await driverCall({ op: 'confirm', sessionId: joined.sessionId }), 'Rust confirm'); check('Rust confirm → 참여 요청', pending.state === 'pending_approval');
+  const deviceRow=(await database.query('SELECT device_id FROM pairing_session WHERE id=$1',[joined.sessionId])).rows[0];
+  check('승인 전 기기 세션 발급 거절',(await api(ready,'/office/sessions/challenge',{method:'POST',body:{deviceId:deviceRow.device_id}})).status===403);
   const queue = expectStatus(await api(ready, `/office/organizations/${organizationId}/requests`, { token: admin.token }), 200, '승인함');
   const row = queue.requests.find((item) => item.sessionId === joined.sessionId); check('관리자 승인함과 Rust SAS 일치', Boolean(row) && row.sas === joined.sas);
   expectStatus(await api(ready, `/office/pairing/${joined.sessionId}/sas-confirm`, { method: 'POST', token: admin.token, body: { matches: row?.sas === joined.sas } }), 200, '관리자 SAS 확인');
@@ -199,8 +201,9 @@ async function main() {
   const { HocuspocusProvider } = localRequire('@hocuspocus/provider');
   const Y = localRequire('yjs'), WebSocket = localRequire('ws');
   const relay = requireOk(await driverCall({op:'relay',device:'success',origin:ready.endpoint,serverId:ready.serverId}), 'Rust 기기 세션 relay');
+  check('Rust 기기 키 재인증·native bearer relay 열기',Boolean(relay.httpBaseUrl));
   const relayApi = async(path, {method='GET',body}={}) => {
-    const response=await fetch(`${relay.httpBaseUrl}/api${path}`,{method,headers:{origin:'http://tauri.localhost',...(body===undefined?{}:{'content-type':'application/json'})},...(body===undefined?{}:{body:JSON.stringify(body)})});
+    const response=await fetch(`${relay.httpBaseUrl}/api${path}`,{method,signal:AbortSignal.timeout(15_000),headers:{origin:'http://tauri.localhost',...(body===undefined?{}:{'content-type':'application/json'})},...(body===undefined?{}:{body:JSON.stringify(body)})});
     return {status:response.status,data:await response.json()};
   };
   const vaultId=randomUUID();
@@ -231,6 +234,13 @@ async function main() {
   await database.query('INSERT INTO vaults(id,organization_id,name) VALUES($1,$2,$3)',[outsideVault,outsideOrg,'허용 안 된 vault']);
   await database.query('INSERT INTO member(id,"organizationId","userId",role,"createdAt") VALUES($1,$2,$3,\'member\',now())',[randomUUID(),outsideOrg,member.userId]);
   check('같은 계정의 허용 안 된 vault 접근 차단',(await relayApi(`/notes?vaultId=${outsideVault}`)).status===403);
+  const mixed=await relayApi(`/notes?vaultId=${vaultId}`,{method:'POST',body:{vaultId:outsideVault,relPath:'confused.md'}});
+  const wrongOrg=await relayApi(`/notes?vaultId=${vaultId}&organizationId=${outsideOrg}`);
+  check('path/query/body의 충돌 scope와 다른 조직 주장 거절',mixed.status===403&&wrongOrg.status===403);
+  const publicLink=await relayApi(`/notes/${documentId}/public-link`,{method:'POST',body:{vaultId}});
+  const delegated=await relayApi('/mcp/tokens',{method:'POST',body:{vaultId,organizationId}});
+  check('office 세션의 공개 링크·MCP 자격 위임 거절',publicLink.status===403&&delegated.status===403);
+
   // The exact issuance request is replayed by native test driver below; no
   // session credential leaves Rust. The server must reject its spent challenge.
   const replay=requireOk(await driverCall({op:'replay',origin:ready.endpoint,serverId:ready.serverId,device:'success'}),'세션 proof 재생');
@@ -242,6 +252,11 @@ async function main() {
   const retired=await driverCall({op:'relay',device:'success',origin:ready.endpoint,serverId:ready.serverId});
   check('회수한 기기의 새 세션 발급 거절',!retired.ok);
   const reused = await begin(good, 'reuse'); check('단회 초대 재사용 거절', !reused.ok && reused.code === 'office_invite_invalid', reused.code);
+  const rejection=requireOk(await begin(await invite(),'rejected'),'거절 기기 준비');
+  requireOk(await driverCall({op:'confirm',sessionId:rejection.sessionId}),'거절 기기 참여');
+  expectStatus(await api(ready,`/office/pairing/${rejection.sessionId}/decision`,{method:'POST',token:admin.token,body:{decision:'rejected',reasonCode:'not_recognized'}}),200,'기기 거절');
+  const rejectedDevice=(await database.query('SELECT device_id FROM pairing_session WHERE id=$1',[rejection.sessionId])).rows[0];
+  check('거절된 기기 세션 발급 거절',(await api(ready,'/office/sessions/challenge',{method:'POST',body:{deviceId:rejectedDevice.device_id}})).status===403);
   const mismatch = requireOk(await begin(await invite(), 'mismatch'), '불일치 준비'); requireOk(await driverCall({ op: 'confirm', sessionId: mismatch.sessionId }), '불일치 참여 요청');
   const attempts = [];
   for (let attempt = 0; attempt < 3; attempt++) {

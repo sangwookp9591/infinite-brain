@@ -46,8 +46,11 @@ export async function openOfficeLink(
   const httpBaseUrl = parsed.href.replace(/\/$/, "");
   const wsBaseUrl = httpBaseUrl.replace(/^http:/, "ws:");
   const originalUrl = api?.getBaseUrl();
-  // setBaseUrl deliberately preserves the existing bearer token/client id.
+  // A public sentinel satisfies ApiClient's signed-in guard; native relay
+  // replaces it with the origin-bound office token. It is never a credential.
+  const originalToken = api?.getToken();
   api?.setBaseUrl(httpBaseUrl);
+  api?.setToken("office-native");
   let closing: Promise<void> | undefined;
   return {
     httpBaseUrl,
@@ -56,7 +59,7 @@ export async function openOfficeLink(
     close() {
       closing ??= (async () => {
         await ipc.officeLinkClose(endpoint.linkId);
-        if (api?.getBaseUrl() === httpBaseUrl && originalUrl !== undefined) api.setBaseUrl(originalUrl);
+        if (api?.getBaseUrl() === httpBaseUrl && originalUrl !== undefined) { api.setBaseUrl(originalUrl); api.setToken(originalToken ?? null); }
       })().catch((error: unknown) => {
         // A transient IPC failure must leave a usable retry to stop the relay.
         closing = undefined;

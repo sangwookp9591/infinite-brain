@@ -55,7 +55,7 @@ export const officeDeviceSignChallenge = (origin: string, challenge: OfficePairi
 /** Native commit-reveal; only digits and opaque session metadata cross into UI. */
 export interface OfficePairingProfile { personId: string; displayAlias: string; deviceLabel: string; platform: "windows" | "macos" | "linux" | "other" }
 export interface OfficePairingSas { sessionId: string; sas: string; expiresAt: string }
-export interface OfficePairingStatus { state: "pending_approval" | "approved"; expiresAt: string }
+export interface OfficePairingStatus { state: "pending_approval" | "approved"; expiresAt: string; origin?: string; serverId?: string }
 /** Consume the pasted code once. Native code parses secrets and resolves candidates.
  * Do not put the invitation input in UI state, storage, logs or error messages. */
 export const officePairingBegin = (invitation: string, profile: OfficePairingProfile, candidateId: string | null = null): Promise<OfficePairingSas> =>

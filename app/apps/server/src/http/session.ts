@@ -1,8 +1,11 @@
+// SPDX-License-Identifier: Apache-2.0
+import { resolveOfficeSession } from "../office/sessions.js";
 import { auditContext } from "../audit/log.js";
 import type { Context } from "hono";
 import { auth } from "../auth/auth.js";
 
 export interface SessionInfo {
+  officeSessionId?: string;
   userId: string;
   email: string;
   activeOrganizationId: string | null;
@@ -14,6 +17,14 @@ export interface SessionInfo {
  * cookie before this runs). Returns null when there is no valid session.
  */
 export async function getSession(c: Context): Promise<SessionInfo | null> {
+  const bearer = c.req.header("authorization")?.replace(/^Bearer /i, "");
+  if (bearer?.startsWith("office_")) {
+    const session = await resolveOfficeSession(bearer);
+    if (!session) return null;
+    const context = auditContext.getStore();
+    if (context) { context.actorUserId = session.userId; context.actorKind = "user"; context.organizationId = session.organizationId; }
+    return { userId: session.userId, email: session.email, activeOrganizationId: session.organizationId, officeSessionId: session.id };
+  }
   const result = await auth.api.getSession({ headers: c.req.raw.headers });
   if (!result?.user) return null;
   const context = auditContext.getStore();
