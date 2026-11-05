@@ -8,6 +8,7 @@ import {
   type HTMLAttributes,
   type ReactNode,
 } from "react";
+import { useIsPersonal } from "../lib/usageMode";
 import * as ipc from "../lib/ipc";
 import { readOrgVaults, useStore } from "../store";
 import { POPOVER_VAULT_ROWS, recentVaultRows, type VaultRow } from "../lib/vaultRows";
@@ -191,6 +192,7 @@ export function VaultSwitcherPopover({
   const signedIn = useStore((s) => s.authStatus === "signed-in" && !!s.session);
   const activeOrgId = useStore((s) => s.session?.activeOrganizationId ?? null);
   const members = useStore((s) => s.members);
+  const personal = useIsPersonal();
   const pendingInvitations = useStore((s) => s.pendingInvitations);
   const vault = useStore((s) => s.vault);
   const tr = useT();
@@ -227,7 +229,7 @@ export function VaultSwitcherPopover({
 
       <div className="menu-sep" />
       <NewVaultItem onDone={onClose} />
-      {signedIn && <JoinVaultItem onDone={onClose} />}
+      {signedIn && !personal && <JoinVaultItem onDone={onClose} />}
       {/* The vault list lives in Account Settings → Vaults. Signed out there is
           no account page; Vault Settings keeps the list for local folders. */}
       {(signedIn || rows.some((r) => r.kind === "local")) && (
@@ -264,6 +266,8 @@ export function VaultSwitcherPopover({
             hint={
               !signedIn
                 ? tr("Turn on sync")
+                : activeOrgId && personal
+                  ? tr("Synced")
                 : activeOrgId
                   ? `${members.length === 1 ? tr("{count} member", { count: 1 }) : tr("{count} members", { count: members.length })}${
                       pendingInvitations.length > 0 ? ` +${pendingInvitations.length}` : ""

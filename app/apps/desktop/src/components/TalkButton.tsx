@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useIsPersonal } from "../lib/usageMode";
 import { prewarmCapture } from "../lib/voice/capture";
 import { useStore } from "../store";
 import "./talk.css";
@@ -31,6 +32,7 @@ const MEGAPHONE_ICON = (
  */
 export function TalkButton() {
   const isGuest = useStore((state) => state.members.find((member) => member.userId === state.session?.user.id)?.role === "guest");
+  const personal = useIsPersonal();
   const broadcasting = useStore((s) => s.broadcasting);
   const speakers = useStore((s) => s.voiceSpeakers);
   const voiceError = useStore((s) => s.voiceError);
@@ -97,7 +99,8 @@ export function TalkButton() {
   // control being used — that shake is what tells a listener audio is incoming
   // and where to look, before they've parsed any text.
   const receiving = speakers.length > 0 && !broadcasting;
-  if (isGuest) return null;
+  // Push to talk speaks to teammates in the vault; nobody listens in personal use.
+  if (isGuest || personal) return null;
 
   return (
     <>
