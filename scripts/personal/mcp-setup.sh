@@ -4,12 +4,13 @@
 # Connect my AI to my vault: sign in to the local server, mint an MCP token
 # (read + write, no delete) for one vault, save it to
 # ~/.config/infinite-brain/token (mode 600), and register the server with Codex
-# as `infinite-brain`, reading the token from $IB_MCP_TOKEN. Claude Code is not
+# as `infinite-brain`, reading the token from $IB_MCP_TOKEN, with the second-brain
+# role (codex-second-brain.md) in its global AGENTS.md. Claude Code is not
 # registered: this machine's managed policy allows only company MCP servers.
 #
 # Usage: mcp-setup.sh <email> [vault name]
 # The password is read from IB_PASSWORD or prompted. Rerunning mints a fresh
-# token and replaces the saved one; revoke old ones in Vault settings → AI connections.
+# token, revokes the one an earlier run minted, and replaces the saved one.
 set -euo pipefail
 
 EMAIL="${1:?usage: mcp-setup.sh <email> [vault name]}"
@@ -37,6 +38,14 @@ org="$(req "$BASE/api/auth/organization/list" | node -e '
   })' "$VAULT_NAME")"
 req "$BASE/api/auth/organization/set-active" -d "{\"organizationId\":\"$org\"}" >/dev/null
 
+# One live token per PC: revoke the ones an earlier run minted.
+for id in $(req "$BASE/api/mcp/tokens" | node -e '
+  let d=""; process.stdin.on("data",c=>d+=c).on("end",()=>{
+    for (const t of JSON.parse(d).tokens) if (t.name === "Codex (this PC)") console.log(t.id);
+  })'); do
+  curl -sf -b "$jar" -H "Origin: $BASE" -X DELETE "$BASE/api/mcp/tokens/$id" >/dev/null
+done
+
 token="$(req "$BASE/api/mcp/tokens" -d '{"name":"Codex (this PC)","scopes":["notes:read","notes:write"]}' \
   | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>console.log(JSON.parse(d).token))')"
 [[ "$token" == mcp_* ]] || { echo "token mint failed" >&2; exit 1; }
@@ -50,6 +59,16 @@ for rc in "$HOME/.zshenv" "$HOME/.profile"; do
   grep -qF 'infinite-brain/token' "$rc" 2>/dev/null || printf '\n%s\n' "$line" >> "$rc"
 done
 
+# Tell Codex the vault is my second brain: a marked block in its global
+# AGENTS.md, replaced on every run so anything else in that file stays mine.
+install_role() {
+  local file="$1" begin="<!-- infinite-brain:begin -->" end="<!-- infinite-brain:end -->"
+  touch "$file"
+  awk -v b="$begin" -v e="$end" '$0==b{skip=1} !skip{print} $0==e{skip=0}' "$file" > "$file.tmp"
+  { cat "$file.tmp"; echo "$begin"; grep -v 'SPDX-License-Identifier' "$REPO/scripts/personal/codex-second-brain.md"; echo "$end"; } > "$file"
+  rm -f "$file.tmp"
+}
+
 export PATH="$HOME/.local/bin:$PATH"
 # The default home is what scheduled runs use; a launcher may point CODEX_HOME elsewhere.
 homes=("$HOME/.codex")
@@ -57,5 +76,6 @@ homes=("$HOME/.codex")
 for home in "${homes[@]}"; do
   CODEX_HOME="$home" codex mcp remove infinite-brain >/dev/null 2>&1 || true
   CODEX_HOME="$home" codex mcp add infinite-brain --url "$BASE/api/mcp" --bearer-token-env-var IB_MCP_TOKEN >/dev/null
+  install_role "$home/AGENTS.md"
 done
 echo "connected: token ${token:0:8}… saved to $CONF/token; registered with Codex (${homes[*]}) as infinite-brain"
