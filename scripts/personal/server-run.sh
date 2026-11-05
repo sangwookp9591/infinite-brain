@@ -23,6 +23,8 @@ if curl -sf -m 3 "http://127.0.0.1:$PORT/health" >/dev/null; then
 fi
 
 cd "$SERVER"
+# Right after Windows logon the WSL VM is booting and dockerd may not be up yet.
+for _ in $(seq 1 90); do docker info >/dev/null 2>&1 && break; sleep 1; done
 docker compose up -d postgres
 for _ in $(seq 1 60); do
   docker exec context-pg pg_isready -U context -d context -q && break
