@@ -12,6 +12,8 @@ set -euo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CONF="${XDG_CONFIG_HOME:-$HOME/.config}/infinite-brain"
 STATE="${XDG_STATE_HOME:-$HOME/.local/state}/infinite-brain"
+# The server's .env is the one place the port is set.
+PORT="${PORT:-$(sed -n 's/^PORT=//p' "$REPO/app/apps/server/.env" 2>/dev/null | tail -1)}"
 PORT="${PORT:-3010}"
 mkdir -p "$STATE/briefings"
 exec >>"$STATE/briefing.log" 2>&1
@@ -35,8 +37,10 @@ prompt="$(sed \
   -e "s/{{MONTH}}/$(date +%-m)월/g" \
   "$REPO/scripts/personal/briefing-prompt.md" | grep -v '^<!--')"
 
-# No delete or move tool is offered; the token has no notes:delete scope either.
-enabled='["list_vaults","list_folders","list_notes","read_note","search_notes","create_folder","create_note","update_note","edit_note","append_note"]'
+# Only tools that add or edit in place: no delete, move or whole-note replace
+# (Codex asks approval for those, and nobody is there to give it). The token has
+# no notes:delete scope either.
+enabled='["list_vaults","list_folders","list_notes","read_note","search_notes","create_folder","create_note","edit_note","append_note"]'
 
 # A neutral cwd keeps this repo's AGENTS.md and project config out of the run.
 cd "$STATE"

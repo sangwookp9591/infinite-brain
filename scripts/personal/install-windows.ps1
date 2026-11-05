@@ -3,7 +3,7 @@
 # Make Infinite Brain my always-on second brain on this Windows PC, for the
 # current user only (no administrator rights):
 #   - at logon, start the server in WSL with no window (server-run.sh), which
-#     also keeps the MCP endpoint at http://localhost:3010/api/mcp open;
+#     also keeps the MCP endpoint open at http://localhost:<PORT>/api/mcp (PORT in the server .env);
 #   - at logon, open the installed Infinite Brain app;
 #   - every day at -BriefingTime, and shortly after logon, run briefing.sh so
 #     Codex writes 브리핑/<date>.md and 브리핑/일정.md into the vault.

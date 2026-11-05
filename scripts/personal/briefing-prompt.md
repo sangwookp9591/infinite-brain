@@ -7,8 +7,9 @@
 2. `updatedAt`이 {{SINCE}} 이후인 메모를 모두 `read_note`로 읽어. 이게 "최근에 쓴 내용"이야.
 3. 일정을 찾으려면 `search_notes`로 "할 일", "TODO", "- [ ]", "마감", "회의", "약속", "{{MONTH}}"를 검색하고, 날짜나 체크박스가 있는 메모를 읽어.
 4. 아래 두 메모를 써. 폴더가 없으면 `create_folder`로 `브리핑`을 먼저 만들어.
-   - `브리핑/{{TODAY}}.md`: 있으면 `read_note` 후 `update_note`(expectedRevision 포함), 없으면 `create_note`.
-   - `브리핑/일정.md`: 같은 방식으로 전체를 다시 써.
+   - `브리핑/{{TODAY}}.md`: 없으면 `create_note`. 이미 있으면 `read_note`로 읽고, 그 뒤에 바뀐 점만 `append_note`로 `## {{NOW}} 업데이트` 섹션에 붙여. 바뀐 게 없으면 손대지 마.
+   - `브리핑/일정.md`: 없으면 `create_note`. 있으면 `read_note`로 읽고 `edit_note`로 달라진 항목만 고쳐. 내가 직접 고친 줄은 그대로 둬.
+   메모 전체를 덮어쓰는 도구는 쓰지 마.
 
 `브리핑/{{TODAY}}.md` 형식:
 

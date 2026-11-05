@@ -14,7 +14,9 @@ set -euo pipefail
 
 EMAIL="${1:?usage: mcp-setup.sh <email> [vault name]}"
 VAULT_NAME="${2:-}"
-BASE="${IB_SERVER:-http://localhost:3010}"
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+PORT="$(sed -n 's/^PORT=//p' "$REPO/app/apps/server/.env" 2>/dev/null | tail -1)"
+BASE="${IB_SERVER:-http://localhost:${PORT:-3010}}"
 CONF="${XDG_CONFIG_HOME:-$HOME/.config}/infinite-brain"
 PASSWORD="${IB_PASSWORD:-}"
 [ -n "$PASSWORD" ] || { read -rsp "Password for $EMAIL: " PASSWORD; echo; }

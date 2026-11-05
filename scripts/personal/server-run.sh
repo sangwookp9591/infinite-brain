@@ -12,6 +12,8 @@ set -euo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SERVER="$REPO/app/apps/server"
 STATE="${XDG_STATE_HOME:-$HOME/.local/state}/infinite-brain"
+# The server's .env is the one place the port is set.
+PORT="${PORT:-$(sed -n 's/^PORT=//p' "$REPO/app/apps/server/.env" 2>/dev/null | tail -1)}"
 PORT="${PORT:-3010}"
 mkdir -p "$STATE"
 exec >>"$STATE/server.log" 2>&1
