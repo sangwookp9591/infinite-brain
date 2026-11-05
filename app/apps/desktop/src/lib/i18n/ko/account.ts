@@ -13,6 +13,9 @@ export const account: Record<string, string> = {
   "Character": "캐릭터",
   "Your default character": "기본 캐릭터",
   "Show Home section": "홈 섹션 표시",
+  "Use Infinite Brain": "사용 방식",
+  "Personal hides members, billing, security history and office collaboration on this device. Access on the server does not change.":
+    "혼자 쓰기를 고르면 이 기기에서 멤버, 결제, 보안 기록, 사내 협업 메뉴를 숨겨요. 서버의 접근 권한은 바뀌지 않아요.",
   "Turning this off unsets your Home and stops it opening at startup on this device.": "끄면 홈 설정이 해제되고 이 기기를 시작할 때 홈이 열리지 않아요.",
   "Reset to vault default": "볼트 기본값으로 되돌리기",
   "Mention chime": "멘션 알림음",

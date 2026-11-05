@@ -23,6 +23,7 @@ import { toast } from "../lib/toast";
 import { agoFromIso } from "./versionFormat";
 import { authManager } from "../lib/auth/authManager";
 import { t, useT } from "../lib/i18n";
+import { useIsPersonal } from "../lib/usageMode";
 import {
   classifyLimitError,
   formatBytes,
@@ -93,6 +94,9 @@ function count(n: number, one: string, many: string): string {
 // by a DELETED vault has to be reachable from somewhere or the money is
 // unrecoverable. Only the per-vault card at the top of that tab needs a synced
 // vault, and it says so itself.
+/** Pages that only matter to a team; hidden when this device is in personal use. */
+const PERSONAL_HIDDEN_TABS = new Set<SettingsTab>(["members", "billing", "security"]);
+
 const TEAM_TABS = new Set<SettingsTab>([
   "members",
   "mcp",
@@ -244,6 +248,7 @@ export function VaultSettingsDialog({
   const syncEnabled = useStore((s) => s.syncEnabled);
   const locals = useLocalVaults();
   const t = useT();
+  const personal = useIsPersonal();
 
   const visibleTab = (id: SettingsTab): SettingsTab =>
     (!SHOW_AI_TAB && id === "ai") || (id === "vaults" && session) ? "general" : id;
@@ -291,8 +296,10 @@ export function VaultSettingsDialog({
       );
     }
     if (isSynced && canManage) out.push({ id: "security", label: "Security", icon: <MenuIcon><path d="M12 3 3 7v5c0 5 9 9 9 9s9-4 9-9V7Z" /></MenuIcon> });
-    return out;
-  }, [showVaults, billingEnabled, teamBilling, isSynced, canManage]);
+    // Personal use (lib/usageMode) hides the team-only pages; a request for
+    // one paints the first tab instead (see `activeTab`).
+    return personal ? out.filter((item) => !PERSONAL_HIDDEN_TABS.has(item.id)) : out;
+  }, [showVaults, billingEnabled, teamBilling, isSynced, canManage, personal]);
 
   // Warm the Members tab's roster as the dialog opens (#307); paint only.
   useEffect(() => {
@@ -340,7 +347,7 @@ export function VaultSettingsDialog({
               <button
                 key={item.id}
                 type="button"
-                className={`menu-item${item.id === "ai" ? " settings-ai-item" : ""}${tab === item.id ? " active" : ""}${locked ? " locked" : ""}`}
+                className={`menu-item${item.id === "ai" ? " settings-ai-item" : ""}${shown === item.id ? " active" : ""}${locked ? " locked" : ""}`}
                 onClick={() => {
                   // Re-clicking the active item resets its sub-pages (#308).
                   if (tab === item.id) setTabReset((n) => n + 1);

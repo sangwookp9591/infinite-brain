@@ -67,6 +67,15 @@ export const common: Record<string, string> = {
     "[[이중 대괄호]]로 메모를 연결하면 볼트가 탐험할 수 있는 은하로 자라요.",
   "Welcome to Infinite Brain": "Infinite Brain에 오신 것을 환영해요",
   "Intro steps": "소개 단계",
+  "One last thing": "마지막으로 하나만",
+  "How will you use Infinite Brain?": "Infinite Brain을 어떻게 쓰실 건가요?",
+  "You can change this any time in Account settings → Appearance.": "계정 설정 → 화면 설정에서 언제든 바꿀 수 있어요.",
+  "Just me": "혼자 쓸게요",
+  "A private notebook. Members, billing and office collaboration stay out of the way.":
+    "나만의 노트로 써요. 멤버, 결제, 사내 협업 메뉴는 보이지 않아요.",
+  "With a team": "팀과 함께 쓸게요",
+  "Invite people, manage who can see what, and write together live.":
+    "사람을 초대하고, 누가 무엇을 볼지 정하고, 실시간으로 함께 써요.",
 
   // What's New
   "What’s New": "새로운 기능",

@@ -26,6 +26,7 @@ import { imageFileToSquareDataUrl } from "../lib/squareImage";
 import { InstalledAgentsStatus } from "./DashboardAgentRunner";
 import { openRepoForStar } from "./StarPrompt";
 import { LOCALE_CHOICES, setLocaleChoice, useLocaleChoice, useT, type LocaleChoice } from "../lib/i18n";
+import { effectiveUsageMode, setUsageMode, useIsPersonal, useUsageMode, type UsageMode } from "../lib/usageMode";
 import { AccountPlanTab } from "./AccountPlanTab";
 import { AccountVaultsTab } from "./AccountVaultsTab";
 import { Avatar } from "./Avatar";
@@ -145,6 +146,9 @@ const ACCOUNT_TABS: Array<{ id: AccountTab; label: string; icon: React.ReactNode
   },
 ];
 
+/** Account pages that only matter to a team; hidden in personal use. */
+const PERSONAL_HIDDEN_TABS = new Set<AccountTab>(["plan", "office"]);
+
 export function AccountSettings({
   onClose,
   initialTab,
@@ -156,10 +160,15 @@ export function AccountSettings({
   const [tab, setTab] = useState<AccountTab>(initialTab ?? "profile");
   const vaultOpen = useStore((s) => s.vault !== null);
   const tr = useT();
+  const personal = useIsPersonal();
+  // Personal use (lib/usageMode) hides the team-only pages; a deep link to one
+  // lands on Profile instead.
+  const tabs = personal ? ACCOUNT_TABS.filter((t) => !PERSONAL_HIDDEN_TABS.has(t.id)) : ACCOUNT_TABS;
 
   // Esc, click-away, focus and the backdrop all live in `SettingsModal`.
   if (!session) return null;
-  const activeTab = ACCOUNT_TABS.find((t) => t.id === tab)!;
+  const activeTab = tabs.find((t) => t.id === tab) ?? tabs[0];
+  const shownTab = activeTab.id;
   const userLabel = session.user.name || session.user.email;
 
   return (
@@ -176,11 +185,11 @@ export function AccountSettings({
 
       <div className="settings-body">
         <nav className="settings-nav" aria-label="Account sections">
-          {ACCOUNT_TABS.map((t) => (
+          {tabs.map((t) => (
             <button
               key={t.id}
               type="button"
-              className={`menu-item${tab === t.id ? " active" : ""}`}
+              className={`menu-item${shownTab === t.id ? " active" : ""}`}
               onClick={() => setTab(t.id)}
             >
               {t.icon}
@@ -197,21 +206,21 @@ export function AccountSettings({
 
         <section className="settings-content" aria-label={tr(activeTab.label)}>
           <h2 className="settings-section-title">{tr(activeTab.label)}</h2>
-          {tab === "profile" ? (
+          {shownTab === "profile" ? (
             <ProfileTab />
-          ) : tab === "status" ? (
+          ) : shownTab === "status" ? (
             <StatusTab />
-          ) : tab === "plan" ? (
+          ) : shownTab === "plan" ? (
             <AccountPlanTab />
-          ) : tab === "vaults" ? (
+          ) : shownTab === "vaults" ? (
             <AccountVaultsTab />
-          ) : tab === "office" ? (
+          ) : shownTab === "office" ? (
             <OfficeEntry />
-          ) : tab === "appearance" ? (
+          ) : shownTab === "appearance" ? (
             <AppearanceTab />
-          ) : tab === "notifications" ? (
+          ) : shownTab === "notifications" ? (
             <NotificationsTab />
-          ) : tab === "connection" ? (
+          ) : shownTab === "connection" ? (
             <ConnectionTab />
           ) : (
             <AboutTab onClose={onClose} />
@@ -533,6 +542,7 @@ function StatusTab() {
 function AppearanceTab() {
   const tr = useT();
   const localeChoice = useLocaleChoice();
+  const usageMode = effectiveUsageMode(useUsageMode());
   const homeSectionHidden = useStore((s) => s.homeSectionHidden);
   const overrides = useStore((s) => s.appearanceOverrides);
   const vaultAppearance = useStore((s) => s.vaultAppearance);
@@ -574,6 +584,20 @@ function AppearanceTab() {
         items={LOCALE_CHOICES.map((c) => ({ value: c.id, label: c.id === "system" ? tr("System") : c.label }))}
         value={localeChoice}
         onChange={(value) => setLocaleChoice(value as LocaleChoice)}
+      />
+    </div>
+    <div className="menu-row">
+      <span className="menu-row-label">{tr("Use Infinite Brain")}
+        <span className="field-hint">{tr("Personal hides members, billing, security history and office collaboration on this device. Access on the server does not change.")}</span>
+      </span>
+      <SegmentedChips
+        label={tr("Use Infinite Brain")}
+        items={[
+          { value: "personal", label: tr("Just me") },
+          { value: "team", label: tr("With a team") },
+        ]}
+        value={usageMode}
+        onChange={(value) => setUsageMode(value as UsageMode)}
       />
     </div>
     <label className="menu-row toggle-row">

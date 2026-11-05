@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // First-launch intro: four short motion scenes over the Orbit night sky, then
-// the welcome screen. Shown once per device; Skip, Esc or the last button end
-// it. Under reduced motion the scenes render in their settled state and do not
+// one question (personal or team use, lib/usageMode), then the welcome screen.
+// Shown once per device; Skip and the last button lead to the question, Esc
+// ends it. Under reduced motion the scenes render in their settled state and do not
 // auto-advance.
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { markOnboardingSeen } from "../lib/onboardingIntro";
+import { getUsageMode, setUsageMode, type UsageMode } from "../lib/usageMode";
 import { useT } from "../lib/i18n";
 import "./Onboarding.css";
 
@@ -64,27 +66,45 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   const tr = useT();
   const [index, setIndex] = useState(0);
   const [leaving, setLeaving] = useState(false);
+  // The closing question: asked once, only while this device has no answer.
+  const [choosing, setChoosing] = useState(false);
   const last = index === SCENES.length - 1;
 
   // Fade out first; the welcome screen underneath takes over once it lands.
-  const finish = useCallback(() => {
+  const leave = useCallback(() => {
     markOnboardingSeen(window.localStorage);
     setLeaving(true);
   }, []);
+  const finish = useCallback(() => {
+    if (getUsageMode() === null) setChoosing(true);
+    else leave();
+  }, [leave]);
+  const choose = useCallback((mode: UsageMode) => {
+    setUsageMode(mode);
+    leave();
+  }, [leave]);
   const go = useCallback(
     (to: number) => setIndex(Math.max(0, Math.min(SCENES.length - 1, to))),
     [],
   );
 
   useEffect(() => {
-    if (reduced || last) return;
+    if (reduced || last || choosing) return;
     const t = window.setTimeout(() => setIndex((i) => i + 1), SCENE_MS);
     return () => window.clearTimeout(t);
-  }, [index, last, reduced]);
+  }, [choosing, index, last, reduced]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") finish();
+      if (choosing) {
+        // Esc never traps: leaving unanswered keeps today's (team) behaviour.
+        if (e.key === "Escape") leave();
+        else if (e.key === "ArrowLeft") setChoosing(false);
+        else return;
+        e.preventDefault();
+        return;
+      }
+      if (e.key === "Escape") leave();
       else if (e.key === "ArrowRight") {
         if (last) finish();
         else go(index + 1);
@@ -95,7 +115,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [finish, go, index, last]);
+  }, [choosing, finish, go, index, last, leave]);
 
   const scene = SCENES[index];
   return (
@@ -116,8 +136,13 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
 
       <header className="onboarding-top">
         <span className="onboarding-wordmark">Infinite Brain</span>
-        <button type="button" className="onboarding-skip" onClick={finish}>{tr("Skip")}</button>
+        <button type="button" className="onboarding-skip" onClick={choosing ? leave : finish}>{tr("Skip")}</button>
       </header>
+
+      {choosing ? (
+        <UsageChoice onChoose={choose} onBack={() => setChoosing(false)} />
+      ) : (
+      <>
 
       <div className="onboarding-stage" aria-hidden="true">
         <AnimatePresence mode="wait">
@@ -189,6 +214,51 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
           </motion.button>
         </div>
       </footer>
+      </>
+      )}
+    </motion.div>
+  );
+}
+
+/** The intro's last page: record whether this device is for one person or a team. */
+function UsageChoice({ onChoose, onBack }: { onChoose: (mode: UsageMode) => void; onBack: () => void }) {
+  const tr = useT();
+  const options: Array<{ mode: UsageMode; title: string; body: string }> = [
+    {
+      mode: "personal",
+      title: "Just me",
+      body: "A private notebook. Members, billing and office collaboration stay out of the way.",
+    },
+    {
+      mode: "team",
+      title: "With a team",
+      body: "Invite people, manage who can see what, and write together live.",
+    },
+  ];
+  return (
+    <motion.div
+      className="onboarding-choice"
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0, transition: { duration: 0.5, ease: EASE_OUT } }}
+    >
+      <div className="onboarding-eyebrow">{tr("One last thing")}</div>
+      <h1 className="onboarding-title">{tr("How will you use Infinite Brain?")}</h1>
+      <p className="onboarding-body">{tr("You can change this any time in Account settings → Appearance.")}</p>
+      <div className="onboarding-choices" role="group" aria-label={tr("How will you use Infinite Brain?")}>
+        {options.map((o, i) => (
+          <button
+            key={o.mode}
+            type="button"
+            className="onboarding-choice-card"
+            onClick={() => onChoose(o.mode)}
+            autoFocus={i === 0}
+          >
+            <span className="onboarding-choice-title">{tr(o.title)}</span>
+            <span className="onboarding-choice-body">{tr(o.body)}</span>
+          </button>
+        ))}
+      </div>
+      <button type="button" className="onboarding-back" onClick={onBack}>{tr("Back")}</button>
     </motion.div>
   );
 }

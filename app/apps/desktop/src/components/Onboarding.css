@@ -250,6 +250,53 @@
 .ob-galaxy { width: min(440px, 48vh); aspect-ratio: 1; }
 .ob-galaxy svg { width: 100%; height: 100%; overflow: visible; }
 
+/* The closing question (personal or team). Sits in the stage row. */
+.onboarding-choice {
+  position: relative;
+  grid-row: 2 / -1;
+  align-self: center;
+  justify-self: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 4px;
+  width: min(640px, calc(100vw - 48px));
+  padding: 0 0 32px;
+}
+.onboarding-choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  width: 100%;
+  margin: 22px 0 20px;
+}
+.onboarding-choice-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+  font: inherit;
+  color: #eef0ff;
+  padding: 20px 22px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
+}
+.onboarding-choice-card:hover,
+.onboarding-choice-card:focus-visible {
+  border-color: #a29bff;
+  background: rgba(162, 155, 255, 0.12);
+  transform: translateY(-1px);
+}
+.onboarding-choice-title { font-size: 17px; font-weight: 600; }
+.onboarding-choice-body { font-size: 13px; line-height: 1.5; color: rgba(238, 240, 255, 0.7); }
+@media (max-width: 560px) {
+  .onboarding-choices { grid-template-columns: 1fr; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .ob-caret { animation: none; }
 }
