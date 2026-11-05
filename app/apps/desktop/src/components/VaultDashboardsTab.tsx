@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { useEffect, useState } from "react";
 import { useStore } from "../store";
+import { useT } from "../lib/i18n";
 import { effectiveHomeNote, isDashboard } from "../lib/pins";
 import { readNote, onFileChanged } from "../lib/ipc";
 import { requestNewDashboard } from "../lib/homeEvents";
@@ -11,6 +12,7 @@ import "./VaultDashboardsTab.css";
 
 /** One library in Settings and Change Home, with live previews of used designs. */
 export function VaultDashboardsTab({ onClose, onNew, resetToken = 0 }: { onClose: () => void; onNew?: (templateId?: string) => void; resetToken?: number }) {
+  const tr = useT();
   const st = useStore();
   const home = effectiveHomeNote(st);
   const [saved, setSaved] = useState<Record<string, string>>({});
@@ -61,14 +63,14 @@ export function VaultDashboardsTab({ onClose, onNew, resetToken = 0 }: { onClose
     finally { setBusy(false); }
   };
   return <div className="vault-dashboards">
-    {st.homeSectionHidden && <button className="secondary vault-dashboards-restore-home" type="button" onClick={() => st.setHomeSectionHidden(false)}>Show Home in sidebar</button>}
-    <p className="vault-dashboards-description">Choose a dashboard for your Home. Preview a design, then make it yours with Claude or Codex.</p>
+    {st.homeSectionHidden && <button className="secondary vault-dashboards-restore-home" type="button" onClick={() => st.setHomeSectionHidden(false)}>{tr("Show Home in sidebar")}</button>}
+    <p className="vault-dashboards-description">{tr("Choose a dashboard for your Home. Preview a design, then make it yours with Claude or Codex.")}</p>
     <DashboardTemplateGallery key={resetToken} saved={saved} currentId={currentId} disabled={busy} onUse={(t) => void chooseTemplate(t.id)}
       onOpen={(path) => { void st.openNoteByPath(path).then(onClose).catch((e) => toast(String(e), "error")); }}
       onUnset={canUnset ? () => {
         setBusy(true);
         void st.setHome(null, st.personalHomeDocId ? "personal" : "vault").catch((e) => toast(String(e), "error")).finally(() => setBusy(false));
       } : undefined} />
-    <button className="vault-dashboards-link" type="button" onClick={() => { onClose(); requestNewDashboard("link", { setAsHome:!home }); }}>Add a dashboard from a link ↗</button>
+    <button className="vault-dashboards-link" type="button" onClick={() => { onClose(); requestNewDashboard("link", { setAsHome:!home }); }}>{tr("Add a dashboard from a link ↗")}</button>
   </div>;
 }

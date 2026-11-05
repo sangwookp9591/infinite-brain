@@ -182,4 +182,10 @@ export const vaultTabs: Record<string, string> = {
   "Couldn't change the vault icon — {reason}": "볼트 아이콘을 바꾸지 못했어요 — {reason}",
   "Couldn't upload that image. Try a smaller PNG or JPG.":
     "이미지를 업로드하지 못했어요. 더 작은 PNG나 JPG로 시도해 주세요.",
+
+  // Shell tooltips and account vaults (Korean-mode gap pass)
+  "{count} person found": "{count}명을 찾았어요",
+  "{count} people found": "{count}명을 찾았어요",
+  "{count} invite pending": "초대 {count}건 대기 중",
+  "{count} invites pending": "초대 {count}건 대기 중",
 };

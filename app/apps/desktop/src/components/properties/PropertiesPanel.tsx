@@ -31,6 +31,7 @@ import { toast } from "../../lib/toast";
 import { useStore } from "../../store";
 import { MenuSelect } from "../MenuSelect";
 import { PropertyIcon } from "./PropertyIcons";
+import { useT } from "../../lib/i18n";
 
 /**
  * YAML frontmatter as a table of typed properties.
@@ -126,6 +127,7 @@ export function PropertiesPanel({
   getPropertyKeys?: () => string[];
   getPropertyValues?: (key: string) => string[];
 }) {
+  const tr = useT();
   const { entries } = docEntries(view);
   // The type registry lives outside React (it is per-vault, not per-note), so
   // subscribe rather than lift it into state.
@@ -224,7 +226,7 @@ export function PropertiesPanel({
           className="prop-add"
           onClick={() => addPropertyToNote(view)}
         >
-          + Add property
+          {tr("+ Add property")}
         </button>
       )}
     </div>

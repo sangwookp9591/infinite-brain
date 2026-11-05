@@ -6,6 +6,7 @@ import { addPropertyToNote, viewOnlyNotice } from "./properties/PropertiesPanel"
 import { planInlineTitleRename, TITLE_REFUSAL_MESSAGE } from "../lib/editor/titlePlan";
 import { stemOf } from "../lib/notePath";
 import { useStore } from "../store";
+import { useT } from "../lib/i18n";
 
 /**
  * The note's name, at the top of the note, as a real `<input>`.
@@ -34,6 +35,7 @@ export function InlineTitle({
   renameTo: (nextPath: string) => Promise<string | null>;
   noteExists: (path: string) => Promise<boolean>;
 }) {
+  const tr = useT();
   const stem = stemOf(path);
   const [draft, setDraft] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
@@ -150,8 +152,8 @@ export function InlineTitle({
         value={value}
         readOnly={readOnly}
         aria-readonly={readOnly}
-        aria-label="Note name"
-        placeholder="Untitled"
+        aria-label={tr("Note name")}
+        placeholder={tr("Untitled")}
         spellCheck
         autoCapitalize="off"
         autoCorrect="off"
@@ -206,7 +208,7 @@ export function InlineTitle({
           className="inline-title-add"
           onClick={() => addPropertyToNote(view)}
         >
-          Add property
+          {tr("Add property")}
         </button>
       )}
     </div>

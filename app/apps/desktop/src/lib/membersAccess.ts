@@ -13,6 +13,7 @@ import type {
   TeamAccessPosture,
 } from "./api";
 import { relativeTime } from "./health/format";
+import { t } from "./i18n";
 
 /** The three wire modes in the page's words, for the Everyone row. */
 export const EVERYONE_OPTIONS: ReadonlyArray<{ value: TeamAccessMode; label: string; hint: string }> = [
@@ -92,13 +93,16 @@ export function filterPeople(
   };
 }
 
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+const peopleCount = (n: number) => t(n === 1 ? "{count} person" : "{count} people", { count: n });
 
 /** "4 people · 1 invite pending", or "1 person found" while searching. */
 export function countLine(query: string, people: number, invites: number): string {
-  if (query.trim()) return `${plural(people + invites, "person", "people")} found`;
-  const base = plural(people, "person", "people");
-  return invites > 0 ? `${base} · ${plural(invites, "invite", "invites")} pending` : base;
+  const total = people + invites;
+  if (query.trim()) return t(total === 1 ? "{count} person found" : "{count} people found", { count: total });
+  const base = peopleCount(people);
+  return invites > 0
+    ? `${base} · ${t(invites === 1 ? "{count} invite pending" : "{count} invites pending", { count: invites })}`
+    : base;
 }
 
 /**

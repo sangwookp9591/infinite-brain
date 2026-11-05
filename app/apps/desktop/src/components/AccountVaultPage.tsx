@@ -11,6 +11,7 @@ import {
   type VaultPageDetail,
   vaultPageTiles,
 } from "../lib/accountVaultPage";
+import { useT } from "../lib/i18n";
 import { AsyncButton } from "./AsyncButton";
 import type { RowAction } from "./RowActionsMenu";
 import { VaultTile } from "./VaultSwitcher";
@@ -53,17 +54,18 @@ export function AccountVaultPage({
   onOpenSettings: () => Promise<void>;
   onBack: () => void;
 }) {
+  const tr = useT();
   const tiles = vaultPageTiles(usage);
   const ordered = orderPageActions(actions);
   const switchChip = (
     <AsyncButton className="vault-switch-chip" disabled={busy} onClick={onSwitch}>
-      Switch here
+      {tr("Switch here")}
     </AsyncButton>
   );
   return (
     <section className="member-profile account-vault-page" aria-label={name}>
       <button type="button" className="link-btn member-profile-back" onClick={onBack}>
-        ← Vaults
+        {tr("← Vaults")}
       </button>
       <header className="member-profile-head">
         <VaultTile identity={`org:${orgId}`} name={name} />
@@ -72,58 +74,58 @@ export function AccountVaultPage({
           {slug && <span className="muted">{slug}</span>}
         </span>
         <span className="account-vault-page-pills">
-          {lapsed && <span className="billing-status canceled">Read-only</span>}
-          {isCurrent ? (folderMissing ? null : <span className="member-role">Current</span>) : switchChip}
+          {lapsed && <span className="billing-status canceled">{tr("Read-only")}</span>}
+          {isCurrent ? (folderMissing ? null : <span className="member-role">{tr("Current")}</span>) : switchChip}
         </span>
       </header>
 
       {showStats && (
         <>
-          <div className="subhead">Stats</div>
+          <div className="subhead">{tr("Stats")}</div>
           <div className="vault-usage-tiles">
             {tiles.map((t) => (
               <div key={t.key} className="vault-usage-tile">
-                <span className="vault-usage-caption">{t.caption}</span>
+                <span className="vault-usage-caption">{tr(t.caption)}</span>
                 {usageLoading ? (
                   <span className="skel-line account-vault-page-skel" aria-hidden="true" />
                 ) : (
                   <span className="vault-usage-value">{t.value ?? "—"}</span>
                 )}
-                <span className="vault-usage-sub" title={t.sub}>{t.sub}</span>
+                <span className="vault-usage-sub" title={tr(t.sub)}>{tr(t.sub)}</span>
               </div>
             ))}
           </div>
           {!usageLoading && !usage && (
-            <p className="muted account-vault-page-note">Usage is shown for vaults on your account.</p>
+            <p className="muted account-vault-page-note">{tr("Usage is shown for vaults on your account.")}</p>
           )}
         </>
       )}
 
-      <div className="subhead">Details</div>
+      <div className="subhead">{tr("Details")}</div>
       <dl className="member-profile-about">
         {details.map((d) => (
-          <DetailRow key={d.key} label={d.label} value={d.value} />
+          <DetailRow key={d.key} label={tr(d.label)} value={tr(d.value)} />
         ))}
       </dl>
 
-      <div className="subhead">Actions</div>
+      <div className="subhead">{tr("Actions")}</div>
       <ul className="account-vault-actions">
         {!isCurrent && (
-          <ActionRow title="Switch here" description="Open this vault in the sidebar.">
+          <ActionRow title={tr("Switch here")} description={tr("Open this vault in the sidebar.")}>
             {switchChip}
           </ActionRow>
         )}
         {folderMissing && (
-          <ActionRow title="Folder missing" description="This vault's folder is gone from this device.">
+          <ActionRow title={tr("Folder missing")} description={tr("This vault's folder is gone from this device.")}>
             {folderMissing}
           </ActionRow>
         )}
         <ActionRow
-          title="Open Vault Settings"
+          title={tr("Open Vault Settings")}
           description={
             settingsAction === "unavailable"
-              ? VAULT_SETTINGS_UNAVAILABLE_HINT
-              : "Members and access, appearance and more."
+              ? tr(VAULT_SETTINGS_UNAVAILABLE_HINT)
+              : tr("Members and access, appearance and more.")
           }
         >
           <AsyncButton
@@ -132,7 +134,7 @@ export function AccountVaultPage({
             title={settingsAction === "unavailable" ? VAULT_SETTINGS_UNAVAILABLE_HINT : undefined}
             onClick={onOpenSettings}
           >
-            Open
+            {tr("Open")}
           </AsyncButton>
         </ActionRow>
         {ordered.map((a) => (

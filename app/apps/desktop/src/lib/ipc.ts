@@ -7,6 +7,7 @@ import { invoke, Channel } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { openPath, openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { decodeStateVectors, decodeYjsState, frame, type YjsState } from "./ipcCodec";
+import { t } from "./i18n";
 import type { VaultChecks, VaultStats } from "./health/types";
 
 // The binary commands (CRDT state, attachment bytes) speak raw bytes, framed by
@@ -147,9 +148,9 @@ export const revealInFileManager = async (path: string): Promise<void> => {
 /** What to call "reveal in the file manager" on this platform. */
 export function revealLabel(): string {
   const ua = typeof navigator === "undefined" ? "" : navigator.userAgent;
-  if (/Mac|iPhone|iPad/i.test(ua)) return "Reveal in Finder";
-  if (/Win/i.test(ua)) return "Show in Explorer";
-  return "Show in file manager";
+  if (/Mac|iPhone|iPad/i.test(ua)) return t("Reveal in Finder");
+  if (/Win/i.test(ua)) return t("Show in Explorer");
+  return t("Show in file manager");
 }
 
 /**
@@ -162,9 +163,9 @@ export function revealLabel(): string {
  */
 export function openVaultLabel(): string {
   const ua = typeof navigator === "undefined" ? "" : navigator.userAgent;
-  if (/Mac|iPhone|iPad/i.test(ua)) return "Open vault in Finder";
-  if (/Win/i.test(ua)) return "Open vault in Explorer";
-  return "Open vault in file manager";
+  if (/Mac|iPhone|iPad/i.test(ua)) return t("Open vault in Finder");
+  if (/Win/i.test(ua)) return t("Open vault in Explorer");
+  return t("Open vault in file manager");
 }
 
 // ---- Types (mirror the Rust structs, serialized camelCase) ---------------

@@ -16,6 +16,7 @@
 //
 // Pure: no store, no IPC.
 import { planTurnOnSync } from "./turnOnSync";
+import { t } from "../i18n";
 
 export type LocalFolderClass = "member" | "local" | "foreign";
 
@@ -65,8 +66,8 @@ export function classifyLocalFolder(
 export function hiddenForeignFootnote(count: number): string | null {
   if (count <= 0) return null;
   return count === 1
-    ? "1 more belongs to another account."
-    : `${count} more belong to other accounts.`;
+    ? t("1 more belongs to another account.")
+    : t("{count} more belong to other accounts.", { count });
 }
 
 /**

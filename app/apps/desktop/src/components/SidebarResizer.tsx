@@ -6,6 +6,7 @@ import {
   SIDEBAR_WIDTH_MIN,
   writeSidebarWidth,
 } from "../lib/prefs";
+import { useT } from "../lib/i18n";
 
 /**
  * Drag handle on the sidebar's right edge. Note titles are as long as people
@@ -22,6 +23,7 @@ export function SidebarResizer({
   width: number;
   onWidth: (px: number) => void;
 }) {
+  const tr = useT();
   const [dragging, setDragging] = useState(false);
   // The pointer grabs the divider somewhere along its 7px width; tracking that
   // offset stops the sidebar from jumping by a few pixels on the first move.
@@ -37,12 +39,12 @@ export function SidebarResizer({
       className={`sidebar-resizer${dragging ? " dragging" : ""}`}
       role="separator"
       aria-orientation="vertical"
-      aria-label="Resize sidebar"
+      aria-label={tr("Resize sidebar")}
       aria-valuenow={width}
       aria-valuemin={SIDEBAR_WIDTH_MIN}
       aria-valuemax={SIDEBAR_WIDTH_MAX}
       tabIndex={0}
-      title="Drag to resize · double-click to reset"
+      title={tr("Drag to resize · double-click to reset")}
       onPointerDown={(e) => {
         // Without this the press seeds a native text selection, and sweeping
         // left highlights the whole sidebar as you drag. `user-select: none`

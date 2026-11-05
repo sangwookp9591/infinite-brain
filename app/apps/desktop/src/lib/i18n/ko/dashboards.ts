@@ -87,4 +87,10 @@ export const dashboards: Record<string, string> = {
   "Adding…": "추가하는 중…",
   "Set as Home": "홈으로 설정",
   "Add to vault": "볼트에 추가",
+
+  // Shell tooltips and account vaults (Korean-mode gap pass)
+  "Show Home in sidebar": "사이드바에 홈 보기",
+  "Choose a dashboard for your Home. Preview a design, then make it yours with Claude or Codex.":
+    "홈에 쓸 대시보드를 고르세요. 디자인을 미리 보고, Claude나 Codex로 나만의 대시보드로 만들 수 있어요.",
+  "Add a dashboard from a link ↗": "링크로 대시보드 추가 ↗",
 };

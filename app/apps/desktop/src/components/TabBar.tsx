@@ -6,6 +6,7 @@ import { placeMenu, type Placement } from "../lib/menuPlacement";
 import { noteLabel } from "../lib/notePath";
 import { useStore } from "../store";
 import { keyLabel } from "../lib/shortcuts";
+import { useT } from "../lib/i18n";
 
 /** Right-click menu state: the tab it was opened on plus the cursor anchor. */
 interface TabMenu {
@@ -33,6 +34,7 @@ interface TabMenu {
  * the old tab to the new one instead of re-painting two boxes.
  */
 export function TabBar() {
+  const tr = useT();
   const spring = useSpring(SOFT);
   const openTabs = useStore((s) => s.openTabs);
   const notePath = useStore((s) => s.openNote?.path ?? null);
@@ -95,7 +97,7 @@ export function TabBar() {
   const menuLabel = menu ? noteLabel(menu.path) : "";
 
   return (
-    <div className="tab-strip" role="tablist" aria-label="Open files">
+    <div className="tab-strip" role="tablist" aria-label={tr("Open files")}>
       <LayoutGroup>
         {tabs.map((path) => {
           const active = path === activePath;
@@ -140,8 +142,8 @@ export function TabBar() {
               </button>
               <button
                 className="tab-close"
-                title="Close tab"
-                aria-label={`Close ${label}`}
+                title={tr("Close tab")}
+                aria-label={tr("Close {name}", { name: label })}
                 onClick={(e) => {
                   e.stopPropagation();
                   useStore.getState().closeTab(path);
@@ -192,8 +194,8 @@ export function TabBar() {
               </button>
               <button
                 className="tab-close"
-                title="Close tab"
-                aria-label={`Close ${tab.title}`}
+                title={tr("Close tab")}
+                aria-label={tr("Close {name}", { name: tab.title })}
                 onClick={(e) => {
                   e.stopPropagation();
                   useStore.getState().closeVirtualTab(tab.id);
@@ -219,8 +221,8 @@ export function TabBar() {
           root-freeze latch and arms the sidebar's rename box. */}
       <button
         className="tab-new"
-        title={`New note (${keyLabel("Mod-n")})`}
-        aria-label="New note"
+        title={`${tr("New note")} (${keyLabel("Mod-n")})`}
+        aria-label={tr("New note")}
         onClick={() => {
           void useStore.getState().createNoteIn("");
         }}
@@ -245,7 +247,7 @@ export function TabBar() {
         <ul
           className="context-menu"
           role="menu"
-          aria-label={`Tab actions for ${menuLabel}`}
+          aria-label={tr("Tab actions for {name}", { name: menuLabel })}
           ref={menuRef}
           style={
             menuPos
@@ -262,7 +264,7 @@ export function TabBar() {
               setMenu(null);
             }}
           >
-            Close
+            {tr("Close")}
           </li>
           <li
             role="menuitem"
@@ -273,7 +275,7 @@ export function TabBar() {
               setMenu(null);
             }}
           >
-            Close others
+            {tr("Close others")}
           </li>
           <li
             role="menuitem"
@@ -286,7 +288,7 @@ export function TabBar() {
               setMenu(null);
             }}
           >
-            Close tabs to the right
+            {tr("Close tabs to the right")}
           </li>
           <li
             role="menuitem"
@@ -296,7 +298,7 @@ export function TabBar() {
               setMenu(null);
             }}
           >
-            Close all
+            {tr("Close all")}
           </li>
         </ul>,
         document.body,

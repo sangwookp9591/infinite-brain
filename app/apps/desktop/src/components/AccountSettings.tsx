@@ -493,12 +493,13 @@ function ProfileCharacterGrid({
 }
 
 function StatusTab() {
+  const tr = useT();
   const activityStatus = useStore((s) => s.activityStatus);
 
   return (
     <div className="status-tab">
       <p className="muted">
-        Your status shows next to your cursor for teammates working in the same note.
+        {tr("Your status shows next to your cursor for teammates working in the same note.")}
       </p>
       <div className="status-options">
         {ACTIVITY_STATUSES.map((s) => {
@@ -514,8 +515,8 @@ function StatusTab() {
             >
               <span className={`status-dot ${s.id}`} aria-hidden="true" />
               <span className="menu-item-label">
-                {s.label}
-                <span className="field-hint">{s.hint}</span>
+                {tr(s.label)}
+                <span className="field-hint">{tr(s.hint)}</span>
               </span>
               {active && (
                 <svg
@@ -654,6 +655,7 @@ function NotificationsTab() {
 }
 
 function ConnectionTab() {
+  const tr = useT();
   const serverUrl = useStore((s) => s.serverUrl);
   const [draft, setDraft] = useState(serverUrl);
   const [busy, setBusy] = useState(false);
@@ -671,7 +673,7 @@ function ConnectionTab() {
   const save = async () => {
     const url = normalizeServerUrl(draft);
     if (!url) {
-      setError("That doesn't look like a server address — try https://notes.example.com");
+      setError(tr("That doesn't look like a server address — try https://notes.example.com"));
       return;
     }
     setBusy(true);
@@ -693,7 +695,7 @@ function ConnectionTab() {
   return (
     <div className="connection-tab">
       <label className="field">
-        <span className="field-label">Server URL</span>
+        <span className="field-label">{tr("Server URL")}</span>
         <input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
@@ -702,10 +704,9 @@ function ConnectionTab() {
           autoCapitalize="off"
         />
         <span className="field-hint">
-          The Infinite Brain server this device syncs against — currently{" "}
-          <strong>{serverHost(serverUrl)}</strong>. Use the managed service or
-          point at your own. Your account is per-server, so switching signs you
-          in to that server's session instead.
+          {tr("The Infinite Brain server this device syncs against — currently")}{" "}
+          <strong>{serverHost(serverUrl)}</strong>
+          {tr(". Use the managed service or point at your own. Your account is per-server, so switching signs you in to that server's session instead.")}
         </span>
       </label>
       <div className="update-actions">
@@ -715,11 +716,11 @@ function ConnectionTab() {
           onClick={() => void save()}
         >
           {busy && <span className="btn-spinner" aria-hidden="true" />}
-          <span>Save &amp; reconnect</span>
+          <span>{tr("Save & reconnect")}</span>
         </button>
         {saved && (
           <span className="update-status" role="status">
-            Reconnected.
+            {tr("Reconnected.")}
           </span>
         )}
       </div>
@@ -750,37 +751,37 @@ function AboutTab({ onClose }: { onClose: () => void }) {
   let statusError = false;
   switch (update.phase) {
     case "checking":
-      statusText = "Checking for updates…";
+      statusText = tr("Checking for updates…");
       break;
     case "uptodate":
       statusText = tr("You're on the latest version.");
       break;
     case "available":
-      statusText = `Version ${update.version} found — starting the download…`;
+      statusText = tr("Version {v} found — starting the download…", { v: update.version });
       break;
     case "downloading":
       statusText =
         update.total > 0
-          ? `Downloading ${update.version} — ${Math.round((update.downloaded / update.total) * 100)}%`
-          : `Downloading ${update.version}…`;
+          ? tr("Downloading {v} — {pct}%", { v: update.version, pct: Math.round((update.downloaded / update.total) * 100) })
+          : tr("Downloading {v}…", { v: update.version });
       break;
     case "installing":
-      statusText = `Installing ${update.version}…`;
+      statusText = tr("Installing {v}…", { v: update.version });
       break;
     case "ready":
-      statusText = `Version ${update.version} is installed — restarting shortly.`;
+      statusText = tr("Version {v} is installed — restarting shortly.", { v: update.version });
       break;
     case "pending":
       // The server already runs a newer release than the feed can serve yet;
       // the check retries on its own. Quiet on purpose — nothing is wrong.
-      statusText = "An update is on its way.";
+      statusText = tr("An update is on its way.");
       break;
     case "error":
-      statusText = `Couldn't check for updates: ${update.message}`;
+      statusText = tr("Couldn't check for updates: {message}", { message: update.message });
       statusError = true;
       break;
     case "failed":
-      statusText = `Couldn't install version ${update.version}${update.message ? `: ${update.message}` : ""}`;
+      statusText = tr("Couldn't install version {v}", { v: update.version }) + (update.message ? `: ${update.message}` : "");
       statusError = true;
       break;
   }

@@ -2,6 +2,7 @@
 
 import { GraphButton } from "./GraphButton";
 import { keyLabel } from "../lib/shortcuts";
+import { useT } from "../lib/i18n";
 
 /** Window-chrome control for showing and hiding the vault sidebar. */
 export function SidebarToggle({
@@ -17,15 +18,16 @@ export function SidebarToggle({
   onSearch: () => void;
   onGraph?: () => void;
 }) {
+  const tr = useT();
   return (
     <div className="titlebar-tools">
       <button
         type="button"
         className="titlebar-tool sidebar-toggle"
-        aria-label={hidden ? "Show sidebar" : "Hide sidebar"}
+        aria-label={hidden ? tr("Show sidebar") : tr("Hide sidebar")}
         aria-controls="vault-sidebar"
         aria-expanded={!hidden}
-        title={hidden ? "Show sidebar" : "Hide sidebar"}
+        title={hidden ? tr("Show sidebar") : tr("Hide sidebar")}
         onClick={onToggle}
       >
         <svg
@@ -44,8 +46,8 @@ export function SidebarToggle({
       <button
         type="button"
         className="titlebar-tool titlebar-search"
-        title={`Search notes (${keyLabel("Mod-p")})`}
-        aria-label="Search notes"
+        title={`${tr("Search notes")} (${keyLabel("Mod-p")})`}
+        aria-label={tr("Search notes")}
         aria-pressed={searchOpen}
         onClick={onSearch}
       >

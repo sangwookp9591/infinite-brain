@@ -1,6 +1,8 @@
 /* Account Settings → Vaults: how the "Synced vaults" section is laid out
    (rows or cards), remembered per device, plus the text a vault card shows. */
 
+import { t } from "./i18n";
+
 export type AccountVaultsView = "list" | "grid";
 export const ACCOUNT_VAULTS_VIEW_KEY = "context.accountVaults.view";
 
@@ -22,7 +24,7 @@ export function writeAccountVaultsView(view: AccountVaultsView): void {
 }
 
 function plural(n: number, one: string, many: string): string {
-  return `${n} ${n === 1 ? one : many}`;
+  return t(`{count} ${n === 1 ? one : many}`, { count: n });
 }
 
 export interface VaultCardLabels {
@@ -53,7 +55,7 @@ export function vaultCardLabels(
   return {
     name: org.name,
     counts,
-    meta: counts ?? (metaDanger ? CARD_FOLDER_MISSING : null),
+    meta: counts ?? (metaDanger ? t(CARD_FOLDER_MISSING) : null),
     metaDanger,
   };
 }
@@ -91,7 +93,7 @@ export function localCardLabels(row: { name: string; path: string }): LocalCardL
   const differs = segment !== "" && segment.toLowerCase() !== row.name.trim().toLowerCase();
   return {
     name: row.name,
-    meta: differs ? `Local · ${segment}` : "Local",
+    meta: differs ? `${t("Local")} · ${segment}` : t("Local"),
     letter: Array.from(row.name.trim())[0]?.toUpperCase() ?? "?",
   };
 }

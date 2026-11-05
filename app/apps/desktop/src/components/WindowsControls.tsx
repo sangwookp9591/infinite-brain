@@ -3,9 +3,11 @@
 import { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { platformClass } from "../lib/platform";
+import { useT } from "../lib/i18n";
 
 /** Window-global controls, including welcome and loading screens. */
 export function WindowsControls() {
+  const tr = useT();
   const windows = platformClass() === "windows";
   const [maximized, setMaximized] = useState(false);
 
@@ -41,18 +43,18 @@ export function WindowsControls() {
   return (
     <>
       <div className="windows-boot-drag" data-tauri-drag-region="deep" />
-      <div className="windows-controls" aria-label="Window controls">
-        <button type="button" aria-label="Minimize" title="Minimize" onClick={() => run("minimize")}>
+      <div className="windows-controls" aria-label={tr("Window controls")}>
+        <button type="button" aria-label={tr("Minimize")} title={tr("Minimize")} onClick={() => run("minimize")}>
           <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6h10" /></svg>
         </button>
-        <button type="button" aria-label={maximized ? "Restore" : "Maximize"}
-          title={maximized ? "Restore" : "Maximize"} onClick={() => run("toggleMaximize")}>
+        <button type="button" aria-label={maximized ? tr("Restore") : tr("Maximize")}
+          title={maximized ? tr("Restore") : tr("Maximize")} onClick={() => run("toggleMaximize")}>
           <svg viewBox="0 0 12 12" aria-hidden="true">
             {maximized ? <><path d="M3.5 3.5v-2h7v7h-2" /><rect x="1.5" y="3.5" width="7" height="7" /></>
               : <rect x="1.5" y="1.5" width="9" height="9" />}
           </svg>
         </button>
-        <button type="button" className="windows-close" aria-label="Close window" title="Close"
+        <button type="button" className="windows-close" aria-label={tr("Close window")} title={tr("Close")}
           onClick={() => run("close")}>
           <svg viewBox="0 0 12 12" aria-hidden="true"><path d="m1.5 1.5 9 9m0-9-9 9" /></svg>
         </button>

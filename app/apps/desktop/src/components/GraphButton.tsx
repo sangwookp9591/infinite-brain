@@ -1,16 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 
+import { useT } from "../lib/i18n";
+
 export function GraphButton({ onClick, titlebar = false }: {
   onClick: () => void;
   titlebar?: boolean;
 }) {
+  const tr = useT();
   const modifier = document.documentElement.dataset.platform === "windows" ? "Ctrl+" : "⌘";
   return (
     <button
       type="button"
       className={`${titlebar ? "titlebar-tool" : "icon-btn"} graph-btn`}
-      title={`Graph view (${modifier}G)`}
-      aria-label="Open graph view"
+      title={`${tr("Graph view")} (${modifier}G)`}
+      aria-label={tr("Open graph view")}
       onClick={onClick}
     >
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"

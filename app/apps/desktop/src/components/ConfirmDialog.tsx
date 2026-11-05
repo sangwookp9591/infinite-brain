@@ -1,6 +1,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { AsyncButton } from "./AsyncButton";
+import { useT } from "../lib/i18n";
 
 /**
  * A confirm for actions that are hard to take back. Rides the shared
@@ -38,6 +39,7 @@ export function ConfirmDialog({
   onConfirm: () => Promise<unknown> | unknown;
   onCancel: () => void;
 }) {
+  const tr = useT();
   const ref = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -98,7 +100,7 @@ export function ConfirmDialog({
         <div className="confirm-body">{children}</div>
         <div className="confirm-actions">
           <button type="button" className="ghost-pill" onClick={onCancel}>
-            {cancelLabel}
+            {tr(cancelLabel)}
           </button>
           <AsyncButton
             className={`primary${tone === "danger" ? " danger" : ""}`}
@@ -106,7 +108,7 @@ export function ConfirmDialog({
             disabled={confirmDisabled}
             onClick={onConfirm}
           >
-            {confirmLabel}
+            {tr(confirmLabel)}
           </AsyncButton>
         </div>
       </div>

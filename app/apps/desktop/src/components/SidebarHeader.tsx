@@ -3,6 +3,7 @@ import { useHoverMenu } from "./useHoverMenu";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { copyText } from "../lib/clipboard";
 import { toast } from "../lib/toast";
+import { t, useT } from "../lib/i18n";
 import { useStore } from "../store";
 import { Spinner } from "./Spinner";
 import { displayVaultPath } from "../lib/vaultRows";
@@ -21,6 +22,7 @@ import { useSwitcherRows, useVaultShortcuts, VaultSwitcherPopover, VaultTile } f
  * name up here after switching to a local vault.
  */
 export function SidebarHeader() {
+  const tr = useT();
   const vault = useStore((s) => s.vault);
   const session = useStore((s) => s.session);
   const organizations = useStore((s) => s.organizations);
@@ -107,7 +109,7 @@ export function SidebarHeader() {
   const copyPath = async () => {
     if (switching) return;
     if (await copyText(vault.path)) setCopiedPath(vault.path);
-    else toast("Couldn't copy the vault path", "error");
+    else toast(tr("Couldn't copy the vault path"), "error");
   };
 
   // The tile matches the vault's card in the switcher: the target while a switch
@@ -157,7 +159,7 @@ export function SidebarHeader() {
               className={`vault-switch-btn${menuOpen ? " open" : ""}`}
               aria-haspopup="menu"
               aria-expanded={menuOpen}
-              title={menuOpen ? undefined : "Switch vault"}
+              title={menuOpen ? undefined : tr("Switch vault")}
               onClick={togglePinnedMenu}
             >
               {/* Keyed on the name so a switch cross-fades between the two vaults
@@ -216,8 +218,8 @@ export function SidebarHeader() {
               role="button"
               tabIndex={switching ? -1 : 0}
               aria-disabled={!!switching}
-              title={`Copy ${vault.path}`}
-              aria-label="Copy vault folder path"
+              title={tr("Copy {path}", { path: vault.path })}
+              aria-label={tr("Copy vault folder path")}
               onMouseDown={(event) => event.stopPropagation()}
               onClick={() => {
                 // A hover preview would cover the copied check; a pinned menu stays.
@@ -237,7 +239,7 @@ export function SidebarHeader() {
               </span>
               {copiedPath === vault.path && !switching && (
                 <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"
-                  className="vault-path-copied" role="img" aria-label="Path copied">
+                  className="vault-path-copied" role="img" aria-label={tr("Path copied")}>
                   <path d="m3 8 3 3 7-7" />
                 </svg>
               )}
@@ -263,7 +265,7 @@ export function sidebarPathLabel(
   path: string,
   state: { switching: boolean; rootMissing: boolean },
 ): string {
-  if (state.switching) return "Switching…";
-  if (state.rootMissing) return "Folder missing";
+  if (state.switching) return t("Switching…");
+  if (state.rootMissing) return t("Folder missing");
   return displayVaultPath(path);
 }

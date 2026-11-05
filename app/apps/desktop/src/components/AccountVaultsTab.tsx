@@ -13,6 +13,7 @@ import { folderErrorText } from "../lib/vault/folderErrors";
 import { authManager } from "../lib/auth/authManager";
 import { classifyLimitError, type LimitKind, limitFromError } from "../lib/billing";
 import * as ipc from "../lib/ipc";
+import { t, useT } from "../lib/i18n";
 import { readOrgVaults, useStore } from "../store";
 import { AsyncButton } from "./AsyncButton";
 import { InvitationRows, useFreshInvitations } from "./InvitationRows";
@@ -51,7 +52,7 @@ const CURRENT_LINK_TIP =
   'The active vault is also linked at "current", so tools like Claude Desktop can point at one fixed path.';
 
 function plural(n: number, one: string, many: string): string {
-  return `${n} ${n === 1 ? one : many}`;
+  return t(`{count} ${n === 1 ? one : many}`, { count: n });
 }
 
 /**
@@ -61,6 +62,7 @@ function plural(n: number, one: string, many: string): string {
  * stable `current` symlink external tools point at.
  */
 export function AccountVaultsTab() {
+  const tr = useT();
   const session = useStore((s) => s.session);
   // Pending invitations get their own section above the synced list, with the
   // account menu's rows; showing them here marks them seen, like the menu.
@@ -289,8 +291,8 @@ export function AccountVaultsTab() {
         const ends = result.subscription.currentPeriodEnd;
         toast(
           ends
-            ? `Vault deleted. Pro ends on ${formatDate(ends)} — move it from Billing if you want to keep it.`
-            : "Vault deleted. Pro ends when the current period does — move it from Billing if you want to keep it.",
+            ? tr("Vault deleted. Pro ends on {date} — move it from Billing if you want to keep it.", { date: formatDate(ends) })
+            : tr("Vault deleted. Pro ends when the current period does — move it from Billing if you want to keep it."),
           "neutral",
         );
       }
@@ -304,7 +306,7 @@ export function AccountVaultsTab() {
       // The cancel-failed message is already a full sentence (#300).
       const cancelFailed =
         e instanceof ApiError && (e.body as { error?: unknown } | undefined)?.error === "subscription_cancel_failed";
-      toast(cancelFailed ? message : `Couldn't delete the vault — ${message}`, "error");
+      toast(cancelFailed ? message : tr("Couldn't delete the vault — {message}", { message }), "error");
     } finally {
       setBusy(false);
     }
@@ -325,7 +327,7 @@ export function AccountVaultsTab() {
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       setActionError(message);
-      toast(`Couldn't leave the vault — ${message}`, "error");
+      toast(tr("Couldn't leave the vault — {message}", { message }), "error");
     } finally {
       setBusy(false);
     }
@@ -350,16 +352,16 @@ export function AccountVaultsTab() {
   const localActions = (path: string, name: string): RowAction[] => [
     {
       key: "remove",
-      label: "Remove from list",
-      title: "Remove this folder from the list. Files stay on disk.",
+      label: tr("Remove from list"),
+      title: tr("Remove this folder from the list. Files stay on disk."),
       onSelect: () => removeLocalVaultRow(path),
     },
     {
       key: "delete",
-      label: "Delete vault",
+      label: tr("Delete vault"),
       danger: true,
       separated: true,
-      title: "Delete this vault — moves its folder and all its notes to the Trash",
+      title: tr("Delete this vault — moves its folder and all its notes to the Trash"),
       onSelect: () => {
         setActionError(null);
         setConfirmDeleteLocal({ path, name });
@@ -484,8 +486,8 @@ export function AccountVaultsTab() {
   const syncedActions = (o: { id: string; name: string }, isActive: boolean): RowAction[] => [
     {
       key: "remove",
-      label: "Remove from device",
-      title: "Stop syncing this vault here; server data is kept",
+      label: tr("Remove from device"),
+      title: tr("Stop syncing this vault here; server data is kept"),
       onSelect: () => removeLocal(o.id),
     },
     // Only the open synced vault, and only while its folder is
@@ -493,18 +495,18 @@ export function AccountVaultsTab() {
     ...(isActive && reset.available
       ? [{
           key: "reset",
-          label: "Reset local copy",
-          title: "Delete this device's copy of the vault and download a fresh one",
+          label: tr("Reset local copy"),
+          title: tr("Delete this device's copy of the vault and download a fresh one"),
           onSelect: reset.start,
         }]
       : []),
     ...(canLeave(o.id)
       ? [{
           key: "leave",
-          label: "Leave vault",
+          label: tr("Leave vault"),
           danger: true,
           separated: true,
-          title: "Leave this vault — you lose access and it is removed from this device",
+          title: tr("Leave this vault — you lose access and it is removed from this device"),
           onSelect: () => {
             setActionError(null);
             setConfirmLeave({ orgId: o.id, name: o.name });
@@ -518,10 +520,10 @@ export function AccountVaultsTab() {
       ? [
           {
             key: "unsync",
-            label: "Make local only",
+            label: tr("Make local only"),
             danger: true,
             separated: !canLeave(o.id),
-            title: "Delete this vault from the server and keep its files on this device",
+            title: tr("Delete this vault from the server and keep its files on this device"),
             onSelect: () => {
               setActionError(null);
               setConfirmUnsync({ orgId: o.id, name: o.name });
@@ -529,9 +531,9 @@ export function AccountVaultsTab() {
           },
           {
             key: "delete",
-            label: "Delete vault",
+            label: tr("Delete vault"),
             danger: true,
-            title: "Permanently delete this vault and all its notes for everyone",
+            title: tr("Permanently delete this vault and all its notes for everyone"),
             onSelect: () => askDelete(o.id, o.name),
           },
         ]
@@ -545,8 +547,8 @@ export function AccountVaultsTab() {
       isActive && rootMissing && folderMissingCardActions(syncEnabled).menu.includes("locate")
         ? [{
             key: "locate",
-            label: LOCATE_FOLDER,
-            title: "Point Infinite Brain at this vault's folder where it is now",
+            label: tr(LOCATE_FOLDER),
+            title: tr("Point Infinite Brain at this vault's folder where it is now"),
             onSelect: recover(() => useStore.getState().locateVaultFolder()),
           }]
         : [];
@@ -563,10 +565,10 @@ export function AccountVaultsTab() {
         onLocate={recover(() => useStore.getState().locateVaultFolder())}
       />
     ) : isActive ? (
-      <span className="member-role">Current</span>
+      <span className="member-role">{tr("Current")}</span>
     ) : (
       <AsyncButton className="link-btn" disabled={busy} onClick={() => switchTo(o.id)}>
-        Switch
+        {tr("Switch")}
       </AsyncButton>
     );
 
@@ -675,7 +677,7 @@ export function AccountVaultsTab() {
         <>
       {session && userInvitations.length > 0 && (
         <>
-          <div className="subhead">Invitations ({userInvitations.length})</div>
+          <div className="subhead">{tr("Invitations ({count})", { count: userInvitations.length })}</div>
           <div className="account-vaults-invites">
             <InvitationRows invitations={userInvitations} freshIds={freshInviteIds} />
           </div>
@@ -685,7 +687,7 @@ export function AccountVaultsTab() {
       {session && (
         <>
       <div className="subhead account-vaults-head">
-        <span>Synced vaults ({organizations.length})</span>
+        <span>{tr("Synced vaults ({count})", { count: organizations.length })}</span>
         <span className="account-vaults-head-actions">
           {organizations.length > 0 && <VaultsViewToggle value={view} onChange={chooseView} />}
           {!creating && !joining && (
@@ -698,7 +700,7 @@ export function AccountVaultsTab() {
               <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M12 5v14M5 12h14" />
               </svg>
-              <span>New vault</span>
+              <span>{tr("New vault")}</span>
             </button>
             <button
               type="button"
@@ -708,7 +710,7 @@ export function AccountVaultsTab() {
               <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18" />
               </svg>
-              <span>Join with code</span>
+              <span>{tr("Join with code")}</span>
             </button>
           </>
           )}
@@ -727,7 +729,7 @@ export function AccountVaultsTab() {
                 className={`vault-grid-card${isActive ? " current" : ""}`}
                 role="button"
                 tabIndex={0}
-                aria-label={isActive ? `${o.name}, current vault` : `Open ${o.name}`}
+                aria-label={isActive ? tr("{name}, current vault", { name: o.name }) : tr("Open {name}", { name: o.name })}
                 onClick={() => setPageOrgId(o.id)}
                 onKeyDown={(e) => {
                   if (e.target !== e.currentTarget) return;
@@ -743,7 +745,7 @@ export function AccountVaultsTab() {
                   onKeyDown={(e) => e.stopPropagation()}
                 >
                   <RowActionsMenu
-                    ariaLabel={`More actions for ${o.name}`}
+                    ariaLabel={tr("More actions for {name}", { name: o.name })}
                     disabled={busy}
                     actions={syncedCardActions(o, isActive)}
                     align="start"
@@ -765,7 +767,7 @@ export function AccountVaultsTab() {
                   onKeyDown={(e) => e.stopPropagation()}
                 >
                   {usageFor(o.id) && accountLapsed && (
-                    <span className="billing-status canceled">Read-only</span>
+                    <span className="billing-status canceled">{tr("Read-only")}</span>
                   )}
                   {isActive && rootMissing ? (
                     <CardFolderMissingChip
@@ -782,7 +784,7 @@ export function AccountVaultsTab() {
                       disabled={busy}
                       onClick={() => switchTo(o.id)}
                     >
-                      Switch here
+                      {tr("Switch here")}
                     </AsyncButton>
                   )}
                 </span>
@@ -798,7 +800,7 @@ export function AccountVaultsTab() {
           // "Hello 4 · Hello 4" said nothing twice: the folder is named only
           // when it differs from the vault.
           const folderSuffix = !fname
-            ? "· folder created on first open"
+            ? tr("· folder created on first open")
             : fname.toLowerCase() !== o.name.toLowerCase()
               ? `· ${fname}`
               : null;
@@ -825,12 +827,12 @@ export function AccountVaultsTab() {
                 )}
               </span>
               {usageFor(o.id) && accountLapsed && (
-                <span className="billing-status canceled">Read-only</span>
+                <span className="billing-status canceled">{tr("Read-only")}</span>
               )}
               <span className="vault-row-actions">
                 {syncedStatus(o, isActive)}
                 <RowActionsMenu
-                  ariaLabel={`More actions for ${o.name}`}
+                  ariaLabel={tr("More actions for {name}", { name: o.name })}
                   disabled={busy}
                   actions={syncedActions(o, isActive)}
                 />
@@ -842,11 +844,9 @@ export function AccountVaultsTab() {
       )}
       {freeVaultLimit != null && (
         <p className="muted">
-          Free includes {plural(freeVaultLimit, "synced vault", "synced vaults")} on this account
           {baseFreeVaults != null && freeVaultLimit > baseFreeVaults
-            ? " (includes vaults you had before)"
-            : ""}
-          .
+            ? tr("Free includes {vaults} on this account (includes vaults you had before).", { vaults: plural(freeVaultLimit, "synced vault", "synced vaults") })
+            : tr("Free includes {vaults} on this account.", { vaults: plural(freeVaultLimit, "synced vault", "synced vaults") })}
         </p>
       )}
       {(creating || joining) && (
@@ -861,7 +861,7 @@ export function AccountVaultsTab() {
             >
               <input
                 autoFocus
-                placeholder="Vault name"
+                placeholder={tr("Vault name")}
                 value={orgName}
                 onChange={(e) => setOrgName(e.target.value)}
                 onKeyDown={(e) => {
@@ -873,7 +873,7 @@ export function AccountVaultsTab() {
                 className="primary"
                 disabled={busy || !orgName.trim()}
               >
-                Create
+                {tr("Create")}
               </button>
               <button
                 type="button"
@@ -881,7 +881,7 @@ export function AccountVaultsTab() {
                 disabled={busy}
                 onClick={() => setCreating(false)}
               >
-                Cancel
+                {tr("Cancel")}
               </button>
             </form>
           ) : joining ? (
@@ -895,7 +895,7 @@ export function AccountVaultsTab() {
               <input
                 autoFocus
                 className="vault-tab-code"
-                placeholder="Join code, e.g. K7MPX2RA"
+                placeholder={tr("Join code, e.g. K7MPX2RA")}
                 value={joinCode}
                 spellCheck={false}
                 autoCapitalize="characters"
@@ -909,7 +909,7 @@ export function AccountVaultsTab() {
                 className="primary"
                 disabled={busy || !joinCode.trim()}
               >
-                Join
+                {tr("Join")}
               </button>
               <button
                 type="button"
@@ -917,7 +917,7 @@ export function AccountVaultsTab() {
                 disabled={busy}
                 onClick={() => setJoining(false)}
               >
-                Cancel
+                {tr("Cancel")}
               </button>
             </form>
           ) : null}
@@ -939,7 +939,7 @@ export function AccountVaultsTab() {
         <>
           {session && <div className="menu-sep" />}
           <div className="subhead account-vaults-head">
-            <span>Local folders on this computer ({localsOrdered.length})</span>
+            <span>{tr("Local folders on this computer ({count})", { count: localsOrdered.length })}</span>
             {session && (
               <span className="account-vaults-head-actions">
                 <AsyncButton
@@ -947,7 +947,7 @@ export function AccountVaultsTab() {
                   disabled={busy}
                   onClick={openExisting}
                 >
-                  <span>Open existing</span>
+                  <span>{tr("Open existing")}</span>
                 </AsyncButton>
               </span>
             )}
@@ -967,7 +967,7 @@ export function AccountVaultsTab() {
                     role="button"
                     tabIndex={0}
                     title={r.path}
-                    aria-label={isCurrent ? `${r.name}, current folder` : `Open ${r.name}`}
+                    aria-label={isCurrent ? tr("{name}, current folder", { name: r.name }) : tr("Open {name}", { name: r.name })}
                     onClick={open}
                     onKeyDown={(e) => {
                       if (e.target !== e.currentTarget) return;
@@ -983,7 +983,7 @@ export function AccountVaultsTab() {
                       onKeyDown={(e) => e.stopPropagation()}
                     >
                       <RowActionsMenu
-                        ariaLabel={`More actions for ${r.name ?? r.path}`}
+                        ariaLabel={tr("More actions for {name}", { name: r.name ?? r.path })}
                         disabled={busy}
                         actions={localActions(r.path, r.name ?? r.path)}
                         align="start"
@@ -1007,14 +1007,14 @@ export function AccountVaultsTab() {
                           onLocate={recover(() => useStore.getState().locateVaultFolder())}
                         />
                       ) : isCurrent ? (
-                        <span className="member-role">Current</span>
+                        <span className="member-role">{tr("Current")}</span>
                       ) : (
                         <AsyncButton
                           className="vault-switch-chip"
                           disabled={busy}
                           onClick={() => switchToLocal(r.path)}
                         >
-                          Open here
+                          {tr("Open here")}
                         </AsyncButton>
                       )}
                     </span>
@@ -1035,7 +1035,7 @@ export function AccountVaultsTab() {
                   <span className="member-name">
                     {r.name}
                     <span className="muted vault-folder" title={r.path}>
-                      {" · Local"}
+                      {` · ${tr("Local")}`}
                     </span>
                   </span>
                   <span className="vault-row-actions">
@@ -1047,18 +1047,18 @@ export function AccountVaultsTab() {
                         onLocate={recover(() => useStore.getState().locateVaultFolder())}
                       />
                     ) : isCurrent ? (
-                      <span className="member-role">Current</span>
+                      <span className="member-role">{tr("Current")}</span>
                     ) : (
                       <AsyncButton
                         className="link-btn"
                         disabled={busy}
                         onClick={() => switchToLocal(r.path)}
                       >
-                        Switch
+                        {tr("Switch")}
                       </AsyncButton>
                     )}
                     <RowActionsMenu
-                      ariaLabel={`More actions for ${r.name ?? r.path}`}
+                      ariaLabel={tr("More actions for {name}", { name: r.name ?? r.path })}
                       disabled={busy}
                       actions={localActions(r.path, r.name ?? r.path)}
                     />
@@ -1075,16 +1075,16 @@ export function AccountVaultsTab() {
       {session && (
         <>
           <div className="menu-sep" />
-          <div className="subhead">Vault folder location</div>
+          <div className="subhead">{tr("Vault folder location")}</div>
           <div className="join-code-row">
             <code className="vault-root-path" title={root ?? rootError ?? ""}>
-              {root ?? (rootError ? "Not available" : "…")}
+              {root ?? (rootError ? tr("Not available") : "…")}
             </code>
             <span
               className="account-vaults-info"
               role="img"
-              aria-label={CURRENT_LINK_TIP}
-              title={CURRENT_LINK_TIP}
+              aria-label={tr(CURRENT_LINK_TIP)}
+              title={tr(CURRENT_LINK_TIP)}
             >
               <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <circle cx="12" cy="12" r="10" />
@@ -1092,13 +1092,13 @@ export function AccountVaultsTab() {
               </svg>
             </span>
             <button className="link-btn" onClick={() => void changeRoot()}>
-              Change…
+              {tr("Change…")}
             </button>
             <button className="link-btn" onClick={() => void resetRoot()}>
-              Reset to default
+              {tr("Reset to default")}
             </button>
           </div>
-          <div className="muted">New vaults are created inside this folder.</div>
+          <div className="muted">{tr("New vaults are created inside this folder.")}</div>
           {rootError && <p className="error">{rootError}</p>}
         </>
       )}
@@ -1111,28 +1111,25 @@ export function AccountVaultsTab() {
 
       {confirmLeave && (
         <ConfirmDialog
-          title={`Leave ${confirmLeave.name}?`}
-          confirmLabel="Leave vault"
+          title={tr("Leave {name}?", { name: confirmLeave.name })}
+          confirmLabel={tr("Leave vault")}
           onCancel={() => setConfirmLeave(null)}
           onConfirm={() => leaveVault(confirmLeave.orgId, confirmLeave.name)}
         >
           <p>
-            You lose access to this vault on all your devices right away, and the
-            owner is told that you left.
+            {tr("You lose access to this vault on all your devices right away, and the owner is told that you left.")}
           </p>
           <p>
             {bound[confirmLeave.orgId] ? (
               <>
-                Its folder on this device, <strong>{folderName(confirmLeave.orgId)}</strong>,
-                is permanently deleted, including any changes that haven't synced. It
-                does not go to the Trash.
+                {tr("Its folder on this device, {folder}, is permanently deleted, including any changes that haven't synced. It does not go to the Trash.", { folder: folderName(confirmLeave.orgId) ?? "" })}
               </>
             ) : (
-              "Nothing from it is stored on this device."
+              tr("Nothing from it is stored on this device.")
             )}{" "}
-            The vault itself and everyone else's access are unchanged.
+            {tr("The vault itself and everyone else's access are unchanged.")}
           </p>
-          <p>To come back later, you'll need a new invitation or join code.</p>
+          <p>{tr("To come back later, you'll need a new invitation or join code.")}</p>
           {actionError && <div className="auth-error">{actionError}</div>}
         </ConfirmDialog>
       )}
@@ -1152,15 +1149,13 @@ export function AccountVaultsTab() {
 
       {confirmDelete && (
         <ConfirmDialog
-          title={`Delete ${confirmDelete.name}?`}
-          confirmLabel="Delete vault"
+          title={tr("Delete {name}?", { name: confirmDelete.name })}
+          confirmLabel={tr("Delete vault")}
           onCancel={() => setConfirmDelete(null)}
           onConfirm={() => deletePermanently(confirmDelete.orgId)}
         >
           <p>
-            Every note, folder and attachment in this vault is deleted for
-            everyone, and this device's folder moves to the Trash. This can't
-            be undone.
+            {tr("Every note, folder and attachment in this vault is deleted for everyone, and this device's folder moves to the Trash. This can't be undone.")}
           </p>
           {actionError && <div className="auth-error">{actionError}</div>}
         </ConfirmDialog>
@@ -1168,41 +1163,35 @@ export function AccountVaultsTab() {
 
       {confirmDeleteLocal && (
         <ConfirmDialog
-          title={`Delete ${confirmDeleteLocal.name}?`}
-          confirmLabel="Delete vault"
+          title={tr("Delete {name}?", { name: confirmDeleteLocal.name })}
+          confirmLabel={tr("Delete vault")}
           onCancel={() => setConfirmDeleteLocal(null)}
           onConfirm={() => deleteLocalFiles(confirmDeleteLocal.path)}
         >
-          <p>This vault's folder and all its notes move to the Trash.</p>
+          <p>{tr("This vault's folder and all its notes move to the Trash.")}</p>
           {actionError && <div className="auth-error">{actionError}</div>}
         </ConfirmDialog>
       )}
 
       {subDelete && (
         <ConfirmDialog
-          title={`Delete ${subDelete.name}?`}
-          confirmLabel="Delete vault"
+          title={tr("Delete {name}?", { name: subDelete.name })}
+          confirmLabel={tr("Delete vault")}
           onCancel={() => setSubDelete(null)}
           onConfirm={() => deletePermanently(subDelete.orgId)}
         >
           <p>
-            This vault is on <strong>Pro</strong>
             {subDelete.billing.currentPeriodEnd
               ? subDelete.billing.cancelAtPeriodEnd
-                ? `, ending ${formatDate(subDelete.billing.currentPeriodEnd)}`
-                : `, renewing ${formatDate(subDelete.billing.currentPeriodEnd)}`
-              : ""}
-            .
+                ? tr("This vault is on Pro, ending {date}.", { date: formatDate(subDelete.billing.currentPeriodEnd) })
+                : tr("This vault is on Pro, renewing {date}.", { date: formatDate(subDelete.billing.currentPeriodEnd) })
+              : tr("This vault is on Pro.")}
           </p>
           <p>
-            Deleting it stops the subscription at the end of the current period.
-            You won't be charged again, and until then you can move the
-            subscription to another vault from <strong>Billing</strong>.
+            {tr("Deleting it stops the subscription at the end of the current period. You won't be charged again, and until then you can move the subscription to another vault from Billing.")}
           </p>
           <p>
-            Every note, folder and attachment in this vault is deleted for
-            everyone, and this device's folder moves to the Trash. That part
-            can't be undone.
+            {tr("Every note, folder and attachment in this vault is deleted for everyone, and this device's folder moves to the Trash. That part can't be undone.")}
           </p>
           {actionError && <div className="auth-error">{actionError}</div>}
         </ConfirmDialog>
@@ -1219,6 +1208,7 @@ function VaultsViewToggle({
   value: AccountVaultsView;
   onChange: (view: AccountVaultsView) => void;
 }) {
+  const tr = useT();
   const option = (view: AccountVaultsView, label: string, glyph: ReactNode) => (
     <button
       type="button"
@@ -1235,9 +1225,9 @@ function VaultsViewToggle({
     </button>
   );
   return (
-    <div className="member-access-view" role="radiogroup" aria-label="Vaults view">
-      {option("list", "List view", <><path d="M8 6h12M8 12h12M8 18h12" /><path d="M4 6h.01M4 12h.01M4 18h.01" /></>)}
-      {option("grid", "Grid view", <><rect x="4" y="4" width="7" height="7" rx="1" /><rect x="13" y="4" width="7" height="7" rx="1" /><rect x="4" y="13" width="7" height="7" rx="1" /><rect x="13" y="13" width="7" height="7" rx="1" /></>)}
+    <div className="member-access-view" role="radiogroup" aria-label={tr("Vaults view")}>
+      {option("list", tr("List view"), <><path d="M8 6h12M8 12h12M8 18h12" /><path d="M4 6h.01M4 12h.01M4 18h.01" /></>)}
+      {option("grid", tr("Grid view"), <><rect x="4" y="4" width="7" height="7" rx="1" /><rect x="13" y="4" width="7" height="7" rx="1" /><rect x="4" y="13" width="7" height="7" rx="1" /><rect x="13" y="13" width="7" height="7" rx="1" /></>)}
     </div>
   );
 }
@@ -1258,15 +1248,16 @@ function CardFolderMissingChip({
   onRestore: () => Promise<unknown> | unknown;
   onLocate: () => Promise<unknown> | unknown;
 }) {
+  const tr = useT();
   const { chip } = folderMissingCardActions(synced);
   return (
     <AsyncButton
       className="vault-switch-chip"
       disabled={busy}
-      title="This vault's folder is gone from this device."
+      title={tr("This vault's folder is gone from this device.")}
       onClick={chip === "restore" ? onRestore : onLocate}
     >
-      {chip === "restore" ? RESTORE_HERE : LOCATE_FOLDER}
+      {tr(chip === "restore" ? RESTORE_HERE : LOCATE_FOLDER)}
     </AsyncButton>
   );
 }

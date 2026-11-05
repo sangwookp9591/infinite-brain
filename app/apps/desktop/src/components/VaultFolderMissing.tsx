@@ -1,6 +1,7 @@
 import { Banner } from "./Banner";
 import { AsyncButton } from "./AsyncButton";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { t, useT } from "../lib/i18n";
 
 /**
  * The open vault's folder is missing (#228): moved, renamed or deleted outside
@@ -39,16 +40,17 @@ export function VaultFolderMissingBannerView({
   onLocate: () => Promise<unknown> | unknown;
   onSwitch: () => void;
 }) {
+  const tr = useT();
   const actions = folderMissingActions(synced);
   return (
     <Banner show={show} className="vault-folder-missing-banner" role="alert">
       <span>
-        <strong>{FOLDER_MISSING_TITLE}</strong> {FOLDER_MISSING_DETAIL}
+        <strong>{tr(FOLDER_MISSING_TITLE)}</strong> {tr(FOLDER_MISSING_DETAIL)}
       </span>
       <div className="banner-actions">
         {actions.includes("restore") && (
           <AsyncButton className="primary" spinnerTone="on-accent" disabled={busy} onClick={onRestore}>
-            {RESTORE_HERE}
+            {tr(RESTORE_HERE)}
           </AsyncButton>
         )}
         <AsyncButton
@@ -56,10 +58,10 @@ export function VaultFolderMissingBannerView({
           disabled={busy}
           onClick={onLocate}
         >
-          {LOCATE_FOLDER}
+          {tr(LOCATE_FOLDER)}
         </AsyncButton>
         <button type="button" className="link-btn" disabled={busy} onClick={onSwitch}>
-          {SWITCH_VAULT}
+          {tr(SWITCH_VAULT)}
         </button>
       </div>
     </Banner>
@@ -81,17 +83,18 @@ export function VaultFolderMissingRowActions({
   onRestore: () => Promise<unknown> | unknown;
   onLocate: () => Promise<unknown> | unknown;
 }) {
+  const tr = useT();
   const actions = folderMissingActions(synced);
   return (
     <>
-      <span className="member-role folder-missing">{FOLDER_MISSING_BADGE}</span>
+      <span className="member-role folder-missing">{tr(FOLDER_MISSING_BADGE)}</span>
       {actions.includes("restore") && (
         <AsyncButton className="link-btn" disabled={busy} onClick={onRestore}>
-          {RESTORE_HERE}
+          {tr(RESTORE_HERE)}
         </AsyncButton>
       )}
       <AsyncButton className="link-btn" disabled={busy} onClick={onLocate}>
-        {LOCATE_FOLDER}
+        {tr(LOCATE_FOLDER)}
       </AsyncButton>
     </>
   );
@@ -114,16 +117,18 @@ export function resetLocalCopyCopy(unsynced: readonly string[]): {
 } {
   const n = unsynced.length;
   return {
-    title: "Reset this vault on this device?",
+    title: t("Reset this vault on this device?"),
     body:
-      "Infinite Brain permanently deletes this vault's folder on this device and downloads a fresh copy from the Remote Vault. Nothing changes for your team.",
+      t("Infinite Brain permanently deletes this vault's folder on this device and downloads a fresh copy from the Remote Vault. Nothing changes for your team."),
     warning:
       n === 0
         ? null
-        : `${n} ${n === 1 ? "note has changes" : "notes have changes"} that haven't reached the server. They will be lost.`,
+        : n === 1
+          ? t("1 note has changes that haven't reached the server. They will be lost.")
+          : t("{count} notes have changes that haven't reached the server. They will be lost.", { count: n }),
     shown: unsynced.slice(0, RESET_LIST_MAX),
     more: Math.max(0, n - RESET_LIST_MAX),
-    confirmLabel: n === 0 ? "Reset" : "Delete and reset",
+    confirmLabel: n === 0 ? t("Reset") : t("Delete and reset"),
   };
 }
 
@@ -159,7 +164,7 @@ export function ResetLocalCopyDialog({
                 <code>{p}</code>
               </li>
             ))}
-            {copy.more > 0 && <li className="muted">and {copy.more} more</li>}
+            {copy.more > 0 && <li className="muted">{t("and {count} more", { count: copy.more })}</li>}
           </ul>
         </>
       )}

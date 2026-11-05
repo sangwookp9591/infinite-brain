@@ -3,6 +3,7 @@
    choices are tested without React. */
 import type { BillingUsageVault } from "./api";
 import { formatBytes } from "./billing";
+import { t } from "./i18n";
 
 export interface VaultPageTile {
   key: "people" | "notes" | "attachments" | "files";
@@ -80,12 +81,12 @@ export function vaultPagePlanLine(input: {
 }): string {
   if (input.onMyAccount) {
     return input.accountPlan === "team"
-      ? "On your Team account"
+      ? t("On your Team account")
       : input.accountPlan === "free"
-        ? "On your Free account"
-        : "On your account";
+        ? t("On your Free account")
+        : t("On your account");
   }
-  return input.ownerName ? `On ${input.ownerName}'s account` : "On the owner's account";
+  return input.ownerName ? t("On {name}'s account", { name: input.ownerName }) : t("On the owner's account");
 }
 
 export interface VaultPageDetail {
